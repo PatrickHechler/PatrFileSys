@@ -72,18 +72,22 @@ public class PatrFileSys {
 		assert blockCnt >= 2L;
 		byte[] b = bl.loadBlock(0L);
 		final int blocklen = bl.blockSize();
-		assert b.length == blocklen : "wrong block length";
+		assert b.length == blocklen;
 		// absolute minimum for one entry with empty name (just the "\0")
-		assert blocklen >= FIRST_BLOCK_ROOT_FOLDER_OFFSET + PatrFolder.FOLDER_EMPTY_SIZE + FolderElement.ELEMENT_SIZE + 2/* name ('\0') UTF-16 */;
-		// block-intern memory management (of the first block, since it is now created)
+		assert blocklen >= FIRST_BLOCK_ROOT_FOLDER_OFFSET + PatrFolder.FOLDER_EMPTY_SIZE + FolderElement.ELEMENT_SIZE + 2/* name ('\0') UTF-16 */ + 8/* table entry for name */
+			+ 16/* table entry for table and start block */ + 8 /* table entry for root folder */;
+		// block-intern memory management (of the first block, because it is now formatted)
 		// allocate memory for memory list
-		intToByteArr(blocklen - 4, b, blocklen);
-		intToByteArr(blocklen - 8, b, blocklen - 32);
-		// allocate memory start block
-		intToByteArr(blocklen - 16, b, FIRST_BLOCK_ROOT_FOLDER_OFFSET + FolderElement.ELEMENT_SIZE);
-		intToByteArr(blocklen - 24, b, 0);
+		intToByteArr(blocklen, b, blocklen - 4);
+		intToByteArr(blocklen - 24, b, blocklen - 8);
+		// allocate memory for the root folder
+		intToByteArr(FIRST_BLOCK_ROOT_FOLDER_OFFSET + PatrFolder.FOLDER_EMPTY_SIZE, b, blocklen - 12);
+		intToByteArr(FIRST_BLOCK_ROOT_FOLDER_OFFSET, b, blocklen - 16);
+		// allocate memory for the start block
+		intToByteArr(FIRST_BLOCK_ROOT_FOLDER_OFFSET, b, blocklen - 20);
+		intToByteArr(0, b, blocklen - 24);
 		// pointer to the list for memory management inside of the mem-block
-		intToByteArr(BLOCK_INTERN_TABLE_START_PNTR_OFFSET, b, blocklen - 32);
+		intToByteArr(blocklen - 16, b, BLOCK_INTERN_TABLE_START_PNTR_OFFSET);
 		// number of elements in the rootFolder
 		intToByteArr(0, b, FIRST_BLOCK_ROOT_FOLDER_OFFSET + PatrFolder.FOLDER_COUNT_ELEMENTS_OFFSET);
 		// last mod is now
@@ -97,7 +101,7 @@ public class PatrFileSys {
 		longToByteArr(blockCnt, b, SECOND_BLOCK_BLOCK_COUNT_OFFSET);
 		longToByteArr(0L, b, SECOND_BLOCK_TABLE_OFFSET);
 		longToByteArr(2L, b, SECOND_BLOCK_END_PNTR_OFFSET + 4);
-		bl.saveBlock(b, 8L/* pointer to the last element */);
+		bl.saveBlock(b, 1L/* pointer to the last element */);
 	}
 	
 	
@@ -218,7 +222,7 @@ public class PatrFileSys {
 				if (name.indexOf('\0') != -1) {
 					throw new IllegalArgumentException("names are not allowed to contain the '\\0' character, because it is used to mark the end of the name!");
 				}
-				// aktuelle Größe berechnen
+				// aktuelle Grï¿½ï¿½e berechnen
 				final int blocklen = bl.length;
 				final int oldElementCount = byteArrToInt(bl, offset + FOLDER_COUNT_ELEMENTS_OFFSET);
 				final int oldSize = FOLDER_EMPTY_SIZE + FolderElement.ELEMENT_SIZE * oldElementCount;
@@ -949,15 +953,21 @@ public class PatrFileSys {
 				intToByteArr(PNTR + newSize, block, posInTabletable + 4);
 			}
 		} else {
-			int next = byteArrToInt(block, posInTabletable + 8);
-			int prev = byteArrToInt(block, posInTabletable - 4);
-			int free = next - prev;
+			int free, next, prev;
+			if (oldmemory == 0) {
+				free = 0;
+				next = prev = -1;
+			} else {
+				next = byteArrToInt(block, posInTabletable + 8);
+				prev = byteArrToInt(block, posInTabletable - 4);
+				free = next - prev;
+			}
 			FIND_MEM:
 			if (free < newSize) {
 				final int oldPNTR = PNTR;
-				for (int i = block.length - 12; i > tableEnd; i -= 8) {
-					next = byteArrToInt(block, i);
-					prev = byteArrToInt(block, i + 4);
+				for (int i = tableStart + 4; i < tableEnd; i += 8) {
+					prev = byteArrToInt(block, i);
+					next = byteArrToInt(block, i + 4);
 					free = next - prev;
 					if (free >= newSize) {
 						if (oldmemory != 0) {
@@ -976,8 +986,8 @@ public class PatrFileSys {
 			}
 			int middle = (next + prev) / 2;
 			PNTR = middle - (newSize / 2);
-			assert PNTR > prev;
-			assert PNTR + newSize < next;
+			assert PNTR >= prev;
+			assert PNTR + newSize <= next;
 			intToByteArr(PNTR, block, posInTabletable);
 			intToByteArr(PNTR + newSize, block, posInTabletable + 4);
 		}
@@ -987,13 +997,13 @@ public class PatrFileSys {
 	/**
 	 * @see Arrays#binarySearch(int[], int)
 	 */
-	private static int tableSearch(byte[] bl, int PNTR, final int start) {
+	private static int tableSearch(byte[] bl, final int PNTR, final int start) {
 		int low = start;
-		int high = bl.length - 1;
+		int high = bl.length - 8;
 		
 		byte[] bytes = intToByteArr(PNTR);
 		int mod = high % 8;
-		assert (low - 4) % 8 == mod;
+		assert low % 8 == mod;
 		while (low <= high) {
 			int mid = (low + high) >> 1;
 			
@@ -1018,7 +1028,8 @@ public class PatrFileSys {
 		final String msg = "could not find PNTR in the table! PNTR=" + PNTR + " high=" + high + " low=" + low + " start=" + start;
 		System.err.println(msg);
 		for (int i = 0; i < bl.length; i ++ ) {
-			System.err.println("block[" + i + "]=" + Integer.toHexString(0xFF & (int) bl[i]));
+			String hexNum = Integer.toHexString(0xFF & (int) bl[i]);
+			System.err.println("block[" + i + "]=0x" + ( (hexNum.length() == 1) ? ("0" + hexNum) : hexNum));
 		}
 		throw new InternalError(msg);
 	}
