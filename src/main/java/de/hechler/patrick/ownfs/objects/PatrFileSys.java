@@ -6,6 +6,7 @@ import static de.hechler.patrick.zeugs.NumberConvert.intToByteArr;
 import static de.hechler.patrick.zeugs.NumberConvert.longToByteArr;
 
 import java.io.IOException;
+import java.nio.channels.ClosedChannelException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -19,7 +20,9 @@ import de.hechler.patrick.zeugs.objects.LongLongOpenImpl;
 public class PatrFileSys {
 	
 	private static final int BLOCK_INTERN_TABLE_START_PNTR_OFFSET = 0;
-	private static final int FIRST_BLOCK_ROOT_FOLDER_OFFSET       = BLOCK_INTERN_TABLE_START_PNTR_OFFSET + 4;
+	private static final int FIRST_BLOCK_ROOT_FOLDER_POS_OFFSET   = BLOCK_INTERN_TABLE_START_PNTR_OFFSET + 4;
+	private static final int FIRST_BLOCK_ROOT_FOLDER_BLOCK_OFFSET = FIRST_BLOCK_ROOT_FOLDER_POS_OFFSET + 4;
+	private static final int FIRST_BLOCK_START_END_OFFSET         = FIRST_BLOCK_ROOT_FOLDER_BLOCK_OFFSET + 8;
 	
 	private static final int SECOND_BLOCK_END_PNTR_OFFSET    = 0;
 	private static final int SECOND_BLOCK_BLOCK_COUNT_OFFSET = SECOND_BLOCK_END_PNTR_OFFSET + 4;
@@ -73,28 +76,29 @@ public class PatrFileSys {
 		byte[] b = bl.loadBlock(0L);
 		final int blocklen = bl.blockSize();
 		assert b.length == blocklen;
-		// absolute minimum for one entry with empty name (just the "\0")
-		assert blocklen >= FIRST_BLOCK_ROOT_FOLDER_OFFSET + PatrFolder.FOLDER_EMPTY_SIZE + FolderElement.ELEMENT_SIZE + 2/* name ('\0') UTF-16 */ + 8/* table entry for name */
-			+ 16/* table entry for table and start block */ + 8 /* table entry for root folder */;
 		// block-intern memory management (of the first block, because it is now formatted)
 		// allocate memory for memory list
 		intToByteArr(blocklen, b, blocklen - 4);
-		intToByteArr(blocklen - 24, b, blocklen - 8);
+		intToByteArr(blocklen - 32, b, blocklen - 8);
 		// allocate memory for the root folder
-		intToByteArr(FIRST_BLOCK_ROOT_FOLDER_OFFSET + PatrFolder.FOLDER_EMPTY_SIZE, b, blocklen - 12);
-		intToByteArr(FIRST_BLOCK_ROOT_FOLDER_OFFSET, b, blocklen - 16);
+		intToByteArr(FIRST_BLOCK_START_END_OFFSET + PatrFolder.FOLDER_EMPTY_SIZE, b, blocklen - 12);
+		intToByteArr(FIRST_BLOCK_START_END_OFFSET, b, blocklen - 16);
 		// allocate memory for the start block
-		intToByteArr(FIRST_BLOCK_ROOT_FOLDER_OFFSET, b, blocklen - 20);
+		intToByteArr(FIRST_BLOCK_START_END_OFFSET, b, blocklen - 20);
 		intToByteArr(0, b, blocklen - 24);
+		// save position of root folder (block=0, offset=end of start block)
+		longToByteArr(0L, b, FIRST_BLOCK_ROOT_FOLDER_BLOCK_OFFSET);
+		intToByteArr(FIRST_BLOCK_START_END_OFFSET, b, FIRST_BLOCK_ROOT_FOLDER_POS_OFFSET);
 		// pointer to the list for memory management inside of the mem-block
-		intToByteArr(blocklen - 16, b, BLOCK_INTERN_TABLE_START_PNTR_OFFSET);
+		// by default with three entries (each has 8 bytes)
+		intToByteArr(blocklen - 24, b, BLOCK_INTERN_TABLE_START_PNTR_OFFSET);
 		// number of elements in the rootFolder
-		intToByteArr(0, b, FIRST_BLOCK_ROOT_FOLDER_OFFSET + PatrFolder.FOLDER_COUNT_ELEMENTS_OFFSET);
+		intToByteArr(0, b, FIRST_BLOCK_START_END_OFFSET + PatrFolder.FOLDER_COUNT_ELEMENTS_OFFSET);
 		// last mod is now
-		longToByteArr(System.currentTimeMillis(), b, FIRST_BLOCK_ROOT_FOLDER_OFFSET + PatrFolder.FOLDER_LAST_MOD_OFFSET);
+		longToByteArr(System.currentTimeMillis(), b, FIRST_BLOCK_START_END_OFFSET + PatrFolder.FOLDER_LAST_MOD_OFFSET);
 		// -1L, -1 for no parent (this is the root folder)
-		longToByteArr( -1L, b, FIRST_BLOCK_ROOT_FOLDER_OFFSET + PatrFolder.FOLDER_PARENT_BLOCK_OFFSET);
-		intToByteArr( -1, b, FIRST_BLOCK_ROOT_FOLDER_OFFSET + PatrFolder.FOLDER_PARENT_POS_OFFSET);
+		longToByteArr( -1L, b, FIRST_BLOCK_START_END_OFFSET + PatrFolder.FOLDER_PARENT_BLOCK_OFFSET);
+		intToByteArr( -1, b, FIRST_BLOCK_START_END_OFFSET + PatrFolder.FOLDER_PARENT_POS_OFFSET);
 		bl.saveBlock(b, 0L);
 		b = bl.loadBlock(1L);
 		intToByteArr(SECOND_BLOCK_TABLE_OFFSET + 8, b, SECOND_BLOCK_END_PNTR_OFFSET);
@@ -114,8 +118,17 @@ public class PatrFileSys {
 		return ba;
 	}
 	
-	public PatrFolder rootFolder() {
-		return new PatrFolder(0L, FIRST_BLOCK_ROOT_FOLDER_OFFSET);
+	public PatrFolder rootFolder() throws ClosedChannelException, IOException {
+		final long block;
+		final int offset;
+		byte[] b0 = ba.loadBlock(0L);
+		try {
+			block = byteArrToLong(b0, FIRST_BLOCK_ROOT_FOLDER_BLOCK_OFFSET);
+			offset = byteArrToInt(b0, FIRST_BLOCK_ROOT_FOLDER_POS_OFFSET);
+		} finally {
+			ba.unloadBlock(0L);
+		}
+		return new PatrFolder(block, offset);
 	}
 	
 	@Override
@@ -215,7 +228,7 @@ public class PatrFileSys {
 		}
 		
 		
-		public FolderElement addElement(final String name, final boolean file) throws IOException {
+		public FolderElement addElement(final String name, final boolean file) throws IOException, OutOfMemoryError {
 			byte[] bl = ba.loadBlock(block);
 			FolderElement nfe;
 			try {
@@ -273,8 +286,8 @@ public class PatrFileSys {
 							System.arraycopy(bl, oldoffset, nbl, newoffset, oldSize);
 							final long pblock = byteArrToLong(bl, oldoffset + FOLDER_PARENT_BLOCK_OFFSET);
 							final int poffset = byteArrToInt(bl, oldoffset + FOLDER_PARENT_POS_OFFSET);
-							if (pblock == -1L) {
-								assert poffset == -1;
+							if (pblock != -1L) {
+								assert poffset != -1;
 								byte[] pbl;
 								if (pblock != block) {
 									pbl = ba.loadBlock(pblock);
@@ -288,8 +301,8 @@ public class PatrFileSys {
 										final long sblock = byteArrToLong(pbl, i + FolderElement.ELEMENT_BLOCK_OFFSET);
 										final int soffset = byteArrToInt(pbl, i + FolderElement.ELEMENT_POS_OFFSET);
 										if (sblock == oldblock && soffset == oldoffset) {
-											longToByteArr(newoffset);
-											longToByteArr(newblock);
+											longToByteArr(newblock, pbl, i + FolderElement.ELEMENT_BLOCK_OFFSET);
+											intToByteArr(newoffset, pbl, i + FolderElement.ELEMENT_POS_OFFSET);
 											break;
 										}
 									}
@@ -298,57 +311,124 @@ public class PatrFileSys {
 										ba.saveBlock(pbl, pblock);
 									}
 								}
+							} else {
+								byte[] blockZero;
+								if (oldblock == 0L) {
+									blockZero = bl;
+								} else {
+									blockZero = ba.loadBlock(0L);
+								}
+								try {
+									longToByteArr(newblock, blockZero, FIRST_BLOCK_ROOT_FOLDER_BLOCK_OFFSET);
+									intToByteArr(newoffset, blockZero, FIRST_BLOCK_ROOT_FOLDER_POS_OFFSET);
+								} finally {
+									if (oldblock != 0L) {
+										ba.saveBlock(blockZero, 0L);
+									}
+								}
 							}
 						}
 						intToByteArr(oldElementCount + 1, nbl, newoffset + FOLDER_COUNT_ELEMENTS_OFFSET);
 						offset = newoffset;
-						final int nfeoff = newoffset + oldSize;
 						
-						intToByteArr(file ? FolderElement.ELEMENT_FLAG_FILE : 0, nbl, nfeoff + FolderElement.ELEMENT_FLAGS_OFFSET);
-						intToByteArr(namePNTR, bl, nfeoff + FolderElement.ELEMENT_NAME_PNTR_OFFSET);
-						long nfeblock = newblock;
-						int nfeoffset;
-						try {
-							nfeoffset = resize(nbl, FolderElement.ELEMENT_SIZE, -1);
-							nfe = new FolderElement(nfeblock, nfeoffset);
-						} catch (OutOfMemoryError oome) {
+						// intToByteArr(file ? FolderElement.ELEMENT_FLAG_FILE : 0, nbl, nfeoff + FolderElement.ELEMENT_FLAGS_OFFSET);
+						// intToByteArr(namePNTR, bl, nfeoff + FolderElement.ELEMENT_NAME_PNTR_OFFSET);
+						
+						// try {
+						// nfeoffset = resize(nbl, newSize, -1);
+						// nfe = new FolderElement(newblock, nfeoffset);
+						// } catch (OutOfMemoryError oome) {
+						// LongLongOpenImpl[] ll = addBlocksToTable(table, 2L);
+						// assert ll.length <= 2;
+						// final long nefBlock = ll[0].first;
+						// final long nfeDataTableBlock = ll.length > 1 ? ll[1].second : (nefBlock + 1);
+						// assert (ll[0].second - ll[0].second + (ll.length > 1 ? (ll[1].second - ll[1].first) : 0)) == 2;// total amount of allocated blocks
+						// byte[] blockBytes = ba.loadBlock(nefBlock);
+						// try {
+						// intToByteArr(blocklen - 16, blockBytes, BLOCK_INTERN_TABLE_START_PNTR_OFFSET);
+						// intToByteArr(BLOCK_INTERN_TABLE_START_PNTR_OFFSET, blockBytes, blocklen - 16);
+						// intToByteArr(BLOCK_INTERN_TABLE_START_PNTR_OFFSET + 4, blockBytes, blocklen - 12);
+						// intToByteArr(blocklen - 16, blockBytes, blocklen - 8);
+						// intToByteArr(blocklen, blockBytes, blocklen - 4);
+						//
+						// // resize already done
+						final int nfeoffset = newoffset + oldSize;
+						nfe = new FolderElement(newblock, nfeoffset);
+						final int childOffset;
+						final long childBlock;
+						if (file) {
+							long fileDataTableBlock;
+							long fileBlock = newblock;
+							int fileOffset;
+							byte[] fileBlockBytes = nbl;
 							try {
-								LongLongOpenImpl[] ll = addBlocksToTable(table, 2L);
-								assert ll.length <= 2;
-								final long nefBlock = ll[0].first;
-								final long nfeDataTableBlock = ll.length > 1 ? ll[1].second : (nefBlock + 1);
-								assert (ll[0].second - ll[0].second + (ll.length > 1 ? (ll[1].second - ll[1].first) : 0)) == 2;// total amount of allocated blocks
-								byte[] blockBytes = ba.loadBlock(nefBlock);
-								try {
-									nfeblock = nefBlock;
-									intToByteArr(blocklen - 16, blockBytes, BLOCK_INTERN_TABLE_START_PNTR_OFFSET);
-									intToByteArr(BLOCK_INTERN_TABLE_START_PNTR_OFFSET, blockBytes, blocklen - 24);
-									intToByteArr(BLOCK_INTERN_TABLE_START_PNTR_OFFSET + 4, blockBytes, blocklen - 16);
-									intToByteArr(blocklen - 16, blockBytes, blocklen - 8);
-									intToByteArr(blocklen, blockBytes, blocklen - 4);
-									if (file) {
-										nfeoffset = resize(blockBytes, PatrFile.FILE_EMPTY_SIZE_OFFSET, -1);
-										longToByteArr(System.currentTimeMillis(), blockBytes, PatrFile.FILE_LAST_MOD_OFFSET);
-										longToByteArr(nfeDataTableBlock, blockBytes, PatrFile.FILE_DATA_TABLE_PNTR_OFFSET);
-										intToByteArr(0, blockBytes, PatrFile.FILE_DATA_TABLE_END_PNTR_OFFSET);
-										longToByteArr(nfeDataTableBlock, blockBytes, PatrFile.FILE_DATA_TABLE_PNTR_OFFSET);
-										longToByteArr(0L, blockBytes, PatrFile.FILE_SIZE_OFFSET);
-										longToByteArr(PatrFile.NO_LOCK, blockBytes, PatrFile.FILE_LOCK_OFFSET);
-									} else {
-										nfeoffset = resize(blockBytes, PatrFolder.FOLDER_EMPTY_SIZE, -1);
-										longToByteArr(System.currentTimeMillis(), blockBytes, PatrFolder.FOLDER_LAST_MOD_OFFSET);
-										intToByteArr(0, blockBytes, PatrFolder.FOLDER_COUNT_ELEMENTS_OFFSET);
-										longToByteArr(newblock, blockBytes, PatrFolder.FOLDER_PARENT_BLOCK_OFFSET);
-										intToByteArr(newoffset, blockBytes, PatrFolder.FOLDER_PARENT_POS_OFFSET);
-									}
-									nfe = new FolderElement(nefBlock, nfeoffset);
-								} finally {
-									ba.saveBlock(blockBytes, nefBlock);
+								fileOffset = resize(fileBlockBytes, PatrFile.FILE_EMPTY_SIZE_OFFSET, -1);
+								LongLongOpenImpl[] added = addBlocksToTable(table, 1L);
+								assert added.length == 1;
+								fileDataTableBlock = added[0].first;
+								assert (added[0].second - fileDataTableBlock) == 1L;
+							} catch (OutOfMemoryError e) {
+								LongLongOpenImpl[] added = addBlocksToTable(table, 2L);
+								assert added.length <= 2;
+								fileBlock = added[0].first;
+								if (added.length > 1) {
+									fileDataTableBlock = added[1].first;
+									assert (added[0].second - fileBlock) == 1L;
+									assert (added[1].second - fileDataTableBlock) == 1L;
+								} else {
+									assert (added[0].second - fileBlock) == 2L;
+									fileDataTableBlock = fileBlock + 1;
 								}
+								fileOffset = resize(fileBlockBytes, PatrFile.FILE_EMPTY_SIZE_OFFSET, -1);
+							}
+							try {
+								longToByteArr(System.currentTimeMillis(), fileBlockBytes, fileOffset + PatrFile.FILE_LAST_MOD_OFFSET);
+								longToByteArr(fileDataTableBlock, fileBlockBytes, fileOffset + PatrFile.FILE_DATA_TABLE_PNTR_OFFSET);
+								intToByteArr(0, fileBlockBytes, fileOffset + PatrFile.FILE_DATA_TABLE_END_PNTR_OFFSET);
+								longToByteArr(0L, fileBlockBytes, fileOffset + PatrFile.FILE_SIZE_OFFSET);
+								longToByteArr(PatrFile.NO_LOCK, fileBlockBytes, fileOffset + PatrFile.FILE_LOCK_OFFSET);
+								childBlock = fileBlock;
+								childOffset = fileOffset;
 							} finally {
-								ba.saveBlock(table, 1L);
+								if (fileBlock != newblock) {
+									ba.saveBlock(fileBlockBytes, fileBlock);
+								}
+							}
+						} else {
+							int folderoffset;
+							long folderblock = newblock;
+							byte[] folderBlockBytes = nbl;
+							try {
+								try {
+									folderoffset = resize(nbl, PatrFolder.FOLDER_EMPTY_SIZE, -1);
+								} catch (OutOfMemoryError e) {
+									LongLongOpenImpl[] added = addBlocksToTable(table, 1L);
+									assert added.length == 1;
+									folderblock = added[0].first;
+									assert (added[0].second - folderblock) == 1L;
+									folderoffset = resize(folderBlockBytes, PatrFile.FILE_EMPTY_SIZE_OFFSET, -1);
+								}
+								longToByteArr(System.currentTimeMillis(), nbl, folderoffset + PatrFolder.FOLDER_LAST_MOD_OFFSET);
+								intToByteArr(0, nbl, folderoffset + PatrFolder.FOLDER_COUNT_ELEMENTS_OFFSET);
+								longToByteArr(newblock, nbl, folderoffset + PatrFolder.FOLDER_PARENT_BLOCK_OFFSET);
+								intToByteArr(newoffset, nbl, folderoffset + PatrFolder.FOLDER_PARENT_POS_OFFSET);
+								childBlock = folderblock;
+								childOffset = folderoffset;
+							} finally {
+								if (folderblock != newblock) {
+									ba.saveBlock(folderBlockBytes, folderblock);
+								}
 							}
 						}
+						intToByteArr(childOffset, nbl, nfe.offset + FolderElement.ELEMENT_POS_OFFSET);
+						longToByteArr(childBlock, nbl, nfe.offset + FolderElement.ELEMENT_BLOCK_OFFSET);
+						final int flags = (file ? FolderElement.ELEMENT_FLAG_FILE : 0);
+						intToByteArr(flags, nbl, nfe.offset + FolderElement.ELEMENT_FLAGS_OFFSET);
+						intToByteArr(namePNTR, nbl, nfe.offset + FolderElement.ELEMENT_NAME_PNTR_OFFSET);
+						// } finally {
+						// ba.saveBlock(blockBytes, nefBlock);
+						// }
+						// }
 					} finally {
 						if (oldblock != newblock) {
 							ba.saveBlock(nbl, newblock);
@@ -934,10 +1014,10 @@ public class PatrFileSys {
 	 *             if there is not enough memory in the block left
 	 */
 	private static int resize(byte[] block, final int newSize, int PNTR) throws OutOfMemoryError {
-		final int tableStart = byteArrToInt(block, BLOCK_INTERN_TABLE_START_PNTR_OFFSET);
-		int posInTabletable = PNTR == -1 ? -1 : tableSearch(block, PNTR, tableStart);
+		final int firstTableEntry = byteArrToInt(block, BLOCK_INTERN_TABLE_START_PNTR_OFFSET);
+		int posInTabletable = PNTR == -1 ? -1 : tableSearch(block, PNTR, firstTableEntry);
 		final int oldmemory = PNTR == -1 ? 0 : byteArrToInt(block, posInTabletable + 4) - byteArrToInt(block, posInTabletable);
-		final int tableEnd = block.length;
+		final int lastTableEntry = block.length - 8;
 		
 		int dif = oldmemory - newSize;
 		if (dif == 0) {
@@ -946,7 +1026,7 @@ public class PatrFileSys {
 			if (newSize == 0) {
 				// remove entry and return -1
 				PNTR = -1;
-				System.arraycopy(block, tableStart + 8, block, tableStart, posInTabletable - tableStart);
+				System.arraycopy(block, firstTableEntry + 8, block, firstTableEntry, posInTabletable - firstTableEntry);
 			} else {
 				PNTR += dif / 2;
 				intToByteArr(PNTR, block, posInTabletable);
@@ -965,7 +1045,7 @@ public class PatrFileSys {
 			FIND_MEM:
 			if (free < newSize) {
 				final int oldPNTR = PNTR;
-				for (int i = tableStart + 4; i < tableEnd; i += 8) {
+				for (int i = firstTableEntry + 4; i <= lastTableEntry - 4; i += 8) {
 					prev = byteArrToInt(block, i);
 					next = byteArrToInt(block, i + 4);
 					free = next - prev;

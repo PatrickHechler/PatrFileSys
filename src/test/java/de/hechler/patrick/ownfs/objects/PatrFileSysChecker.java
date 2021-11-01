@@ -2,6 +2,7 @@ package de.hechler.patrick.ownfs.objects;
 
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -41,13 +42,27 @@ public class PatrFileSysChecker extends Checker {
 		pfs = PatrFileSys.createNewFileSys(ba, 128);
 		PatrFolder root = pfs.rootFolder();
 		FolderElement element = root.addElement("myFirstFile.txt", true);
-		PatrFile myFirstFile = element.getFile();
+		assertEquals("myFirstFile.txt", element.getName());
+		PatrFile file = element.getFile();
 		byte[] bytes = "hello world".getBytes();
-		myFirstFile.append(bytes, 0, bytes.length);
+		file.append(bytes, 0, bytes.length);
+		byte[] read = new byte[bytes.length];
+		file.read(read, 0, 0, read.length);
+		assertArrayEquals(bytes, read);
+		read = new byte[bytes.length + 10];
+		file.read(read, 5, 0, read.length);
+		assertArrayEquals(bytes, Arrays.copyOfRange(read, 5, read.length - 5));
 		element = root.addElement("mySecondFile.txt", true);
-		PatrFile mySecondFile = element.getFile();
-		bytes = "hello!\nThis is a big text which needs to be saved in multiple blocks!\nEven if the text is not that huge it needs to be saved in multiple blocks, because the blocks are very small.\nThe blocks can only save 128 bytes!".replaceAll("\n", "\r\n").getBytes();
-		myFirstFile.append(bytes, 0, bytes.length);
+		assertEquals("mySecondFile.txt", element.getName());
+		file = element.getFile();
+		bytes = "hello!\nThis is a big text which needs to be saved in multiple blocks!\nEven if the text is not that huge it needs to be saved in multiple blocks, because the blocks are very small.\nEvery blocks can only save 128 bytes!".replaceAll("\n", "\r\n").getBytes();
+		file.append(bytes, 0, bytes.length);
+		file.read(read, 0, 0, read.length);
+		assertArrayEquals(bytes, read);
+		element = root.addElement("myFolder", false);
+		assertEquals("myFolder", element.getName());
+		PatrFolder folder = element.getFolder();
+		folder.addElement("subFile", true);
 	}
 	
 	private static class BlockAccessorByteArrayArrayImpl implements BlockAccessor {
