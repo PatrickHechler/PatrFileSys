@@ -38,7 +38,7 @@ public class PatrFileSysChecker extends Checker {
 	
 	@Check
 	private void check() throws IOException {
-		ba = new BlockAccessorByteArrayArrayImpl(128, 128);//small block for checking
+		ba = new BlockAccessorByteArrayArrayImpl(16, 256);
 		pfs = PatrFileSys.createNewFileSys(ba, 128);
 		PatrFolder root = pfs.rootFolder();
 		FolderElement element = root.addElement("myFirstFile.txt", true);
@@ -55,7 +55,18 @@ public class PatrFileSysChecker extends Checker {
 		element = root.addElement("mySecondFile.txt", true);
 		assertEquals("mySecondFile.txt", element.getName());
 		file = element.getFile();
-		bytes = "hello!\nThis is a big text which needs to be saved in multiple blocks!\nEven if the text is not that huge it needs to be saved in multiple blocks, because the blocks are very small.\nEvery blocks can only save 128 bytes!".replaceAll("\n", "\r\n").getBytes();
+		bytes = (
+			"hello!\n"
+			+ "This is a big text which needs to be saved in multiple blocks!\n"
+			+ "Even if the text is not that huge it needs to be saved in multiple blocks, because the blocks are very small.\n"
+			+ "Every blocks can only save 256 bytes!\n"
+			+ "and now again: "
+			+ "hello!\n"
+			+ "This is a big text which needs to be saved in multiple blocks!\n"
+			+ "Even if the text is not that huge it needs to be saved in multiple blocks, because the blocks are very small.\n"
+			+ "Every blocks can only save 256 bytes!\n"
+			+ "and now again: "
+			).getBytes();
 		file.append(bytes, 0, bytes.length);
 		file.read(read, 0, 0, read.length);
 		assertArrayEquals(bytes, read);
@@ -124,7 +135,7 @@ public class PatrFileSysChecker extends Checker {
 			}
 			final int intblock = (int) block;
 			final byte[] removed = loaded.remove(Integer.valueOf(intblock));
-			if ( removed == null) {
+			if (removed == null) {
 				throw new IllegalStateException("block not loaded");
 			}
 		}
@@ -139,7 +150,7 @@ public class PatrFileSysChecker extends Checker {
 			if (this.loaded == null) {
 				throw new ClosedChannelException();
 			}
-			for(Entry<Integer, byte[]> e : this.loaded.entrySet()) {
+			for (Entry <Integer, byte[]> e : this.loaded.entrySet()) {
 				saveBlock(e.getValue(), e.getKey().intValue());
 			}
 		}

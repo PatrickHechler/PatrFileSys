@@ -101,10 +101,10 @@ public class PatrFileSys {
 		intToByteArr( -1, b, FIRST_BLOCK_START_END_OFFSET + PatrFolder.FOLDER_PARENT_POS_OFFSET);
 		bl.saveBlock(b, 0L);
 		b = bl.loadBlock(1L);
-		intToByteArr(SECOND_BLOCK_TABLE_OFFSET + 8, b, SECOND_BLOCK_END_PNTR_OFFSET);
+		intToByteArr(SECOND_BLOCK_TABLE_OFFSET, b, SECOND_BLOCK_END_PNTR_OFFSET);
 		longToByteArr(blockCnt, b, SECOND_BLOCK_BLOCK_COUNT_OFFSET);
 		longToByteArr(0L, b, SECOND_BLOCK_TABLE_OFFSET);
-		longToByteArr(2L, b, SECOND_BLOCK_END_PNTR_OFFSET + 4);
+		longToByteArr(2L, b, SECOND_BLOCK_TABLE_OFFSET + 8);
 		bl.saveBlock(b, 1L/* pointer to the last element */);
 	}
 	
@@ -247,14 +247,16 @@ public class PatrFileSys {
 				byte[] nbl;
 				byte[] nameBytes = name.getBytes(StandardCharsets.UTF_16BE);
 				final int nameSize = nameBytes.length + 2/* '\0' */;
-				final int namePNTR = resize(bl, nameSize, -1);
 				byte[] table = ba.loadBlock(1L);
+				final int namePNTR;
 				try {
 					{
 						long _newBlock;
 						int _newOff;
+						int _namePNTR;
 						try {
 							_newOff = resize(bl, newSize, oldoffset);
+							_namePNTR = resize(bl, nameSize, -1);
 							_newBlock = block;
 							nbl = bl;
 						} catch (OutOfMemoryError e) {
@@ -269,7 +271,9 @@ public class PatrFileSys {
 								intToByteArr(BLOCK_INTERN_TABLE_START_PNTR_OFFSET + 4, nbl, blocklen - 12);
 								intToByteArr(blocklen - 16, nbl, blocklen - 8);
 								intToByteArr(blocklen, nbl, blocklen - 4);
+								//TODO bug fix: _namePNTR landet im Bereich von _newOff
 								_newOff = resize(nbl, newSize, -1);
+								_namePNTR = resize(nbl, nameSize, -1);
 							} catch (Throwable t) {// only in case of an exception normally it is later done
 								ba.unloadBlock(_newBlock);
 								throw t;
@@ -278,6 +282,7 @@ public class PatrFileSys {
 						}
 						newblock = _newBlock;
 						newoffset = _newOff;
+						namePNTR = _namePNTR;
 					}
 					System.arraycopy(nameBytes, 0, nbl, namePNTR, nameBytes.length);
 					nbl[namePNTR + nameBytes.length] = nbl[namePNTR + nameBytes.length + 1] = 0;// set '\0'
@@ -383,7 +388,7 @@ public class PatrFileSys {
 							}
 							try {
 								longToByteArr(System.currentTimeMillis(), fileBlockBytes, fileOffset + PatrFile.FILE_LAST_MOD_OFFSET);
-								longToByteArr(fileDataTableBlock, fileBlockBytes, fileOffset + PatrFile.FILE_DATA_TABLE_PNTR_OFFSET);
+								longToByteArr(fileDataTableBlock, fileBlockBytes, fileOffset + PatrFile.FILE_DATA_TABLE_BLOCK_OFFSET);
 								intToByteArr(0, fileBlockBytes, fileOffset + PatrFile.FILE_DATA_TABLE_END_PNTR_OFFSET);
 								longToByteArr(0L, fileBlockBytes, fileOffset + PatrFile.FILE_SIZE_OFFSET);
 								longToByteArr(PatrFile.NO_LOCK, fileBlockBytes, fileOffset + PatrFile.FILE_LOCK_OFFSET);
@@ -467,7 +472,7 @@ public class PatrFileSys {
 					try {
 						if (isFile) {
 							// free the content of the file
-							final int tableStart = byteArrToInt(cbl, childOffset + PatrFile.FILE_DATA_TABLE_PNTR_OFFSET);
+							final int tableStart = byteArrToInt(cbl, childOffset + PatrFile.FILE_DATA_TABLE_BLOCK_OFFSET);
 							final int tableEnd = byteArrToInt(cbl, childOffset + PatrFile.FILE_DATA_TABLE_END_PNTR_OFFSET);
 							for (int i = tableStart; i < tableEnd; i += 16) {
 								final long start = byteArrToLong(cbl, i);
@@ -538,8 +543,8 @@ public class PatrFileSys {
 		private static final int FILE_LOCK_OFFSET                = FILE_SIZE_OFFSET + 8;
 		private static final int FILE_LAST_MOD_OFFSET            = FILE_LOCK_OFFSET + 8;
 		private static final int FILE_DATA_TABLE_END_PNTR_OFFSET = FILE_LAST_MOD_OFFSET + 8;
-		private static final int FILE_DATA_TABLE_PNTR_OFFSET     = FILE_DATA_TABLE_END_PNTR_OFFSET + 4;
-		private static final int FILE_EMPTY_SIZE_OFFSET          = FILE_DATA_TABLE_PNTR_OFFSET;
+		private static final int FILE_DATA_TABLE_BLOCK_OFFSET    = FILE_DATA_TABLE_END_PNTR_OFFSET + 4;
+		private static final int FILE_EMPTY_SIZE_OFFSET          = FILE_DATA_TABLE_BLOCK_OFFSET + 8;
 		
 		private final long block;
 		private final int  offset;
@@ -629,7 +634,7 @@ public class PatrFileSys {
 				}
 				int read = 0;
 				int blocklen = bl.length;
-				final long blocktable = byteArrToLong(bl, offset + FILE_DATA_TABLE_PNTR_OFFSET);
+				final long blocktable = byteArrToLong(bl, offset + FILE_DATA_TABLE_BLOCK_OFFSET);
 				final long blocktableEnd = byteArrToLong(bl, offset + FILE_DATA_TABLE_END_PNTR_OFFSET);
 				final byte[] blocktableBytes = ba.loadBlock(blocktable);
 				try {
@@ -711,7 +716,7 @@ public class PatrFileSys {
 				}
 				int wrote = 0;
 				int blocklen = bl.length;
-				final long blocktable = byteArrToLong(bl, offset + FILE_DATA_TABLE_PNTR_OFFSET);
+				final long blocktable = byteArrToLong(bl, offset + FILE_DATA_TABLE_BLOCK_OFFSET);
 				final long blocktableEnd = byteArrToLong(bl, offset + FILE_DATA_TABLE_END_PNTR_OFFSET);
 				final byte[] blocktableBytes = ba.loadBlock(blocktable);
 				try {
@@ -803,7 +808,7 @@ public class PatrFileSys {
 					}
 				}
 				int appended = 0;
-				final long firstBlock = byteArrToLong(bl, offset + FILE_DATA_TABLE_PNTR_OFFSET);
+				final long firstBlock = byteArrToLong(bl, offset + FILE_DATA_TABLE_BLOCK_OFFSET);
 				byte[] firstBlockBytes = ba.loadBlock(firstBlock);
 				try {
 					if (oldMod != 0) {
@@ -931,7 +936,9 @@ public class PatrFileSys {
 			byte[] bl = ba.loadBlock(block);
 			int namePNTR = byteArrToInt(bl, offset + ELEMENT_NAME_PNTR_OFFSET);
 			int len;
-			for (len = 0; bl[namePNTR + len] != 0 || bl[namePNTR + len + 1] != 0; len += 2) {}
+			for (len = 0; bl[namePNTR + len] != 0 || bl[namePNTR + len + 1] != 0; len += 2) {
+				System.out.printf("len=%d, bl[i]=%d, bl[i+1]=%d char=%c\n", len, 0xFF & bl[namePNTR + len], 0xFF & bl[namePNTR + len + 1], (char) (((0xFF & bl[namePNTR + len + 1]) << 8) | (0xFF & bl[namePNTR + len])));
+			}
 			String name = new String(bl, namePNTR, len, StandardCharsets.UTF_16BE);
 			ba.unloadBlock(block);
 			return name;
@@ -1019,6 +1026,10 @@ public class PatrFileSys {
 		final int oldmemory = PNTR == -1 ? 0 : byteArrToInt(block, posInTabletable + 4) - byteArrToInt(block, posInTabletable);
 		final int lastTableEntry = block.length - 8;
 		
+		if (PNTR == -1 && newSize > 0) {
+			intToByteArr(firstTableEntry - 8, block, BLOCK_INTERN_TABLE_START_PNTR_OFFSET);
+		}
+		
 		int dif = oldmemory - newSize;
 		if (dif == 0) {
 			return PNTR;
@@ -1028,8 +1039,6 @@ public class PatrFileSys {
 				PNTR = -1;
 				System.arraycopy(block, firstTableEntry + 8, block, firstTableEntry, posInTabletable - firstTableEntry);
 			} else {
-				PNTR += dif / 2;
-				intToByteArr(PNTR, block, posInTabletable);
 				intToByteArr(PNTR + newSize, block, posInTabletable + 4);
 			}
 		} else {
@@ -1041,6 +1050,21 @@ public class PatrFileSys {
 				next = byteArrToInt(block, posInTabletable + 8);
 				prev = byteArrToInt(block, posInTabletable - 4);
 				free = next - prev;
+				if (free >= newSize) {
+					if ( (next - PNTR) >= newSize) {
+						final int endPNTR = next + PNTR;
+						intToByteArr(endPNTR, block, posInTabletable + 4);
+					} else {
+						final int halfSize = newSize >> 1;
+						final int startPNTR = prev + halfSize;
+						final int endPNTR = startPNTR + newSize;
+						assert startPNTR >= prev;
+						assert endPNTR <= next;
+						intToByteArr(startPNTR, block, posInTabletable);
+						intToByteArr(endPNTR, block, posInTabletable + 4);
+					}
+					return PNTR;
+				}
 			}
 			FIND_MEM:
 			if (free < newSize) {
@@ -1057,6 +1081,8 @@ public class PatrFileSys {
 							} else {
 								System.arraycopy(block, PNTR, block, PNTR + 8, -PNTRdif);
 							}
+						} else {
+							System.arraycopy(block, i, block, firstTableEntry - 8, i - firstTableEntry);
 						}
 						posInTabletable = i;
 						break FIND_MEM;
@@ -1064,8 +1090,8 @@ public class PatrFileSys {
 				}
 				throw new OutOfMemoryError("could not find enugh memory in the needed block!");
 			}
-			int middle = (next + prev) / 2;
-			PNTR = middle - (newSize / 2);
+			int mid = (next + prev) / 2;
+			PNTR = mid - (newSize / 2);
 			assert PNTR >= prev;
 			assert PNTR + newSize <= next;
 			intToByteArr(PNTR, block, posInTabletable);
@@ -1118,11 +1144,8 @@ public class PatrFileSys {
 		List <LongLongOpenImpl> lls = new ArrayList <>();
 		final int tableEnd = byteArrToInt(table, SECOND_BLOCK_END_PNTR_OFFSET);
 		final long blockCnt = byteArrToLong(table, SECOND_BLOCK_BLOCK_COUNT_OFFSET);
-		final long minPlace = Math.min(1L, need >> 2);
-		final long wantedMinPlace = minPlace + 2L;
-		final long wantedMinPlaceHalf = wantedMinPlace >> 1;
 		for (int i = SECOND_BLOCK_TABLE_OFFSET + 8;; i += 16) {
-			final boolean stop = i >= tableEnd;
+			final boolean stop = i > tableEnd - 8;
 			final long prev = byteArrToLong(table, i);
 			final long next;
 			if (stop) {
@@ -1131,26 +1154,23 @@ public class PatrFileSys {
 				next = byteArrToLong(table, i + 8);
 			}
 			final long free = next - prev;
-			if (free >= wantedMinPlace) {
-				final long mid = (next + prev) >> 1;
-				final long myPlace;
-				final long myPlaceHalf;
-				final long freeHalf = free >> 1;
-				if (freeHalf < wantedMinPlace) {
-					myPlace = wantedMinPlace;
-					myPlaceHalf = wantedMinPlaceHalf;
-				} else if (freeHalf > need) {
-					myPlace = need;
-					myPlaceHalf = need >> 1;
-				} else {
-					myPlace = freeHalf;
-					myPlaceHalf = freeHalf >> 1;
-				}
-				final long start = mid - myPlaceHalf;
-				final long end = start + myPlace;
-				lls.add(new LongLongOpenImpl(start, end));
-				need -= myPlace;
+			final long use;
+			final long myStart;
+			final long myEnd;
+			if (free >= need) {
+				use = need;
+				myStart = prev;
+				myEnd = prev + use;
+				longToByteArr(myEnd, table, i);
+			} else {
+				use = free;
+				myStart = prev;
+				myEnd = next;
+				i -= 16;
+				System.arraycopy(table, i + 8, table, i - 8, tableEnd - i);
 			}
+			lls.add(new LongLongOpenImpl(myStart, myEnd));
+			need -= use;
 			if (need <= 0) {
 				assert need == 0;
 				break;
