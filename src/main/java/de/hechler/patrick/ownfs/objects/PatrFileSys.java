@@ -251,7 +251,7 @@ public class PatrFileSys {
 				try {
 					{
 						long _newBlock;
-						int _newOff;
+						int _newOff = oldoffset;
 						int _namePNTR;
 						try {
 							_newOff = resize(bl, newSize, oldoffset);
@@ -259,6 +259,7 @@ public class PatrFileSys {
 							_newBlock = block;
 							nbl = bl;
 						} catch (OutOfMemoryError e) {
+							resize(bl, 0, _newOff);
 							LongLongOpenImpl[] ll = addBlocksToTable(table, 1);
 							assert ll.length == 1;
 							_newBlock = ll[0].first;
@@ -270,14 +271,12 @@ public class PatrFileSys {
 								intToByteArr(BLOCK_INTERN_TABLE_START_PNTR_OFFSET + 4, nbl, blocklen - 12);
 								intToByteArr(blocklen - 16, nbl, blocklen - 8);
 								intToByteArr(blocklen, nbl, blocklen - 4);
-								// TODO bug fix: _namePNTR landet im Bereich von _newOff
 								_newOff = resize(nbl, newSize, -1);
 								_namePNTR = resize(nbl, nameSize, -1);
 							} catch (Throwable t) {// only in case of an exception normally it is later done
 								ba.unloadBlock(_newBlock);
 								throw t;
 							}
-							resize(bl, 0, oldoffset);
 						}
 						newblock = _newBlock;
 						newoffset = _newOff;
