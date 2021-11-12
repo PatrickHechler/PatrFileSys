@@ -245,7 +245,7 @@ public class PatrFileSys {
 				final long newblock;
 				byte[] nbl;
 				byte[] nameBytes = name.getBytes(StandardCharsets.UTF_16LE);
-				final int nameSize = nameBytes.length + 2/* '\0' */;
+				final int nameSize = nameBytes.length + 2/* + '\0'.len */;
 				final int namePNTR;
 				byte[] table = ba.loadBlock(1L);
 				try {
