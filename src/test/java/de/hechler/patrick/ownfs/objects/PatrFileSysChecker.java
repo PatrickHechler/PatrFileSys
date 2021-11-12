@@ -43,6 +43,8 @@ public class PatrFileSysChecker extends Checker {
 		PatrFolder root = pfs.rootFolder();
 		FolderElement element = root.addElement("myFirstFile.txt", true);
 		assertEquals("myFirstFile.txt", element.getName());
+		element.setName("newName.txt");
+		assertEquals("newName.txt", element.getName());
 		PatrFile file = element.getFile();
 		byte[] bytes = "hello world".getBytes();
 		file.append(bytes, 0, bytes.length);

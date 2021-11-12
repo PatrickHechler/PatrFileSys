@@ -10,7 +10,7 @@ public class Test {
 		BigCheckResult cr = Checker.checkAll(true, PatrFileSysChecker.class);
 		cr.detailedPrint();
 		if (cr.wentUnexpected()) {
-			throw new Error("unexpected BigCheckResult: " + cr.toString());
+			throw new Error("unexpected BigCheckResult: " + cr);
 		}
 	}
 	

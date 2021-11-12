@@ -19,8 +19,7 @@ import de.hechler.patrick.zeugs.objects.LongLongOpenImpl;
 
 public class PatrFileSys {
 	
-	private static final int BLOCK_INTERN_TABLE_START_PNTR_OFFSET = 0;
-	private static final int FIRST_BLOCK_ROOT_FOLDER_POS_OFFSET   = BLOCK_INTERN_TABLE_START_PNTR_OFFSET + 4;
+	private static final int FIRST_BLOCK_ROOT_FOLDER_POS_OFFSET   = 0;
 	private static final int FIRST_BLOCK_ROOT_FOLDER_BLOCK_OFFSET = FIRST_BLOCK_ROOT_FOLDER_POS_OFFSET + 4;
 	private static final int FIRST_BLOCK_START_END_OFFSET         = FIRST_BLOCK_ROOT_FOLDER_BLOCK_OFFSET + 8;
 	
@@ -31,6 +30,7 @@ public class PatrFileSys {
 	
 	
 	private final BlockAccessor ba;
+	private final int           BLOCK_INTERN_TABLE_START_PNTR_OFFSET;
 	
 	
 	
@@ -44,6 +44,7 @@ public class PatrFileSys {
 	 */
 	public PatrFileSys(BlockAccessor ba) {
 		this.ba = ba;
+		this.BLOCK_INTERN_TABLE_START_PNTR_OFFSET = ba.blockSize() - 8;
 	}
 	
 	/**
@@ -76,22 +77,23 @@ public class PatrFileSys {
 		byte[] b = bl.loadBlock(0L);
 		final int blocklen = bl.blockSize();
 		assert b.length == blocklen;
-		// block-intern memory management (of the first block, because it is now formatted)
-		// allocate memory for memory list
-		intToByteArr(blocklen, b, blocklen - 4);
-		intToByteArr(blocklen - 32, b, blocklen - 8);
-		// allocate memory for the root folder
-		intToByteArr(FIRST_BLOCK_START_END_OFFSET + PatrFolder.FOLDER_EMPTY_SIZE, b, blocklen - 12);
-		intToByteArr(FIRST_BLOCK_START_END_OFFSET, b, blocklen - 16);
-		// allocate memory for the start block
-		intToByteArr(FIRST_BLOCK_START_END_OFFSET, b, blocklen - 20);
-		intToByteArr(0, b, blocklen - 24);
+		
+		initBlock(b, FIRST_BLOCK_START_END_OFFSET, PatrFolder.FOLDER_EMPTY_SIZE);
+		
+		// // block-intern memory management (of the first block, because it is now formatted)
+		// // allocate memory for memory list
+		// intToByteArr(blocklen, b, blocklen - 4);
+		// intToByteArr(blocklen - 24, b, blocklen - 8);
+		// // allocate memory for the root folder
+		// intToByteArr(FIRST_BLOCK_START_END_OFFSET + PatrFolder.FOLDER_EMPTY_SIZE, b, blocklen - 12);
+		// intToByteArr(FIRST_BLOCK_START_END_OFFSET, b, blocklen - 16);
+		// // allocate memory for the start block
+		// intToByteArr(FIRST_BLOCK_START_END_OFFSET, b, blocklen - 20);
+		// intToByteArr(0, b, blocklen - 24);
+		
 		// save position of root folder (block=0, offset=end of start block)
 		longToByteArr(0L, b, FIRST_BLOCK_ROOT_FOLDER_BLOCK_OFFSET);
 		intToByteArr(FIRST_BLOCK_START_END_OFFSET, b, FIRST_BLOCK_ROOT_FOLDER_POS_OFFSET);
-		// pointer to the list for memory management inside of the mem-block
-		// by default with three entries (each has 8 bytes)
-		intToByteArr(blocklen - 24, b, BLOCK_INTERN_TABLE_START_PNTR_OFFSET);
 		// number of elements in the rootFolder
 		intToByteArr(0, b, FIRST_BLOCK_START_END_OFFSET + PatrFolder.FOLDER_COUNT_ELEMENTS_OFFSET);
 		// last mod is now
@@ -133,10 +135,7 @@ public class PatrFileSys {
 	
 	@Override
 	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + ba.hashCode();
-		return result;
+		return ba.hashCode();
 	}
 	
 	@Override
@@ -235,7 +234,7 @@ public class PatrFileSys {
 				if (name.indexOf('\0') != -1) {
 					throw new IllegalArgumentException("names are not allowed to contain the '\\0' character, because it is used to mark the end of the name!");
 				}
-				// aktuelle Gr��e berechnen
+				// aktuelle Größe berechnen
 				final int blocklen = bl.length;
 				final int oldElementCount = byteArrToInt(bl, offset + FOLDER_COUNT_ELEMENTS_OFFSET);
 				final int oldSize = FOLDER_EMPTY_SIZE + FolderElement.ELEMENT_SIZE * oldElementCount;
@@ -245,10 +244,10 @@ public class PatrFileSys {
 				final int newoffset;
 				final long newblock;
 				byte[] nbl;
-				byte[] nameBytes = name.getBytes(StandardCharsets.UTF_16BE);
+				byte[] nameBytes = name.getBytes(StandardCharsets.UTF_16LE);
 				final int nameSize = nameBytes.length + 2/* '\0' */;
-				byte[] table = ba.loadBlock(1L);
 				final int namePNTR;
+				byte[] table = ba.loadBlock(1L);
 				try {
 					{
 						long _newBlock;
@@ -271,7 +270,7 @@ public class PatrFileSys {
 								intToByteArr(BLOCK_INTERN_TABLE_START_PNTR_OFFSET + 4, nbl, blocklen - 12);
 								intToByteArr(blocklen - 16, nbl, blocklen - 8);
 								intToByteArr(blocklen, nbl, blocklen - 4);
-								//TODO bug fix: _namePNTR landet im Bereich von _newOff
+								// TODO bug fix: _namePNTR landet im Bereich von _newOff
 								_newOff = resize(nbl, newSize, -1);
 								_namePNTR = resize(nbl, nameSize, -1);
 							} catch (Throwable t) {// only in case of an exception normally it is later done
@@ -367,7 +366,7 @@ public class PatrFileSys {
 							int fileOffset;
 							byte[] fileBlockBytes = nbl;
 							try {
-								fileOffset = resize(fileBlockBytes, PatrFile.FILE_EMPTY_SIZE_OFFSET, -1);
+								fileOffset = resize(fileBlockBytes, PatrFile.FILE_EMPTY_SIZE, -1);
 								LongLongOpenImpl[] added = addBlocksToTable(table, 1L);
 								assert added.length == 1;
 								fileDataTableBlock = added[0].first;
@@ -384,7 +383,14 @@ public class PatrFileSys {
 									assert (added[0].second - fileBlock) == 2L;
 									fileDataTableBlock = fileBlock + 1;
 								}
-								fileOffset = resize(fileBlockBytes, PatrFile.FILE_EMPTY_SIZE_OFFSET, -1);
+								fileBlockBytes = ba.loadBlock(fileBlock);
+								try {
+									initBlock(fileBlockBytes, PatrFile.FILE_EMPTY_SIZE);
+									fileOffset = 0;
+								} catch (Throwable t) {
+									ba.unloadBlock(fileBlock);
+									throw t;
+								}
 							}
 							try {
 								longToByteArr(System.currentTimeMillis(), fileBlockBytes, fileOffset + PatrFile.FILE_LAST_MOD_OFFSET);
@@ -411,7 +417,7 @@ public class PatrFileSys {
 									assert added.length == 1;
 									folderblock = added[0].first;
 									assert (added[0].second - folderblock) == 1L;
-									folderoffset = resize(folderBlockBytes, PatrFile.FILE_EMPTY_SIZE_OFFSET, -1);
+									folderoffset = resize(folderBlockBytes, PatrFile.FILE_EMPTY_SIZE, -1);
 								}
 								longToByteArr(System.currentTimeMillis(), nbl, folderoffset + PatrFolder.FOLDER_LAST_MOD_OFFSET);
 								intToByteArr(0, nbl, folderoffset + PatrFolder.FOLDER_COUNT_ELEMENTS_OFFSET);
@@ -544,7 +550,7 @@ public class PatrFileSys {
 		private static final int FILE_LAST_MOD_OFFSET            = FILE_LOCK_OFFSET + 8;
 		private static final int FILE_DATA_TABLE_END_PNTR_OFFSET = FILE_LAST_MOD_OFFSET + 8;
 		private static final int FILE_DATA_TABLE_BLOCK_OFFSET    = FILE_DATA_TABLE_END_PNTR_OFFSET + 4;
-		private static final int FILE_EMPTY_SIZE_OFFSET          = FILE_DATA_TABLE_BLOCK_OFFSET + 8;
+		private static final int FILE_EMPTY_SIZE                 = FILE_DATA_TABLE_BLOCK_OFFSET + 8;
 		
 		private final long block;
 		private final int  offset;
@@ -923,7 +929,7 @@ public class PatrFileSys {
 				throw new IllegalArgumentException("name can not contain a '\\0' caracter (this is the ending character)");
 			}
 			byte[] bl = ba.loadBlock(block);
-			byte[] bytes = name.getBytes(StandardCharsets.UTF_16BE);
+			byte[] bytes = name.getBytes(StandardCharsets.UTF_16LE);
 			int namePNTR = byteArrToInt(bl, offset + ELEMENT_NAME_PNTR_OFFSET);
 			final int byteslength = bytes.length;
 			namePNTR = resize(bl, byteslength + 2/* '\0' ending in UTF-16 */, namePNTR);
@@ -937,9 +943,11 @@ public class PatrFileSys {
 			int namePNTR = byteArrToInt(bl, offset + ELEMENT_NAME_PNTR_OFFSET);
 			int len;
 			for (len = 0; bl[namePNTR + len] != 0 || bl[namePNTR + len + 1] != 0; len += 2) {
-				System.out.printf("len=%d, bl[i]=%d, bl[i+1]=%d char=%c\n", len, 0xFF & bl[namePNTR + len], 0xFF & bl[namePNTR + len + 1], (char) (((0xFF & bl[namePNTR + len + 1]) << 8) | (0xFF & bl[namePNTR + len])));
+				System.out.printf("len=%d, bl[i]=%d, bl[i+1]=%d char=%c, char2=%c\n", len, 0xFF & bl[namePNTR + len], 0xFF & bl[namePNTR + len + 1],
+					(char) ( ( (0xFF & bl[namePNTR + len + 1]) << 8) | (0xFF & bl[namePNTR + len])),
+					(char) ( ( (0xFF & bl[namePNTR + len]) << 8) | (0xFF & bl[namePNTR + len + 1])));
 			}
-			String name = new String(bl, namePNTR, len, StandardCharsets.UTF_16BE);
+			String name = new String(bl, namePNTR, len, StandardCharsets.UTF_16LE);
 			ba.unloadBlock(block);
 			return name;
 		}
@@ -1020,20 +1028,21 @@ public class PatrFileSys {
 	 * @throws OutOfMemoryError
 	 *             if there is not enough memory in the block left
 	 */
-	private static int resize(byte[] block, final int newSize, int PNTR) throws OutOfMemoryError {
+	private int resize(byte[] block, final int newSize, int PNTR) throws OutOfMemoryError {
 		final int firstTableEntry = byteArrToInt(block, BLOCK_INTERN_TABLE_START_PNTR_OFFSET);
 		int posInTabletable = PNTR == -1 ? -1 : tableSearch(block, PNTR, firstTableEntry);
 		final int oldmemory = PNTR == -1 ? 0 : byteArrToInt(block, posInTabletable + 4) - byteArrToInt(block, posInTabletable);
 		final int lastTableEntry = block.length - 8;
 		
 		if (PNTR == -1 && newSize > 0) {
+			if (byteArrToInt(block, lastTableEntry - 12) >= firstTableEntry - 8) {
+				throw new OutOfMemoryError("not enugh memory for the table");
+			}
 			intToByteArr(firstTableEntry - 8, block, BLOCK_INTERN_TABLE_START_PNTR_OFFSET);
 		}
 		
 		int dif = oldmemory - newSize;
-		if (dif == 0) {
-			return PNTR;
-		} else if (dif > 0) {
+		if (dif > 0) {
 			if (newSize == 0) {
 				// remove entry and return -1
 				PNTR = -1;
@@ -1041,8 +1050,9 @@ public class PatrFileSys {
 			} else {
 				intToByteArr(PNTR + newSize, block, posInTabletable + 4);
 			}
-		} else {
+		} else if (dif < 0) {
 			int free, next, prev;
+			boolean done = false;
 			if (oldmemory == 0) {
 				free = 0;
 				next = prev = -1;
@@ -1051,77 +1061,87 @@ public class PatrFileSys {
 				prev = byteArrToInt(block, posInTabletable - 4);
 				free = next - prev;
 				if (free >= newSize) {
-					if ( (next - PNTR) >= newSize) {
-						final int endPNTR = next + PNTR;
+					done = true;
+					if (next - PNTR >= free) {
+						final int endPNTR = PNTR + newSize;
+						assert PNTR >= prev;
+						assert endPNTR <= next;
 						intToByteArr(endPNTR, block, posInTabletable + 4);
 					} else {
 						final int halfSize = newSize >> 1;
-						final int startPNTR = prev + halfSize;
+						final int startPNTR = ( (prev - next) + prev) - halfSize;
 						final int endPNTR = startPNTR + newSize;
 						assert startPNTR >= prev;
 						assert endPNTR <= next;
+						PNTR = startPNTR;
 						intToByteArr(startPNTR, block, posInTabletable);
 						intToByteArr(endPNTR, block, posInTabletable + 4);
 					}
-					return PNTR;
 				}
 			}
-			FIND_MEM:
-			if (free < newSize) {
-				final int oldPNTR = PNTR;
-				for (int i = firstTableEntry + 4; i <= lastTableEntry - 4; i += 8) {
-					prev = byteArrToInt(block, i);
-					next = byteArrToInt(block, i + 4);
-					free = next - prev;
-					if (free >= newSize) {
-						if (oldmemory != 0) {
-							int PNTRdif = oldPNTR - PNTR;
-							if (PNTRdif > 0) {
-								System.arraycopy(block, oldPNTR + 8, block, oldPNTR, PNTRdif);
+			if ( !done) {
+				FIND_MEM:
+				if (free < newSize) {
+					final int oldPNTR = PNTR;
+					for (int i = firstTableEntry + 4; i <= lastTableEntry - 4; i += 8) {
+						prev = byteArrToInt(block, i);
+						next = byteArrToInt(block, i + 4);
+						free = next - prev;
+						if (free >= newSize) {
+							if (oldmemory != 0) {
+								int PNTRdif = oldPNTR - PNTR;
+								if (PNTRdif > 0) {
+									System.arraycopy(block, oldPNTR + 8, block, oldPNTR, PNTRdif);
+								} else {
+									System.arraycopy(block, PNTR, block, PNTR + 8, -PNTRdif);
+								}
 							} else {
-								System.arraycopy(block, PNTR, block, PNTR + 8, -PNTRdif);
+								System.arraycopy(block, firstTableEntry, block, firstTableEntry - 8, i - firstTableEntry + 8);
 							}
-						} else {
-							System.arraycopy(block, i, block, firstTableEntry - 8, i - firstTableEntry);
+							posInTabletable = i;
+							break FIND_MEM;
 						}
-						posInTabletable = i;
-						break FIND_MEM;
 					}
+					if (oldmemory == 0) {
+						intToByteArr(firstTableEntry, block, BLOCK_INTERN_TABLE_START_PNTR_OFFSET);
+					}
+					throw new OutOfMemoryError("could not find enugh memory in the needed block!");
 				}
-				throw new OutOfMemoryError("could not find enugh memory in the needed block!");
+				int mid = (next + prev) / 2;
+				PNTR = mid - (newSize / 2);
+				assert PNTR > 0;
+				assert PNTR >= prev : "PNTR=" + PNTR + " prev=" + prev + " next=" + next + " newSize=" + newSize + " free=" + (next - prev) + " mid=" + mid;
+				assert (PNTR + newSize) <= next : "PNTR=" + PNTR + " prev=" + prev + " next=" + next + " newSize=" + newSize + " free=" + (next - prev) + " mid=" + mid;
+				intToByteArr(PNTR, block, posInTabletable);
+				intToByteArr(PNTR + newSize, block, posInTabletable + 4);
 			}
-			int mid = (next + prev) / 2;
-			PNTR = mid - (newSize / 2);
-			assert PNTR >= prev;
-			assert PNTR + newSize <= next;
-			intToByteArr(PNTR, block, posInTabletable);
-			intToByteArr(PNTR + newSize, block, posInTabletable + 4);
-		}
+		} // else /*if (dif == 0)*/ {} //don't need to do anything if nothing has changed
 		return PNTR;
 	}
 	
 	/**
 	 * @see Arrays#binarySearch(int[], int)
 	 */
-	private static int tableSearch(byte[] bl, final int PNTR, final int start) {
+	private static int tableSearch(final byte[] bl, final int PNTR, final int start) {
 		int low = start;
 		int high = bl.length - 8;
 		
-		byte[] bytes = intToByteArr(PNTR);
-		int mod = high % 8;
-		assert low % 8 == mod;
+		final byte[] bytes = intToByteArr(PNTR);
+		final int mod = high % 8;
+		assert low % 8 == mod : "high=" + high + " low=" + low + " mod=" + mod + " lowMod=" + (low % 8);
 		while (low <= high) {
 			int mid = (low + high) >> 1;
 			
 			{
-				int midMod = mid % 8;
+				final int midMod = mid % 8;
 				if (midMod != mod) {
 					mid += mod - midMod;
 				}
 			}
 			
 			if (bl[mid] < bytes[0] || (bl[mid] == bytes[0] && (bl[mid + 1] < bytes[1] || (bl[mid + 1] == bytes[1]
-				&& (bl[mid + 2] < bytes[2] || (bl[mid + 2] == bytes[2] && (bl[mid + 3] < bytes[3]))))))) {
+				&& (bl[mid + 2] < bytes[2] || (bl[mid + 2] == bytes[2]
+					&& (bl[mid + 3] < bytes[3]))))))) {
 				low = mid + 8;// a complete entry has 4 startPNTR bytes and 4 endPNTR bytes
 			} else if (bl[mid] > bytes[0] || (bl[mid] == bytes[0] && (bl[mid + 1] > bytes[1] || (bl[mid + 1] == bytes[1]
 				&& (bl[mid + 2] > bytes[2] || (bl[mid + 2] == bytes[2] && (bl[mid + 3] > bytes[3]))))))) {
@@ -1268,5 +1288,15 @@ public class PatrFileSys {
 		throw new InternalError(msg);
 	}
 	
+	private static void initBlock(byte[] block, int... firstEntrys) throws OutOfMemoryError {
+		final int blocklen = block.length;
+		intToByteArr(blocklen, block, blocklen - 4);
+		final int firstEntry = blocklen - (8 * (1 + firstEntrys.length));
+		intToByteArr(firstEntry, block, blocklen - 8);
+		for (int off = firstEntry, i = 0, pos = 0; i < firstEntrys.length; i ++ , off += 8) {
+			intToByteArr(pos, block, off);
+			intToByteArr(pos += firstEntrys[i], block, off + 4);
+		}
+	}
+	
 }
-
