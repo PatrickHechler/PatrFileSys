@@ -1087,7 +1087,7 @@ public class PatrFileSys {
 						next = byteArrToInt(block, i + 4);
 						free = next - prev;
 						if (free >= newSize) {
-							if (oldmemory != 0) {
+							if (oldPNTR != -1) {
 								int PNTRdif = oldPNTR - PNTR;
 								if (PNTRdif > 0) {
 									System.arraycopy(block, oldPNTR + 8, block, oldPNTR, PNTRdif);
@@ -1096,6 +1096,7 @@ public class PatrFileSys {
 								}
 							} else {
 								System.arraycopy(block, firstTableEntry, block, firstTableEntry - 8, i - firstTableEntry + 8);
+								intToByteArr(firstTableEntry - 8, block, BLOCK_INTERN_TABLE_START_PNTR_OFFSET);
 							}
 							posInTabletable = i;
 							break FIND_MEM;
