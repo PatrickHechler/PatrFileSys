@@ -7,6 +7,10 @@ import de.hechler.patrick.zeugs.check.Checker;
 
 public class Test {
 	
+	public void testname() throws Exception {
+		main(new String[0]);
+	}
+	
 	public static void main(String[] args) {
 		BigCheckResult cr = Checker.checkAll(true, PatrFileSysChecker.class, BlockAccessorByteArrayArrayImplTest.class);
 		cr.detailedPrint();
