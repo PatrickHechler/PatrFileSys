@@ -14,13 +14,13 @@
  		<dependency>
 			<groupId>de.hechler.patrick.hilfen</groupId>
 			<artifactId>checker</artifactId>
-			<version>4.1.0-SNAPSHOT</version>
+			<version>4.1.0</version>
 			<scope>test</scope>
 		</dependency>
  		<dependency>
 			<groupId>de.hechler.patrick.hilfen</groupId>
 			<artifactId>zeugs</artifactId>
-			<version>3.0.0-SNAPSHOT</version>
+			<version>3.3.1</version>
 		</dependency>
 	</dependencies>
    <build>
@@ -90,12 +90,12 @@
       <repository>
         <id>patmcsreleases</id>
         <name>PatMCS Maven Repository</name>
-        <url>http://patmcs.hechler.de:8080/repository/maven-releases/</url>
+        <url>http://nexuspat.hechler.de/repository/maven-releases/</url>
       </repository>
       <snapshotRepository>
         <id>patmcssnapshots</id>
         <name>PatMCS Maven Snapshots</name>
-        <url>http://patmcs.hechler.de:8080/repository/maven-snapshots/</url>
+        <url>http://nexuspat.hechler.de/repository/maven-snapshots/</url>
       </snapshotRepository>      
     </distributionManagement>
     

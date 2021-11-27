@@ -39,7 +39,7 @@ public class PatrFileSysChecker extends Checker {
 	@Check
 	private void check() throws IOException {
 		ba = new BlockAccessorByteArrayArrayImpl(16, 256);
-		pfs = PatrFileSys.createNewFileSys(ba, 128);
+		pfs = PatrFileSys.createNewFileSys(ba, 16);
 		PatrFolder root = pfs.rootFolder();
 		FolderElement element = root.addElement("myFirstFile.txt", true);
 		assertEquals("myFirstFile.txt", element.getName());
@@ -49,33 +49,62 @@ public class PatrFileSysChecker extends Checker {
 		byte[] bytes = "hello world".getBytes();
 		file.append(bytes, 0, bytes.length);
 		byte[] read = new byte[bytes.length];
-		file.read(read, 0, 0, read.length);
+		file.read(read, 0, 0L, read.length);
 		assertArrayEquals(bytes, read);
 		read = new byte[bytes.length + 10];
-		file.read(read, 5, 0, read.length);
+		file.read(read, 5, 0L, read.length - 10);
 		assertArrayEquals(bytes, Arrays.copyOfRange(read, 5, read.length - 5));
 		element = root.addElement("mySecondFile.txt", true);
 		assertEquals("mySecondFile.txt", element.getName());
 		file = element.getFile();
-		bytes = (
-			"hello!\n"
+		bytes = ("hello!\n"
 			+ "This is a big text which needs to be saved in multiple blocks!\n"
 			+ "Even if the text is not that huge it needs to be saved in multiple blocks, because the blocks are very small.\n"
 			+ "Every blocks can only save 256 bytes!\n"
-			+ "and now again: "
+			+ "and now again:\n"
 			+ "hello!\n"
 			+ "This is a big text which needs to be saved in multiple blocks!\n"
 			+ "Even if the text is not that huge it needs to be saved in multiple blocks, because the blocks are very small.\n"
 			+ "Every blocks can only save 256 bytes!\n"
-			+ "and now again: "
-			).getBytes();
+			+ "and now again: (not)\n").getBytes();
 		file.append(bytes, 0, bytes.length);
-		file.read(read, 0, 0, read.length);
+		read = new byte[bytes.length];
+		file.read(read, 0, 0L, read.length);
 		assertArrayEquals(bytes, read);
 		element = root.addElement("myFolder", false);
 		assertEquals("myFolder", element.getName());
 		PatrFolder folder = element.getFolder();
-		folder.addElement("subFile", true);
+		element = folder.addElement("subFile.txt", true);
+		file = element.getFile();
+		bytes = ("this is a sub file!\n"
+			+ "the files path is:\n"
+			+ "'myFolder' --> 'subFile.txt'\n"
+			+ "this can also be written as:\n"
+			+ "'myFolder\0subFile.txt'\n"
+			+ "but normally this will be shown as:\n"
+			+ "'/myFolder/subFile.txt'\n"
+			+ "or as:\n"
+			+ "'\\myFolder\\subFile.txt'\n"
+			+ "these are all four/three possibilities to show this files path\n"
+			+ "").getBytes();
+		file.append(bytes, 0, bytes.length);
+		read = new byte[bytes.length];
+		file.read(read, 0, 0L, bytes.length);
+		assertArrayEquals(bytes, read);
+		byte[] over = ("[OVERWRITE]: this part of the file has been overwritten.\n[OVERWRITE_END]\n").getBytes();
+		read = new byte[over.length];
+		file.overwrite(over, 0, 10L, over.length);
+		file.read(read, 0, 10L, over.length);
+		assertArrayEquals(over, read);
+		System.arraycopy(over, 0, bytes, 10, over.length);
+		read = new byte[bytes.length];
+		file.read(read, 0, 0L, bytes.length);
+		assertArrayEquals(bytes, read);
+		file.remove(50L);
+		bytes = Arrays.copyOf(bytes, bytes.length - 50);
+		read = new byte[bytes.length];
+		file.read(read, 0, 0L, bytes.length);
+		assertArrayEquals(bytes, read);
 	}
 	
 	private static class BlockAccessorByteArrayArrayImpl implements BlockAccessor {
