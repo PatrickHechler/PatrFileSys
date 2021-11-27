@@ -28,6 +28,8 @@ public class PatrFileSysChecker extends Checker {
 	
 	@End
 	private void end() {
+		pfs.close();
+		ba.close();
 		pfs = null;
 		ba = null;
 	}

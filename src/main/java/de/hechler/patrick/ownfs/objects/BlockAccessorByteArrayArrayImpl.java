@@ -29,7 +29,7 @@ public class BlockAccessorByteArrayArrayImpl implements BlockAccessor {
 		if (this.loaded == null) {
 			throw new ClosedChannelException();
 		}
-		if (block >= this.blocks.length) {
+		if (block >= this.blocks.length || block < 0) {
 			throw new IndexOutOfBoundsException("blockcount=" + this.blocks.length + " block=" + block);
 		}
 		final int intblock = (int) block;

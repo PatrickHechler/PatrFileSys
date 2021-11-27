@@ -17,7 +17,7 @@ import de.hechler.patrick.ownfs.interfaces.BlockAccessor;
 import de.hechler.patrick.zeugs.objects.LongLongOpenImpl;
 
 
-public class PatrFileSys {
+public class PatrFileSys implements Cloneable {
 	
 	private static final int FIRST_BLOCK_BLOCK_SIZE_OFFSET              = 0;
 	private static final int FIRST_BLOCK_ROOT_FOLDER_OFFSET_PNTR_OFFSET = FIRST_BLOCK_BLOCK_SIZE_OFFSET + 4;
@@ -125,6 +125,10 @@ public class PatrFileSys {
 			ba.unloadBlock(0L);
 		}
 		return new PatrFolder(block, offset);
+	}
+	
+	public void close() {
+		this.ba.close();
 	}
 	
 	@Override
@@ -358,28 +362,17 @@ public class PatrFileSys {
 						final int childOffset;
 						final long childBlock;
 						if (file) {
-							long fileDataTableBlock;
-							long fileBlock = newblock;
 							int fileOffset;
+							long fileBlock;
 							byte[] fileBlockBytes = nbl;
 							try {
 								fileOffset = resize(fileBlockBytes, PatrFile.FILE_EMPTY_SIZE, -1);
+								fileBlock = newblock;
+							} catch (OutOfMemoryError e) {
 								LongLongOpenImpl[] added = addBlocksToTable(table, 1L);
 								assert added.length == 1;
-								fileDataTableBlock = added[0].first;
-								assert (added[0].second - fileDataTableBlock) == 1L;
-							} catch (OutOfMemoryError e) {
-								LongLongOpenImpl[] added = addBlocksToTable(table, 2L);
-								assert added.length <= 2;
 								fileBlock = added[0].first;
-								if (added.length > 1) {
-									fileDataTableBlock = added[1].first;
-									assert (added[0].second - fileBlock) == 1L;
-									assert (added[1].second - fileDataTableBlock) == 1L;
-								} else {
-									assert (added[0].second - fileBlock) == 2L;
-									fileDataTableBlock = fileBlock + 1;
-								}
+								assert (added[0].second - fileBlock) == 1L;
 								fileBlockBytes = ba.loadBlock(fileBlock);
 								try {
 									initBlock(fileBlockBytes, PatrFile.FILE_EMPTY_SIZE);
@@ -391,8 +384,7 @@ public class PatrFileSys {
 							}
 							try {
 								longToByteArr(System.currentTimeMillis(), fileBlockBytes, fileOffset + PatrFile.FILE_LAST_MOD_OFFSET);
-								longToByteArr(fileDataTableBlock, fileBlockBytes, fileOffset + PatrFile.FILE_DATA_TABLE_BLOCK_OFFSET);
-								intToByteArr(0, fileBlockBytes, fileOffset + PatrFile.FILE_DATA_TABLE_END_PNTR_OFFSET);
+								intToByteArr(fileOffset + PatrFile.FILE_EMPTY_SIZE - 16, fileBlockBytes, fileOffset + PatrFile.FILE_DATA_TABLE_END_PNTR_OFFSET);
 								longToByteArr(0L, fileBlockBytes, fileOffset + PatrFile.FILE_SIZE_OFFSET);
 								longToByteArr(PatrFile.NO_LOCK, fileBlockBytes, fileOffset + PatrFile.FILE_LOCK_OFFSET);
 								childBlock = fileBlock;
@@ -478,11 +470,11 @@ public class PatrFileSys {
 					try {
 						if (isFile) {
 							// free the content of the file
-							final int tableStart = byteArrToInt(cbl, childOffset + PatrFile.FILE_DATA_TABLE_BLOCK_OFFSET);
+							final int tableStart = childOffset + PatrFile.FILE_EMPTY_SIZE;
 							final int tableEnd = byteArrToInt(cbl, childOffset + PatrFile.FILE_DATA_TABLE_END_PNTR_OFFSET);
-							for (int i = tableStart; i < tableEnd; i += 16) {
-								final long start = byteArrToLong(cbl, i);
-								final long end = byteArrToLong(cbl, i + 8);
+							for (int pos = tableStart; pos < tableEnd; pos += 16) {
+								final long start = byteArrToLong(cbl, pos);
+								final long end = byteArrToLong(cbl, pos + 8);
 								removeBlocksFromTable(table, start, end);
 							}
 						} else {
@@ -552,8 +544,7 @@ public class PatrFileSys {
 		private static final int FILE_LOCK_OFFSET                = FILE_SIZE_OFFSET + 8;
 		private static final int FILE_LAST_MOD_OFFSET            = FILE_LOCK_OFFSET + 8;
 		private static final int FILE_DATA_TABLE_END_PNTR_OFFSET = FILE_LAST_MOD_OFFSET + 8;
-		private static final int FILE_DATA_TABLE_BLOCK_OFFSET    = FILE_DATA_TABLE_END_PNTR_OFFSET + 4;
-		private static final int FILE_EMPTY_SIZE                 = FILE_DATA_TABLE_BLOCK_OFFSET + 8;
+		private static final int FILE_EMPTY_SIZE                 = FILE_DATA_TABLE_END_PNTR_OFFSET + 4;
 		
 		private final long block;
 		private final int  offset;
@@ -644,82 +635,69 @@ public class PatrFileSys {
 				int read = 0;
 				boolean first = true;
 				int blocklen = bl.length;
-				final long blocktable = byteArrToLong(bl, offset + FILE_DATA_TABLE_BLOCK_OFFSET);
-				final long blocktableEnd = byteArrToLong(bl, offset + FILE_DATA_TABLE_END_PNTR_OFFSET);
-				final byte[] blocktableBytes;
-				if (blocktable != block) {
-					blocktableBytes = ba.loadBlock(blocktable);
-				} else {
-					blocktableBytes = bl;
-				}
-				try {
-					final int myMod = (int) (off % blocklen);
-					int posInTable = 0;
-					for (long skip = off / blocklen; skip > 0; posInTable += 16) {
-						assert posInTable <= blocktableEnd;
-						final long start = byteArrToLong(blocktableBytes, posInTable);
-						final long end = byteArrToLong(blocktableBytes, posInTable + 8);
-						final long length = end - start;
-						long newSkip = skip - length;
-						if (newSkip < 0) {
-							long block = end + /* newSkip is negative */newSkip;
-							newSkip = block - start;
-							byte[] blockBytes = ba.loadBlock(block);
-							try {
-								first = false;
-								final int copylen = blocklen - myMod;
-								System.arraycopy(blockBytes, myMod, fill, fillOff + read, copylen);
-								read += copylen;
-							} finally {
-								ba.unloadBlock(block);
-							}
-							for (block ++ ; block < end && read < len; block ++ ) {
-								blockBytes = ba.loadBlock(block);
-								try {
-									final int copylen;
-									if (read + blocklen > len) {
-										copylen = len - read;
-									} else {
-										copylen = blocklen;
-									}
-									System.arraycopy(blockBytes, 0, fill, fillOff + read, copylen);
-									read += copylen;
-								} finally {
-									ba.unloadBlock(block);
-								}
-							}
+				final int blocktableEnd = byteArrToInt(bl, offset + FILE_DATA_TABLE_END_PNTR_OFFSET);
+				final int myMod = (int) (off % blocklen);
+				int posInTable = offset + FILE_EMPTY_SIZE;
+				for (long skip = off / blocklen; skip > 0; posInTable += 16) {
+					assert posInTable - 16 <= blocktableEnd;
+					final long start = byteArrToLong(bl, posInTable);
+					final long end = byteArrToLong(bl, posInTable + 8);
+					final long length = end - start;
+					long newSkip = skip - length;
+					if (newSkip < 0) {
+						long block = end + /* newSkip is negative */newSkip;
+						newSkip = block - start;
+						byte[] blockBytes = ba.loadBlock(block);
+						try {
+							first = false;
+							final int copylen = blocklen - myMod;
+							System.arraycopy(blockBytes, myMod, fill, fillOff + read, copylen);
+							read += copylen;
+						} finally {
+							ba.unloadBlock(block);
 						}
-						skip = newSkip;
-					}
-					for (; read < len; posInTable += 16) {
-						final long start = byteArrToLong(blocktableBytes, posInTable);
-						final long end = byteArrToLong(blocktableBytes, posInTable + 8);
-						assert end - start > 0;
-						for (long block = start; block < end && read < len; block ++ ) {
-							byte[] blockBytes = ba.loadBlock(block);
+						for (block ++ ; block < end && read < len; block ++ ) {
+							blockBytes = ba.loadBlock(block);
 							try {
-								int copylen = blocklen;
-								if (first) {
-									copylen -= myMod;
-								}
+								final int copylen;
 								if (read + blocklen > len) {
 									copylen = len - read;
+								} else {
+									copylen = blocklen;
 								}
-								System.arraycopy(blockBytes, first ? myMod : 0, fill, fillOff + read, copylen);
-								first = false;
+								System.arraycopy(blockBytes, 0, fill, fillOff + read, copylen);
 								read += copylen;
 							} finally {
 								ba.unloadBlock(block);
 							}
 						}
 					}
-					assert read == len;
-					assert posInTable <= blocktableEnd;
-				} finally {
-					if (blocktable != block) {
-						ba.unloadBlock(blocktable);
+					skip = newSkip;
+				}
+				for (; read < len; posInTable += 16) {
+					final long start = byteArrToLong(bl, posInTable);
+					final long end = byteArrToLong(bl, posInTable + 8);
+					assert end - start > 0 : "start=" + start + ", end=" + end;
+					for (long block = start; block < end && read < len; block ++ ) {
+						byte[] blockBytes = ba.loadBlock(block);
+						try {
+							int copylen = blocklen;
+							if (first) {
+								copylen -= myMod;
+							}
+							if (read + blocklen > len) {
+								copylen = len - read;
+							}
+							System.arraycopy(blockBytes, first ? myMod : 0, fill, fillOff + read, copylen);
+							first = false;
+							read += copylen;
+						} finally {
+							ba.unloadBlock(block);
+						}
 					}
 				}
+				assert read == len;
+				assert posInTable - 16 <= blocktableEnd;
 			} finally {
 				ba.unloadBlock(block);
 			}
@@ -737,75 +715,69 @@ public class PatrFileSys {
 				}
 				int wrote = 0;
 				int blocklen = bl.length;
-				final long blocktable = byteArrToLong(bl, offset + FILE_DATA_TABLE_BLOCK_OFFSET);
 				final int blocktableEnd = byteArrToInt(bl, offset + FILE_DATA_TABLE_END_PNTR_OFFSET);
-				final byte[] blocktableBytes = ba.loadBlock(blocktable);
-				try {
-					final int myMod = (int) (off % blocklen);
-					boolean first = true;
-					int i = 0;
-					for (long skip = off / blocklen; skip > 0; i += 16) {
-						assert i <= blocktableEnd;
-						final long start = byteArrToLong(blocktableBytes, i);
-						final long end = byteArrToLong(blocktableBytes, i + 8);
-						final long length = end - start;
-						long newSkip = skip - length;
-						if (newSkip < 0) {
-							long block = end + /* newSkip is negative */newSkip;
-							newSkip = block - start;
-							byte[] blockBytes = ba.loadBlock(block);
-							try {
-								final int copylen = blocklen - myMod;
-								first = false;
-								System.arraycopy(data, dataOff + wrote, blockBytes, myMod, copylen);
-								wrote += copylen;
-							} finally {
-								ba.saveBlock(blockBytes, block);
-							}
-							for (block ++ ; block < end && wrote < len; block ++ ) {
-								blockBytes = ba.loadBlock(block);
-								try {
-									final int copylen;
-									if (wrote + blocklen > len) {
-										copylen = len - wrote;
-									} else {
-										copylen = blocklen;
-									}
-									System.arraycopy(data, dataOff + wrote, blockBytes, 0, copylen);
-									wrote += copylen;
-								} finally {
-									ba.saveBlock(blockBytes, block);
-								}
-							}
+				final int myMod = (int) (off % blocklen);
+				boolean first = true;
+				int posInTable = offset + FILE_EMPTY_SIZE;
+				for (long skip = off / blocklen; skip > 0; posInTable += 16) {
+					assert posInTable <= blocktableEnd;
+					final long start = byteArrToLong(bl, posInTable);
+					final long end = byteArrToLong(bl, posInTable + 8);
+					final long length = end - start;
+					long newSkip = skip - length;
+					if (newSkip < 0) {
+						long block = end + /* newSkip is negative */newSkip;
+						newSkip = block - start;
+						byte[] blockBytes = ba.loadBlock(block);
+						try {
+							final int copylen = blocklen - myMod;
+							first = false;
+							System.arraycopy(data, dataOff + wrote, blockBytes, myMod, copylen);
+							wrote += copylen;
+						} finally {
+							ba.saveBlock(blockBytes, block);
 						}
-						skip = newSkip;
-					}
-					for (; wrote < len; i += 16) {
-						final long start = byteArrToLong(blocktableBytes, i);
-						final long end = byteArrToLong(blocktableBytes, i + 8);
-						for (long block = start; block < end && wrote < len; block ++ ) {
-							byte[] blockBytes = ba.loadBlock(block);
+						for (block ++ ; block < end && wrote < len; block ++ ) {
+							blockBytes = ba.loadBlock(block);
 							try {
-								int copylen = blocklen;
-								if (first) {
-									copylen -= myMod;
-								}
-								if (wrote + copylen > len) {
+								final int copylen;
+								if (wrote + blocklen > len) {
 									copylen = len - wrote;
+								} else {
+									copylen = blocklen;
 								}
-								System.arraycopy(data, dataOff + wrote, blockBytes, first ? myMod : 0, copylen);
+								System.arraycopy(data, dataOff + wrote, blockBytes, 0, copylen);
 								wrote += copylen;
-								first = false;
 							} finally {
 								ba.saveBlock(blockBytes, block);
 							}
 						}
 					}
-					assert wrote == len;
-					assert i <= blocktableEnd;
-				} finally {
-					ba.unloadBlock(blocktable);
+					skip = newSkip;
 				}
+				for (; wrote < len; posInTable += 16) {
+					final long start = byteArrToLong(bl, posInTable);
+					final long end = byteArrToLong(bl, posInTable + 8);
+					for (long block = start; block < end && wrote < len; block ++ ) {
+						byte[] blockBytes = ba.loadBlock(block);
+						try {
+							int copylen = blocklen;
+							if (first) {
+								copylen -= myMod;
+							}
+							if (wrote + copylen > len) {
+								copylen = len - wrote;
+							}
+							System.arraycopy(data, dataOff + wrote, blockBytes, first ? myMod : 0, copylen);
+							wrote += copylen;
+							first = false;
+						} finally {
+							ba.saveBlock(blockBytes, block);
+						}
+					}
+				}
+				assert wrote == len;
+				assert posInTable - 16 <= blocktableEnd;
 			} finally {
 				ba.saveBlock(bl, block);
 			}
@@ -833,68 +805,63 @@ public class PatrFileSys {
 					}
 				}
 				int appended = 0;
-				final long dataTableBlock = byteArrToLong(bl, offset + FILE_DATA_TABLE_BLOCK_OFFSET);
-				byte[] dataTableBytes = ba.loadBlock(dataTableBlock);
+				boolean first = true;
+				if (oldMod != 0) {
+					final long oldLastBlock = byteArrToLong(bl, oldTableEnd + 8);
+					byte[] oldlastbl = ba.loadBlock(blocklen);
+					try {
+						int copyLen = (int) (blocklen - oldMod);
+						first = false;
+						int newAppended = appended + copyLen;
+						if (newAppended > len) {
+							copyLen = len - appended;
+							newAppended = appended + copyLen;
+						}
+						System.arraycopy(data, dataOff, oldlastbl, oldMod, copyLen);
+						appended = newAppended;
+					} finally {
+						ba.saveBlock(oldlastbl, oldLastBlock);
+					}
+				}
+				byte[] table = ba.loadBlock(1L);
+				LongLongOpenImpl[] newBlocks;
 				try {
-					boolean first = true;
-					if (oldMod != 0) {
-						final long oldLastBlock = byteArrToLong(bl, oldTableEnd + 8);
-						byte[] oldlastbl = ba.loadBlock(blocklen);
+					newBlocks = addBlocksToTable(table, addBlockCnt);
+				} finally {
+					ba.saveBlock(table, 1L);
+				}
+				int endPNTR = oldTableEnd;
+				for (int i = 0; i < newBlocks.length; i ++ ) {
+					endPNTR += 16;
+					final long start = newBlocks[i].first;
+					final long end = newBlocks[i].second;
+					longToByteArr(start, bl, endPNTR);
+					longToByteArr(end, bl, endPNTR + 8);
+					for (long block = start; block < end; block ++ ) {
+						byte[] blockBytes = ba.loadBlock(block);
 						try {
-							int copyLen = (int) (blocklen - oldMod);
-							first = false;
+							int copyLen = blocklen;
+							if (first) {
+								copyLen -= oldMod;
+							}
 							int newAppended = appended + copyLen;
 							if (newAppended > len) {
 								copyLen = len - appended;
 								newAppended = appended + copyLen;
 							}
-							System.arraycopy(data, dataOff, oldlastbl, oldMod, copyLen);
+							System.arraycopy(data, dataOff + appended, blockBytes, first ? oldMod : 0, copyLen);
+							first = false;
 							appended = newAppended;
 						} finally {
-							ba.saveBlock(oldlastbl, oldLastBlock);
+							// free blocks in finally, so it is ensured, that all in here used blocks are free after the method ended
+							ba.saveBlock(blockBytes, block);
 						}
 					}
-					byte[] table = ba.loadBlock(1L);
-					LongLongOpenImpl[] newBlocks;
-					try {
-						newBlocks = addBlocksToTable(table, addBlockCnt);
-					} finally {
-						ba.saveBlock(table, 1L);
-					}
-					int endPNTR = oldTableEnd;
-					for (int i = 0; i < newBlocks.length; i ++ , endPNTR += 16) {
-						final long start = newBlocks[i].first;
-						final long end = newBlocks[i].second;
-						longToByteArr(start, dataTableBytes, endPNTR);
-						longToByteArr(end, dataTableBytes, endPNTR + 8);
-						for (long block = start; block < end; block ++ ) {
-							byte[] blockBytes = ba.loadBlock(block);
-							try {
-								int copyLen = (int) blocklen;
-								if (first) {
-									copyLen -= oldMod;
-									first = false;
-								}
-								int newAppended = appended + copyLen;
-								if (newAppended > len) {
-									copyLen = len - appended;
-									newAppended = appended + copyLen;
-								}
-								System.arraycopy(data, dataOff + appended, blockBytes, 0, copyLen);
-								appended = newAppended;
-							} finally {
-								// free blocks in finally, so it is ensured, that all in here used blocks are free after the method ended
-								ba.saveBlock(blockBytes, block);
-							}
-						}
-					}
-					assert appended == len : "appended=" + appended + " len=" + len + " oldsize=" + oldSize + " newsize=" + newSize + " oldMod=" + oldMod + " addBlockCnt=" + addBlockCnt
-						+ " newBlocks.len=" + newBlocks.length + " newBlocks=" + Arrays.deepToString(newBlocks);
-					intToByteArr(endPNTR, bl, offset + FILE_DATA_TABLE_END_PNTR_OFFSET);
-					longToByteArr(newSize, bl, offset + FILE_SIZE_OFFSET);
-				} finally {
-					ba.saveBlock(dataTableBytes, dataTableBlock);
 				}
+				assert appended == len : "appended=" + appended + " len=" + len + " oldsize=" + oldSize + " newsize=" + newSize + " oldMod=" + oldMod + " addBlockCnt=" + addBlockCnt
+					+ " newBlocks.len=" + newBlocks.length + " newBlocks=" + Arrays.deepToString(newBlocks);
+				intToByteArr(endPNTR, bl, offset + FILE_DATA_TABLE_END_PNTR_OFFSET);
+				longToByteArr(newSize, bl, offset + FILE_SIZE_OFFSET);
 			} finally {
 				ba.saveBlock(bl, block);
 			}
@@ -916,33 +883,28 @@ public class PatrFileSys {
 					return;// don't need to free any blocks
 				}
 				final int oldTableEnd = byteArrToInt(bl, offset + FILE_DATA_TABLE_END_PNTR_OFFSET);
-				final long tableBlock = byteArrToLong(bl, offset + FILE_DATA_TABLE_BLOCK_OFFSET);
 				final long remBlockCnt = oldBlocksCnt - newBlocksCnt;
 				long removedBlocks = 0;
 				byte[] table = ba.loadBlock(1L);
 				try {
-					byte[] myTable = ba.loadBlock(tableBlock);
-					try {
-						for (int off = oldTableEnd - 16; removedBlocks < remBlockCnt; off -= 16) {
-							final long start = byteArrToLong(myTable, off);
-							final long end = byteArrToLong(myTable, off + 8);
-							final long dif = end - start;
-							long newRemovedBlocks = removedBlocks + dif;
-							if (newRemovedBlocks > remBlockCnt) {
-								final long newDif = remBlockCnt - removedBlocks;
-								final long newEnd = start + newDif;
-								longToByteArr(newEnd, bl, off + 8);
-								newRemovedBlocks = removedBlocks + newDif;
-								removeBlocksFromTable(table, newEnd, end);
-							} else {
-								removeBlocksFromTable(table, start, end);
-							}
-							removedBlocks = newRemovedBlocks;
+					for (int off = oldTableEnd; removedBlocks < remBlockCnt; off -= 16) {
+						assert off >= offset + FILE_EMPTY_SIZE;
+						final long start = byteArrToLong(bl, off);
+						final long end = byteArrToLong(bl, off + 8);
+						final long dif = end - start;
+						long newRemovedBlocks = removedBlocks + dif;
+						if (newRemovedBlocks > remBlockCnt) {
+							final long newDif = remBlockCnt - removedBlocks;
+							final long newEnd = start + newDif;
+							longToByteArr(newEnd, bl, off + 8);
+							newRemovedBlocks = removedBlocks + newDif;
+							removeBlocksFromTable(table, newEnd, end);
+						} else {
+							removeBlocksFromTable(table, start, end);
 						}
-						assert remBlockCnt == removedBlocks;
-					} finally {
-						ba.saveBlock(myTable, tableBlock);
+						removedBlocks = newRemovedBlocks;
 					}
+					assert remBlockCnt == removedBlocks;
 				} finally {
 					ba.saveBlock(table, 1L);
 				}
@@ -950,6 +912,7 @@ public class PatrFileSys {
 				ba.saveBlock(bl, block);
 			}
 		}
+		
 	}
 	
 	public class FolderElement {
