@@ -35,7 +35,8 @@ public class PatrFileSysChecker extends Checker {
 	@Check
 	private void check() throws IOException {
 		ba = new BlockAccessorByteArrayArrayImpl(16, 256);
-		pfs = PatrFileSys.createNewFileSys(ba, 16);
+		PatrFileSys.format(ba, 16);
+		pfs = new PatrFileSys(ba);
 		PatrFolder root = pfs.rootFolder();
 		FolderElement element = root.addElement("myFirstFile.txt", true);
 		assertEquals("myFirstFile.txt", element.getName());

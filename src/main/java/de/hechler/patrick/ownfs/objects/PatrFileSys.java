@@ -38,7 +38,7 @@ public class PatrFileSys {
 	/**
 	 * creates a new {@link PatrFileSys} instance for an existing Patr-File-Sys.<br>
 	 * 
-	 * to create a complete new Patr-File-System call {@link #createNewFileSys(BlockAccessor)}.
+	 * to create a complete new Patr-File-System use {@link #format(BlockAccessor, long)}.
 	 * 
 	 * @param ba
 	 *            the {@link BlockAccessor} of an existing Patr-File-Sys.
@@ -46,21 +46,6 @@ public class PatrFileSys {
 	public PatrFileSys(BlockAccessor ba) {
 		this.ba = ba;
 		this.BLOCK_INTERN_TABLE_TABLE_ALLOC_ENTRY_OFFSET = ba.blockSize() - 8;
-	}
-	
-	/**
-	 * creates a complete new Patr-File-System and returns a {@link PatrFileSys} instance using the new created Patr-File-Sys.<br>
-	 * 
-	 * to create a {@link PatrFileSys} object for an existing Patr-File-Sys call instead the constructor {@link #PatrFileSys(BlockAccessor)}.
-	 * 
-	 * @param bl
-	 *            the {@link BlockAccessor} used to generate the new Patr-File-Sys
-	 * @return a new {@link PatrFileSys} object using the new Patr-File-Sys on the {@link BlockAccessor}
-	 * @throws IOException
-	 */
-	public static PatrFileSys createNewFileSys(BlockAccessor bl, long blockCnt) throws IOException {
-		format(bl, blockCnt);
-		return new PatrFileSys(bl);
 	}
 	
 	/**
