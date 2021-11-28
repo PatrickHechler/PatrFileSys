@@ -1,0 +1,10 @@
+TARGET	=	target-value
+
+$(TARGET):
+	echo make target: $(TARGET)
+
+all:
+	$(TARGET)
+
+clear:
+	echo clearing

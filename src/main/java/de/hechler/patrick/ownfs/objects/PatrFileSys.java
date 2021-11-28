@@ -519,12 +519,21 @@ public class PatrFileSys implements Cloneable {
 		}
 		
 		public void forEachElement(Consumer <FolderElement> c) throws IOException {
-			byte[] bl = ba.loadBlock(block);
+			byte[] bl;
+			{
+				byte[] _bl = ba.loadBlock(block);
+				try {
+					final int len = _bl.length;
+					bl = new byte[len];
+					System.arraycopy(_bl, 0, bl, 0, len);
+				} finally {
+					ba.unloadBlock(block);
+				}
+			}
 			final int end = (byteArrToInt(bl, offset + FOLDER_COUNT_ELEMENTS_OFFSET) * FolderElement.ELEMENT_SIZE) + offset + FOLDER_ELEMENTS_OFFSET;
 			for (int off = offset + FOLDER_ELEMENTS_OFFSET; off < end; off += FolderElement.ELEMENT_SIZE) {
 				c.accept(new FolderElement(block, off));
 			}
-			ba.unloadBlock(block);
 		}
 		
 		public int elementCount() throws IOException {
@@ -796,7 +805,7 @@ public class PatrFileSys implements Cloneable {
 				final int blocklen = bl.length;
 				final int oldMod = (int) (oldSize % (long) blocklen);
 				{
-					long add = oldMod + newSize;
+					long add = (newSize - oldSize) + oldMod;
 					long div = add / blocklen;
 					if (add % blocklen != 0) {
 						addBlockCnt = div + 1;
@@ -1211,14 +1220,14 @@ public class PatrFileSys implements Cloneable {
 		List <LongLongOpenImpl> lls = new ArrayList <>();
 		final int tableEndPNTR = byteArrToInt(table, SECOND_BLOCK_LAST_ENTRY_OFFSET);
 		final long blockCnt = byteArrToLong(table, SECOND_BLOCK_BLOCK_COUNT_OFFSET);
-		for (int i = SECOND_BLOCK_TABLE_OFFSET + 8;; i += 16) {
-			final boolean stop = i > tableEndPNTR;
-			final long prev = byteArrToLong(table, i);
+		for (int posInTable = SECOND_BLOCK_TABLE_OFFSET + 8;; posInTable += 16) {
+			final boolean stop = posInTable > tableEndPNTR;
+			final long prev = byteArrToLong(table, posInTable);
 			final long next;
 			if (stop) {
 				next = blockCnt;
 			} else {
-				next = byteArrToLong(table, i + 8);
+				next = byteArrToLong(table, posInTable + 8);
 			}
 			final long free = next - prev;
 			final long use;
@@ -1228,13 +1237,15 @@ public class PatrFileSys implements Cloneable {
 				use = need;
 				myStart = prev;
 				myEnd = prev + use;
-				longToByteArr(myEnd, table, i);
+				longToByteArr(myEnd, table, posInTable);
 			} else {
 				use = free;
 				myStart = prev;
 				myEnd = next;
-				i -= 16;
-				System.arraycopy(table, i + 8, table, i - 8, tableEndPNTR - i);
+				if (posInTable > SECOND_BLOCK_TABLE_OFFSET + 8) {
+					System.arraycopy(table, posInTable + 8, table, posInTable - 8, tableEndPNTR - posInTable);
+				}
+				posInTable -= 16;
 			}
 			lls.add(new LongLongOpenImpl(myStart, myEnd));
 			need -= use;
