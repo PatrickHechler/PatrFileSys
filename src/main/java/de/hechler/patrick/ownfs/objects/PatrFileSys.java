@@ -235,8 +235,8 @@ public class PatrFileSys implements Cloneable {
 				}
 				// aktuelle Größe berechnen
 				final int oldElementCount = byteArrToInt(obl, offset + FOLDER_COUNT_ELEMENTS_OFFSET);
-				final int oldSize = FOLDER_EMPTY_SIZE + FolderElement.ELEMENT_SIZE * oldElementCount;
-				final int newSize = oldSize + FolderElement.ELEMENT_SIZE;
+				final int oldSize = FOLDER_EMPTY_SIZE + FolderElement.SIZE * oldElementCount;
+				final int newSize = oldSize + FolderElement.SIZE;
 				final int newoffset;
 				final long newblock;
 				byte[] nbl;
@@ -296,7 +296,7 @@ public class PatrFileSys implements Cloneable {
 								}
 								try {
 									final int pElementCnt = byteArrToInt(pbl, poffset + FOLDER_COUNT_ELEMENTS_OFFSET);
-									for (int i = poffset + FOLDER_ELEMENTS_OFFSET, cnt = 0;; i += FolderElement.ELEMENT_SIZE, cnt ++ ) {
+									for (int i = poffset + FOLDER_ELEMENTS_OFFSET, cnt = 0;; i += FolderElement.SIZE, cnt ++ ) {
 										assert cnt < pElementCnt;
 										final long sblock = byteArrToLong(pbl, i + FolderElement.ELEMENT_BLOCK_OFFSET);
 										final int soffset = byteArrToInt(pbl, i + FolderElement.ELEMENT_POS_OFFSET);
@@ -385,7 +385,7 @@ public class PatrFileSys implements Cloneable {
 							try {
 								longToByteArr(System.currentTimeMillis(), fileBlockBytes, fileOffset + PatrFile.FILE_LAST_MOD_OFFSET);
 								intToByteArr(fileOffset + PatrFile.FILE_EMPTY_SIZE - 16, fileBlockBytes, fileOffset + PatrFile.FILE_DATA_TABLE_END_PNTR_OFFSET);
-								longToByteArr(0L, fileBlockBytes, fileOffset + PatrFile.FILE_SIZE_OFFSET);
+								longToByteArr(0L, fileBlockBytes, fileOffset + PatrFile.FILE_BYTE_COUNT_OFFSET);
 								longToByteArr(PatrFile.NO_LOCK, fileBlockBytes, fileOffset + PatrFile.FILE_LOCK_OFFSET);
 								childBlock = fileBlock;
 								childOffset = fileOffset;
@@ -451,7 +451,7 @@ public class PatrFileSys implements Cloneable {
 			try {
 				final int oldChildCnt = byteArrToInt(bl, this.offset + FOLDER_COUNT_ELEMENTS_OFFSET);
 				final int oldChildStart = byteArrToInt(bl, this.offset + FOLDER_ELEMENTS_OFFSET);
-				if (fe.block != this.block || this.offset > fe.offset || fe.offset < oldChildCnt * FolderElement.ELEMENT_SIZE + offset + oldChildStart) {
+				if (fe.block != this.block || this.offset > fe.offset || fe.offset < oldChildCnt * FolderElement.SIZE + offset + oldChildStart) {
 					throw new IllegalArgumentException("I can only remove my Elements!");
 				}
 				int flags = byteArrToInt(bl, fe.offset + FolderElement.ELEMENT_FLAGS_OFFSET);
@@ -530,8 +530,8 @@ public class PatrFileSys implements Cloneable {
 					ba.unloadBlock(block);
 				}
 			}
-			final int end = (byteArrToInt(bl, offset + FOLDER_COUNT_ELEMENTS_OFFSET) * FolderElement.ELEMENT_SIZE) + offset + FOLDER_ELEMENTS_OFFSET;
-			for (int off = offset + FOLDER_ELEMENTS_OFFSET; off < end; off += FolderElement.ELEMENT_SIZE) {
+			final int end = (byteArrToInt(bl, offset + FOLDER_COUNT_ELEMENTS_OFFSET) * FolderElement.SIZE) + offset + FOLDER_ELEMENTS_OFFSET;
+			for (int off = offset + FOLDER_ELEMENTS_OFFSET; off < end; off += FolderElement.SIZE) {
 				c.accept(new FolderElement(block, off));
 			}
 		}
@@ -549,15 +549,17 @@ public class PatrFileSys implements Cloneable {
 		
 		public static final long NO_LOCK = -1L;
 		
-		private static final int FILE_SIZE_OFFSET                = 0;
-		private static final int FILE_LOCK_OFFSET                = FILE_SIZE_OFFSET + 8;
+		private static final int FILE_BYTE_COUNT_OFFSET                = 0;
+		private static final int FILE_LOCK_OFFSET                = FILE_BYTE_COUNT_OFFSET + 8;
 		private static final int FILE_LAST_MOD_OFFSET            = FILE_LOCK_OFFSET + 8;
 		private static final int FILE_DATA_TABLE_END_PNTR_OFFSET = FILE_LAST_MOD_OFFSET + 8;
-		private static final int FILE_EMPTY_SIZE                 = FILE_DATA_TABLE_END_PNTR_OFFSET + 4;
+		private static final int FILE_PARENT_BLOCK_OFFSET        = FILE_DATA_TABLE_END_PNTR_OFFSET + 4;
+		private static final int FILE_PARENT_OFFSET_POS_OFFSET   = FILE_PARENT_BLOCK_OFFSET + 8;
+		private static final int FILE_EMPTY_SIZE                 = FILE_PARENT_OFFSET_POS_OFFSET + 4;
 		
-		private final long block;
-		private final int  offset;
-		private boolean    autoSetLM;
+		private long    block;
+		private int     offset;
+		private boolean autoSetLM;
 		
 		
 		
@@ -629,15 +631,26 @@ public class PatrFileSys implements Cloneable {
 		
 		public long size() throws IOException {
 			byte[] bl = ba.loadBlock(block);
-			long size = byteArrToLong(bl, offset + FILE_SIZE_OFFSET);
+			long size = byteArrToLong(bl, offset + FILE_BYTE_COUNT_OFFSET);
 			ba.unloadBlock(block);
 			return size;
+		}
+		
+		public PatrFolder getParent() throws IOException {
+			byte[] bl = ba.loadBlock(block);
+			try {
+				long pblock = byteArrToLong(bl, offset + FILE_PARENT_BLOCK_OFFSET);
+				int poff = byteArrToInt(bl, offset + FILE_PARENT_OFFSET_POS_OFFSET);
+				return new PatrFolder(pblock, poff);
+			} finally {
+				ba.unloadBlock(block);
+			}
 		}
 		
 		public void read(byte[] fill, final int fillOff, final long off, final int len) throws IOException {
 			byte[] bl = ba.loadBlock(block);
 			try {
-				final long size = byteArrToLong(bl, offset + FILE_SIZE_OFFSET);
+				final long size = byteArrToLong(bl, offset + FILE_BYTE_COUNT_OFFSET);
 				if (fillOff < 0 || off < 0 || len < 0 || fill.length < fillOff + len || off + len > size) {
 					throw new IllegalArgumentException("fillOff=" + fillOff + " off=" + off + " len=" + len + " mySize=" + size + " fill.length=" + fill.length);
 				}
@@ -715,7 +728,7 @@ public class PatrFileSys implements Cloneable {
 		public void overwrite(final byte[] data, final int dataOff, final long off, final int len) throws IOException {
 			byte[] bl = ba.loadBlock(block);
 			try {
-				final long size = byteArrToLong(bl, offset + FILE_SIZE_OFFSET);
+				final long size = byteArrToLong(bl, offset + FILE_BYTE_COUNT_OFFSET);
 				if (dataOff < 0 || off < 0 || len < 0 || data.length < dataOff + len || off + len > size) {
 					throw new IllegalArgumentException("dataOff=" + dataOff + " off=" + off + " len=" + len + " mySize=" + size + " data.length=" + data.length);
 				}
@@ -797,10 +810,12 @@ public class PatrFileSys implements Cloneable {
 				throw new IllegalArgumentException("dataOff=" + dataOff + " len=" + len + " data.length=" + data.length);
 			}
 			byte[] bl = ba.loadBlock(block);
+			final int oldOffset = offset;
+			final long oldBlock = block;
 			try {
-				final long oldSize = byteArrToLong(bl, offset + FILE_SIZE_OFFSET);
+				final long oldSize = byteArrToLong(bl, offset + FILE_BYTE_COUNT_OFFSET);
 				final long newSize = oldSize + len;
-				final int oldTableEnd = byteArrToInt(bl, offset + FILE_DATA_TABLE_END_PNTR_OFFSET);
+				final int oldDataTableTableEndPNTR = byteArrToInt(bl, offset + FILE_DATA_TABLE_END_PNTR_OFFSET);
 				final long addBlockCnt;
 				final int blocklen = bl.length;
 				final int oldMod = (int) (oldSize % (long) blocklen);
@@ -815,8 +830,9 @@ public class PatrFileSys implements Cloneable {
 				}
 				int appended = 0;
 				boolean first = true;
+				final int oldLastEnd = oldDataTableTableEndPNTR + 8;
 				if (oldMod != 0) {
-					final long oldLastBlock = byteArrToLong(bl, oldTableEnd + 8);
+					final long oldLastBlock = byteArrToLong(bl, oldLastEnd);
 					byte[] oldlastbl = ba.loadBlock(blocklen);
 					try {
 						int copyLen = (int) (blocklen - oldMod);
@@ -839,52 +855,131 @@ public class PatrFileSys implements Cloneable {
 				} finally {
 					ba.saveBlock(table, 1L);
 				}
-				int endPNTR = oldTableEnd;
-				for (int i = 0; i < newBlocks.length; i ++ ) {
-					endPNTR += 16;
-					final long start = newBlocks[i].first;
-					final long end = newBlocks[i].second;
-					longToByteArr(start, bl, endPNTR);
-					longToByteArr(end, bl, endPNTR + 8);
-					for (long block = start; block < end; block ++ ) {
-						byte[] blockBytes = ba.loadBlock(block);
+				int endPNTR = oldDataTableTableEndPNTR;
+				int newBlocksIndex = 0;
+				if (oldDataTableTableEndPNTR > offset + FILE_EMPTY_SIZE) {
+					final long start = newBlocks[newBlocksIndex].first;
+					final long prev = byteArrToLong(bl, oldLastEnd);
+					if (start == prev) {
+						final long end = newBlocks[newBlocksIndex].second;
+						longToByteArr(end, table, oldLastEnd);
+						newBlocksIndex ++ ;
+					}
+				}
+				final int oldMemorySize = oldLastEnd - offset;
+				int addMemorySize = (newBlocks.length - newBlocksIndex) * 16;
+				if (addMemorySize > 0) {
+					@SuppressWarnings("unused")
+					final int newOffset;
+					final long newBlock;
+					byte[] nbl = bl;
+					{
+						int _newOffset;
+						long _newBlock;
+						final int newMemorySize = oldMemorySize + addMemorySize;
 						try {
-							int copyLen = blocklen;
-							if (first) {
-								copyLen -= oldMod;
+							_newOffset = resize(bl, newMemorySize, oldOffset);
+							_newBlock = oldBlock;
+						} catch (OutOfMemoryError e) {
+							resize(bl, 0, oldOffset);
+							table = ba.loadBlock(1L);
+							try {
+								LongLongOpenImpl[] addedBlock = addBlocksToTable(table, 1L);
+								assert addedBlock.length == 1;
+								final long addblock = addedBlock[0].first;
+								assert addedBlock[0].second - addblock == 1;
+								nbl = ba.loadBlock(addblock);
+								try {
+									initBlock(nbl, newMemorySize);
+									System.arraycopy(bl, oldOffset, nbl, 0, oldMemorySize);
+								} catch (Throwable t) {
+									ba.unloadBlock(addblock);
+									throw t;
+								}
+								block = _newBlock = addblock;
+								offset = _newOffset = 0;
+								final long pblock = byteArrToLong(nbl, FILE_PARENT_BLOCK_OFFSET);
+								final int poffset = byteArrToInt(nbl, FILE_PARENT_OFFSET_POS_OFFSET);
+								byte[] pblockBytes;
+								if (pblock == oldBlock) {
+									pblockBytes = bl;
+								} else {
+									pblockBytes = ba.loadBlock(pblock);
+								}
+								try {
+									for (int poff = poffset + PatrFolder.FOLDER_EMPTY_SIZE;; poff += FolderElement.SIZE) {
+										long pcblock = byteArrToLong(pblockBytes, poff + FolderElement.ELEMENT_BLOCK_OFFSET);
+										int pcoffset = byteArrToInt(pblockBytes, poff + FolderElement.ELEMENT_POS_OFFSET);
+										if (pcblock != oldBlock || pcoffset != oldOffset) {
+											continue;
+										}
+										longToByteArr(_newBlock, pblockBytes, poff + FolderElement.ELEMENT_BLOCK_OFFSET);
+										intToByteArr(_newOffset, pblockBytes, poff + FolderElement.ELEMENT_POS_OFFSET);
+									}
+								} finally {
+									if (pblock != oldBlock) {
+										ba.saveBlock(pblockBytes, pblock);
+									}
+								}
+							} finally {
+								ba.saveBlock(table, 1L);
 							}
-							int newAppended = appended + copyLen;
-							if (newAppended > len) {
-								copyLen = len - appended;
-								newAppended = appended + copyLen;
+						}
+						newOffset = _newOffset;
+						newBlock = _newBlock;
+					}
+					try {
+						for (; newBlocksIndex < newBlocks.length; newBlocksIndex ++ ) {
+							endPNTR += 16;
+							final long start = newBlocks[newBlocksIndex].first;
+							final long end = newBlocks[newBlocksIndex].second;
+							longToByteArr(start, nbl, endPNTR);
+							longToByteArr(end, nbl, endPNTR + 8);
+							for (long block = start; block < end; block ++ ) {
+								byte[] blockBytes = ba.loadBlock(block);
+								try {
+									int copyLen = blocklen;
+									if (first) {
+										copyLen -= oldMod;
+									}
+									int newAppended = appended + copyLen;
+									if (newAppended > len) {
+										copyLen = len - appended;
+										newAppended = appended + copyLen;
+									}
+									System.arraycopy(data, dataOff + appended, blockBytes, first ? oldMod : 0, copyLen);
+									first = false;
+									appended = newAppended;
+								} finally {
+									// free blocks in finally, so it is ensured, that all in here used blocks are free after the method ended
+									ba.saveBlock(blockBytes, block);
+								}
 							}
-							System.arraycopy(data, dataOff + appended, blockBytes, first ? oldMod : 0, copyLen);
-							first = false;
-							appended = newAppended;
-						} finally {
-							// free blocks in finally, so it is ensured, that all in here used blocks are free after the method ended
-							ba.saveBlock(blockBytes, block);
+						}
+						assert appended == len : "appended=" + appended + " len=" + len + " oldsize=" + oldSize + " newsize=" + newSize + " oldMod=" + oldMod + " addBlockCnt=" + addBlockCnt
+							+ " newBlocks.len=" + newBlocks.length + " newBlocks=" + Arrays.deepToString(newBlocks);
+						intToByteArr(endPNTR, nbl, offset + FILE_DATA_TABLE_END_PNTR_OFFSET);
+						longToByteArr(newSize, nbl, offset + FILE_BYTE_COUNT_OFFSET);
+					} finally {
+						if (newBlock != oldBlock) {
+							ba.saveBlock(nbl, newBlock);
 						}
 					}
 				}
-				assert appended == len : "appended=" + appended + " len=" + len + " oldsize=" + oldSize + " newsize=" + newSize + " oldMod=" + oldMod + " addBlockCnt=" + addBlockCnt
-					+ " newBlocks.len=" + newBlocks.length + " newBlocks=" + Arrays.deepToString(newBlocks);
-				intToByteArr(endPNTR, bl, offset + FILE_DATA_TABLE_END_PNTR_OFFSET);
-				longToByteArr(newSize, bl, offset + FILE_SIZE_OFFSET);
 			} finally {
-				ba.saveBlock(bl, block);
+				ba.saveBlock(bl, oldBlock);
 			}
 		}
 		
 		public void remove(long rem) throws IOException {
 			byte[] bl = ba.loadBlock(block);
 			try {
-				final long oldsize = byteArrToLong(bl, offset + FILE_SIZE_OFFSET);
+				final long oldsize = byteArrToLong(bl, offset + FILE_BYTE_COUNT_OFFSET);
 				final long newsize = oldsize - rem;
 				if (newsize < 0) {
 					throw new IllegalArgumentException("can not remove more bytes than I have! mysize=" + oldsize + " remove=" + rem + " notNewSize=" + newsize);
 				}
-				longToByteArr(newsize, bl, offset + FILE_SIZE_OFFSET);
+				longToByteArr(newsize, bl, offset + FILE_BYTE_COUNT_OFFSET);
 				final int blocksize = bl.length;
 				final long oldBlocksCnt = oldsize / blocksize;
 				final long newBlocksCnt = newsize / blocksize;
@@ -935,7 +1030,7 @@ public class PatrFileSys implements Cloneable {
 		private static final int ELEMENT_NAME_PNTR_OFFSET = ELEMENT_FLAGS_OFFSET + 4;
 		private static final int ELEMENT_BLOCK_OFFSET     = ELEMENT_NAME_PNTR_OFFSET + 4;
 		private static final int ELEMENT_POS_OFFSET       = ELEMENT_BLOCK_OFFSET + 8;
-		private static final int ELEMENT_SIZE             = ELEMENT_POS_OFFSET + 4;
+		private static final int SIZE                     = ELEMENT_POS_OFFSET + 4;
 		
 		private long block;
 		private int  offset;
@@ -1205,7 +1300,7 @@ public class PatrFileSys implements Cloneable {
 		for (int i = 0; i < bl.length; i ++ ) {
 			String byteHexNum = Integer.toHexString(0xFF & (int) bl[i]);
 			String iHexNum = Integer.toHexString(i);
-			System.err.print("block[" + iHexNum + "]=0x" + ( (byteHexNum.length() == 1) ? "0" : "") + byteHexNum);
+			System.err.print("block[" + iHexNum + '|' +  i + "]=0x" + ( (byteHexNum.length() == 1) ? "0" : "") + byteHexNum);
 			if ( (i & 3) == 0) {
 				int int32 = byteArrToInt(bl, i);
 				System.err.println("   int32=" + int32 + " == 0x" + Integer.toHexString(int32));
@@ -1362,12 +1457,13 @@ public class PatrFileSys implements Cloneable {
 		intToByteArr(blocklen, block, blocklen - 4);
 		final int firstEntry = blocklen - (8 * (1 + firstEntrys.length));
 		intToByteArr(firstEntry, block, blocklen - 8);
-		for (int off = firstEntry, i = 0, pos = 0; i < firstEntrys.length; i ++ , off += 4/* eigentlich + 8 */) {
+		int off = firstEntry, pos = 0;
+		for (int i = 0; i < firstEntrys.length; i ++ , off += 8) {
 			intToByteArr(pos, block, off);
 			pos += firstEntrys[i];
-			off += 4;
-			intToByteArr(pos, block, off);
+			intToByteArr(pos, block, off + 4);
 		}
+		assert pos <= off;
 	}
 	
 }
