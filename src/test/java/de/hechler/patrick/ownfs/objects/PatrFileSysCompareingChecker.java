@@ -37,6 +37,7 @@ public class PatrFileSysCompareingChecker extends Checker {
 	
 	@End
 	private void end() {
+		fs.close();
 		fs = null;
 	}
 	

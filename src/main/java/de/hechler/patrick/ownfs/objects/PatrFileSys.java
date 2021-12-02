@@ -5,11 +5,14 @@ import static de.hechler.patrick.zeugs.NumberConvert.byteArrToLong;
 import static de.hechler.patrick.zeugs.NumberConvert.intToByteArr;
 import static de.hechler.patrick.zeugs.NumberConvert.longToByteArr;
 
+import java.io.Closeable;
+import java.io.IOError;
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -17,15 +20,15 @@ import de.hechler.patrick.ownfs.interfaces.BlockAccessor;
 import de.hechler.patrick.zeugs.objects.LongLongOpenImpl;
 
 
-public class PatrFileSys implements Cloneable {
+public class PatrFileSys implements Closeable {
 	
-	private static final int FIRST_BLOCK_BLOCK_SIZE_OFFSET              = 0;
+	public static final int  FIRST_BLOCK_BLOCK_SIZE_OFFSET              = 0;
 	private static final int FIRST_BLOCK_ROOT_FOLDER_OFFSET_PNTR_OFFSET = FIRST_BLOCK_BLOCK_SIZE_OFFSET + 4;
 	private static final int FIRST_BLOCK_ROOT_FOLDER_BLOCK_PNTR_OFFSET  = FIRST_BLOCK_ROOT_FOLDER_OFFSET_PNTR_OFFSET + 4;
 	private static final int FIRST_BLOCK_START_END_OFFSET               = FIRST_BLOCK_ROOT_FOLDER_BLOCK_PNTR_OFFSET + 8;
 	
 	private static final int SECOND_BLOCK_LAST_ENTRY_OFFSET  = 0;
-	private static final int SECOND_BLOCK_BLOCK_COUNT_OFFSET = SECOND_BLOCK_LAST_ENTRY_OFFSET + 4;
+	public static final int  SECOND_BLOCK_BLOCK_COUNT_OFFSET = SECOND_BLOCK_LAST_ENTRY_OFFSET + 4;
 	private static final int SECOND_BLOCK_TABLE_OFFSET       = SECOND_BLOCK_BLOCK_COUNT_OFFSET + 8;
 	
 	
@@ -127,6 +130,7 @@ public class PatrFileSys implements Cloneable {
 		return new PatrFolder(block, offset);
 	}
 	
+	@Override
 	public void close() {
 		this.ba.close();
 	}
@@ -145,7 +149,7 @@ public class PatrFileSys implements Cloneable {
 		return ba.equals(other.ba);
 	}
 	
-	public class PatrFolder {
+	public class PatrFolder implements Iterable <FolderElement> {
 		
 		private static final int FOLDER_COUNT_ELEMENTS_OFFSET = 0;
 		private static final int FOLDER_PARENT_BLOCK_OFFSET   = FOLDER_COUNT_ELEMENTS_OFFSET + 4;
@@ -225,6 +229,10 @@ public class PatrFileSys implements Cloneable {
 		}
 		
 		public FolderElement addElement(final String name, final boolean file) throws IOException, OutOfMemoryError {
+			return addElement(name, file ? FolderElement.ELEMENT_FLAG_FILE : 0);
+		}
+		
+		public FolderElement addElement(final String name, final int flags) throws IOException, OutOfMemoryError {
 			final long oldblock = block;
 			final int oldoffset = offset;
 			byte[] obl = ba.loadBlock(oldblock);
@@ -361,7 +369,7 @@ public class PatrFileSys implements Cloneable {
 						nfe = new FolderElement(newblock, nfeoffset);
 						final int childOffset;
 						final long childBlock;
-						if (file) {
+						if ((flags & FolderElement.ELEMENT_FLAG_FILE) != 0) {
 							int fileOffset;
 							long fileBlock;
 							byte[] fileBlockBytes = nbl;
@@ -422,7 +430,6 @@ public class PatrFileSys implements Cloneable {
 						}
 						intToByteArr(childOffset, nbl, nfe.offset + FolderElement.ELEMENT_POS_OFFSET);
 						longToByteArr(childBlock, nbl, nfe.offset + FolderElement.ELEMENT_BLOCK_OFFSET);
-						final int flags = (file ? FolderElement.ELEMENT_FLAG_FILE : 0);
 						intToByteArr(flags, nbl, nfe.offset + FolderElement.ELEMENT_FLAGS_OFFSET);
 						intToByteArr(namePNTR, nbl, nfe.offset + FolderElement.ELEMENT_NAME_PNTR_OFFSET);
 						// } finally {
@@ -519,28 +526,86 @@ public class PatrFileSys implements Cloneable {
 		}
 		
 		public void forEachElement(Consumer <FolderElement> c) throws IOException {
-			byte[] bl;
+			byte[] copy;
+			final int endOff;
 			{
 				byte[] _bl = ba.loadBlock(block);
 				try {
-					final int len = _bl.length;
-					bl = new byte[len];
-					System.arraycopy(_bl, 0, bl, 0, len);
+					endOff = (byteArrToInt(_bl, offset + FOLDER_COUNT_ELEMENTS_OFFSET) * FolderElement.SIZE);
+					copy = new byte[endOff];
+					System.arraycopy(_bl, 0, copy, offset + FOLDER_ELEMENTS_OFFSET, endOff);
 				} finally {
 					ba.unloadBlock(block);
 				}
 			}
-			final int end = (byteArrToInt(bl, offset + FOLDER_COUNT_ELEMENTS_OFFSET) * FolderElement.SIZE) + offset + FOLDER_ELEMENTS_OFFSET;
-			for (int off = offset + FOLDER_ELEMENTS_OFFSET; off < end; off += FolderElement.SIZE) {
+			for (int off = 0; off < endOff; off += FolderElement.SIZE) {
 				c.accept(new FolderElement(block, off));
 			}
 		}
 		
 		public int elementCount() throws IOException {
 			byte[] bl = ba.loadBlock(block);
-			int cnt = byteArrToInt(bl, offset + FOLDER_COUNT_ELEMENTS_OFFSET);
-			ba.unloadBlock(block);
-			return cnt;
+			try {
+				int cnt = byteArrToInt(bl, offset + FOLDER_COUNT_ELEMENTS_OFFSET);
+				return cnt;
+			} finally {
+				ba.unloadBlock(block);
+			}
+		}
+		
+		@Override
+		public Iterator <FolderElement> iterator() {
+			try {
+				return new Iter(elementCount());
+			} catch (IOException e) {
+				throw new IOError(e);
+			}
+		}
+		
+		private class Iter implements Iterator <FolderElement> {
+			
+			private int  expectedOff;
+			private long expectedBlock;
+			private int  myOff;
+			private int  done;
+			private int  folders;
+			
+			private Iter(int elementCount) {
+				expectedOff = PatrFolder.this.offset;
+				expectedBlock = PatrFolder.this.block;
+				myOff = PatrFolder.this.offset + FOLDER_ELEMENTS_OFFSET;
+				done = 0;
+				folders = elementCount;
+			}
+			
+			@Override
+			public boolean hasNext() {
+				return done < folders;
+			}
+			
+			@Override
+			public FolderElement next() {
+				if (PatrFolder.this.offset != expectedOff || PatrFolder.this.block != expectedBlock) {
+					throw new AssertionError("my folder has not the expected position: expectedOffset=" + expectedOff + " offset=" + PatrFolder.this.offset + "expectedBlock=" + expectedBlock
+						+ " block=" + PatrFolder.this.block);
+				}
+				FolderElement fe = new FolderElement(PatrFolder.this.block, myOff);
+				myOff += FolderElement.SIZE;
+				done ++ ;
+				return fe;
+			}
+			
+			@Override
+			public void remove() {
+				try {
+					PatrFolder.this.removeElement(next());
+					expectedOff = PatrFolder.this.offset;
+					expectedBlock = PatrFolder.this.block;
+				} catch (IOException e) {
+					throw new IOError(e);
+				}
+			}
+			
 		}
 		
 	}
@@ -549,7 +614,7 @@ public class PatrFileSys implements Cloneable {
 		
 		public static final long NO_LOCK = -1L;
 		
-		private static final int FILE_BYTE_COUNT_OFFSET                = 0;
+		private static final int FILE_BYTE_COUNT_OFFSET          = 0;
 		private static final int FILE_LOCK_OFFSET                = FILE_BYTE_COUNT_OFFSET + 8;
 		private static final int FILE_LAST_MOD_OFFSET            = FILE_LOCK_OFFSET + 8;
 		private static final int FILE_DATA_TABLE_END_PNTR_OFFSET = FILE_LAST_MOD_OFFSET + 8;
@@ -571,11 +636,8 @@ public class PatrFileSys implements Cloneable {
 		
 		
 		
-		public void removeLoock() throws IOException {
-			byte[] bl = ba.loadBlock(block);
-			int lockpos = offset + FILE_LOCK_OFFSET;
-			longToByteArr(NO_LOCK, bl, lockpos);
-			ba.saveBlock(bl, block);
+		public void setLoock(final long lock) throws IOException {
+			setLoock(lock, false);
 		}
 		
 		public void setLoock(final long lock, final boolean suppressCheck) throws IOException {
@@ -589,6 +651,32 @@ public class PatrFileSys implements Cloneable {
 					}
 				}
 				longToByteArr(lock, bl, lockpos);
+			} finally {
+				ba.saveBlock(bl, block);
+			}
+		}
+		
+		/**
+		 * removes the lock of the file.<br>
+		 * 
+		 * if {@code lock} is not {@link #NO_LOCK} the given {@code lock} must be the old lock. If they are different a {@link IllegalStateException} will be thrown
+		 * 
+		 * @param lock
+		 *            the old lock or {@link #NO_LOCK}
+		 * @throws IOException
+		 *             if an IO error occurs
+		 * @throws IllegalStateException
+		 *             if the old {@code lock} is not the given {@code lock} and the given {@code lock} is not {@link #NO_LOCK}
+		 */
+		public void removeLoock(final long lock) throws IOException, IllegalStateException {
+			byte[] bl = ba.loadBlock(block);
+			try {
+				int lockpos = offset + FILE_LOCK_OFFSET;
+				final long oldlock = byteArrToLong(bl, lockpos);
+				if (lock != NO_LOCK && oldlock != lock) {
+					throw new IllegalStateException("lock already set: lock=" + oldlock + " notNewLock=" + lock);
+				}
+				longToByteArr(NO_LOCK, bl, lockpos);
 			} finally {
 				ba.saveBlock(bl, block);
 			}
@@ -857,7 +945,7 @@ public class PatrFileSys implements Cloneable {
 				}
 				int endPNTR = oldDataTableTableEndPNTR;
 				int newBlocksIndex = 0;
-				if (oldDataTableTableEndPNTR > offset + FILE_EMPTY_SIZE) {
+				if (oldLastEnd > offset + FILE_EMPTY_SIZE) {
 					final long start = newBlocks[newBlocksIndex].first;
 					final long prev = byteArrToLong(bl, oldLastEnd);
 					if (start == prev) {
@@ -866,10 +954,9 @@ public class PatrFileSys implements Cloneable {
 						newBlocksIndex ++ ;
 					}
 				}
-				final int oldMemorySize = oldLastEnd - offset;
+				final int oldMemorySize = oldDataTableTableEndPNTR - offset + 16;
 				int addMemorySize = (newBlocks.length - newBlocksIndex) * 16;
 				if (addMemorySize > 0) {
-					@SuppressWarnings("unused")
 					final int newOffset;
 					final long newBlock;
 					byte[] nbl = bl;
@@ -878,7 +965,7 @@ public class PatrFileSys implements Cloneable {
 						long _newBlock;
 						final int newMemorySize = oldMemorySize + addMemorySize;
 						try {
-							_newOffset = resize(bl, newMemorySize, oldOffset);
+							offset = _newOffset = resize(bl, newMemorySize, oldOffset);
 							_newBlock = oldBlock;
 						} catch (OutOfMemoryError e) {
 							resize(bl, 0, oldOffset);
@@ -891,7 +978,6 @@ public class PatrFileSys implements Cloneable {
 								nbl = ba.loadBlock(addblock);
 								try {
 									initBlock(nbl, newMemorySize);
-									System.arraycopy(bl, oldOffset, nbl, 0, oldMemorySize);
 								} catch (Throwable t) {
 									ba.unloadBlock(addblock);
 									throw t;
@@ -927,6 +1013,14 @@ public class PatrFileSys implements Cloneable {
 						}
 						newOffset = _newOffset;
 						newBlock = _newBlock;
+						try {
+							System.arraycopy(bl, oldOffset, nbl, newOffset, oldMemorySize);
+						} catch (Throwable t) {
+							if (oldBlock != newBlock) {
+								ba.unloadBlock(newBlock);
+							}
+							throw t;
+						}
 					}
 					try {
 						for (; newBlocksIndex < newBlocks.length; newBlocksIndex ++ ) {
@@ -958,8 +1052,8 @@ public class PatrFileSys implements Cloneable {
 						}
 						assert appended == len : "appended=" + appended + " len=" + len + " oldsize=" + oldSize + " newsize=" + newSize + " oldMod=" + oldMod + " addBlockCnt=" + addBlockCnt
 							+ " newBlocks.len=" + newBlocks.length + " newBlocks=" + Arrays.deepToString(newBlocks);
-						intToByteArr(endPNTR, nbl, offset + FILE_DATA_TABLE_END_PNTR_OFFSET);
-						longToByteArr(newSize, nbl, offset + FILE_BYTE_COUNT_OFFSET);
+						intToByteArr(endPNTR, nbl, newOffset + FILE_DATA_TABLE_END_PNTR_OFFSET);
+						longToByteArr(newSize, nbl, newOffset + FILE_BYTE_COUNT_OFFSET);
 					} finally {
 						if (newBlock != oldBlock) {
 							ba.saveBlock(nbl, newBlock);
@@ -1025,6 +1119,7 @@ public class PatrFileSys implements Cloneable {
 		public static final int ELEMENT_FLAG_HIDDEN     = 0x00000002;
 		public static final int ELEMENT_FLAG_PASSWORD   = 0x00000004;
 		public static final int ELEMENT_FLAG_EXECUTABLE = 0x00000008;
+		public static final int ELEMENT_FLAG_SYSTEM     = 0x00000010;
 		
 		private static final int ELEMENT_FLAGS_OFFSET     = 0;
 		private static final int ELEMENT_NAME_PNTR_OFFSET = ELEMENT_FLAGS_OFFSET + 4;
@@ -1300,7 +1395,7 @@ public class PatrFileSys implements Cloneable {
 		for (int i = 0; i < bl.length; i ++ ) {
 			String byteHexNum = Integer.toHexString(0xFF & (int) bl[i]);
 			String iHexNum = Integer.toHexString(i);
-			System.err.print("block[" + iHexNum + '|' +  i + "]=0x" + ( (byteHexNum.length() == 1) ? "0" : "") + byteHexNum);
+			System.err.print("block[" + iHexNum + '|' + i + "]=0x" + ( (byteHexNum.length() == 1) ? "0" : "") + byteHexNum);
 			if ( (i & 3) == 0) {
 				int int32 = byteArrToInt(bl, i);
 				System.err.println("   int32=" + int32 + " == 0x" + Integer.toHexString(int32));

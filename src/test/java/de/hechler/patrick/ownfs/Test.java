@@ -14,8 +14,9 @@ public class Test {
 	
 	public static void main(String[] args) {
 		BigCheckResult cr = Checker.checkAll(true, PatrFileSysChecker.class, BlockAccessorByteArrayArrayImplTest.class, PatrFileSysCompareingChecker.class);
-		cr.detailedPrint();
+		cr.print();
 		if (cr.wentUnexpected()) {
+			cr.detailedPrintUnexpected(System.err);
 			throw new Error("unexpected BigCheckResult: " + cr);
 		}
 	}

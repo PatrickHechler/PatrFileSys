@@ -78,11 +78,12 @@ public class BlockAccessorByteArrayArrayImpl implements BlockAccessor {
 	}
 	
 	@Override
+	@SuppressWarnings("unchecked")
 	public void saveAll() throws IOException, ClosedChannelException {
 		if (this.loaded == null) {
 			throw new ClosedChannelException();
 		}
-		for (Entry <Integer, byte[]> e : this.loaded.entrySet()) {
+		for (Entry <Integer, byte[]> e : this.loaded.entrySet().toArray(new Entry[this.loaded.size()])) {
 			saveBlock(e.getValue(), e.getKey().intValue());
 		}
 	}
