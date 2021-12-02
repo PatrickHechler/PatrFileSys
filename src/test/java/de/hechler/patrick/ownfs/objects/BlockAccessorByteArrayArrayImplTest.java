@@ -26,9 +26,11 @@ public class BlockAccessorByteArrayArrayImplTest extends Checker {
 
 		assertEquals(256, ba.blockSize());
 
+		@SuppressWarnings("resource")
 		BlockAccessorByteArrayArrayImpl ba512 = new BlockAccessorByteArrayArrayImpl(1, 512);
 		assertEquals(512, ba512.blockSize());
 		
+		@SuppressWarnings("resource")
 		BlockAccessorByteArrayArrayImpl ba32768 = new BlockAccessorByteArrayArrayImpl(1, 32768);
 		assertEquals(32768, ba32768.blockSize());
 
