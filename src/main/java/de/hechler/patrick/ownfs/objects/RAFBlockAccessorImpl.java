@@ -3,13 +3,15 @@ package de.hechler.patrick.ownfs.objects;
 import static de.hechler.patrick.zeugs.NumberConvert.byteArrToInt;
 import static de.hechler.patrick.zeugs.NumberConvert.byteArrToLong;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.io.SyncFailedException;
 import java.nio.channels.ClosedChannelException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import de.hechler.patrick.ownfs.interfaces.BlockAccessor;
 
@@ -20,6 +22,14 @@ public class RAFBlockAccessorImpl implements BlockAccessor {
 	private Map <Long, byte[]>     loaded;
 	private final RandomAccessFile raf;
 	
+	public RAFBlockAccessorImpl(File file, int blockSize, long blockCoutn) throws FileNotFoundException {
+		this(file, false, blockSize, blockCoutn);
+	}
+	
+	public RAFBlockAccessorImpl(File file, boolean syncronized, int blockSize, long blockCoutn) throws FileNotFoundException {
+		this(new RandomAccessFile(file, syncronized ? "rws" : "rw"), blockSize, blockCoutn);
+	}
+	
 	public RAFBlockAccessorImpl(RandomAccessFile raf, int blockSize, long blockCoutn) {
 		this.blockCount = blockCoutn;
 		this.blockSize = blockSize;
@@ -27,7 +37,7 @@ public class RAFBlockAccessorImpl implements BlockAccessor {
 		this.raf = raf;
 	}
 	
-	public RAFBlockAccessorImpl create(RandomAccessFile raf) throws IOException {
+	public RAFBlockAccessorImpl createExsisting(RandomAccessFile raf) throws IOException {
 		raf.seek(PatrFileSys.FIRST_BLOCK_BLOCK_SIZE_OFFSET);
 		byte[] bytes = new byte[8];
 		raf.read(bytes, 0, 4);
@@ -67,14 +77,18 @@ public class RAFBlockAccessorImpl implements BlockAccessor {
 		if (this.loaded == null) {
 			throw new ClosedChannelException();
 		}
-		final boolean removed = loaded.remove(Long.valueOf(block), value);
-		if ( !removed) {
+		saveBlock0(value, block, true);
+	}
+
+	private void saveBlock0(byte[] value, long block, boolean remove) throws IOException {
+		boolean notFound = remove ? loaded.remove(Long.valueOf(block), value) : (loaded.get(Long.valueOf(block)) == value);
+		if ( !notFound) {
 			throw new IOException("block not loaded");
 		}
 		this.raf.seek(block * this.blockSize);
 		this.raf.write(value, 0, this.blockSize);
 	}
-	
+
 	@Override
 	public void unloadBlock(long block) throws ClosedChannelException, IllegalStateException {
 		if (this.loaded == null) {
@@ -99,14 +113,18 @@ public class RAFBlockAccessorImpl implements BlockAccessor {
 	}
 	
 	@Override
-	@SuppressWarnings("unchecked")
 	public void saveAll() throws IOException, ClosedChannelException {
 		if (this.loaded == null) {
 			throw new ClosedChannelException();
 		}
-		for (Entry <Integer, byte[]> e : this.loaded.entrySet().toArray(new Entry[this.loaded.size()])) {
-			saveBlock(e.getValue(), e.getKey().intValue());
-		}
+		this.loaded.forEach((v,b) -> {
+			try {
+				saveBlock0(b, v, false);
+			} catch (IOException e1) {
+				throw new IOError(e1);
+			}
+		});
+		this.loaded.clear();
 	}
 	
 	@Override
@@ -117,4 +135,9 @@ public class RAFBlockAccessorImpl implements BlockAccessor {
 		this.loaded.clear();
 	}
 	
+	
+	public void sync() throws SyncFailedException, IOException {
+		this.raf.getChannel().force(true);
+		this.raf.getFD().sync();
+	}
 }
