@@ -369,7 +369,7 @@ public class PatrFileSys implements Closeable {
 						nfe = new FolderElement(newblock, nfeoffset);
 						final int childOffset;
 						final long childBlock;
-						if ((flags & FolderElement.ELEMENT_FLAG_FILE) != 0) {
+						if ( (flags & FolderElement.ELEMENT_FLAG_FILE) != 0) {
 							int fileOffset;
 							long fileBlock;
 							byte[] fileBlockBytes = nbl;
@@ -533,7 +533,7 @@ public class PatrFileSys implements Closeable {
 				try {
 					endOff = (byteArrToInt(_bl, offset + FOLDER_COUNT_ELEMENTS_OFFSET) * FolderElement.SIZE);
 					copy = new byte[endOff];
-					System.arraycopy(_bl, 0, copy, offset + FOLDER_ELEMENTS_OFFSET, endOff);
+					System.arraycopy(_bl, offset + FOLDER_ELEMENTS_OFFSET, copy, 0, endOff);
 				} finally {
 					ba.unloadBlock(block);
 				}
@@ -903,7 +903,7 @@ public class PatrFileSys implements Closeable {
 			try {
 				final long oldSize = byteArrToLong(bl, offset + FILE_BYTE_COUNT_OFFSET);
 				final long newSize = oldSize + len;
-				final int oldDataTableTableEndPNTR = byteArrToInt(bl, offset + FILE_DATA_TABLE_END_PNTR_OFFSET);
+				final int oldDataTableTableEndPNTR = byteArrToInt(bl, oldOffset + FILE_DATA_TABLE_END_PNTR_OFFSET);
 				final long addBlockCnt;
 				final int blocklen = bl.length;
 				final int oldMod = (int) (oldSize % (long) blocklen);
@@ -954,7 +954,7 @@ public class PatrFileSys implements Closeable {
 						newBlocksIndex ++ ;
 					}
 				}
-				final int oldMemorySize = oldDataTableTableEndPNTR - offset + 16;
+				final int oldMemorySize = oldDataTableTableEndPNTR - oldOffset + 16;
 				int addMemorySize = (newBlocks.length - newBlocksIndex) * 16;
 				if (addMemorySize > 0) {
 					final int newOffset;
