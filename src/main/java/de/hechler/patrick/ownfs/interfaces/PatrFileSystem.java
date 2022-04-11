@@ -1,16 +1,26 @@
 package de.hechler.patrick.ownfs.interfaces;
 
+import java.io.Closeable;
 import java.io.IOException;
 
-public interface PatrFileSystem {
+public interface PatrFileSystem extends Closeable {
 	
 	/**
 	 * returns the root folder of the File System.
 	 * 
 	 * @return the root folder of the File System.
+	 * @throws IOException
+	 *             if an IO error occurs
 	 */
-	PatrFolder getRoot();
+	PatrFolder getRoot() throws IOException;
 	
-	void close() throws IOException;
+	/**
+	 * formats this file system.<br>
+	 * after this operation this file system will be empty.
+	 * 
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	void format() throws IOException;
 	
 }

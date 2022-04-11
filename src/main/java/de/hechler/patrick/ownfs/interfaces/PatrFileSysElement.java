@@ -62,4 +62,50 @@ public interface PatrFileSysElement {
 	 */
 	boolean isFile() throws IOException;
 	
+	/**
+	 * returns the metadata of this element
+	 * 
+	 * @return the metadata of this element
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	byte[] getMetadata() throws IOException;
+	
+	/**
+	 * sets the metadata of this element
+	 * 
+	 * @param data
+	 *            the new metadata
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	void setMetadata(byte[] data) throws IOException;
+	
+	/**
+	 * returns <code>true</code> if this element is marked as executable
+	 * 
+	 * @return <code>true</code> if this element is marked as executable
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	boolean isExecutable() throws IOException;
+	
+	/**
+	 * returns <code>true</code> if this element is marked as hidden
+	 * 
+	 * @return <code>true</code> if this element is marked as hidden
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	boolean isHidden() throws IOException;
+	
+	/**
+	 * returns <code>true</code> if this element is marked as read only
+	 * 
+	 * @return <code>true</code> if this element is marked as read only
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	boolean isReadOnly() throws IOException;
+	
 }

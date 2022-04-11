@@ -51,6 +51,13 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	 */
 	boolean isRoot();
 	
+	/**
+	 * returns the number of elements in this folder
+	 * 
+	 * @return the number of elements in this folder
+	 */
+	int elementCount();
+	
 	@Override
 	default boolean isFile() throws IOException {
 		return false;
