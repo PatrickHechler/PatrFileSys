@@ -2,6 +2,8 @@ package de.hechler.patrick.ownfs.interfaces;
 
 import java.io.IOException;
 
+import de.hechler.patrick.ownfs.utils.PatrFileSysConstants;
+
 public interface PatrFileSysElement {
 	
 	/**
@@ -63,25 +65,6 @@ public interface PatrFileSysElement {
 	boolean isFile() throws IOException;
 	
 	/**
-	 * returns the metadata of this element
-	 * 
-	 * @return the metadata of this element
-	 * @throws IOException
-	 *             if an IO error occurs
-	 */
-	byte[] getMetadata() throws IOException;
-	
-	/**
-	 * sets the metadata of this element
-	 * 
-	 * @param data
-	 *            the new metadata
-	 * @throws IOException
-	 *             if an IO error occurs
-	 */
-	void setMetadata(byte[] data) throws IOException;
-	
-	/**
 	 * returns <code>true</code> if this element is marked as executable
 	 * 
 	 * @return <code>true</code> if this element is marked as executable
@@ -107,5 +90,77 @@ public interface PatrFileSysElement {
 	 *             if an IO error occurs
 	 */
 	boolean isReadOnly() throws IOException;
+	
+	/**
+	 * returns the owner of this element
+	 * 
+	 * @return the owner of this element
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	int getOwner() throws IOException;
+	
+	/**
+	 * sets the owner of this element
+	 * 
+	 * @param owner
+	 *            the new owner of this element
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	void setOwner(int owner) throws IOException;
+	
+	/**
+	 * returns the time of the creation of this element
+	 * 
+	 * @return the time this element was created
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	long getCreateTime() throws IOException;
+	
+	
+	/**
+	 * returns the last time this element was modified
+	 * 
+	 * @return the last time this element was modified
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	long getLastModTime() throws IOException;
+	
+	/**
+	 * returns the lock of this element
+	 * 
+	 * @return the lock of this element
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	long getLock() throws IOException;
+	
+	/**
+	 * returns the time this element was locked
+	 * 
+	 * @return the time this element was locked
+	 * @throws IOException
+	 *             if an IO error occurs
+	 * @throws IllegalStateException
+	 *             if this element is not locked
+	 */
+	long getLockTime() throws IOException, IllegalStateException;
+	
+	/**
+	 * removes the lock from this element if the given lock is equal to the lock of this element of if the given lock is {@link PatrFileSysConstants#LOCK_NO_LOCK}
+	 * 
+	 * @param lock
+	 *            the lock to remove
+	 * @throws IOException
+	 *             if an IO error occurs
+	 * @throws IllegalArgumentException
+	 *             if the locks are not equal
+	 */
+	void removeLock(long lock) throws IOException, IllegalArgumentException;
+	
+	String getName() throws IOException;
 	
 }

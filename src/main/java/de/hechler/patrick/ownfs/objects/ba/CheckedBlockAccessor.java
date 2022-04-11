@@ -48,7 +48,11 @@ public class CheckedBlockAccessor implements BlockAccessor {
 			checkOpen();
 			byte[] bytes = loaded.get(blockObj);
 			if (value != bytes) {
-				throw new IllegalArgumentException("the block " + block + " has been loaded with a diffrent array!");
+				if (bytes == null) {
+					throw new IllegalArgumentException("the block " + block + " has not been loaded!");
+				} else {
+					throw new IllegalArgumentException("the block " + block + " has been loaded with a diffrent array!");
+				}
 			}
 			ba.saveBlock(value, block);
 		}

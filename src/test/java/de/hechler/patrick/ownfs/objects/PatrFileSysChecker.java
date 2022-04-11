@@ -4,9 +4,9 @@ import java.io.IOException;
 import java.util.Arrays;
 
 import de.hechler.patrick.ownfs.interfaces.BlockAccessor;
-import de.hechler.patrick.ownfs.objects.ba.PatrFileSys.FolderElement;
-import de.hechler.patrick.ownfs.objects.ba.PatrFileSys.PatrFile;
-import de.hechler.patrick.ownfs.objects.ba.PatrFileSys.PatrFolder;
+import de.hechler.patrick.ownfs.objects.old.ba.PatrFileSys.FolderElement;
+import de.hechler.patrick.ownfs.objects.old.ba.PatrFileSys.PatrFile;
+import de.hechler.patrick.ownfs.objects.old.ba.PatrFileSys.PatrFolder;
 import de.hechler.patrick.zeugs.check.Checker;
 import de.hechler.patrick.zeugs.check.anotations.Check;
 import de.hechler.patrick.zeugs.check.anotations.CheckClass;

@@ -44,10 +44,8 @@ public interface BlockAccessor extends Closeable {
 	 *             if an IO error occurs during the operation
 	 * @throws ClosedChannelException
 	 *             if {@link #close()} has been called already
-	 * @throws UnsupportedOperationException
-	 *             if this operation is not supported
 	 */
-	void saveBlock(byte[] value, long block) throws UnsupportedOperationException, IOException, ClosedChannelException;
+	void saveBlock(byte[] value, long block) throws IOException, ClosedChannelException;
 	
 	/**
 	 * unloads the given block without saving it.<br>
@@ -78,10 +76,13 @@ public interface BlockAccessor extends Closeable {
 	 * saves all blocks, but does not closes this {@link BlockAccessor}
 	 * 
 	 * @throws IOException
+	 *             if an IO error occurs
+	 * @throws UnsupportedOperationException
+	 *             if the operation is not supported
 	 * @throws ClosedChannelException
 	 *             if this is closed
 	 */
-	void saveAll() throws IOException, ClosedChannelException;
+	void saveAll() throws UnsupportedOperationException, IOException, ClosedChannelException;
 	
 	/**
 	 * unloads all loaded blocks without saving them.

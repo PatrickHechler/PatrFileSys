@@ -1,4 +1,4 @@
-package de.hechler.patrick.ownfs.objects;
+package de.hechler.patrick.ownfs.objects.old;
 
 import static de.hechler.patrick.ownfs.utils.ConvertNumByteArr.*;
 import static de.hechler.patrick.ownfs.utils.PatrFileSysConstants.*;
@@ -56,13 +56,9 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			longToByteArr(bytes, FB_ROOT_BLOCK_OFFSET, 0L);
 			intToByteArr(bytes, FB_ROOT_POS_OFFSET, FB_START_ROOT_POS);
 			
-			long time = System.currentTimeMillis();
-			longToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_CREATE_TIME, time);
 			intToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_FLAGS, ELEMENT_FLAG_FOLDER);
-			longToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_LAST_MOD_TIME, time);
-			longToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_LOCK, LOCK_NO_LOCK);
-			intToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_NAME, -1);
-			intToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_OWNER, OWNER_NO_OWNER);
+			intToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_METADATA_LENGTH, 0);
+			intToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_METADATA_POS, -1);
 			longToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_PARENT_BLOCK, -1L);
 			intToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_PARENT_POS, -1);
 			intToByteArr(bytes, FB_START_ROOT_POS + FOLDER_OFFSET_ELEMENT_COUNT, 0);

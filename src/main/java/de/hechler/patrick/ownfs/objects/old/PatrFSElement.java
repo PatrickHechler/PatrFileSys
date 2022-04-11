@@ -1,4 +1,4 @@
-package de.hechler.patrick.ownfs.objects;
+package de.hechler.patrick.ownfs.objects.old;
 
 import static de.hechler.patrick.ownfs.utils.ConvertNumByteArr.byteArrToInt;
 import static de.hechler.patrick.ownfs.utils.ConvertNumByteArr.byteArrToLong;
@@ -8,7 +8,6 @@ import static de.hechler.patrick.ownfs.utils.PatrFileSysConstants.*;
 
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -132,15 +131,15 @@ public class PatrFSElement implements PatrFileSysElement {
 				}
 				assert blocks == 0L;
 			}
-			oldnamepos = byteArrToInt(oldBlock, oldepos + ELEMENT_OFFSET_NAME);
-			namelen = getNameByteCount();
+			oldnamepos = byteArrToInt(oldBlock, oldepos + ELEMENT_OFFSET_METADATA_POS);
+			namelen = byteArrToInt(oldBlock, oldepos + ELEMENT_OFFSET_METADATA_LENGTH);
 			byte[] newBlock = bm.getBlock(newBlockNum);
 			try {
 				PatrFileSysImpl.initBlock(newBlock, elen + namelen);
 				System.arraycopy(oldBlock, oldepos, newBlock, namelen, elen);
 				if (namelen > 0) {
 					System.arraycopy(oldBlock, oldnamepos, newBlock, 0, namelen);
-					intToByteArr(newBlock, namelen + ELEMENT_OFFSET_NAME, 0);
+					intToByteArr(newBlock, namelen + ELEMENT_OFFSET_METADATA_POS, 0);
 				}
 				pos = namelen;
 				block = newBlockNum;
@@ -149,80 +148,6 @@ public class PatrFSElement implements PatrFileSysElement {
 			}
 		} finally {
 			bm.setBlock(oldBlockNum);
-		}
-	}
-	
-	@Override
-	public int getOwner() throws IOException {
-		byte[] bytes = bm.getBlock(block);
-		try {
-			return byteArrToInt(bytes, pos + ELEMENT_OFFSET_OWNER);
-		} finally {
-			bm.ungetBlock(block);
-		}
-	}
-	
-	@Override
-	public void setOwner(int owner) throws IOException {
-		byte[] bytes = bm.getBlock(block);
-		try {
-			intToByteArr(bytes, pos + ELEMENT_OFFSET_OWNER, owner);
-		} finally {
-			bm.setBlock(block);
-		}
-	}
-	
-	@Override
-	public long getCreateTime() throws IOException {
-		// TODO Auto-generated method stub
-		return 0;
-	}
-	
-	@Override
-	public long getLastModTime() throws IOException {
-		// TODO Auto-generated method stub
-		return 0;
-	}
-	
-	@Override
-	public long getLock() throws IOException {
-		// TODO Auto-generated method stub
-		return 0;
-	}
-	
-	@Override
-	public void removeLock(long lock) throws IOException {
-		// TODO Auto-generated method stub
-		
-	}
-	
-	protected int getNameByteCount() throws IOException, IllegalStateException {
-		byte[] bytes = bm.getBlock(block);
-		try {
-			int np = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
-			if (np == -1) {
-				return 0;
-			}
-			int len;
-			for (len = 0; bytes[np + len] != 0 || bytes[np + len + 1] != 0; len += 2) {}
-			return len + 2;
-		} finally {
-			bm.ungetBlock(block);
-		}
-	}
-	
-	@Override
-	public String getName() throws IOException {
-		byte[] bytes = bm.getBlock(block);
-		try {
-			int len = getNameByteCount();
-			if (len == -1) {
-				return null;
-			}
-			int np = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
-			return new String(bytes, np, len - 2, StandardCharsets.UTF_16);
-		} finally {
-			bm.ungetBlock(block);
 		}
 	}
 	
@@ -352,6 +277,57 @@ public class PatrFSElement implements PatrFileSysElement {
 	protected int reallocate(int pos, int oldLen, int newLen, boolean copy) throws OutOfMemoryError, IOException {
 		// TODO Auto-generated method stub
 		return 0;
+	}
+	
+	@Override
+	public int getOwner() throws IOException {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+	
+	@Override
+	public void setOwner(int owner) throws IOException {
+		// TODO Auto-generated method stub
+		
+	}
+	
+	@Override
+	public long getCreateTime() throws IOException {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+	
+	@Override
+	public long getLastModTime() throws IOException {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+	
+	@Override
+	public long getLock() throws IOException {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+	
+	@Override
+	public void removeLock(long lock) throws IOException {
+		// TODO Auto-generated method stub
+		
+	}
+	
+	protected int getNameLen() throws IOException, IllegalStateException {
+		byte[] bytes = bm.getBlock(block);
+		try {
+			int np = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
+			if (np == -1) {
+				throw new IllegalStateException("this element has no name!");
+			}
+			int len;
+			for (len = 0; bytes[np] != 0; len ++ ) {}
+			return len;
+		} finally {
+			bm.ungetBlock(block);
+		}
 	}
 	
 }
