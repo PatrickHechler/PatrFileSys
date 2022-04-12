@@ -161,6 +161,29 @@ public interface PatrFileSysElement {
 	 */
 	void removeLock(long lock) throws IOException, IllegalArgumentException;
 	
+	/**
+	 * sets the name of this element<br>
+	 * if this element is the root element an {@link IllegalStateException} will be thrown
+	 * 
+	 * @param name
+	 *            the new name
+	 * @throws NullPointerException
+	 *             if the new name is null
+	 * @throws IllegalStateException
+	 *             if this is the root element
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	void setName(String name) throws IOException, NullPointerException, IllegalStateException;
+	
+	/**
+	 * returns the name of this element.<br>
+	 * if this element is the root folder an empty string is returned
+	 * 
+	 * @return the name of this element
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
 	String getName() throws IOException;
 	
 }

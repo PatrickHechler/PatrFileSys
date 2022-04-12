@@ -4,10 +4,10 @@ import de.hechler.patrick.ownfs.interfaces.BlockManager;
 import de.hechler.patrick.ownfs.interfaces.PatrFile;
 
 
-public class PatrFileImpl extends PatrFSElement implements PatrFile {
-
-	public PatrFileImpl(BlockManager bm, long block, int pos) {
-		super(bm, block, pos);
+public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
+	
+	public PatrFileImpl(long startTime, BlockManager bm, long block, int pos) {
+		super(startTime, bm, block, pos);
 	}
-
+	
 }

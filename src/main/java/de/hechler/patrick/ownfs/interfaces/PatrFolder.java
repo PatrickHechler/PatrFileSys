@@ -1,6 +1,9 @@
 package de.hechler.patrick.ownfs.interfaces;
 
 import java.io.IOException;
+import java.util.Iterator;
+
+import de.hechler.patrick.ownfs.objects.PatrFolderIterator;
 
 public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysElement {
 	
@@ -11,8 +14,10 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	 *            the name of the new folder
 	 * @throws IOException
 	 *             if an IO error occurs
+	 * @throws NullPointerException
+	 *             if {@code name} is <code>null</code>
 	 */
-	void addFolder(String name) throws IOException;
+	void addFolder(String name) throws IOException, NullPointerException;
 	
 	/**
 	 * adds an empty file with the specified name to this folder
@@ -21,8 +26,10 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	 *            the name of the new file
 	 * @throws IOException
 	 *             if an IO error occurs
+	 * @throws NullPointerException
+	 *             if {@code name} is <code>null</code>
 	 */
-	void addFile(String name) throws IOException;
+	void addFile(String name) throws IOException, NullPointerException;
 	
 	/**
 	 * deletes this Folder.<br>
@@ -58,6 +65,44 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	 */
 	int elementCount();
 	
+	/**
+	 * returns the child from the given index
+	 * 
+	 * @param index
+	 *            the index of the element
+	 * @return the given child
+	 */
+	PatrFileSysElement getElement(int index);
+	
+	@Override
+	default Iterator <PatrFileSysElement> iterator() {
+		return new PatrFolderIterator(this);
+	}
+	
+	/**
+	 * deletes this folder even if it has children elements (which can also have children)
+	 * 
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	default void deepDelete() throws IOException {
+		if ( !canDeleteWithContent()) {
+			int ec = elementCount();
+			while (ec > 0) {
+				PatrFileSysElement pfe = getElement(ec - 1);
+				if (pfe.isFile()) {
+					pfe.getFile().delete();
+				} else {
+					pfe.getFolder().deepDelete();
+				}
+				ec -- ;
+			}
+			ec = elementCount();
+			assert ec == 0;
+		}
+		delete();
+	}
+	
 	@Override
 	default boolean isFile() throws IOException {
 		return false;
@@ -76,19 +121,6 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	@Override
 	default PatrFolder getFolder() throws IllegalStateException, IOException {
 		return this;
-	}
-	
-	static void deepDelete(PatrFolder del) throws IllegalStateException, IOException {
-		if ( !del.canDeleteWithContent()) {
-			for (PatrFileSysElement pfe : del) {
-				if (pfe.isFile()) {
-					pfe.getFile().delete();
-				} else {
-					deepDelete(pfe.getFolder());
-				}
-			}
-		}
-		del.delete();
 	}
 	
 }

@@ -17,8 +17,9 @@ public class PatrFileSysConstants {
 	public static final int ELEMENT_OFFSET_FLAGS         = 0;
 	public static final int ELEMENT_OFFSET_PARENT_POS    = ELEMENT_OFFSET_FLAGS + 4;
 	public static final int ELEMENT_OFFSET_PARENT_BLOCK  = ELEMENT_OFFSET_PARENT_POS + 4;
-	public static final int ELEMENT_OFFSET_LOCK          = ELEMENT_OFFSET_PARENT_BLOCK + 8;
-	public static final int ELEMENT_OFFSET_CREATE_TIME   = ELEMENT_OFFSET_LOCK + 8;
+	public static final int ELEMENT_OFFSET_LOCK_VALUE    = ELEMENT_OFFSET_PARENT_BLOCK + 8;
+	public static final int ELEMENT_OFFSET_LOCK_TIME     = ELEMENT_OFFSET_LOCK_VALUE + 8;
+	public static final int ELEMENT_OFFSET_CREATE_TIME   = ELEMENT_OFFSET_LOCK_TIME + 8;
 	public static final int ELEMENT_OFFSET_LAST_MOD_TIME = ELEMENT_OFFSET_CREATE_TIME + 8;
 	public static final int ELEMENT_OFFSET_NAME          = ELEMENT_OFFSET_LAST_MOD_TIME + 8;
 	public static final int ELEMENT_OFFSET_OWNER         = ELEMENT_OFFSET_NAME + 4;
