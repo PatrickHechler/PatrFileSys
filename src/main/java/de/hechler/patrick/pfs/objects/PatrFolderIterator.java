@@ -16,9 +16,13 @@ public class PatrFolderIterator implements Iterator <PatrFileSysElement> {
 	private int              index;
 	
 	public PatrFolderIterator(PatrFolder folder) {
-		this.folder = folder;
-		this.length = folder.elementCount();
-		this.index = 0;
+		try {
+			this.folder = folder;
+			this.length = folder.elementCount();
+			this.index = 0;
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 	}
 	
 	@Override
@@ -28,15 +32,19 @@ public class PatrFolderIterator implements Iterator <PatrFileSysElement> {
 	
 	@Override
 	public PatrFileSysElement next() {
-		if (folder.elementCount() != length) {
-			throw new ConcurrentModificationException("added/removed items");
+		try {
+			if (folder.elementCount() != length) {
+				throw new ConcurrentModificationException("added/removed items");
+			}
+			if (index >= length) {
+				throw new NoSuchElementException("there are no more children");
+			}
+			PatrFileSysElement element = folder.getElement(index);
+			index ++ ;
+			return element;
+		} catch (IOException e) {
+			throw new RuntimeException(e);
 		}
-		if (index >= length) {
-			throw new NoSuchElementException("there are no more children");
-		}
-		PatrFileSysElement element = folder.getElement(index);
-		index ++ ;
-		return element;
 	}
 	
 	@Override
@@ -45,8 +53,9 @@ public class PatrFolderIterator implements Iterator <PatrFileSysElement> {
 			throw new IllegalStateException("I havn't read any child to remove");
 		}
 		index -- ;
-		PatrFileSysElement element = folder.getElement(index);
+		PatrFileSysElement element;
 		try {
+			element = folder.getElement(index);
 			if (element.isFile()) {
 				element.getFile().delete();
 			} else {

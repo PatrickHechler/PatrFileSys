@@ -1,12 +1,12 @@
 package de.hechler.patrick.pfs.objects;
 
-import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.*;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
+import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_ROOT_BLOCK_OFFSET;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_ROOT_POS_OFFSET;
 
 import java.io.IOException;
 
 import de.hechler.patrick.pfs.interfaces.BlockManager;
-import de.hechler.patrick.pfs.interfaces.PatrFolder;
 
 public class PatrRootFolderImpl extends PatrFolderImpl {
 	
@@ -15,7 +15,7 @@ public class PatrRootFolderImpl extends PatrFolderImpl {
 	}
 	
 	@Override
-	public PatrFolder getParent() throws IllegalStateException, IOException {
+	public PatrFolderImpl getParent() throws IllegalStateException, IOException {
 		throw new IllegalStateException("the root dos not have a Parent Folder");
 	}
 	

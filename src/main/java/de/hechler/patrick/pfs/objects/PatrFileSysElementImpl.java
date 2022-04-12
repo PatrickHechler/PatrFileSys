@@ -10,6 +10,7 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_HID
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_READ_ONLY;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_CREATE_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_FLAGS;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LAST_META_MOD_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LAST_MOD_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LOCK_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LOCK_VALUE;
@@ -53,7 +54,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	}
 	
 	@Override
-	public PatrFolder getParent() throws IllegalStateException, IOException {
+	public PatrFolderImpl getParent() throws IllegalStateException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			long pblock = byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_BLOCK);
@@ -136,6 +137,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			intToByteArr(bytes, pos + ELEMENT_OFFSET_OWNER, owner);
+			modify(true);
 		} finally {
 			bm.setBlock(block);
 		}
@@ -156,6 +158,16 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			return byteArrToLong(bytes, pos + ELEMENT_OFFSET_LAST_MOD_TIME);
+		} finally {
+			bm.ungetBlock(block);
+		}
+	}
+	
+	@Override
+	public long getLastMetaModTime() throws IOException {
+		byte[] bytes = bm.getBlock(block);
+		try {
+			return byteArrToLong(bytes, pos + ELEMENT_OFFSET_LAST_META_MOD_TIME);
 		} finally {
 			bm.ungetBlock(block);
 		}
@@ -200,6 +212,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 			}
 			longToByteArr(bytes, pos + ELEMENT_OFFSET_LOCK_VALUE, LOCK_NO_LOCK);
 			longToByteArr(bytes, pos + ELEMENT_OFFSET_LOCK_TIME, -1);
+			modify(true);
 		} finally {
 			bm.setBlock(block);
 		}
@@ -227,6 +240,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 			byte[] namebytes = name.getBytes(StandardCharsets.UTF_16);
 			np = reallocate(block, np, oldlen, namebytes.length, false);
 			System.arraycopy(namebytes, 0, bytes, np, namebytes.length);
+			modify(true);
 		} finally {
 			bm.setBlock(block);
 		}
@@ -256,6 +270,27 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 			int nameLen = getNameByteCount();
 			int namePos = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
 			reallocate(block, namePos, nameLen, 0, false);
+		} finally {
+			bm.setBlock(block);
+		}
+	}
+	
+	/**
+	 * sets the last modified time of this element.
+	 * <p>
+	 * this method will not be called from non public methods declared in this class, even if they modify this element
+	 * 
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	protected void modify(boolean onlyMetadata) throws IOException {
+		byte[] bytes = bm.getBlock(block);
+		try {
+			long time = System.currentTimeMillis();
+			if ( !onlyMetadata) {
+				longToByteArr(bytes, pos + ELEMENT_OFFSET_LAST_MOD_TIME, time);
+			}
+			longToByteArr(bytes, pos + ELEMENT_OFFSET_LAST_META_MOD_TIME, time);
 		} finally {
 			bm.setBlock(block);
 		}

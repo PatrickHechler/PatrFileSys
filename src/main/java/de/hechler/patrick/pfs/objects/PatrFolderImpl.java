@@ -7,6 +7,7 @@ import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FOLDER;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_CREATE_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_FLAGS;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LAST_META_MOD_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LAST_MOD_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LOCK_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LOCK_VALUE;
@@ -84,6 +85,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 			}
 			PatrFileSysElement result = initChild(isFolder, childPos, childNamePos, childBlock, childNameBytes);
 			intToByteArr(bytes, pos + FOLDER_OFFSET_ELEMENT_COUNT, oldElementCount + 1);
+			modify(false);
 			return result;
 		} finally {
 			bm.setBlock(oldBlock);
@@ -96,6 +98,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 			long time = System.currentTimeMillis();
 			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_CREATE_TIME, time);
 			intToByteArr(cbytes, childPos + ELEMENT_OFFSET_FLAGS, isFolder ? ELEMENT_FLAG_FOLDER : 0);
+			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_LAST_META_MOD_TIME, time);
 			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_LAST_MOD_TIME, time);
 			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_LOCK_TIME, -1);
 			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_LOCK_VALUE, LOCK_NO_LOCK);
@@ -127,6 +130,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 			deleteFromParent();
 			freeName();
 			reallocate(block, pos, FOLDER_OFFSET_FOLDER_ELEMENTS, 0, false);
+			getParent().modify(false);
 		} finally {
 			bm.ungetBlock(block);
 		}

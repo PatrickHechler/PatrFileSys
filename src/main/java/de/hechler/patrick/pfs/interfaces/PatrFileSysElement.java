@@ -130,6 +130,15 @@ public interface PatrFileSysElement {
 	long getLastModTime() throws IOException;
 	
 	/**
+	 * returns the last time this element or it's metadata was modified
+	 * 
+	 * @return the last time this element or it's metadata was modified
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	long getLastMetaModTime() throws IOException;
+	
+	/**
 	 * returns the lock of this element
 	 * 
 	 * @return the lock of this element

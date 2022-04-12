@@ -200,6 +200,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 				}
 				
 			});
+			modify(false);
 		} finally {
 			bm.ungetBlock(block);
 		}
@@ -258,6 +259,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 				}
 				
 			});
+			modify(false);
 		} finally {
 			bm.ungetBlock(block);
 		}
@@ -336,6 +338,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			} else {
 				setLength(myNewLen);
 			}
+			modify(false);
 		} finally {
 			bm.setBlock(oldBlock);
 		}
@@ -368,6 +371,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			removeContent(0, length());
 			deleteFromParent();
 			reallocate(block, pos, FILE_OFFSET_FILE_DATA_TABLE, 0, false);
+			getParent().modify(false);
 		} finally {
 			bm.ungetBlock(block);
 		}
