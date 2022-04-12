@@ -56,19 +56,9 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	public PatrFolder getRoot() throws IOException {
 		byte[] bytes = bm.getBlock(0L);
 		try {
-			return new PatrFolderImpl(startTime, bm, byteArrToLong(bytes, FB_ROOT_BLOCK_OFFSET), byteArrToInt(bytes, FB_ROOT_POS_OFFSET)) {
-				
-				@Override
-				public void setName(String name) throws NullPointerException, IllegalStateException {
-					throw new IllegalStateException("the root folder can not have a name!");
-				}
-				
-				@Override
-				public String getName() throws IOException {
-					return "";
-				}
-				
-			};
+			long rootblock = byteArrToLong(bytes, FB_ROOT_BLOCK_OFFSET);
+			int rootpos = byteArrToInt(bytes, FB_ROOT_POS_OFFSET);
+			return new PatrRootFolderImpl(startTime, bm, rootblock, rootpos);
 		} finally {
 			bm.ungetBlock(0L);
 		}

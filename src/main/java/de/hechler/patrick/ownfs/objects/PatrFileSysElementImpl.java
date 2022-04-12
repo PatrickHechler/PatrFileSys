@@ -21,6 +21,8 @@ import static de.hechler.patrick.ownfs.utils.PatrFileSysConstants.FB_BLOCK_COUNT
 import static de.hechler.patrick.ownfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_DATA_TABLE;
 import static de.hechler.patrick.ownfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_LENGTH;
 import static de.hechler.patrick.ownfs.utils.PatrFileSysConstants.FOLDER_ELEMENT_LENGTH;
+import static de.hechler.patrick.ownfs.utils.PatrFileSysConstants.FOLDER_ELEMENT_OFFSET_BLOCK;
+import static de.hechler.patrick.ownfs.utils.PatrFileSysConstants.FOLDER_ELEMENT_OFFSET_POS;
 import static de.hechler.patrick.ownfs.utils.PatrFileSysConstants.FOLDER_OFFSET_ELEMENT_COUNT;
 import static de.hechler.patrick.ownfs.utils.PatrFileSysConstants.FOLDER_OFFSET_FOLDER_ELEMENTS;
 import static de.hechler.patrick.ownfs.utils.PatrFileSysConstants.LOCK_NO_LOCK;
@@ -56,10 +58,6 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		try {
 			long pblock = byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_BLOCK);
 			int ppos = byteArrToInt(bytes, pos + ELEMENT_OFFSET_PARENT_POS);
-			if (pblock == -1L) {
-				assert ppos == -1;
-				throw new IllegalStateException("this is the root folder!");
-			}
 			return new PatrFolderImpl(startTime, bm, pblock, ppos);
 		} finally {
 			bm.ungetBlock(block);
@@ -201,6 +199,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 				}
 			}
 			longToByteArr(bytes, pos + ELEMENT_OFFSET_LOCK_VALUE, LOCK_NO_LOCK);
+			longToByteArr(bytes, pos + ELEMENT_OFFSET_LOCK_TIME, -1);
 		} finally {
 			bm.setBlock(block);
 		}
@@ -210,9 +209,6 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			int np = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
-			if (np == -1) {
-				throw new IllegalStateException("this element has no name!");
-			}
 			int len;
 			for (len = 0; bytes[np + len] != 0 || bytes[np + len + 1] != 0; len += 2) {}
 			return len + 2;
@@ -249,6 +245,124 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	}
 	
 	/**
+	 * frees the name from the block intern memory table
+	 * 
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	protected void freeName() throws IOException {
+		byte[] bytes = bm.getBlock(block);
+		try {
+			int nameLen = getNameByteCount();
+			int namePos = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
+			reallocate(block, namePos, nameLen, 0, false);
+		} finally {
+			bm.setBlock(block);
+		}
+	}
+	
+	/**
+	 * removes this element from the parent element
+	 * <p>
+	 * this method should only be called when the entire element gets deleted
+	 * 
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	protected void deleteFromParent() throws IOException {
+		byte[] bytes = bm.getBlock(block);
+		try {
+			long pblock = byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_BLOCK);
+			int ppos = byteArrToInt(bytes, pos + ELEMENT_OFFSET_PARENT_POS);
+			bytes = bm.getBlock(pblock);
+			try {
+				int index = indexInParentList(pblock, ppos),
+					imel = index * FOLDER_ELEMENT_LENGTH,
+					off = ppos + FOLDER_OFFSET_FOLDER_ELEMENTS + imel,
+					oldElementCount = byteArrToInt(bytes, ppos + FOLDER_OFFSET_ELEMENT_COUNT),
+					oldElementSize = oldElementCount * FOLDER_ELEMENT_LENGTH,
+					copySize = oldElementSize - imel - FOLDER_ELEMENT_LENGTH;
+				System.arraycopy(bytes, off + FOLDER_ELEMENT_LENGTH, bytes, off, copySize);
+				intToByteArr(bytes, ppos + FOLDER_OFFSET_ELEMENT_COUNT, oldElementCount - 1);
+			} finally {
+				bm.setBlock(pblock);
+			}
+		} finally {
+			bm.ungetBlock(block);
+		}
+	}
+	
+	/**
+	 * called when this element changes it's position<br>
+	 * when this method is called, no changes has been made.
+	 * <p>
+	 * this method should only be called indirectly using {@link #relocate()}
+	 * 
+	 * @param oldBlock
+	 *            the old block
+	 * @param oldPos
+	 *            the old position in the old block
+	 * @param newBlock
+	 *            the new block
+	 * @param newBlockNum
+	 *            the new position in the new block
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	protected void setNewPosToParent(long oldBlock, int oldPos, long newBlock, int newPos) throws IOException {
+		byte[] bytes = bm.getBlock(oldBlock);
+		try {
+			long pblock = byteArrToLong(bytes, oldPos + ELEMENT_OFFSET_PARENT_BLOCK);
+			int ppos = byteArrToInt(bytes, oldPos + ELEMENT_OFFSET_PARENT_POS);
+			bytes = bm.getBlock(pblock);
+			try {
+				int index = indexInParentList(pblock, ppos);
+				int offset = ppos + FOLDER_OFFSET_FOLDER_ELEMENTS + index * 8;
+				longToByteArr(bytes, offset + FOLDER_ELEMENT_OFFSET_BLOCK, newBlock);
+				intToByteArr(bytes, offset + FOLDER_ELEMENT_OFFSET_POS, newPos);
+			} finally {
+				bm.ungetBlock(pblock);
+			}
+		} finally {
+			bm.ungetBlock(oldBlock);
+		}
+	}
+	
+	/**
+	 * helper method, which should not directly be called
+	 * 
+	 * @param pblock
+	 *            the block from the parent
+	 * @param ppos
+	 *            the position of the parent
+	 * @return the index in the parents child list
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	protected int indexInParentList(long pblock, int ppos) throws IOException {
+		byte[] bytes = bm.getBlock(pblock);
+		try {
+			final int len = byteArrToInt(bytes, ppos + FOLDER_OFFSET_ELEMENT_COUNT),
+				off = ppos + FOLDER_OFFSET_FOLDER_ELEMENTS;
+			for (int i = 0; i < len; i ++ ) {
+				final int im8 = i * FOLDER_ELEMENT_LENGTH;
+				long cblock = byteArrToLong(bytes, off + FOLDER_ELEMENT_OFFSET_BLOCK + im8);
+				if (cblock != block) {
+					continue;
+				}
+				int cpos = byteArrToInt(bytes, off + FOLDER_ELEMENT_OFFSET_POS + im8);
+				if (cpos != pos) {
+					continue;
+				}
+				return i;
+			}
+			throw new InternalError("could not find me in my parent");
+		} finally {
+			bm.ungetBlock(pblock);
+		}
+	}
+	
+	/**
 	 * relocates this element to a new allocated block.
 	 * 
 	 * @param oldBolck
@@ -258,36 +372,39 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 */
 	protected void relocate() throws IOException {
 		final long oldBlockNum = block;
+		final int oldPos = pos;
 		long newBlockNum;
 		newBlockNum = allocateOneBlock();
 		byte[] oldBlock = bm.getBlock(oldBlockNum);
 		try {
-			int oldepos = pos, elen,
+			int mylen,
 				oldnamepos, namelen;
-			if ( (getFlags() & ELEMENT_FLAG_FOLDER) != 0) {
-				elen = byteArrToInt(oldBlock, oldepos + FOLDER_OFFSET_ELEMENT_COUNT);
-				elen *= FOLDER_ELEMENT_LENGTH;
-				elen += FOLDER_OFFSET_FOLDER_ELEMENTS;
+			if (isFolder()) {
+				mylen = byteArrToInt(oldBlock, oldPos + FOLDER_OFFSET_ELEMENT_COUNT);
+				mylen *= FOLDER_ELEMENT_LENGTH;
+				mylen += FOLDER_OFFSET_FOLDER_ELEMENTS;
 			} else {
-				long blocks = byteArrToLong(oldBlock, oldepos + FILE_OFFSET_FILE_LENGTH);
-				for (elen = FILE_OFFSET_FILE_DATA_TABLE; blocks > 0; elen += 16) {
-					long start = byteArrToLong(oldBlock, oldepos + elen);
-					long end = byteArrToLong(oldBlock, oldepos + elen + 8);
+				long blocks = byteArrToLong(oldBlock, oldPos + FILE_OFFSET_FILE_LENGTH);
+				for (mylen = FILE_OFFSET_FILE_DATA_TABLE; blocks > 0; mylen += 16) {
+					long start = byteArrToLong(oldBlock, oldPos + mylen);
+					long end = byteArrToLong(oldBlock, oldPos + mylen + 8);
 					blocks -= end - start;
 				}
 				assert blocks == 0L;
 			}
-			oldnamepos = byteArrToInt(oldBlock, oldepos + ELEMENT_OFFSET_NAME);
+			oldnamepos = byteArrToInt(oldBlock, oldPos + ELEMENT_OFFSET_NAME);
 			namelen = getNameByteCount();
 			byte[] newBlock = bm.getBlock(newBlockNum);
 			try {
-				PatrFileSysImpl.initBlock(newBlock, elen + namelen);
-				System.arraycopy(oldBlock, oldepos, newBlock, namelen, elen);
+				final int myNewPos = namelen, nameNewPos = 0;
+				setNewPosToParent(oldBlockNum, oldPos, newBlockNum, myNewPos);
+				PatrFileSysImpl.initBlock(newBlock, mylen + namelen);
+				System.arraycopy(oldBlock, oldPos, newBlock, myNewPos, mylen);
 				if (namelen > 0) {
-					System.arraycopy(oldBlock, oldnamepos, newBlock, 0, namelen);
+					System.arraycopy(oldBlock, oldnamepos, newBlock, nameNewPos, namelen);
 					intToByteArr(newBlock, namelen + ELEMENT_OFFSET_NAME, 0);
 				}
-				pos = namelen;
+				pos = myNewPos;
 				block = newBlockNum;
 			} finally {
 				bm.setBlock(newBlockNum);

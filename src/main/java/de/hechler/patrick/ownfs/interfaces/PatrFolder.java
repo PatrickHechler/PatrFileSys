@@ -12,44 +12,39 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	 * 
 	 * @param name
 	 *            the name of the new folder
+	 * @return the new created folder
 	 * @throws IOException
 	 *             if an IO error occurs
 	 * @throws NullPointerException
 	 *             if {@code name} is <code>null</code>
 	 */
-	void addFolder(String name) throws IOException, NullPointerException;
+	PatrFolder addFolder(String name) throws IOException, NullPointerException;
 	
 	/**
 	 * adds an empty file with the specified name to this folder
 	 * 
 	 * @param name
 	 *            the name of the new file
+	 * @return the new created file
 	 * @throws IOException
 	 *             if an IO error occurs
 	 * @throws NullPointerException
 	 *             if {@code name} is <code>null</code>
 	 */
-	void addFile(String name) throws IOException, NullPointerException;
+	PatrFile addFile(String name) throws IOException, NullPointerException;
 	
 	/**
 	 * deletes this Folder.<br>
 	 * 
-	 * an IllegalStateException will be thrown when this folder is not empty and {@link #canDeleteWithContent()} returns <code>false</code>
+	 * an IllegalStateException will be thrown when this folder is not empty or the root folder
 	 * 
 	 * @throws IllegalStateException
-	 *             if this folder is not empty and {@link #canDeleteWithContent()} returns <code>false</code> or if this is the root folder
+	 *             if this folder is not empty or if this is the root folder
 	 * @throws IOException
 	 *             if an IO error occurs
 	 * @see #canDeleteWithContent()
 	 */
 	void delete() throws IllegalStateException, IOException;
-	
-	/**
-	 * returns <code>true</code> if this folder can be deleted when it is not empty.
-	 * 
-	 * @return <code>true</code> if this folder can be deleted when it is not empty
-	 */
-	boolean canDeleteWithContent();
 	
 	/**
 	 * returns <code>true</code> if this folder is the root folder of the file system.
@@ -62,8 +57,10 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	 * returns the number of elements in this folder
 	 * 
 	 * @return the number of elements in this folder
+	 * @throws IOException
+	 *             if an IO error occurs
 	 */
-	int elementCount();
+	int elementCount() throws IOException;
 	
 	/**
 	 * returns the child from the given index
@@ -71,8 +68,10 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	 * @param index
 	 *            the index of the element
 	 * @return the given child
+	 * @throws IOException
+	 *             if an IO error occurs
 	 */
-	PatrFileSysElement getElement(int index);
+	PatrFileSysElement getElement(int index) throws IOException;
 	
 	@Override
 	default Iterator <PatrFileSysElement> iterator() {
@@ -86,20 +85,18 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	 *             if an IO error occurs
 	 */
 	default void deepDelete() throws IOException {
-		if ( !canDeleteWithContent()) {
-			int ec = elementCount();
-			while (ec > 0) {
-				PatrFileSysElement pfe = getElement(ec - 1);
-				if (pfe.isFile()) {
-					pfe.getFile().delete();
-				} else {
-					pfe.getFolder().deepDelete();
-				}
-				ec -- ;
+		int ec = elementCount();
+		while (ec > 0) {
+			PatrFileSysElement pfe = getElement(ec - 1);
+			if (pfe.isFile()) {
+				pfe.getFile().delete();
+			} else {
+				pfe.getFolder().deepDelete();
 			}
-			ec = elementCount();
-			assert ec == 0;
+			ec -- ;
 		}
+		ec = elementCount();
+		assert ec == 0;
 		delete();
 	}
 	
