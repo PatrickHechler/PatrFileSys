@@ -103,8 +103,80 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		try {
 			longToByteArr(bytes, 0, 0L);
 			longToByteArr(bytes, 8, 2L);
+			intToByteArr(bytes, bytes.length - 4, 8);
 		} finally {
 			bm.setBlock(1L);
+		}
+	}
+	
+	@Override
+	public long totalSpace() throws IOException {
+		byte[] bytes = bm.getBlock(0L);
+		try {
+			long space = byteArrToLong(bytes, FB_BLOCK_COUNT_OFFSET);
+			if (space == Long.MAX_VALUE) {
+				return Long.MAX_VALUE;
+			}
+			space *= (long) byteArrToInt(bytes, FB_BLOCK_LENGTH_OFFSET);
+			if (space < 0) {
+				return Long.MAX_VALUE;
+			} else {
+				return space;
+			}
+		} finally {
+			bm.ungetBlock(0L);
+		}
+	}
+	
+	@Override
+	public long freeSpace() throws IOException {
+		long space = totalSpace();
+		if (space == Long.MAX_VALUE) {
+			return Long.MAX_VALUE;
+		} else {
+			space -= usedSpace();
+			return space;
+		}
+	}
+	
+	@Override
+	public long usedSpace() throws IOException {
+		byte[] bytes = bm.getBlock(1L);
+		try {
+			long used = 0;
+			int end = byteArrToInt(bytes, bytes.length - 4);
+			for (int off = 0; off < end; off += 16) {
+				long startBlock = byteArrToLong(bytes, off),
+					endBlock = byteArrToLong(bytes, off + 8),
+					count = endBlock - startBlock;
+				used += count * (long) bytes.length;
+				if (used < 0L) {
+					return Long.MAX_VALUE;
+				}
+			}
+			return used;
+		} finally {
+			bm.ungetBlock(1L);
+		}
+	}
+	
+	@Override
+	public int blockSize() throws IOException {
+		byte[] bytes = bm.getBlock(0L);
+		try {
+			return byteArrToInt(bytes, FB_BLOCK_LENGTH_OFFSET);
+		} finally {
+			bm.ungetBlock(0L);
+		}
+	}
+	
+	@Override
+	public long blockCount() throws IOException {
+		byte[] bytes = bm.getBlock(0L);
+		try {
+			return byteArrToLong(bytes, FB_BLOCK_COUNT_OFFSET);
+		} finally {
+			bm.ungetBlock(0L);
 		}
 	}
 	

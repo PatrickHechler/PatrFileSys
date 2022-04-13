@@ -2,6 +2,9 @@ package de.hechler.patrick.pfs.interfaces;
 
 import java.io.IOException;
 
+import de.hechler.patrick.pfs.exception.ElementLockedException;
+import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
+
 public interface PatrFile extends PatrFileSysElement {
 	
 	/**
@@ -15,12 +18,16 @@ public interface PatrFile extends PatrFileSysElement {
 	 *            the offset in the byte array {@code bytes}
 	 * @param length
 	 *            the count of bytes to be read/copied from this file to the byte array {@code bytes}
+	 * @param lock
+	 *            the current lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
 	 * @throws IllegalArgumentException
 	 *             if {@code offset < 0} or {@code length < 0} or <code>offset + length > {@link #length()}</code> or {@code bytesOff + length > bytes.length}
 	 * @throws IOException
 	 *             if an IO error occurs
+	 * @throws ElementLockedException
+	 *             when this element is locked with a different lock
 	 */
-	void getContent(byte[] bytes, long offset, int bytesOff, int length) throws IllegalArgumentException, IOException;
+	void getContent(byte[] bytes, long offset, int bytesOff, int length, long lock) throws IllegalArgumentException, IOException, ElementLockedException;
 	
 	/**
 	 * removes the content from {@code offset} to {@code offset + length} from this file.
@@ -29,12 +36,16 @@ public interface PatrFile extends PatrFileSysElement {
 	 *            the offset of the block to be removed
 	 * @param length
 	 *            the number of bytes to be removed
+	 * @param lock
+	 *            the current lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
 	 * @throws IllegalArgumentException
 	 *             if {@code offset < 0} or {@code length < 0} or <code>offset + length > {@link #length()}</code>
 	 * @throws IOException
 	 *             if an IO error occurs
+	 * @throws ElementLockedException
+	 *             when this element is locked with a different lock
 	 */
-	void removeContent(long offset, long length) throws IllegalArgumentException, IOException;
+	void removeContent(long offset, long length, long lock) throws IllegalArgumentException, IOException, ElementLockedException;
 	
 	/**
 	 * overwrites the content from {@code offset} to {@code offset + length} with the values from {@code bytes} at the area from {@code bytesOff} to {@code bytesOff + length}
@@ -47,12 +58,16 @@ public interface PatrFile extends PatrFileSysElement {
 	 *            the offset in the byte array {@code bytes} of the new content
 	 * @param length
 	 *            the number of bytes in the new content
+	 * @param lock
+	 *            the current lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
 	 * @throws IllegalArgumentException
 	 *             if {@code offset < 0} or {@code length < 0} or <code>offset + length > {@link #length()}</code> or {@code bytesOff + length > bytes.length}
 	 * @throws IOException
 	 *             if an IO error occurs
+	 * @throws ElementLockedException
+	 *             when this element is locked with a different lock
 	 */
-	void setContent(byte[] bytes, long offset, int bytesOff, int length) throws IllegalArgumentException, IOException;
+	void setContent(byte[] bytes, long offset, int bytesOff, int length, long lock) throws IllegalArgumentException, IOException, ElementLockedException;
 	
 	/**
 	 * appends the given content in the {@code bytes} from {@code bytesOff} to {@code bytesOff + length} to this file
@@ -63,12 +78,16 @@ public interface PatrFile extends PatrFileSysElement {
 	 *            the offset in the byte array of the content to be appended
 	 * @param length
 	 *            the number of bytes to be appended to this file
+	 * @param lock
+	 *            the current lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
 	 * @throws IllegalArgumentException
 	 *             if {@code bytesOff < 0} or {@code length < 0} or {@code bytesOff + length > bytes.length}
 	 * @throws IOException
 	 *             if an IO error occurs
+	 * @throws ElementLockedException
+	 *             when this element is locked with a different lock
 	 */
-	void appendContent(byte[] bytes, int bytesOff, int length) throws IllegalArgumentException, IOException;
+	void appendContent(byte[] bytes, int bytesOff, int length, long lock) throws IllegalArgumentException, IOException, ElementLockedException;
 	
 	/**
 	 * returns the length of this file in bytes
@@ -84,10 +103,14 @@ public interface PatrFile extends PatrFileSysElement {
 	 * 
 	 * if the file still has content, this operation will remove the content first.
 	 * 
+	 * @param lock
+	 *            the current lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
 	 * @throws IOException
 	 *             if an IO error occurs
+	 * @throws ElementLockedException
+	 *             when this element is locked with a different lock
 	 */
-	void delete() throws IOException;
+	void delete(long lock) throws IOException, ElementLockedException;
 	
 	@Override
 	default boolean isFile() throws IOException {

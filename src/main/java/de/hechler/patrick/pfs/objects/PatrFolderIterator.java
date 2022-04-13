@@ -12,13 +12,15 @@ import de.hechler.patrick.pfs.interfaces.PatrFolder;
 public class PatrFolderIterator implements Iterator <PatrFileSysElement> {
 	
 	private final PatrFolder folder;
+	private final long       lock;
 	private int              length;
 	private int              index;
 	
-	public PatrFolderIterator(PatrFolder folder) {
+	public PatrFolderIterator(PatrFolder folder, long lock) {
 		try {
 			this.folder = folder;
-			this.length = folder.elementCount();
+			this.lock = lock;
+			this.length = folder.elementCount(lock);
 			this.index = 0;
 		} catch (IOException e) {
 			throw new RuntimeException(e);
@@ -33,13 +35,13 @@ public class PatrFolderIterator implements Iterator <PatrFileSysElement> {
 	@Override
 	public PatrFileSysElement next() {
 		try {
-			if (folder.elementCount() != length) {
+			if (folder.elementCount(lock) != length) {
 				throw new ConcurrentModificationException("added/removed items");
 			}
 			if (index >= length) {
 				throw new NoSuchElementException("there are no more children");
 			}
-			PatrFileSysElement element = folder.getElement(index);
+			PatrFileSysElement element = folder.getElement(index, lock);
 			index ++ ;
 			return element;
 		} catch (IOException e) {
@@ -55,11 +57,11 @@ public class PatrFolderIterator implements Iterator <PatrFileSysElement> {
 		index -- ;
 		PatrFileSysElement element;
 		try {
-			element = folder.getElement(index);
+			element = folder.getElement(index, lock);
 			if (element.isFile()) {
-				element.getFile().delete();
+				element.getFile().delete(lock);
 			} else {
-				element.getFolder().delete();
+				element.getFolder().delete(lock);
 			}
 		} catch (IOException e) {
 			throw new RuntimeException(e);

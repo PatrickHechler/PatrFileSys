@@ -7,6 +7,7 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_ROOT_POS_OFFS
 import java.io.IOException;
 
 import de.hechler.patrick.pfs.interfaces.BlockManager;
+import de.hechler.patrick.pfs.interfaces.PatrFolder;
 
 public class PatrRootFolderImpl extends PatrFolderImpl {
 	
@@ -20,12 +21,17 @@ public class PatrRootFolderImpl extends PatrFolderImpl {
 	}
 	
 	@Override
+	public void setParent(PatrFolder newParent, long myLock, long oldParentLock, long newParentLock) throws IllegalStateException, IOException {
+		throw new IllegalStateException("the root can not have a Parent Folder");
+	}
+	
+	@Override
 	public boolean isRoot() {
 		return true;
 	}
 	
 	@Override
-	public void setName(String name) throws NullPointerException, IllegalStateException {
+	public void setName(String name, long lock) throws NullPointerException, IllegalStateException {
 		throw new IllegalStateException("the root folder can not have a name!");
 	}
 	
@@ -40,7 +46,7 @@ public class PatrRootFolderImpl extends PatrFolderImpl {
 	}
 	
 	@Override
-	protected void setNewPosToParent(long oldBlock, int oldPos, long newBlock, int newPos) throws IOException {
+	protected void setNewPosToOthers(long oldBlock, int oldPos, long newBlock, int newPos) throws IOException {
 		byte[] bytes = bm.getBlock(0L);
 		try {
 			longToByteArr(bytes, FB_ROOT_BLOCK_OFFSET, newBlock);

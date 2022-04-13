@@ -4,30 +4,14 @@ import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToInt;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.intToByteArr;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FOLDER;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_CREATE_TIME;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_FLAGS;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LAST_META_MOD_TIME;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LAST_MOD_TIME;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LOCK_TIME;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LOCK_VALUE;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_NAME;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_OWNER;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_PARENT_BLOCK;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_PARENT_POS;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_DATA_TABLE;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_LENGTH;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_ELEMENT_LENGTH;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_ELEMENT_OFFSET_BLOCK;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_ELEMENT_OFFSET_POS;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_ELEMENT_COUNT;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_FOLDER_ELEMENTS;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_LOCK;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.OWNER_NO_OWNER;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
 
 import java.io.IOException;
+import java.nio.channels.ClosedChannelException;
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 
+import de.hechler.patrick.pfs.exception.ElementLockedException;
 import de.hechler.patrick.pfs.interfaces.BlockManager;
 import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
@@ -41,20 +25,22 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	}
 	
 	@Override
-	public PatrFolder addFolder(String name) throws IOException, NullPointerException {
-		return (PatrFolder) addElement(name, true);
+	public PatrFolder addFolder(String name, long lock) throws IOException, NullPointerException, ElementLockedException {
+		return withLock(() -> (PatrFolder) addElement(name, true, lock));
 	}
 	
 	@Override
-	public PatrFile addFile(String name) throws IOException, NullPointerException {
-		return (PatrFile) addElement(name, false);
+	public PatrFile addFile(String name, long lock) throws IOException, NullPointerException, ElementLockedException {
+		return withLock(() -> (PatrFile) addElement(name, false, lock));
 	}
 	
-	private PatrFileSysElement addElement(String name, boolean isFolder) throws IOException {
+	private PatrFileSysElement addElement(String name, boolean isFolder, long lock) throws NullPointerException, IOException, ElementLockedException {
+		Objects.requireNonNull(name, "null names are not permitted!");
 		final long oldBlock = block;
 		byte[] bytes = bm.getBlock(oldBlock);
 		try {
-			final int oldElementCount = elementCount(),
+			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK);
+			final int oldElementCount = getElementCount(),
 				oldSize = oldElementCount * FOLDER_ELEMENT_LENGTH + FOLDER_OFFSET_FOLDER_ELEMENTS,
 				newSize = oldSize + FOLDER_ELEMENT_LENGTH;
 			try {
@@ -121,10 +107,12 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 		}
 	}
 	
-	public void delete() throws IllegalStateException, IOException {
+	@Override
+	public void delete(long lock) throws IllegalStateException, IOException, ElementLockedException {
 		bm.getBlock(block);
 		try {
-			if (elementCount() > 0) {
+			ensureAccess(lock, LOCK_NO_DELETE_ALLOWED_LOCK);
+			if (getElementCount() > 0) {
 				throw new IllegalStateException("I can not delet myself, when I still have children");
 			}
 			deleteFromParent();
@@ -142,7 +130,21 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	}
 	
 	@Override
-	public int elementCount() throws IOException {
+	public int elementCount(long lock) throws IOException {
+		return withLockInt(() -> executeElementCount(lock));
+	}
+	
+	private int executeElementCount(long lock) throws ClosedChannelException, IOException, ElementLockedException {
+		bm.getBlock(block);
+		try {
+			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK);
+			return getElementCount();
+		} finally {
+			bm.ungetBlock(block);
+		}
+	}
+	
+	private int getElementCount() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			return byteArrToInt(bytes, pos + FOLDER_OFFSET_ELEMENT_COUNT);
@@ -152,9 +154,10 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	}
 	
 	@Override
-	public PatrFileSysElement getElement(int index) throws IOException {
+	public PatrFileSysElement getElement(int index, long lock) throws IOException, ElementLockedException {
 		byte[] bytes = bm.getBlock(block);
 		try {
+			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK);
 			int off = FOLDER_OFFSET_FOLDER_ELEMENTS + index * FOLDER_ELEMENT_LENGTH;
 			long cblock = byteArrToLong(bytes, pos + off + FOLDER_ELEMENT_OFFSET_BLOCK);
 			int cpos = byteArrToInt(bytes, pos + off + FOLDER_ELEMENT_OFFSET_POS);
@@ -162,6 +165,31 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 		} finally {
 			bm.ungetBlock(block);
 		}
+	}
+	
+	@Override
+	protected void setNewPosToOthers(long oldBlock, int oldPos, long newBlock, int newPos) throws IOException {
+		byte[] bytes = bm.getBlock(oldBlock);
+		try {
+			super.setNewPosToOthers(oldBlock, oldPos, newBlock, newPos);
+			int children = getElementCount(),
+				off = pos + FOLDER_OFFSET_FOLDER_ELEMENTS,
+				end = off + children * FOLDER_ELEMENT_LENGTH;
+			for (; off < end; off += FOLDER_ELEMENT_LENGTH) {
+				long cblock = byteArrToLong(bytes, off + FOLDER_ELEMENT_OFFSET_BLOCK);
+				int cpos = byteArrToInt(bytes, off + FOLDER_ELEMENT_OFFSET_POS);
+				byte[] cbytes = bm.getBlock(cblock);
+				try {
+					longToByteArr(cbytes, cpos + ELEMENT_OFFSET_PARENT_BLOCK, newBlock);
+					intToByteArr(cbytes, cpos + ELEMENT_OFFSET_PARENT_BLOCK, newPos);
+				} finally {
+					bm.setBlock(cblock);
+				}
+			}
+		} finally {
+			bm.ungetBlock(oldBlock);
+		}
+		
 	}
 	
 }

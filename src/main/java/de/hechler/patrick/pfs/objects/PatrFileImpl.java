@@ -6,6 +6,7 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
 
+import de.hechler.patrick.pfs.exception.ElementLockedException;
 import de.hechler.patrick.pfs.interfaces.BlockManager;
 import de.hechler.patrick.pfs.interfaces.PatrFile;
 
@@ -17,15 +18,20 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	}
 	
 	@Override
-	public void getContent(byte[] bytes, long offset, int bytesOff, int length) throws IllegalArgumentException, IOException {
+	public void getContent(byte[] bytes, long offset, int bytesOff, int length, long lock) throws IllegalArgumentException, IOException {
 		if (bytesOff + length > bytes.length) {
 			throw new IllegalArgumentException("too large for the given byte array! (array-len=" + bytes.length + ", array-off=" + bytesOff + ", length=" + length + ")");
 		}
 		if (bytesOff < 0 || offset < 0 || length < 0) {
 			throw new IllegalArgumentException("negative value! offset/len can not be negative! (bytesOff=" + bytesOff + ", offset=" + offset + ", length=" + length + ")");
 		}
+		withLock(() -> executeRead(bytes, offset, bytesOff, length, lock));
+	}
+	
+	private void executeRead(byte[] bytes, long offset, int bytesOff, int length, long lock) throws ClosedChannelException, IOException, ElementLockedException {
 		bm.getBlock(block);
 		try {
+			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK);
 			if (offset + (long) length > length()) {
 				throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + length() + ")");
 			}
@@ -75,10 +81,25 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	}
 	
 	@Override
-	public void removeContent(final long offset, final long length) throws IllegalArgumentException, IOException {
+	public void removeContent(final long offset, final long length, long lock) throws IllegalArgumentException, IOException {
 		if (offset < 0L || length < 0L) {
 			throw new IllegalArgumentException("negative value! offset/len can not be negative! (offset=" + offset + ", length=" + length + ")");
 		}
+		withLock(() -> makeRemove(offset, length, lock));
+	}
+	
+	private void makeRemove(final long offset, final long length, long lock) throws ClosedChannelException, IOException, ElementLockedException {
+		bm.getBlock(block);
+		try {
+			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK);
+			executeRemove(offset, length);
+			modify(false);
+		} finally {
+			bm.ungetBlock(block);
+		}
+	}
+	
+	private void executeRemove(final long offset, final long length) throws ClosedChannelException, IOException {
 		bm.getBlock(block);
 		try {
 			final long myOldLen = length();
@@ -200,22 +221,26 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 				}
 				
 			});
-			modify(false);
 		} finally {
 			bm.ungetBlock(block);
 		}
 	}
 	
 	@Override
-	public void setContent(final byte[] bytes, final long offset, final int bytesOff, final int length) throws IllegalArgumentException, IOException {
+	public void setContent(final byte[] bytes, final long offset, final int bytesOff, final int length, long lock) throws IllegalArgumentException, IOException {
 		if (bytesOff + length > bytes.length) {
 			throw new IllegalArgumentException("too large for the given byte array! (array-len=" + bytes.length + ", array-off=" + bytesOff + ", length=" + length + ")");
 		}
 		if (bytesOff < 0 || offset < 0 || length < 0) {
 			throw new IllegalArgumentException("negative value! offset/len can not be negative! (bytesOff=" + bytesOff + ", offset=" + offset + ", length=" + length + ")");
 		}
+		withLock(() -> executeWrite(bytes, offset, bytesOff, length));
+	}
+	
+	private void executeWrite(final byte[] bytes, final long offset, final int bytesOff, final int length) throws ClosedChannelException, IOException {
 		bm.getBlock(block);
 		try {
+			ensureAccess(bytesOff, LOCK_NO_WRITE_ALLOWED_LOCK);
 			if (offset + (long) length > length()) {
 				throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + length() + ")");
 			}
@@ -266,13 +291,18 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	}
 	
 	@Override
-	public void appendContent(byte[] bytes, int bytesOff, int length) throws IllegalArgumentException, IOException {
+	public void appendContent(byte[] bytes, int bytesOff, int length, long lock) throws IllegalArgumentException, IOException {
 		if (bytesOff + length > bytes.length) {
 			throw new IllegalArgumentException("too large for the given byte array! (array-len=" + bytes.length + ", array-off=" + bytesOff + ", length=" + length + ")");
 		}
+		withLock(() -> executeAppend(bytes, bytesOff, length, lock));
+	}
+	
+	private void executeAppend(byte[] bytes, int bytesOff, int length, long lock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {
 		final long oldBlock = block;
 		byte[] myBlockBytes = bm.getBlock(oldBlock);
 		try {
+			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK);
 			int off = iterateBlockTable(ac -> CalculatedValues.next);
 			final int blockSize = bm.blockSize();
 			final long myOldLen = length();
@@ -365,10 +395,15 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	}
 	
 	@Override
-	public void delete() throws IOException {
+	public void delete(long lock) throws IOException {
+		withLock(() -> executeDelete(lock));
+	}
+	
+	private void executeDelete(long lock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {
 		bm.getBlock(block);
 		try {
-			removeContent(0, length());
+			ensureAccess(lock, LOCK_NO_DELETE_ALLOWED_LOCK);
+			executeRemove(0, length());
 			deleteFromParent();
 			reallocate(block, pos, FILE_OFFSET_FILE_DATA_TABLE, 0, false);
 			getParent().modify(false);

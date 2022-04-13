@@ -26,20 +26,36 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_ELEMENT_O
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_ELEMENT_OFFSET_POS;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_ELEMENT_COUNT;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_FOLDER_ELEMENTS;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_DATA;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_LOCK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_META_CHANGE_ALLOWED_LOCK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_WRITE_ALLOWED_LOCK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_SHARED_COUNTER_AND;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_SHARED_COUNTER_MAX_VALUE;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_SHARED_COUNTER_SHIFT;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_SHARED_LOCK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_TIME;
 
 import java.io.IOException;
+import java.lang.ref.WeakReference;
+import java.nio.channels.ClosedChannelException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
+import de.hechler.patrick.pfs.exception.ElementLockedException;
 import de.hechler.patrick.pfs.interfaces.BlockManager;
 import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
+import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
 public class PatrFileSysElementImpl implements PatrFileSysElement {
+	
+	private static Map <BlockLock, WeakReference <Object>> looks = new HashMap <>();
 	
 	protected final long         startTime;
 	protected final BlockManager bm;
@@ -55,16 +71,64 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public PatrFolderImpl getParent() throws IllegalStateException, IOException {
+		return withLock(() -> {
+			byte[] bytes = bm.getBlock(block);
+			try {
+				long pblock = byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_BLOCK);
+				int ppos = byteArrToInt(bytes, pos + ELEMENT_OFFSET_PARENT_POS);
+				return new PatrFolderImpl(startTime, bm, pblock, ppos);
+			} finally {
+				bm.ungetBlock(block);
+			}
+		});
+	}
+	
+	@Override
+	public void setParent(PatrFolder newParent, long lock, long oldParentLock, long newParentLock) throws IllegalStateException, IOException {
+		withLock((ThrowingRunnable <IOException>) () -> newParent.withLock((ThrowingRunnable <IOException>) () -> getParent().withLock(() -> executeSetParent(newParent, lock, oldParentLock, newParentLock))));
+	}
+	
+	private void executeSetParent(PatrFolder newParent, long lock, long oldParentLock, long newParentLock) throws IllegalStateException, IOException {
+		if ( ! (newParent instanceof PatrFileSysImpl)) {
+			throw new IllegalArgumentException("I can not set my parent to an folder of an unknown implementation");
+		}
+		PatrFileSysElementImpl np = (PatrFileSysElementImpl) newParent;
+		if (np.bm != bm) {
+			throw new IllegalArgumentException("I can not set my parent to an folder of an other fils system");
+		}
 		byte[] bytes = bm.getBlock(block);
 		try {
-			long pblock = byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_BLOCK);
-			int ppos = byteArrToInt(bytes, pos + ELEMENT_OFFSET_PARENT_POS);
-			return new PatrFolderImpl(startTime, bm, pblock, ppos);
+			byte[] pbytes = bm.getBlock(np.block);
+			try {
+				PatrFolderImpl oldParent = getParent();
+				bm.getBlock(oldParent.block);
+				try {
+					oldParent.ensureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK);
+					newParent.ensureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK);
+					ensureAccess(oldParentLock, LOCK_NO_META_CHANGE_ALLOWED_LOCK);
+					oldParent.modify(false);
+				} finally {
+					bm.ungetBlock(oldParent.block);
+				}
+				deleteFromParent();
+				final int pelementcount = byteArrToInt(pbytes, np.pos + FOLDER_OFFSET_ELEMENT_COUNT),
+					oldLen = FOLDER_OFFSET_FOLDER_ELEMENTS + pelementcount * FOLDER_ELEMENT_LENGTH,
+					newLen = oldLen + FOLDER_ELEMENT_LENGTH,
+					addPos = np.pos + oldLen;
+				reallocate(np.block, np.pos, oldLen, newLen, true);
+				longToByteArr(bytes, addPos + FOLDER_ELEMENT_OFFSET_BLOCK, block);
+				intToByteArr(bytes, addPos + FOLDER_ELEMENT_OFFSET_POS, pos);
+				longToByteArr(bytes, pos + ELEMENT_OFFSET_PARENT_BLOCK, np.block);
+				intToByteArr(bytes, pos + ELEMENT_OFFSET_PARENT_POS, np.pos);
+				np.modify(false);
+				modify(true);
+			} finally {
+				bm.setBlock(np.block);
+			}
 		} finally {
 			bm.ungetBlock(block);
 		}
 	}
-	
 	
 	@Override
 	public PatrFolder getFolder() throws IllegalStateException, IOException {
@@ -113,10 +177,98 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		return (getFlags() & ELEMENT_FLAG_READ_ONLY) != 0;
 	}
 	
+	@Override
+	public void setExecutable(boolean isExecutale, long lock) throws IOException, ElementLockedException {
+		withLock(() -> executeSetExecutable(isExecutale, lock));
+	}
+	
+	private void executeSetExecutable(boolean isExecutale, long lock) throws IOException, ElementLockedException {
+		bm.getBlock(block);
+		try {
+			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK);
+			flag(ELEMENT_FLAG_EXECUTABLE, isExecutale);
+			modify(true);
+		} finally {
+			bm.ungetBlock(block);
+		}
+	}
+	
+	@Override
+	public void setHidden(boolean isHidden, long lock) throws IOException, ElementLockedException {
+		withLock(() -> executeSetHidden(isHidden, lock));
+	}
+	
+	private void executeSetHidden(boolean isHidden, long lock) throws IOException, ElementLockedException {
+		bm.getBlock(block);
+		try {
+			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK);
+			flag(ELEMENT_FLAG_HIDDEN, isHidden);
+			modify(true);
+		} finally {
+			bm.ungetBlock(block);
+		}
+	}
+	
+	@Override
+	public void setReadOnly(boolean isReadOnly, long lock) throws IOException, ElementLockedException {
+		withLock(() -> executeSetReadOnly(isReadOnly, lock));
+	}
+	
+	private void executeSetReadOnly(boolean isReadOnly, long lock) throws IOException, ElementLockedException {
+		bm.getBlock(block);
+		try {
+			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK);
+			flag(ELEMENT_FLAG_READ_ONLY, isReadOnly);
+			modify(true);
+		} finally {
+			bm.ungetBlock(block);
+		}
+	}
+	
 	public int getFlags() throws IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			return byteArrToInt(bytes, pos + ELEMENT_OFFSET_FLAGS);
+		} finally {
+			bm.ungetBlock(block);
+		}
+	}
+	
+	/**
+	 * sets or removes the given flag
+	 * 
+	 * @param flag
+	 *            the flag to modify
+	 * @param isSet
+	 *            if the flag should be set or cleared
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	protected void flag(int flag, boolean isSet) throws IOException {
+		int flags = getFlags();
+		if (isSet) {
+			flags |= flag;
+		} else {
+			flags &= ~flag;
+		}
+		setFlags(flags);
+	}
+	
+	/**
+	 * sets the flags of this element
+	 * <p>
+	 * this method should only be used with great care, since the flags also decide, which element is a file and which is a folder!<br>
+	 * the preferred method to modify to modify the flags is {@link #flag(int, boolean)}.
+	 * 
+	 * @param flags
+	 *            the new flags of this element
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	protected void setFlags(int flags) throws IOException {
+		byte[] bytes = bm.getBlock(block);
+		try {
+			intToByteArr(bytes, pos + ELEMENT_OFFSET_FLAGS, flags);
 		} finally {
 			bm.ungetBlock(block);
 		}
@@ -133,9 +285,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	}
 	
 	@Override
-	public void setOwner(int owner) throws IOException {
+	public void setOwner(int owner, long lock) throws IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
+			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK);
 			intToByteArr(bytes, pos + ELEMENT_OFFSET_OWNER, owner);
 			modify(true);
 		} finally {
@@ -174,13 +327,12 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	}
 	
 	@Override
-	public long getLock() throws IOException {
+	public long getLockData() throws IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
-			if (getLockTime() < startTime) {
-				removeLock(LOCK_NO_LOCK);
-			}
-			return byteArrToLong(bytes, pos + ELEMENT_OFFSET_LOCK_VALUE);
+			getLockTime();
+			long lock = byteArrToLong(bytes, pos + ELEMENT_OFFSET_LOCK_VALUE);
+			return lock & LOCK_DATA;
 		} finally {
 			bm.ungetBlock(block);
 		}
@@ -193,7 +345,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 			long lockTime = byteArrToLong(bytes, pos + ELEMENT_OFFSET_LOCK_TIME);
 			if (lockTime < startTime) {
 				removeLock(LOCK_NO_LOCK);
-				lockTime = byteArrToLong(bytes, pos + ELEMENT_OFFSET_LOCK_TIME);
+				return NO_TIME;
 			}
 			return lockTime;
 		} finally {
@@ -211,10 +363,83 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 				}
 			}
 			longToByteArr(bytes, pos + ELEMENT_OFFSET_LOCK_VALUE, LOCK_NO_LOCK);
-			longToByteArr(bytes, pos + ELEMENT_OFFSET_LOCK_TIME, -1);
+			longToByteArr(bytes, pos + ELEMENT_OFFSET_LOCK_TIME, NO_TIME);
 			modify(true);
 		} finally {
 			bm.setBlock(block);
+		}
+	}
+	
+	/**
+	 * returns the current lock of this element or {@link PatrFileSysConstants#LOCK_NO_LOCK} if no lock is set
+	 * 
+	 * @return the current lock of this element or {@link PatrFileSysConstants#LOCK_NO_LOCK} if no lock is set
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	protected long getLock() throws IOException {
+		byte[] bytes = bm.getBlock(block);
+		try {
+			getLockTime();
+			return byteArrToLong(bytes, pos + ELEMENT_OFFSET_LOCK_VALUE);
+		} finally {
+			bm.ungetBlock(block);
+		}
+	}
+	
+	@Override
+	public long lock(long newLock) throws IOException, IllegalArgumentException, ElementLockedException {
+		if (newLock == LOCK_NO_LOCK) {
+			throw new IllegalArgumentException("can't lock with the LOCK_NO_LOCK (val=" + Long.toHexString(newLock) + ")");
+		}
+		byte[] bytes = bm.getBlock(block);
+		try {
+			long myLock = getLock();
+			if (myLock != LOCK_NO_LOCK) {
+				if ( (myLock & LOCK_SHARED_LOCK) != 0) {
+					throw new ElementLockedException("this element is locked with a non shared lock!");
+				} else if ( (newLock & LOCK_SHARED_LOCK) != 0) {
+					throw new ElementLockedException("this element is locked with a shared lock!");
+				} else if ( (myLock & LOCK_DATA) != newLock) {
+					throw new ElementLockedException("this element is locked with a shared lock which has diffrent data flags!");
+				}
+				long cnt = (myLock & LOCK_SHARED_COUNTER_AND) >>> LOCK_SHARED_COUNTER_SHIFT;
+				cnt ++ ;
+				if (cnt > LOCK_SHARED_COUNTER_MAX_VALUE) {
+					throw new ElementLockedException("this element is locked with a shared lock which has already been shared too often");
+				}
+				newLock = myLock & ~LOCK_SHARED_COUNTER_AND;
+				myLock = newLock | (cnt << LOCK_SHARED_COUNTER_SHIFT);
+			}
+			long time = System.currentTimeMillis();
+			longToByteArr(bytes, pos + ELEMENT_OFFSET_LOCK_VALUE, myLock);
+			longToByteArr(bytes, pos + ELEMENT_OFFSET_LOCK_TIME, time);
+			modify(true);
+			return newLock;
+		} finally {
+			bm.setBlock(block);
+		}
+	}
+	
+	@Override
+	public void ensureAccess(long lock, long forbiddenBits) throws IOException, ElementLockedException, IllegalArgumentException {
+		withLock(() -> executeEnsureAccess(lock, forbiddenBits));
+	}
+	
+	public void executeEnsureAccess(long lock, long forbiddenBits) throws IOException, ElementLockedException, IllegalArgumentException {
+		long check = forbiddenBits & LOCK_DATA;
+		if (check != forbiddenBits) {
+			throw new IllegalArgumentException("the forbidden bits are not allowed to contain non data bits!");
+		}
+		long myLock = getLock();
+		if (lock != LOCK_NO_LOCK) {
+			if (myLock != lock) {
+				throw new ElementLockedException("the lock is not LOCK_NO_LOCK, but also not my lock!");
+			}
+		} else {
+			if ( (myLock & forbiddenBits) != 0) {
+				throw new ElementLockedException("the lock is LOCK_NO_LOCK, but I have at least one of the forbidden bits set in my lock!");
+			}
 		}
 	}
 	
@@ -231,10 +456,15 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	}
 	
 	@Override
-	public void setName(String name) throws IOException, NullPointerException, IllegalStateException {
+	public void setName(String name, long lock) throws IOException, NullPointerException, IllegalStateException, ElementLockedException {
 		Objects.requireNonNull(name, "element names can not be null!");
+		withLock(() -> executeSetName(name, lock));
+	}
+	
+	private void executeSetName(String name, long lock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {
 		byte[] bytes = bm.getBlock(block);
 		try {
+			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK);
 			int oldlen = getNameByteCount();
 			int np = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
 			byte[] namebytes = name.getBytes(StandardCharsets.UTF_16);
@@ -328,6 +558,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	}
 	
 	/**
+	 * sets the new position of this element on all related position, like the parent or if this element is a folder it's children<br>
 	 * called when this element changes it's position<br>
 	 * when this method is called, no changes has been made.
 	 * <p>
@@ -344,7 +575,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	protected void setNewPosToParent(long oldBlock, int oldPos, long newBlock, int newPos) throws IOException {
+	protected void setNewPosToOthers(long oldBlock, int oldPos, long newBlock, int newPos) throws IOException {
 		byte[] bytes = bm.getBlock(oldBlock);
 		try {
 			long pblock = byteArrToLong(bytes, oldPos + ELEMENT_OFFSET_PARENT_BLOCK);
@@ -432,7 +663,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 			byte[] newBlock = bm.getBlock(newBlockNum);
 			try {
 				final int myNewPos = namelen, nameNewPos = 0;
-				setNewPosToParent(oldBlockNum, oldPos, newBlockNum, myNewPos);
+				setNewPosToOthers(oldBlockNum, oldPos, newBlockNum, myNewPos);
 				PatrFileSysImpl.initBlock(newBlock, mylen + namelen);
 				System.arraycopy(oldBlock, oldPos, newBlock, myNewPos, mylen);
 				if (namelen > 0) {
@@ -904,6 +1135,239 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		} finally {
 			bm.setBlock(block);
 		}
+	}
+	
+	@Override
+	public <T extends Throwable> void withLock(ThrowingRunnable <T> exec) throws T, IOException {
+		Object elementLock = getElementLock();
+		if (Thread.holdsLock(elementLock)) {
+			final long myBlock = block;
+			bm.getBlock(myBlock);
+			try {
+				exec.execute();
+			} finally {
+				bm.ungetBlock(myBlock);
+			}
+		} else {
+			synchronized (elementLock) {
+				final long myBlock = block;
+				bm.getBlock(myBlock);
+				try {
+					exec.execute();
+				} finally {
+					bm.ungetBlock(myBlock);
+				}
+			}
+		}
+	}
+	
+	@Override
+	public <T extends Throwable, R> R withLock(ThrowingSupplier <T, R> exec) throws T, IOException {
+		Object elementLock = getElementLock();
+		if (Thread.holdsLock(elementLock)) {
+			final long myBlock = block;
+			bm.getBlock(myBlock);
+			try {
+				return exec.supply();
+			} finally {
+				bm.ungetBlock(myBlock);
+			}
+		} else {
+			synchronized (elementLock) {
+				final long myBlock = block;
+				bm.getBlock(myBlock);
+				try {
+					return exec.supply();
+				} finally {
+					bm.ungetBlock(myBlock);
+				}
+			}
+		}
+	}
+	
+	@Override
+	public <T extends Throwable> int withLockInt(ThrowingIntSupplier <T> exec) throws T, IOException {
+		Object elementLock = getElementLock();
+		if (Thread.holdsLock(elementLock)) {
+			final long myBlock = block;
+			bm.getBlock(myBlock);
+			try {
+				return exec.supply();
+			} finally {
+				bm.ungetBlock(myBlock);
+			}
+		} else {
+			synchronized (elementLock) {
+				final long myBlock = block;
+				bm.getBlock(myBlock);
+				try {
+					return exec.supply();
+				} finally {
+					bm.ungetBlock(myBlock);
+				}
+			}
+		}
+	}
+	
+	@Override
+	public <T extends Throwable> long withLockLong(ThrowingLongSupplier <T> exec) throws T, IOException {
+		Object elementLock = getElementLock();
+		if (Thread.holdsLock(elementLock)) {
+			final long myBlock = block;
+			bm.getBlock(myBlock);
+			try {
+				return exec.supply();
+			} finally {
+				bm.ungetBlock(myBlock);
+			}
+		} else {
+			synchronized (elementLock) {
+				final long myBlock = block;
+				bm.getBlock(myBlock);
+				try {
+					return exec.supply();
+				} finally {
+					bm.ungetBlock(myBlock);
+				}
+			}
+		}
+	}
+	
+	public <T extends Throwable> void simpleWithLock(ThrowingRunnable <T> exec, long block) throws T {
+		Object elementLock = getBlockLock(block);
+		if (Thread.holdsLock(elementLock)) {
+			exec.execute();
+		} else {
+			synchronized (elementLock) {
+				exec.execute();
+			}
+		}
+	}
+	
+	@Override
+	public <T extends Throwable> void simpleWithLock(ThrowingRunnable <T> exec) throws T {
+		Object elementLock = getElementLock();
+		if (Thread.holdsLock(elementLock)) {
+			exec.execute();
+		} else {
+			synchronized (elementLock) {
+				exec.execute();
+			}
+		}
+	}
+	
+	@Override
+	public <T extends Throwable, R> R simpleWithLock(ThrowingSupplier <T, R> exec) throws T {
+		Object elementLock = getElementLock();
+		if (Thread.holdsLock(elementLock)) {
+			return exec.supply();
+		} else {
+			synchronized (elementLock) {
+				return exec.supply();
+			}
+		}
+	}
+	
+	@Override
+	public <T extends Throwable> int simpleWithLockInt(ThrowingIntSupplier <T> exec) throws T {
+		Object elementLock = getElementLock();
+		if (Thread.holdsLock(elementLock)) {
+			return exec.supply();
+		} else {
+			synchronized (elementLock) {
+				return exec.supply();
+			}
+		}
+	}
+	
+	@Override
+	public <T extends Throwable> long simpleWithLockLong(ThrowingLongSupplier <T> exec) throws T {
+		Object elementLock = getElementLock();
+		if (Thread.holdsLock(elementLock)) {
+			return exec.supply();
+		} else {
+			synchronized (elementLock) {
+				return exec.supply();
+			}
+		}
+	}
+	
+	protected Object getBlockLock(long block) {
+		synchronized (looks) {
+			BlockLock key = new BlockLock(block, bm);
+			WeakReference <BlockLock> look = looks.get(key);
+			if (look != null) {
+				BlockLock patrLook = look.get();
+				if (patrLook != null) {
+					return patrLook;
+				}
+			}
+			looks.put(key, key.obj);
+			return looks.get(key);
+		}
+	}
+	
+	protected Object getElementLock() {
+		synchronized (looks) {
+			BlockLock key = new BlockLock(block, bm, null);
+			WeakReference <?> look = looks.get(key);
+			if (look != null) {
+				BlockLock patrLook = look.get();
+				if (patrLook != null) {
+					return patrLook;
+				}
+			}
+			key.obj = new WeakReference <>(new Object());
+			looks.put(key, key.obj);
+			return looks.get(key);
+		}
+	}
+	
+	public static class BlockLock {
+		
+		public final long                         block;
+		public final WeakReference <BlockManager> bm;
+		
+		public WeakReference <Object>             obj;
+		
+		public BlockLock(long block, BlockManager bm, Object obj) {
+			this.block = block;
+			this.bm = new WeakReference <>(bm);
+			this.obj = new WeakReference <>(obj);
+		}
+		
+		@Override
+		public int hashCode() {
+			final int prime = 31;
+			int result = 1;
+			result = prime * result + (int) (block ^ (block >>> 32));
+			result = prime * result + ( (bm == null) ? 0 : bm.hashCode());
+			return result;
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			else if (obj == null) return false;
+			else if (getClass() != obj.getClass()) return false;
+			BlockLock other = (BlockLock) obj;
+			if (block != other.block) return false;
+			else if ( !bm.equals(other.bm)) return false;
+			else return true;
+		}
+		
+		@Override
+		protected void finalize() throws Throwable {
+			synchronized (looks) {
+				WeakReference <Object> ref = looks.remove(this);
+				Object otehr = ref.get();
+				if (otehr != null && otehr != this.obj) {
+					this.obj = ref;
+					looks.put(this, ref);
+				}
+			}
+		}
+		
 	}
 	
 }
