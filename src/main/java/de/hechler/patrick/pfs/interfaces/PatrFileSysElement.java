@@ -3,6 +3,10 @@ package de.hechler.patrick.pfs.interfaces;
 import java.io.IOException;
 
 import de.hechler.patrick.pfs.exception.ElementLockedException;
+import de.hechler.patrick.pfs.interfaces.functional.ThrowingIntSupplier;
+import de.hechler.patrick.pfs.interfaces.functional.ThrowingLongSupplier;
+import de.hechler.patrick.pfs.interfaces.functional.ThrowingRunnable;
+import de.hechler.patrick.pfs.interfaces.functional.ThrowingSupplier;
 import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
 public interface PatrFileSysElement {
@@ -436,47 +440,5 @@ public interface PatrFileSysElement {
 	 *             when the given throwing runnable throws the given exception
 	 */
 	<T extends Throwable> long simpleWithLockLong(ThrowingLongSupplier <T> exec) throws T;
-	
-	@FunctionalInterface
-	public interface ThrowingLongSupplier <T extends Throwable> {
-		
-		long supply() throws T;
-		
-	}
-	
-	@FunctionalInterface
-	public interface ThrowingIntSupplier <T extends Throwable> {
-		
-		int supply() throws T;
-		
-	}
-	
-	@FunctionalInterface
-	public interface ThrowingSupplier <T extends Throwable, R> {
-		
-		R supply() throws T;
-		
-	}
-	
-	@FunctionalInterface
-	public interface ThrowingRunnable <T extends Throwable> {
-		
-		void execute() throws T;
-		
-	}
-	
-	@FunctionalInterface
-	public interface ThrowingConsumer <T extends Throwable, C> {
-		
-		void consumer(C c) throws T;
-		
-	}
-	
-	@FunctionalInterface
-	public interface ThrowingBiConsumer <T extends Throwable, C, B> {
-		
-		void consumer(C c, B b) throws T;
-		
-	}
 	
 }

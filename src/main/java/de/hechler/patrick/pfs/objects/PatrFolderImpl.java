@@ -109,6 +109,10 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	
 	@Override
 	public void delete(long lock) throws IllegalStateException, IOException, ElementLockedException {
+		withLock(() -> executeDelete(lock));
+	}
+	
+	private void executeDelete(long lock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {
 		bm.getBlock(block);
 		try {
 			ensureAccess(lock, LOCK_NO_DELETE_ALLOWED_LOCK);
@@ -189,7 +193,6 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 		} finally {
 			bm.ungetBlock(oldBlock);
 		}
-		
 	}
 	
 }

@@ -11,7 +11,7 @@ import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.WritableByteChannel;
 
 import de.hechler.patrick.pfs.interfaces.PatrFile;
-import de.hechler.patrick.pfs.interfaces.PatrFileSysElement.ThrowingConsumer;
+import de.hechler.patrick.pfs.interfaces.functional.ThrowingConsumer;
 import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
 public class PFSSeekableByteChannelImpl implements SeekableByteChannel {

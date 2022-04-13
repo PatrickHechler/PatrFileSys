@@ -1,5 +1,9 @@
 package de.hechler.patrick.pfs.objects;
 
+import static de.hechler.patrick.pfs.objects.PatrFileSysElementImpl.simpleWithLock;
+import static de.hechler.patrick.pfs.objects.PatrFileSysElementImpl.simpleWithLockInt;
+import static de.hechler.patrick.pfs.objects.PatrFileSysElementImpl.simpleWithLockLong;
+import static de.hechler.patrick.pfs.objects.PatrFileSysElementImpl.withLock;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToInt;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.intToByteArr;
@@ -24,11 +28,14 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.OWNER_NO_OWNER;
 
 import java.io.IOException;
+import java.nio.channels.ClosedChannelException;
 
 import de.hechler.patrick.pfs.interfaces.BlockAccessor;
 import de.hechler.patrick.pfs.interfaces.BlockManager;
 import de.hechler.patrick.pfs.interfaces.PatrFileSystem;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
+import de.hechler.patrick.pfs.interfaces.functional.ThrowingLongSupplier;
+import de.hechler.patrick.pfs.interfaces.functional.ThrowingRunnable;
 import de.hechler.patrick.pfs.objects.ba.BlockManagerImpl;
 
 
@@ -54,6 +61,10 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public PatrFolder getRoot() throws IOException {
+		return withLock(bm, 0L, this::executeGetRoot);
+	}
+	
+	private PatrFolder executeGetRoot() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(0L);
 		try {
 			long rootblock = byteArrToLong(bytes, FB_ROOT_BLOCK_OFFSET);
@@ -75,6 +86,10 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	}
 	
 	public void format(long blockCount) throws IOException {
+		simpleWithLock(bm, 0L, (ThrowingRunnable <IOException>) () -> simpleWithLock(bm, 1L, () -> executeFormat(blockCount)));
+	}
+	
+	public void executeFormat(long blockCount) throws IOException {
 		byte[] bytes = bm.getBlock(0L);
 		try {
 			int blockSize = bm.blockSize();
@@ -111,6 +126,10 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public long totalSpace() throws IOException {
+		return simpleWithLockLong(bm, 0L, () -> executeTotalSpace());
+	}
+	
+	private long executeTotalSpace() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(0L);
 		try {
 			long space = byteArrToLong(bytes, FB_BLOCK_COUNT_OFFSET);
@@ -130,17 +149,25 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public long freeSpace() throws IOException {
-		long space = totalSpace();
+		return simpleWithLockLong(bm, 0L, (ThrowingLongSupplier <IOException>) () -> simpleWithLock(bm, 1L, () -> executeFreeSpace()));
+	}
+	
+	private long executeFreeSpace() throws IOException {
+		long space = executeTotalSpace();
 		if (space == Long.MAX_VALUE) {
 			return Long.MAX_VALUE;
 		} else {
-			space -= usedSpace();
+			space -= executeUsedSpace();
 			return space;
 		}
 	}
 	
 	@Override
 	public long usedSpace() throws IOException {
+		return simpleWithLockLong(bm, 1L, () -> executeUsedSpace());
+	}
+	
+	private long executeUsedSpace() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(1L);
 		try {
 			long used = 0;
@@ -162,6 +189,10 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public int blockSize() throws IOException {
+		return simpleWithLockInt(bm, 0L, () -> executeBlockSize());
+	}
+	
+	private int executeBlockSize() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(0L);
 		try {
 			return byteArrToInt(bytes, FB_BLOCK_LENGTH_OFFSET);
@@ -172,6 +203,10 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public long blockCount() throws IOException {
+		return simpleWithLockLong(bm, 0L, () -> executeBlockCount());
+	}
+
+	private long executeBlockCount() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(0L);
 		try {
 			return byteArrToLong(bytes, FB_BLOCK_COUNT_OFFSET);

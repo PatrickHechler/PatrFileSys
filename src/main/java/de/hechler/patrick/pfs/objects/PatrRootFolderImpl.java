@@ -5,6 +5,7 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_ROOT_BLOCK_OF
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_ROOT_POS_OFFSET;
 
 import java.io.IOException;
+import java.nio.channels.ClosedChannelException;
 
 import de.hechler.patrick.pfs.interfaces.BlockManager;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
@@ -47,6 +48,10 @@ public class PatrRootFolderImpl extends PatrFolderImpl {
 	
 	@Override
 	protected void setNewPosToOthers(long oldBlock, int oldPos, long newBlock, int newPos) throws IOException {
+		withLock(bm, 0L, () -> executeSetNewPosToOthers(newBlock, newPos));
+	}
+	
+	private void executeSetNewPosToOthers(long newBlock, int newPos) throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(0L);
 		try {
 			longToByteArr(bytes, FB_ROOT_BLOCK_OFFSET, newBlock);

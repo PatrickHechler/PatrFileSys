@@ -5,6 +5,7 @@ import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+import de.hechler.patrick.pfs.exception.ElementLockedException;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
 
@@ -35,36 +36,44 @@ public class PatrFolderIterator implements Iterator <PatrFileSysElement> {
 	@Override
 	public PatrFileSysElement next() {
 		try {
-			if (folder.elementCount(lock) != length) {
-				throw new ConcurrentModificationException("added/removed items");
-			}
-			if (index >= length) {
-				throw new NoSuchElementException("there are no more children");
-			}
-			PatrFileSysElement element = folder.getElement(index, lock);
-			index ++ ;
-			return element;
+			return folder.withLock(() -> executeNext());
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
 	}
 	
+	private PatrFileSysElement executeNext() throws ElementLockedException, IOException {
+		if (folder.elementCount(lock) != length) {
+			throw new ConcurrentModificationException("added/removed items");
+		}
+		if (index >= length) {
+			throw new NoSuchElementException("there are no more children");
+		}
+		PatrFileSysElement element = folder.getElement(index, lock);
+		index ++ ;
+		return element;
+	}
+	
 	@Override
 	public void remove() {
+		try {
+			folder.withLock(() -> executeRemove());
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+	
+	private void executeRemove() throws ElementLockedException, IOException {
 		if (index <= 0) {
 			throw new IllegalStateException("I havn't read any child to remove");
 		}
 		index -- ;
 		PatrFileSysElement element;
-		try {
-			element = folder.getElement(index, lock);
-			if (element.isFile()) {
-				element.getFile().delete(lock);
-			} else {
-				element.getFolder().delete(lock);
-			}
-		} catch (IOException e) {
-			throw new RuntimeException(e);
+		element = folder.getElement(index, lock);
+		if (element.isFile()) {
+			element.getFile().delete(lock);
+		} else {
+			element.getFolder().delete(lock);
 		}
 	}
 	

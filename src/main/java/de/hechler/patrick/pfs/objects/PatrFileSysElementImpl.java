@@ -51,6 +51,10 @@ import de.hechler.patrick.pfs.interfaces.BlockManager;
 import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
+import de.hechler.patrick.pfs.interfaces.functional.ThrowingIntSupplier;
+import de.hechler.patrick.pfs.interfaces.functional.ThrowingLongSupplier;
+import de.hechler.patrick.pfs.interfaces.functional.ThrowingRunnable;
+import de.hechler.patrick.pfs.interfaces.functional.ThrowingSupplier;
 import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
 public class PatrFileSysElementImpl implements PatrFileSysElement {
@@ -1161,6 +1165,69 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		}
 	}
 	
+	public static <T extends Throwable> void withLock(BlockManager bm, long lockBlock, ThrowingRunnable <T> exec) throws T, IOException {
+		Object elementLock = getBlockLock(bm, lockBlock);
+		if (Thread.holdsLock(elementLock)) {
+			bm.getBlock(lockBlock);
+			try {
+				exec.execute();
+			} finally {
+				bm.ungetBlock(lockBlock);
+			}
+		} else {
+			synchronized (elementLock) {
+				bm.getBlock(lockBlock);
+				try {
+					exec.execute();
+				} finally {
+					bm.ungetBlock(lockBlock);
+				}
+			}
+		}
+	}
+	
+	public static <T extends Throwable, R> R withLock(BlockManager bm, long lockBlock, ThrowingSupplier <T, R> exec) throws T, IOException {
+		Object elementLock = getBlockLock(bm, lockBlock);
+		if (Thread.holdsLock(elementLock)) {
+			bm.getBlock(lockBlock);
+			try {
+				return exec.supply();
+			} finally {
+				bm.ungetBlock(lockBlock);
+			}
+		} else {
+			synchronized (elementLock) {
+				bm.getBlock(lockBlock);
+				try {
+					return exec.supply();
+				} finally {
+					bm.ungetBlock(lockBlock);
+				}
+			}
+		}
+	}
+	
+	public static <T extends Throwable> long withLockLong(BlockManager bm, long lockBlock, ThrowingLongSupplier <T> exec) throws T, IOException {
+		Object elementLock = getBlockLock(bm, lockBlock);
+		if (Thread.holdsLock(elementLock)) {
+			bm.getBlock(lockBlock);
+			try {
+				return exec.supply();
+			} finally {
+				bm.ungetBlock(lockBlock);
+			}
+		} else {
+			synchronized (elementLock) {
+				bm.getBlock(lockBlock);
+				try {
+					return exec.supply();
+				} finally {
+					bm.ungetBlock(lockBlock);
+				}
+			}
+		}
+	}
+	
 	@Override
 	public <T extends Throwable, R> R withLock(ThrowingSupplier <T, R> exec) throws T, IOException {
 		Object elementLock = getElementLock();
@@ -1233,13 +1300,46 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		}
 	}
 	
-	public <T extends Throwable> void simpleWithLock(ThrowingRunnable <T> exec, long block) throws T {
-		Object elementLock = getBlockLock(block);
+	public static <T extends Throwable> void simpleWithLock(BlockManager bm, long block, ThrowingRunnable <T> exec) throws T {
+		Object elementLock = getBlockLock(bm, block);
 		if (Thread.holdsLock(elementLock)) {
 			exec.execute();
 		} else {
 			synchronized (elementLock) {
 				exec.execute();
+			}
+		}
+	}
+	
+	public static <T extends Throwable, R> R simpleWithLock(BlockManager bm, long block, ThrowingSupplier <T, R> exec) throws T {
+		Object elementLock = getBlockLock(bm, block);
+		if (Thread.holdsLock(elementLock)) {
+			return exec.supply();
+		} else {
+			synchronized (elementLock) {
+				return exec.supply();
+			}
+		}
+	}
+	
+	public static <T extends Throwable> int simpleWithLockInt(BlockManager bm, long block, ThrowingIntSupplier <T> exec) throws T {
+		Object elementLock = getBlockLock(bm, block);
+		if (Thread.holdsLock(elementLock)) {
+			return exec.supply();
+		} else {
+			synchronized (elementLock) {
+				return exec.supply();
+			}
+		}
+	}
+	
+	public static <T extends Throwable> long simpleWithLockLong(BlockManager bm, long block, ThrowingLongSupplier <T> exec) throws T {
+		Object elementLock = getBlockLock(bm, block);
+		if (Thread.holdsLock(elementLock)) {
+			return exec.supply();
+		} else {
+			synchronized (elementLock) {
+				return exec.supply();
 			}
 		}
 	}
@@ -1292,16 +1392,17 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		}
 	}
 	
-	protected Object getBlockLock(long block) {
+	protected static Object getBlockLock(BlockManager bm, long block) {
 		synchronized (looks) {
-			BlockLock key = new BlockLock(block, bm);
-			WeakReference <BlockLock> look = looks.get(key);
+			BlockLock key = new BlockLock(block, bm, null);
+			WeakReference <Object> look = looks.get(key);
 			if (look != null) {
-				BlockLock patrLook = look.get();
-				if (patrLook != null) {
-					return patrLook;
+				Object obj = look.get();
+				if (obj != null) {
+					return obj;
 				}
 			}
+			key.obj = new WeakReference <Object>(new Object());
 			looks.put(key, key.obj);
 			return looks.get(key);
 		}
@@ -1312,9 +1413,9 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 			BlockLock key = new BlockLock(block, bm, null);
 			WeakReference <?> look = looks.get(key);
 			if (look != null) {
-				BlockLock patrLook = look.get();
-				if (patrLook != null) {
-					return patrLook;
+				Object obj = look.get();
+				if (obj != null) {
+					return obj;
 				}
 			}
 			key.obj = new WeakReference <>(new Object());
@@ -1328,7 +1429,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		public final long                         block;
 		public final WeakReference <BlockManager> bm;
 		
-		public WeakReference <Object>             obj;
+		public WeakReference <Object> obj;
 		
 		public BlockLock(long block, BlockManager bm, Object obj) {
 			this.block = block;

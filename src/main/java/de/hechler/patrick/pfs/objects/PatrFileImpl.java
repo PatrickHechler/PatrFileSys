@@ -1,7 +1,12 @@
 package de.hechler.patrick.pfs.objects;
 
-import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.*;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
+import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
+import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_DATA_TABLE;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_LENGTH;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_DELETE_ALLOWED_LOCK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_READ_ALLOWED_LOCK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_WRITE_ALLOWED_LOCK;
 
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
@@ -9,6 +14,7 @@ import java.nio.channels.ClosedChannelException;
 import de.hechler.patrick.pfs.exception.ElementLockedException;
 import de.hechler.patrick.pfs.interfaces.BlockManager;
 import de.hechler.patrick.pfs.interfaces.PatrFile;
+import de.hechler.patrick.pfs.interfaces.functional.ThrowingBooleanFunction;
 
 
 public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
@@ -25,17 +31,19 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		if (bytesOff < 0 || offset < 0 || length < 0) {
 			throw new IllegalArgumentException("negative value! offset/len can not be negative! (bytesOff=" + bytesOff + ", offset=" + offset + ", length=" + length + ")");
 		}
-		withLock(() -> executeRead(bytes, offset, bytesOff, length, lock));
+		withLock(() -> {
+			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK);
+			executeRead(bytes, offset, bytesOff, length, lock);
+		});
 	}
 	
 	private void executeRead(byte[] bytes, long offset, int bytesOff, int length, long lock) throws ClosedChannelException, IOException, ElementLockedException {
 		bm.getBlock(block);
 		try {
-			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK);
 			if (offset + (long) length > length()) {
 				throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + length() + ")");
 			}
-			iterateBlockTable(new Calculator <>() {
+			iterateBlockTable(new ThrowingBooleanFunction <>() {
 				
 				private long skip   = offset / bm.blockSize();
 				private int  off    = (int) (offset % (long) bm.blockSize());
@@ -43,10 +51,10 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 				private int  remain = length;
 				
 				@Override
-				public CalculatedValues calc(AllocatedBlocks p) throws IOException {
+				public boolean calc(AllocatedBlocks p) throws IOException {
 					if (p.count < skip) {
 						skip -= p.count;
-						return CalculatedValues.next;
+						return true;
 					}
 					int blockSize = bm.blockSize();
 					long blockAdd = 0;
@@ -68,9 +76,9 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 						}
 					}
 					if (remain > 0) {
-						return CalculatedValues.next;
+						return true;
 					} else {
-						return CalculatedValues.finish;
+						return false;
 					}
 				}
 				
@@ -85,18 +93,11 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		if (offset < 0L || length < 0L) {
 			throw new IllegalArgumentException("negative value! offset/len can not be negative! (offset=" + offset + ", length=" + length + ")");
 		}
-		withLock(() -> makeRemove(offset, length, lock));
-	}
-	
-	private void makeRemove(final long offset, final long length, long lock) throws ClosedChannelException, IOException, ElementLockedException {
-		bm.getBlock(block);
-		try {
+		withLock(() -> {
 			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK);
 			executeRemove(offset, length);
 			modify(false);
-		} finally {
-			bm.ungetBlock(block);
-		}
+		});
 	}
 	
 	private void executeRemove(final long offset, final long length) throws ClosedChannelException, IOException {
@@ -107,7 +108,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 				throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + myOldLen + ")");
 			}
 			final int blockSize = bm.blockSize();
-			iterateBlockTable(new Calculator <>() {
+			iterateBlockTable(new ThrowingBooleanFunction <>() {
 				
 				private int       state                = 0;
 				private long      skip                 = offset / (long) blockSize;
@@ -124,7 +125,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 				private long      remainBlocks         = (myOldLen + (long) blockSize - 1L) / blockSize;
 				
 				@Override
-				public CalculatedValues calc(AllocatedBlocks p) throws IOException {
+				public boolean calc(AllocatedBlocks p) throws IOException {
 					currentOff += 16;
 					remainBlocks -= p.count;
 					switch (state) {
@@ -195,11 +196,11 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 						} finally {
 							bm.setBlock(block);
 						}
-						return CalculatedValues.finish;
+						return false;
 					default:
 						throw new InternalError("illegal state: " + state);
 					}
-					return CalculatedValues.next;
+					return true;
 				}
 				
 				private void copy(final int blockSize, final long end) throws ClosedChannelException, IOException {
@@ -234,17 +235,20 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		if (bytesOff < 0 || offset < 0 || length < 0) {
 			throw new IllegalArgumentException("negative value! offset/len can not be negative! (bytesOff=" + bytesOff + ", offset=" + offset + ", length=" + length + ")");
 		}
-		withLock(() -> executeWrite(bytes, offset, bytesOff, length));
+		withLock(() -> {
+			ensureAccess(bytesOff, LOCK_NO_WRITE_ALLOWED_LOCK);
+			executeWrite(bytes, offset, bytesOff, length);
+			modify(false);
+		});
 	}
 	
 	private void executeWrite(final byte[] bytes, final long offset, final int bytesOff, final int length) throws ClosedChannelException, IOException {
 		bm.getBlock(block);
 		try {
-			ensureAccess(bytesOff, LOCK_NO_WRITE_ALLOWED_LOCK);
 			if (offset + (long) length > length()) {
 				throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + length() + ")");
 			}
-			iterateBlockTable(new Calculator <>() {
+			iterateBlockTable(new ThrowingBooleanFunction <>() {
 				
 				private long skip   = offset / bm.blockSize();
 				private int  off    = (int) (offset % (long) bm.blockSize());
@@ -252,10 +256,10 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 				private int  remain = length;
 				
 				@Override
-				public CalculatedValues calc(AllocatedBlocks p) throws IOException {
+				public boolean calc(AllocatedBlocks p) throws IOException {
 					if (p.count < skip) {
 						skip -= p.count;
-						return CalculatedValues.next;
+						return true;
 					}
 					int blockSize = bm.blockSize();
 					long blockAdd = 0;
@@ -277,14 +281,13 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 						}
 					}
 					if (remain > 0) {
-						return CalculatedValues.next;
+						return true;
 					} else {
-						return CalculatedValues.finish;
+						return false;
 					}
 				}
 				
 			});
-			modify(false);
 		} finally {
 			bm.ungetBlock(block);
 		}
@@ -295,15 +298,18 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		if (bytesOff + length > bytes.length) {
 			throw new IllegalArgumentException("too large for the given byte array! (array-len=" + bytes.length + ", array-off=" + bytesOff + ", length=" + length + ")");
 		}
-		withLock(() -> executeAppend(bytes, bytesOff, length, lock));
+		withLock(() -> {
+			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK);
+			executeAppend(bytes, bytesOff, length, lock);
+			modify(false);
+		});
 	}
 	
 	private void executeAppend(byte[] bytes, int bytesOff, int length, long lock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {
 		final long oldBlock = block;
 		byte[] myBlockBytes = bm.getBlock(oldBlock);
 		try {
-			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK);
-			int off = iterateBlockTable(ac -> CalculatedValues.next);
+			int off = iterateBlockTable(ac -> true);
 			final int blockSize = bm.blockSize();
 			final long myOldLen = length();
 			final long myNewLen = myOldLen + (long) length;
@@ -368,17 +374,15 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			} else {
 				setLength(myNewLen);
 			}
-			modify(false);
 		} finally {
 			bm.setBlock(oldBlock);
 		}
 	}
 	
 	private void setLength(final long myNewLen) throws ClosedChannelException, IOException {
-		byte[] myBlockBytes;
-		myBlockBytes = bm.getBlock(block);
+		byte[] bytes = bm.getBlock(block);
 		try {
-			longToByteArr(myBlockBytes, pos + FILE_OFFSET_FILE_LENGTH, myNewLen);
+			longToByteArr(bytes, pos + FILE_OFFSET_FILE_LENGTH, myNewLen);
 		} finally {
 			bm.setBlock(block);
 		}
@@ -386,6 +390,10 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	
 	@Override
 	public long length() throws IOException {
+		return withLockLong(this::executeLength);
+	}
+	
+	private long executeLength() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			return byteArrToLong(bytes, pos + FILE_OFFSET_FILE_LENGTH);
@@ -412,7 +420,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		}
 	}
 	
-	private int iterateBlockTable(Calculator <CalculatedValues, AllocatedBlocks, ? extends IOException> func) throws IOException {
+	private int iterateBlockTable(ThrowingBooleanFunction <AllocatedBlocks, ? extends IOException> func) throws IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			int off;
@@ -422,17 +430,12 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 					end = byteArrToLong(bytes, off + 8),
 					cnt = end - start;
 				remain -= cnt;
-				CalculatedValues cont = func.calc(new AllocatedBlocks(start, cnt));
-				switch (cont) {
-				case again:
-					off -= 16;
-				case next:
+				boolean cont = func.calc(new AllocatedBlocks(start, cnt));
+				if (cont) {
 					continue;
-				case finish:
+				} else {
 					assert remain >= 0;
 					return off;
-				default:
-					throw new InternalError("unknown GetAsLongValues: " + cont.name());
 				}
 			}
 			assert remain == 0;
@@ -440,19 +443,6 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		} finally {
 			bm.ungetBlock(block);
 		}
-	}
-	
-	private static enum CalculatedValues {
-		next,
-		again,
-		finish,
-	}
-	
-	@FunctionalInterface
-	public static interface Calculator <R, P, T extends Throwable> {
-		
-		R calc(P p) throws T;
-		
 	}
 	
 }
