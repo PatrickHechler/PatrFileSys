@@ -3,7 +3,6 @@ package de.hechler.patrick.pfs.objects;
 import static de.hechler.patrick.pfs.objects.PatrFileSysElementImpl.simpleWithLock;
 import static de.hechler.patrick.pfs.objects.PatrFileSysElementImpl.simpleWithLockInt;
 import static de.hechler.patrick.pfs.objects.PatrFileSysElementImpl.simpleWithLockLong;
-import static de.hechler.patrick.pfs.objects.PatrFileSysElementImpl.withLock;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToInt;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.intToByteArr;
@@ -61,7 +60,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public PatrFolder getRoot() throws IOException {
-		return withLock(bm, 0L, this::executeGetRoot);
+		return simpleWithLock(bm, 0L, this::executeGetRoot);
 	}
 	
 	private PatrFolder executeGetRoot() throws ClosedChannelException, IOException {

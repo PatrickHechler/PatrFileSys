@@ -57,7 +57,7 @@ public class PatrFolderIterator implements Iterator <PatrFileSysElement> {
 	@Override
 	public void remove() {
 		try {
-			folder.withLock(() -> executeRemove());
+			folder.withLock(this::executeRemove);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}

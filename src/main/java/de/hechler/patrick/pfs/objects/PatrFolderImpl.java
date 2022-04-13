@@ -26,16 +26,17 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	
 	@Override
 	public PatrFolder addFolder(String name, long lock) throws IOException, NullPointerException, ElementLockedException {
-		return withLock(() -> (PatrFolder) addElement(name, true, lock));
+		Objects.requireNonNull(name, "null names are not permitted!");
+		return simpleWithLock(() -> (PatrFolder) addElement(name, true, lock));
 	}
 	
 	@Override
 	public PatrFile addFile(String name, long lock) throws IOException, NullPointerException, ElementLockedException {
-		return withLock(() -> (PatrFile) addElement(name, false, lock));
+		Objects.requireNonNull(name, "null names are not permitted!");
+		return simpleWithLock(() -> (PatrFile) addElement(name, false, lock));
 	}
 	
 	private PatrFileSysElement addElement(String name, boolean isFolder, long lock) throws NullPointerException, IOException, ElementLockedException {
-		Objects.requireNonNull(name, "null names are not permitted!");
 		final long oldBlock = block;
 		byte[] bytes = bm.getBlock(oldBlock);
 		try {
@@ -109,7 +110,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	
 	@Override
 	public void delete(long lock) throws IllegalStateException, IOException, ElementLockedException {
-		withLock(() -> executeDelete(lock));
+		simpleWithLock(() -> executeDelete(lock));
 	}
 	
 	private void executeDelete(long lock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {
@@ -135,7 +136,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	
 	@Override
 	public int elementCount(long lock) throws IOException {
-		return withLockInt(() -> executeElementCount(lock));
+		return simpleWithLockInt(() -> executeElementCount(lock));
 	}
 	
 	private int executeElementCount(long lock) throws ClosedChannelException, IOException, ElementLockedException {

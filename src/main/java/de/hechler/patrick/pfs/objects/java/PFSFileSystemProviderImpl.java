@@ -1,6 +1,6 @@
 package de.hechler.patrick.pfs.objects.java;
 
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_LOCKED_LOCK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_DELETE_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_READ_ALLOWED_LOCK;
@@ -28,6 +28,7 @@ import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.FileAttributeView;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -91,11 +92,38 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	
 	private final Map <URI, PFSFileSystemImpl> created;
 	private PFSFileSystemImpl                  def;
+	private Set <PatrFile>                     delOnClose;
 	
+	public PFSFileSystemProviderImpl() {
+		this(new PatrFileSysImpl(new ByteArrayArrayBlockAccessor(1 << 10, 1 << 10)));
+	}
 	
 	public PFSFileSystemProviderImpl(PatrFileSystem fs) {
 		this.def = new PFSFileSystemImpl(this, fs);
 		this.created = new HashMap <>();
+		this.delOnClose = new HashSet <>();
+		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+			synchronized (delOnClose) {
+				IOException err = null;
+				for (PatrFile patrFile : delOnClose) {
+					try {
+						if ( (patrFile.getLockData() & LOCK_NO_DELETE_ALLOWED_LOCK) != 0) {
+							patrFile.removeLock(LOCK_NO_LOCK);
+						}
+						patrFile.delete(LOCK_NO_LOCK);
+					} catch (IOException e) {
+						if (err != null) {
+							err.addSuppressed(e);
+						} else {
+							err = e;
+						}
+					}
+				}
+				if (err != null) {
+					throw new RuntimeException(err);
+				}
+			}
+		}));
 	}
 	
 	
@@ -250,23 +278,18 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 		}
 		if (options.contains(StandardOpenOption.DELETE_ON_CLOSE)) {
 			final long finallock = lock;
+			synchronized (delOnClose) {
+				delOnClose.add(file);
+			}
 			return new PFSSeekableByteChannelImpl(lock, strs, file, (patrFile) -> {
-				patrFile.delete(finallock);
+				synchronized (delOnClose) {
+					patrFile.delete(finallock);
+					delOnClose.remove(patrFile);
+				}
 			}, mode);
 		} else {
 			return new PFSSeekableByteChannelImpl(lock, strs, file, (patrFile) -> {}, mode);
 		}
-		/* @formatter:off TODO:
-DELETE_ON_CLOSE
-	When this option is present then the implementation makes a best effort attempt to delete the file when closed by the close method.
-	If the close method is not invoked then a best effort attempt is made to delete the file when the Java virtual machine terminates.
-SPARSE
-	When creating a new file this option is a hint that the new file will be sparse. This option is ignored when not creating a new file.
-SYNC
-	Requires that every update to the file's content or metadata be written synchronously to the underlying storage device. (see  Synchronized I/O file integrity).
-DSYNC
-	Requires that every update to the file's content be written synchronously to the underlying storage device. (see  Synchronized I/O file integrity).
-		 @formatter:on */
 	}
 	
 	
@@ -315,8 +338,16 @@ DSYNC
 	
 	@Override
 	public DirectoryStream <Path> newDirectoryStream(Path dir, Filter <? super Path> filter) throws IOException {
-		// TODO Auto-generated method stub
-		return null;
+		PFSPathImpl p = PFSPathImpl.getMyPath(dir);
+		String[] names = getPath(p);
+		PatrFolder folder = getFolder(p.getFileSystem().getFileSys().getRoot(), names, names.length);
+		long lock = LOCK_LOCKED_LOCK | LOCK_NO_DELETE_ALLOWED_LOCK | LOCK_SHARED_LOCK | LOCK_NO_WRITE_ALLOWED_LOCK;
+		try {
+			folder.lock(lock);
+		} catch (ElementLockedException e) {
+			lock = LOCK_NO_LOCK;
+		}
+		return new PFSDirectoryStreamImpl(lock, folder, filter);
 	}
 	
 	@Override

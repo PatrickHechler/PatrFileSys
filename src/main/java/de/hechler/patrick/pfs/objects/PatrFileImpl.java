@@ -390,7 +390,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	
 	@Override
 	public long length() throws IOException {
-		return withLockLong(this::executeLength);
+		return simpleWithLockLong(this::executeLength);
 	}
 	
 	private long executeLength() throws ClosedChannelException, IOException {
@@ -404,7 +404,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	
 	@Override
 	public void delete(long lock) throws IOException {
-		withLock(() -> executeDelete(lock));
+		simpleWithLock(() -> executeDelete(lock));
 	}
 	
 	private void executeDelete(long lock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {

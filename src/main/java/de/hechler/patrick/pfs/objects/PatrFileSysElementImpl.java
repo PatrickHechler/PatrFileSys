@@ -34,6 +34,8 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_SHARED_COUN
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_SHARED_COUNTER_MAX_VALUE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_SHARED_COUNTER_SHIFT;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_SHARED_LOCK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_USER_MAX_VALUE;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_USER_SHIFT;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_TIME;
 
 import java.io.IOException;
@@ -75,7 +77,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public PatrFolderImpl getParent() throws IllegalStateException, IOException {
-		return withLock(() -> {
+		return simpleWithLock(() -> {
 			byte[] bytes = bm.getBlock(block);
 			try {
 				long pblock = byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_BLOCK);
@@ -89,10 +91,6 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public void setParent(PatrFolder newParent, long lock, long oldParentLock, long newParentLock) throws IllegalStateException, IOException {
-		withLock((ThrowingRunnable <IOException>) () -> newParent.withLock((ThrowingRunnable <IOException>) () -> getParent().withLock(() -> executeSetParent(newParent, lock, oldParentLock, newParentLock))));
-	}
-	
-	private void executeSetParent(PatrFolder newParent, long lock, long oldParentLock, long newParentLock) throws IllegalStateException, IOException {
 		if ( ! (newParent instanceof PatrFileSysImpl)) {
 			throw new IllegalArgumentException("I can not set my parent to an folder of an unknown implementation");
 		}
@@ -100,6 +98,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		if (np.bm != bm) {
 			throw new IllegalArgumentException("I can not set my parent to an folder of an other fils system");
 		}
+		simpleWithLock((ThrowingRunnable <IOException>) () -> newParent.simpleWithLock((ThrowingRunnable <IOException>) () -> getParent().simpleWithLock(() -> executeSetParent(np, lock, oldParentLock, newParentLock))));
+	}
+	
+	private void executeSetParent(PatrFileSysElementImpl np, long lock, long oldParentLock, long newParentLock) throws IllegalStateException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			byte[] pbytes = bm.getBlock(np.block);
@@ -108,7 +110,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 				bm.getBlock(oldParent.block);
 				try {
 					oldParent.ensureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK);
-					newParent.ensureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK);
+					np.ensureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK);
 					ensureAccess(oldParentLock, LOCK_NO_META_CHANGE_ALLOWED_LOCK);
 					oldParent.modify(false);
 				} finally {
@@ -183,7 +185,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public void setExecutable(boolean isExecutale, long lock) throws IOException, ElementLockedException {
-		withLock(() -> executeSetExecutable(isExecutale, lock));
+		simpleWithLock(() -> executeSetExecutable(isExecutale, lock));
 	}
 	
 	private void executeSetExecutable(boolean isExecutale, long lock) throws IOException, ElementLockedException {
@@ -199,7 +201,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public void setHidden(boolean isHidden, long lock) throws IOException, ElementLockedException {
-		withLock(() -> executeSetHidden(isHidden, lock));
+		simpleWithLock(() -> executeSetHidden(isHidden, lock));
 	}
 	
 	private void executeSetHidden(boolean isHidden, long lock) throws IOException, ElementLockedException {
@@ -215,7 +217,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public void setReadOnly(boolean isReadOnly, long lock) throws IOException, ElementLockedException {
-		withLock(() -> executeSetReadOnly(isReadOnly, lock));
+		simpleWithLock(() -> executeSetReadOnly(isReadOnly, lock));
 	}
 	
 	private void executeSetReadOnly(boolean isReadOnly, long lock) throws IOException, ElementLockedException {
@@ -230,6 +232,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	}
 	
 	public int getFlags() throws IOException {
+		return simpleWithLockInt(this::executeGetFlags);
+	}
+	
+	private int executeGetFlags() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			return byteArrToInt(bytes, pos + ELEMENT_OFFSET_FLAGS);
@@ -302,6 +308,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public long getCreateTime() throws IOException {
+		return simpleWithLockLong(this::executeGetCreateTime);
+	}
+	
+	private long executeGetCreateTime() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			return byteArrToLong(bytes, pos + ELEMENT_OFFSET_CREATE_TIME);
@@ -312,6 +322,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public long getLastModTime() throws IOException {
+		return simpleWithLockLong(this::executeGetLastModTime);
+	}
+	
+	private long executeGetLastModTime() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			return byteArrToLong(bytes, pos + ELEMENT_OFFSET_LAST_MOD_TIME);
@@ -322,6 +336,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public long getLastMetaModTime() throws IOException {
+		return simpleWithLockLong(this::executeGetLastMetaModTime);
+	}
+	
+	private long executeGetLastMetaModTime() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			return byteArrToLong(bytes, pos + ELEMENT_OFFSET_LAST_META_MOD_TIME);
@@ -332,6 +350,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public long getLockData() throws IOException {
+		return simpleWithLockLong(this::executeGetLockData);
+	}
+	
+	private long executeGetLockData() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			getLockTime();
@@ -344,6 +366,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public long getLockTime() throws IOException, IllegalStateException {
+		return simpleWithLockLong(this::executeGetLockTime);
+	}
+	
+	private long executeGetLockTime() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			long lockTime = byteArrToLong(bytes, pos + ELEMENT_OFFSET_LOCK_TIME);
@@ -359,15 +385,34 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public void removeLock(long lock) throws IOException, IllegalStateException {
+		simpleWithLock(() -> executeRemoveLock(lock));
+	}
+	
+	private void executeRemoveLock(long lock) throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
+			long newLock = LOCK_NO_LOCK, newTime = NO_TIME;
 			if (lock != LOCK_NO_LOCK) {
-				if (getLock() != lock) {
-					throw new IllegalStateException("the locks are diffrent! I am locked with: " + Long.toHexString(getLock()) + " but the lock: " + Long.toHexString(lock) + " should be removed");
+				long currentLock = getLock();
+				if ( (currentLock & ~LOCK_SHARED_COUNTER_AND) != lock) {
+					throw new IllegalStateException(
+						"the locks are diffrent! I am locked with: " + Long.toHexString(currentLock & (LOCK_DATA | (LOCK_USER_MAX_VALUE << LOCK_USER_SHIFT))) + " (data and user only) but the lock: "
+							+ Long.toHexString(lock) + " should be removed");
+				}
+				if ( (currentLock & LOCK_SHARED_LOCK) != 0) {
+					long cnt = (currentLock & LOCK_SHARED_COUNTER_AND) >>> LOCK_SHARED_COUNTER_SHIFT;
+					cnt -- ;
+					if (cnt <= 0L) {
+						newLock = LOCK_NO_LOCK;
+						newTime = NO_TIME;
+					} else {
+						newLock = cnt << LOCK_SHARED_COUNTER_SHIFT;
+						newLock |= currentLock & ~LOCK_SHARED_COUNTER_AND;
+					}
 				}
 			}
-			longToByteArr(bytes, pos + ELEMENT_OFFSET_LOCK_VALUE, LOCK_NO_LOCK);
-			longToByteArr(bytes, pos + ELEMENT_OFFSET_LOCK_TIME, NO_TIME);
+			longToByteArr(bytes, pos + ELEMENT_OFFSET_LOCK_VALUE, newLock);
+			longToByteArr(bytes, pos + ELEMENT_OFFSET_LOCK_TIME, newTime);
 			modify(true);
 		} finally {
 			bm.setBlock(block);
@@ -396,6 +441,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		if (newLock == LOCK_NO_LOCK) {
 			throw new IllegalArgumentException("can't lock with the LOCK_NO_LOCK (val=" + Long.toHexString(newLock) + ")");
 		}
+		return simpleWithLockLong(() -> executeLock(newLock));
+	}
+	
+	private long executeLock(long newLock) throws ClosedChannelException, IOException, ElementLockedException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			long myLock = getLock();
@@ -427,14 +476,14 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public void ensureAccess(long lock, long forbiddenBits) throws IOException, ElementLockedException, IllegalArgumentException {
-		withLock(() -> executeEnsureAccess(lock, forbiddenBits));
-	}
-	
-	public void executeEnsureAccess(long lock, long forbiddenBits) throws IOException, ElementLockedException, IllegalArgumentException {
 		long check = forbiddenBits & LOCK_DATA;
 		if (check != forbiddenBits) {
 			throw new IllegalArgumentException("the forbidden bits are not allowed to contain non data bits!");
 		}
+		withLock(() -> executeEnsureAccess(lock, forbiddenBits));
+	}
+	
+	public void executeEnsureAccess(long lock, long forbiddenBits) throws IOException, ElementLockedException, IllegalArgumentException {
 		long myLock = getLock();
 		if (lock != LOCK_NO_LOCK) {
 			if (myLock != lock) {
@@ -462,7 +511,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	@Override
 	public void setName(String name, long lock) throws IOException, NullPointerException, IllegalStateException, ElementLockedException {
 		Objects.requireNonNull(name, "element names can not be null!");
-		withLock(() -> executeSetName(name, lock));
+		simpleWithLock(() -> executeSetName(name, lock));
 	}
 	
 	private void executeSetName(String name, long lock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {
@@ -482,6 +531,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public String getName() throws IOException {
+		return simpleWithLock(() -> executeGetName());
+	}
+	
+	private String executeGetName() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			int len = getNameByteCount();
