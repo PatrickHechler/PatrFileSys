@@ -88,6 +88,8 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	 * @param lock
 	 *            the current lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
 	 * @return the given child
+	 * @throws IndexOutOfBoundsException
+	 *             if the index is smaller than {@code 0} or greater than {@link #elementCount(long)}
 	 * @throws ElementLockedException
 	 *             when this element is locked with a different lock
 	 * @throws IOException

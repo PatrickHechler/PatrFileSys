@@ -32,7 +32,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			throw new IllegalArgumentException("negative value! offset/len can not be negative! (bytesOff=" + bytesOff + ", offset=" + offset + ", length=" + length + ")");
 		}
 		withLock(() -> {
-			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK);
+			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
 			executeRead(bytes, offset, bytesOff, length, lock);
 		});
 	}
@@ -94,7 +94,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			throw new IllegalArgumentException("negative value! offset/len can not be negative! (offset=" + offset + ", length=" + length + ")");
 		}
 		withLock(() -> {
-			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK);
+			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			executeRemove(offset, length);
 			modify(false);
 		});
@@ -236,7 +236,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			throw new IllegalArgumentException("negative value! offset/len can not be negative! (bytesOff=" + bytesOff + ", offset=" + offset + ", length=" + length + ")");
 		}
 		withLock(() -> {
-			ensureAccess(bytesOff, LOCK_NO_WRITE_ALLOWED_LOCK);
+			ensureAccess(bytesOff, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			executeWrite(bytes, offset, bytesOff, length);
 			modify(false);
 		});
@@ -299,7 +299,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			throw new IllegalArgumentException("too large for the given byte array! (array-len=" + bytes.length + ", array-off=" + bytesOff + ", length=" + length + ")");
 		}
 		withLock(() -> {
-			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK);
+			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			executeAppend(bytes, bytesOff, length, lock);
 			modify(false);
 		});
@@ -410,7 +410,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	private void executeDelete(long lock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {
 		bm.getBlock(block);
 		try {
-			ensureAccess(lock, LOCK_NO_DELETE_ALLOWED_LOCK);
+			ensureAccess(lock, LOCK_NO_DELETE_ALLOWED_LOCK, true);
 			executeRemove(0, length());
 			deleteFromParent();
 			reallocate(block, pos, FILE_OFFSET_FILE_DATA_TABLE, 0, false);

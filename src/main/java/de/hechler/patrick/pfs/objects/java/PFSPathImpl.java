@@ -58,11 +58,10 @@ public class PFSPathImpl implements Path {
 	
 	@Override
 	public PFSPathImpl getRoot() {
-		PFSPathImpl p = this;
-		while (p.relativeTo != p) {
-			p = p.relativeTo;
+		if (this.relativeTo == this.relativeTo.relativeTo) {
+			return this.relativeTo;
 		}
-		return p;
+		return new PFSPathImpl(fs);
 	}
 	
 	@Override

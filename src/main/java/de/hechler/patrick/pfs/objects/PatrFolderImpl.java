@@ -40,7 +40,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 		final long oldBlock = block;
 		byte[] bytes = bm.getBlock(oldBlock);
 		try {
-			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK);
+			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			final int oldElementCount = getElementCount(),
 				oldSize = oldElementCount * FOLDER_ELEMENT_LENGTH + FOLDER_OFFSET_FOLDER_ELEMENTS,
 				newSize = oldSize + FOLDER_ELEMENT_LENGTH;
@@ -116,7 +116,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	private void executeDelete(long lock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {
 		bm.getBlock(block);
 		try {
-			ensureAccess(lock, LOCK_NO_DELETE_ALLOWED_LOCK);
+			ensureAccess(lock, LOCK_NO_DELETE_ALLOWED_LOCK, true);
 			if (getElementCount() > 0) {
 				throw new IllegalStateException("I can not delet myself, when I still have children");
 			}
@@ -136,20 +136,13 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	
 	@Override
 	public int elementCount(long lock) throws IOException {
-		return simpleWithLockInt(() -> executeElementCount(lock));
-	}
-	
-	private int executeElementCount(long lock) throws ClosedChannelException, IOException, ElementLockedException {
-		bm.getBlock(block);
-		try {
-			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK);
+		return withLockInt(() -> {
+			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, true);
 			return getElementCount();
-		} finally {
-			bm.ungetBlock(block);
-		}
+		});
 	}
 	
-	private int getElementCount() throws ClosedChannelException, IOException {
+	protected int getElementCount() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			return byteArrToInt(bytes, pos + FOLDER_OFFSET_ELEMENT_COUNT);
@@ -160,9 +153,19 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	
 	@Override
 	public PatrFileSysElement getElement(int index, long lock) throws IOException, ElementLockedException {
+		if (index < 0) {
+			throw new IndexOutOfBoundsException("index is smaller than 0: index=" + index);
+		}
+		return simpleWithLock(() -> executeGetElement(index, lock));
+	}
+	
+	private PatrFileSysElement executeGetElement(int index, long lock) throws ClosedChannelException, IOException, ElementLockedException {
 		byte[] bytes = bm.getBlock(block);
 		try {
-			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK);
+			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, true);
+			if (index >= getElementCount()) {
+				throw new IndexOutOfBoundsException("the index is greather the my element count: index=" + index + " elementCount=" + getElementCount());
+			}
 			int off = FOLDER_OFFSET_FOLDER_ELEMENTS + index * FOLDER_ELEMENT_LENGTH;
 			long cblock = byteArrToLong(bytes, pos + off + FOLDER_ELEMENT_OFFSET_BLOCK);
 			int cpos = byteArrToInt(bytes, pos + off + FOLDER_ELEMENT_OFFSET_POS);

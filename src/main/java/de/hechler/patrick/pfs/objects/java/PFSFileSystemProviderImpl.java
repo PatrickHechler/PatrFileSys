@@ -1,14 +1,16 @@
 package de.hechler.patrick.pfs.objects.java;
 
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_LOCKED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_DELETE_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_READ_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_WRITE_ALLOWED_LOCK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_SHARED_LOCK;
 
 import java.io.IOException;
 import java.net.URI;
 import java.nio.channels.SeekableByteChannel;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.AccessMode;
 import java.nio.file.CopyOption;
 import java.nio.file.DirectoryStream;
@@ -27,8 +29,10 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.FileAttributeView;
 import java.nio.file.spi.FileSystemProvider;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -341,13 +345,13 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 		PFSPathImpl p = PFSPathImpl.getMyPath(dir);
 		String[] names = getPath(p);
 		PatrFolder folder = getFolder(p.getFileSystem().getFileSys().getRoot(), names, names.length);
-		long lock = LOCK_LOCKED_LOCK | LOCK_NO_DELETE_ALLOWED_LOCK | LOCK_SHARED_LOCK | LOCK_NO_WRITE_ALLOWED_LOCK;
+		long lock = LOCK_LOCKED_LOCK | LOCK_SHARED_LOCK | LOCK_NO_DELETE_ALLOWED_LOCK;
 		try {
 			folder.lock(lock);
 		} catch (ElementLockedException e) {
 			lock = LOCK_NO_LOCK;
 		}
-		return new PFSDirectoryStreamImpl(lock, folder, filter);
+		return new PFSDirectoryStreamImpl(p.getFileSystem(), lock, folder, filter, p.getNames());
 	}
 	
 	@Override
@@ -358,8 +362,15 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	
 	@Override
 	public void delete(Path path) throws IOException {
-		// TODO Auto-generated method stub
-		
+		PFSPathImpl p = PFSPathImpl.getMyPath(path);
+		String[] strs = getPath(p);
+		PatrFolder root = p.getFileSystem().getFileSys().getRoot();
+		PatrFileSysElement element = getElement(root, strs, strs.length);
+		if (element.isFile()) {
+			element.getFile().delete(LOCK_NO_LOCK);
+		} else {
+			element.getFolder().delete(LOCK_NO_LOCK);
+		}
 	}
 	
 	@Override
@@ -381,8 +392,10 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	
 	@Override
 	public boolean isHidden(Path path) throws IOException {
-		// TODO Auto-generated method stub
-		return false;
+		PFSPathImpl p = PFSPathImpl.getMyPath(path);
+		String[] strs = getPath(p);
+		PatrFileSysElement element = getElement(p.getFileSystem().getFileSys().getRoot(), strs, strs.length);
+		return element.isHidden();
 	}
 	
 	@Override
@@ -393,8 +406,26 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	
 	@Override
 	public void checkAccess(Path path, AccessMode... modes) throws IOException {
-		// TODO Auto-generated method stub
-		
+		PFSPathImpl p = PFSPathImpl.getMyPath(path);
+		String[] strs = getPath(p);
+		PatrFolder root = p.getFileSystem().getFileSys().getRoot();
+		PatrFileSysElement element = getElement(root, strs, strs.length);
+		for (int i = 0; i < modes.length; i ++ ) {
+			switch (modes[i]) {
+			case EXECUTE:
+				if (!element.isExecutable()) {
+					throw new AccessDeniedException(buildName(strs, strs.length-1), null, "the element is not marked as executable!");
+				}
+			case READ:
+				element.ensureAccess(LOCK_NO_LOCK, LOCK_NO_READ_ALLOWED_LOCK, false);
+				break;
+			case WRITE:
+				element.ensureAccess(LOCK_NO_LOCK, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+				break;
+			default:
+				throw new InternalError("unknown AccessMode: " + modes[i].name());
+			}
+		}
 	}
 	
 	@Override
@@ -462,13 +493,30 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 		throw new NoSuchFileException(buildName(path, i));
 	}
 	
-	private static String buildName(String[] path, int i) {
+	public static String buildName(PatrFileSysElement element) throws IOException {
+		List <String> strs = new ArrayList <>();
+		if (element.isFolder() && element.getFolder().isRoot()) {
+			return "/";
+		}
+		strs.add(element.getName());
+		PatrFolder p = element.getParent();
+		while ( !p.isRoot()) {
+			strs.add(p.getName());
+			p = p.getParent();
+		}
+		StringBuilder build = new StringBuilder();
+		for (int i = strs.size() - 1; i >= 0; i -- ) {
+			build.append('/').append(strs.get(i));
+		}
+		return build.toString();
+	}
+	
+	public static String buildName(String[] path, int i) {
 		StringBuilder build = new StringBuilder();
 		for (int si = 0; si <= i; si ++ ) {
 			build.append('/').append(path[si]);
 		}
-		String file = build.toString();
-		return file;
+		return build.toString();
 	}
 	
 	private static String[] getPath(PFSPathImpl p) {

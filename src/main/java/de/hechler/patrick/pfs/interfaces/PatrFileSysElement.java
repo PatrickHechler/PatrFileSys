@@ -3,6 +3,7 @@ package de.hechler.patrick.pfs.interfaces;
 import java.io.IOException;
 
 import de.hechler.patrick.pfs.exception.ElementLockedException;
+import de.hechler.patrick.pfs.interfaces.functional.ThrowingBooleanSupplier;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingIntSupplier;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingLongSupplier;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingRunnable;
@@ -230,12 +231,15 @@ public interface PatrFileSysElement {
 	
 	/**
 	 * ensures, that this element can be accessed with the given lock.<br>
-	 * if {@code lock} is {@link PatrFileSysConstants#LOCK_NO_LOCK} it ensures that <code>(current_lock & forbiddenBits)</code> is {@code 0}.
+	 * if {@code lock} is {@link PatrFileSysConstants#LOCK_NO_LOCK} it ensures that <code>(current_lock & forbiddenBits)</code> is {@code 0}.<br>
+	 * if {@code readOnlyForbidden} is <code>true</code> and the {@link #isReadOnly()} flag is set an {@link ElementLockedException} will be thrown.
 	 * 
 	 * @param lock
 	 *            the lock or {@link PatrFileSysConstants#LOCK_NO_LOCK}
 	 * @param forbiddenBits
 	 *            the forbidden bits if {@code lock} is {@link PatrFileSysConstants#LOCK_NO_LOCK}
+	 * @param readOnlyForbidden
+	 *            <code>true</code> if also the read only flag should be checked.
 	 * @throws IOException
 	 *             if an IO error occurs
 	 * @throws ElementLockedException
@@ -243,7 +247,7 @@ public interface PatrFileSysElement {
 	 * @throws IllegalArgumentException
 	 *             if the forbidden bits asks for non data bits (<code>{@link PatrFileSysConstants#LOCK_NO_DATA} & forbiddenBits</code> must be {@code 0})
 	 */
-	void ensureAccess(long lock, long forbiddenBits) throws IOException, ElementLockedException, IllegalArgumentException;
+	void ensureAccess(long lock, long forbiddenBits, boolean readOnlyForbidden) throws IOException, ElementLockedException, IllegalArgumentException;
 	
 	/**
 	 * removes the lock from this element if the given lock is equal to the lock of this element of if the given lock is {@link PatrFileSysConstants#LOCK_NO_LOCK}
@@ -380,6 +384,24 @@ public interface PatrFileSysElement {
 	<T extends Throwable> long withLockLong(ThrowingLongSupplier <T> exec) throws T, IOException;
 	
 	/**
+	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system.<br>
+	 * in addition to {@link #withLock(ThrowingRunnable)} this method returns the boolean-value returned by the boolean-supplier
+	 * <p>
+	 * this method also checks if the thread already has the lock (see: {@link Thread#holdsLock(Object)})
+	 * <p>
+	 * the method will also ensure that the block of this element is loaded, so the access will be a bit faster.
+	 * 
+	 * @param <T>
+	 *            the exception type which may be thrown
+	 * @param exec
+	 *            the supplier, which should be executed
+	 * @return the boolean-return-value of the supplier
+	 * @throws T
+	 *             when the given throwing runnable throws the given exception
+	 */
+	<T extends Throwable> boolean withLockBoolean(ThrowingBooleanSupplier <T> exec) throws T, IOException;
+	
+	/**
 	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system
 	 * <p>
 	 * this method also checks if the thread already has the lock (see: {@link Thread#holdsLock(Object)})
@@ -440,5 +462,21 @@ public interface PatrFileSysElement {
 	 *             when the given throwing runnable throws the given exception
 	 */
 	<T extends Throwable> long simpleWithLockLong(ThrowingLongSupplier <T> exec) throws T;
+	
+	/**
+	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system.<br>
+	 * in addition to {@link #simpleWithLock(ThrowingSupplier)} this method returns the boolean-value returned by the boolean-supplier
+	 * <p>
+	 * this method also checks if the thread already has the lock (see: {@link Thread#holdsLock(Object)})
+	 * 
+	 * @param <T>
+	 *            the exception type which may be thrown
+	 * @param exec
+	 *            the supplier, which should be executed
+	 * @return the boolean-return-value of the supplier
+	 * @throws T
+	 *             when the given throwing runnable throws the given exception
+	 */
+	<T extends Throwable> boolean simpleWithLockBoolean(ThrowingBooleanSupplier <T> exec) throws T;
 	
 }

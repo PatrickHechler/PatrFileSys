@@ -53,10 +53,12 @@ import de.hechler.patrick.pfs.interfaces.BlockManager;
 import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
+import de.hechler.patrick.pfs.interfaces.functional.ThrowingBooleanSupplier;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingIntSupplier;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingLongSupplier;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingRunnable;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingSupplier;
+import de.hechler.patrick.pfs.objects.java.PFSFileSystemProviderImpl;
 import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
 public class PatrFileSysElementImpl implements PatrFileSysElement {
@@ -109,9 +111,9 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 				PatrFolderImpl oldParent = getParent();
 				bm.getBlock(oldParent.block);
 				try {
-					oldParent.ensureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK);
-					np.ensureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK);
-					ensureAccess(oldParentLock, LOCK_NO_META_CHANGE_ALLOWED_LOCK);
+					oldParent.ensureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK, false);
+					np.ensureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK, false);
+					ensureAccess(oldParentLock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
 					oldParent.modify(false);
 				} finally {
 					bm.ungetBlock(oldParent.block);
@@ -191,7 +193,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	private void executeSetExecutable(boolean isExecutale, long lock) throws IOException, ElementLockedException {
 		bm.getBlock(block);
 		try {
-			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK);
+			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
 			flag(ELEMENT_FLAG_EXECUTABLE, isExecutale);
 			modify(true);
 		} finally {
@@ -207,7 +209,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	private void executeSetHidden(boolean isHidden, long lock) throws IOException, ElementLockedException {
 		bm.getBlock(block);
 		try {
-			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK);
+			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
 			flag(ELEMENT_FLAG_HIDDEN, isHidden);
 			modify(true);
 		} finally {
@@ -223,7 +225,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	private void executeSetReadOnly(boolean isReadOnly, long lock) throws IOException, ElementLockedException {
 		bm.getBlock(block);
 		try {
-			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK);
+			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
 			flag(ELEMENT_FLAG_READ_ONLY, isReadOnly);
 			modify(true);
 		} finally {
@@ -298,7 +300,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	public void setOwner(int owner, long lock) throws IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
-			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK);
+			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
 			intToByteArr(bytes, pos + ELEMENT_OFFSET_OWNER, owner);
 			modify(true);
 		} finally {
@@ -450,16 +452,16 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 			long myLock = getLock();
 			if (myLock != LOCK_NO_LOCK) {
 				if ( (myLock & LOCK_SHARED_LOCK) != 0) {
-					throw new ElementLockedException("this element is locked with a non shared lock!");
+					throw new ElementLockedException(PFSFileSystemProviderImpl.buildName(this), "this element is locked with a non shared lock!");
 				} else if ( (newLock & LOCK_SHARED_LOCK) != 0) {
-					throw new ElementLockedException("this element is locked with a shared lock!");
+					throw new ElementLockedException(PFSFileSystemProviderImpl.buildName(this), "this element is locked with a shared lock!");
 				} else if ( (myLock & LOCK_DATA) != newLock) {
-					throw new ElementLockedException("this element is locked with a shared lock which has diffrent data flags!");
+					throw new ElementLockedException(PFSFileSystemProviderImpl.buildName(this), "this element is locked with a shared lock which has diffrent data flags!");
 				}
 				long cnt = (myLock & LOCK_SHARED_COUNTER_AND) >>> LOCK_SHARED_COUNTER_SHIFT;
 				cnt ++ ;
 				if (cnt > LOCK_SHARED_COUNTER_MAX_VALUE) {
-					throw new ElementLockedException("this element is locked with a shared lock which has already been shared too often");
+					throw new ElementLockedException(PFSFileSystemProviderImpl.buildName(this), "this element is locked with a shared lock which has already been shared too often");
 				}
 				newLock = myLock & ~LOCK_SHARED_COUNTER_AND;
 				myLock = newLock | (cnt << LOCK_SHARED_COUNTER_SHIFT);
@@ -475,23 +477,32 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	}
 	
 	@Override
-	public void ensureAccess(long lock, long forbiddenBits) throws IOException, ElementLockedException, IllegalArgumentException {
+	public void ensureAccess(long lock, long forbiddenBits, boolean readOnlyForbidden) throws IOException, ElementLockedException, IllegalArgumentException {
 		long check = forbiddenBits & LOCK_DATA;
 		if (check != forbiddenBits) {
 			throw new IllegalArgumentException("the forbidden bits are not allowed to contain non data bits!");
 		}
-		withLock(() -> executeEnsureAccess(lock, forbiddenBits));
+		withLock(() -> executeEnsureAccess(lock, forbiddenBits, readOnlyForbidden));
 	}
 	
-	public void executeEnsureAccess(long lock, long forbiddenBits) throws IOException, ElementLockedException, IllegalArgumentException {
+	public void executeEnsureAccess(long lock, long forbiddenBits, boolean readOnlyForbidden) throws IOException, ElementLockedException, IllegalArgumentException {
+		if (readOnlyForbidden) {
+			if (isReadOnly()) {
+				throw new ElementLockedException(PFSFileSystemProviderImpl.buildName(this), "this element is read only, but non read access was requested!");
+			}
+		}
 		long myLock = getLock();
 		if (lock != LOCK_NO_LOCK) {
 			if (myLock != lock) {
-				throw new ElementLockedException("the lock is not LOCK_NO_LOCK, but also not my lock!");
+				throw new ElementLockedException(PFSFileSystemProviderImpl.buildName(this), "the lock is not LOCK_NO_LOCK, but also not my lock!");
+			} else if ( (myLock & LOCK_SHARED_LOCK) != 0) {
+				if ( (myLock & forbiddenBits) != 0) {
+					throw new ElementLockedException(PFSFileSystemProviderImpl.buildName(this), "the lock is a shared lock and I have at least one of the forbidden bits set in my lock!");
+				}
 			}
 		} else {
 			if ( (myLock & forbiddenBits) != 0) {
-				throw new ElementLockedException("the lock is LOCK_NO_LOCK, but I have at least one of the forbidden bits set in my lock!");
+				throw new ElementLockedException(PFSFileSystemProviderImpl.buildName(this), "the lock is LOCK_NO_LOCK, but I have at least one of the forbidden bits set in my lock!");
 			}
 		}
 	}
@@ -517,7 +528,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	private void executeSetName(String name, long lock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {
 		byte[] bytes = bm.getBlock(block);
 		try {
-			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK);
+			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
 			int oldlen = getNameByteCount();
 			int np = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
 			byte[] namebytes = name.getBytes(StandardCharsets.UTF_16);
@@ -1353,6 +1364,30 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		}
 	}
 	
+	@Override
+	public <T extends Throwable> boolean withLockBoolean(ThrowingBooleanSupplier <T> exec) throws T, IOException {
+		Object elementLock = getElementLock();
+		if (Thread.holdsLock(elementLock)) {
+			final long myBlock = block;
+			bm.getBlock(myBlock);
+			try {
+				return exec.supply();
+			} finally {
+				bm.ungetBlock(myBlock);
+			}
+		} else {
+			synchronized (elementLock) {
+				final long myBlock = block;
+				bm.getBlock(myBlock);
+				try {
+					return exec.supply();
+				} finally {
+					bm.ungetBlock(myBlock);
+				}
+			}
+		}
+	}
+	
 	public static <T extends Throwable> void simpleWithLock(BlockManager bm, long block, ThrowingRunnable <T> exec) throws T {
 		Object elementLock = getBlockLock(bm, block);
 		if (Thread.holdsLock(elementLock)) {
@@ -1435,6 +1470,18 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public <T extends Throwable> long simpleWithLockLong(ThrowingLongSupplier <T> exec) throws T {
+		Object elementLock = getElementLock();
+		if (Thread.holdsLock(elementLock)) {
+			return exec.supply();
+		} else {
+			synchronized (elementLock) {
+				return exec.supply();
+			}
+		}
+	}
+	
+	@Override
+	public <T extends Throwable> boolean simpleWithLockBoolean(ThrowingBooleanSupplier <T> exec) throws T {
 		Object elementLock = getElementLock();
 		if (Thread.holdsLock(elementLock)) {
 			return exec.supply();
