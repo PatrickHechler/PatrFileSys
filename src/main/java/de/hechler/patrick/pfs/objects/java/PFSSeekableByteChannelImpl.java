@@ -26,7 +26,7 @@ public class PFSSeekableByteChannelImpl implements SeekableByteChannel {
 	private byte[]                                   buffer;
 	
 	public PFSSeekableByteChannelImpl(long lock, String[] path, PatrFile file, ThrowingConsumer <IOException, PatrFile> onClose, int mode) {
-		this(lock, path, file, onClose, mode, 1 << 16/* ca. 64k */);
+		this(lock, path, file, onClose, mode, 1 << 16/* ca. 32k */);
 	}
 	
 	public PFSSeekableByteChannelImpl(long lock, String[] path, PatrFile file, ThrowingConsumer <IOException, PatrFile> onClose, int mode, int bufferSize) {
