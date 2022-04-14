@@ -110,7 +110,7 @@ public interface PatrFile extends PatrFileSysElement {
 	 * @throws ElementLockedException
 	 *             when this element is locked with a different lock
 	 */
-	void delete(long lock) throws IOException, ElementLockedException;
+	void delete(long myLock, long parentLocks) throws IOException, ElementLockedException;
 	
 	@Override
 	default boolean isFile() throws IOException {

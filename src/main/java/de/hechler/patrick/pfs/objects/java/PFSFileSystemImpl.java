@@ -20,6 +20,7 @@ import de.hechler.patrick.pfs.objects.java.PFSPathImpl.Name;
 public class PFSFileSystemImpl extends FileSystem {
 	
 	public static final String ATTR_VIEW_BASIC = "basic";
+	public static final String ATTR_VIEW_PATR = "patr";
 	
 	private final PFSFileSystemProviderImpl provider;
 	private final PatrFileSystem            fileSys;

@@ -93,7 +93,7 @@ public class PFSPathImpl implements Path {
 	
 	@Override
 	public boolean startsWith(Path other) {
-		PFSPathImpl p = getMyPath(other, true);
+		PFSPathImpl p = getSameFSPath(other);
 		if ( !p.fs.equals(this.fs)) {
 			return false;
 		}
@@ -110,7 +110,7 @@ public class PFSPathImpl implements Path {
 	
 	@Override
 	public boolean endsWith(Path other) {
-		PFSPathImpl p = getMyPath(other, true);
+		PFSPathImpl p = getSameFSPath(other);
 		if (this.path.length < p.path.length) {
 			return false;
 		}
@@ -150,7 +150,7 @@ public class PFSPathImpl implements Path {
 	
 	@Override
 	public Path resolve(Path other) {
-		PFSPathImpl myPath = getMyPath(other, false);
+		PFSPathImpl myPath = getMyPath(other);
 		if (myPath.relativeTo.relativeTo == myPath.relativeTo) {
 			return myPath;
 		} else if (myPath.path.length == 0) {
@@ -164,7 +164,7 @@ public class PFSPathImpl implements Path {
 	
 	@Override
 	public PFSPathImpl relativize(Path other) {
-		PFSPathImpl p = getMyPath(other, false);
+		PFSPathImpl p = getMyPath(other);
 		int commonStart;
 		for (commonStart = 0; commonStart < this.path.length && commonStart < p.path.length; commonStart ++ ) {
 			if ( !p.path[commonStart].equals(this.path[commonStart])) {
@@ -219,12 +219,12 @@ public class PFSPathImpl implements Path {
 		System.err.println("  this: " + this);
 		System.err.println("  stack Trace:");
 		new Throwable().printStackTrace(System.err);
-		return null;
+		throw new UnsupportedOperationException("register(...) is not supported!");
 	}
 	
 	@Override
 	public int compareTo(Path other) {
-		PFSPathImpl p = getMyPath(other, true);
+		PFSPathImpl p = getSameFSPath(other);
 		for (int i = 0; i < this.path.length && i < p.path.length; i ++ ) {
 			int cmp = this.path[i].compareTo(p.path[i]);
 			if (cmp != 0) {
@@ -240,12 +240,10 @@ public class PFSPathImpl implements Path {
 		}
 	}
 	
-	public PFSPathImpl getMyPath(Path other, boolean checkFS) {
+	public PFSPathImpl getSameFSPath(Path other) {
 		PFSPathImpl myPath = getMyPath(other);
-		if (checkFS) {
-			if ( !myPath.fs.equals(this.fs)) {
-				throw new IllegalArgumentException("I can not work with a path from a different file system!");
-			}
+		if ( !myPath.fs.equals(this.fs)) {
+			throw new IllegalArgumentException("I can not work with a path from a different file system!");
 		}
 		return myPath;
 	}

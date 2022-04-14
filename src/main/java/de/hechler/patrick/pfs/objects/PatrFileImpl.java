@@ -38,54 +38,49 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	}
 	
 	private void executeRead(byte[] bytes, long offset, int bytesOff, int length, long lock) throws ClosedChannelException, IOException, ElementLockedException {
-		bm.getBlock(block);
-		try {
-			if (offset + (long) length > length()) {
-				throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + length() + ")");
-			}
-			iterateBlockTable(new ThrowingBooleanFunction <>() {
-				
-				private long skip   = offset / bm.blockSize();
-				private int  off    = (int) (offset % (long) bm.blockSize());
-				private int  boff   = bytesOff;
-				private int  remain = length;
-				
-				@Override
-				public boolean calc(AllocatedBlocks p) throws IOException {
-					if (p.count < skip) {
-						skip -= p.count;
-						return true;
-					}
-					int blockSize = bm.blockSize();
-					long blockAdd = 0;
-					if (off > 0) {
-						blockAdd = off / blockSize;
-						off = off % blockSize;
-					}
-					for (; blockAdd < p.count && remain > 0; blockAdd ++ ) {
-						long blockNum = p.startBlock + blockAdd;
-						byte[] blockBytes = bm.getBlock(blockNum);
-						try {
-							int cpy = Math.min(remain, blockSize - off);
-							System.arraycopy(blockBytes, boff, bytes, off, cpy);
-							off = 0;
-							remain -= cpy;
-							boff += cpy;
-						} finally {
-							bm.ungetBlock(blockNum);
-						}
-					}
-					if (remain > 0) {
-						return true;
-					} else {
-						return false;
+		if (offset + (long) length > length()) {
+			throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + length() + ")");
+		}
+		iterateBlockTable(new ThrowingBooleanFunction <>() {
+			
+			private long skip   = offset / bm.blockSize();
+			private int  off    = (int) (offset % (long) bm.blockSize());
+			private int  boff   = bytesOff;
+			private int  remain = length;
+			
+			@Override
+			public boolean calc(AllocatedBlocks p) throws IOException {
+				if (p.count < skip) {
+					skip -= p.count;
+					return true;
+				}
+				int blockSize = bm.blockSize();
+				long blockAdd = 0;
+				if (off > 0) {
+					blockAdd = off / blockSize;
+					off = off % blockSize;
+				}
+				for (; blockAdd < p.count && remain > 0; blockAdd ++ ) {
+					long blockNum = p.startBlock + blockAdd;
+					byte[] blockBytes = bm.getBlock(blockNum);
+					try {
+						int cpy = Math.min(remain, blockSize - off);
+						System.arraycopy(blockBytes, boff, bytes, off, cpy);
+						off = 0;
+						remain -= cpy;
+						boff += cpy;
+					} finally {
+						bm.ungetBlock(blockNum);
 					}
 				}
-				
-			});
-		} finally {
-			bm.ungetBlock(block);
-		}
+				if (remain > 0) {
+					return true;
+				} else {
+					return false;
+				}
+			}
+			
+		});
 	}
 	
 	@Override
@@ -101,130 +96,125 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	}
 	
 	private void executeRemove(final long offset, final long length) throws ClosedChannelException, IOException {
-		bm.getBlock(block);
-		try {
-			final long myOldLen = length();
-			if (offset + length > myOldLen) {
-				throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + myOldLen + ")");
-			}
-			final int blockSize = bm.blockSize();
-			iterateBlockTable(new ThrowingBooleanFunction <>() {
-				
-				private int       state                = 0;
-				private long      skip                 = offset / (long) blockSize;
-				private final int inStartBlockOff      = (int) (offset % (long) blockSize);
-				private int       startBlockTableOff   = -1;
-				private long      startBlockNum        = -1L;
-				private long      remove               = -1L;
-				private int       lastBlockRemove      = -1;
-				private long      lastBlockNum         = -1L;
-				private long      firstNotRemovedBlock = -1L;
-				private int       lastBlockTableOff    = -1;
-				private int       inBlockOff           = -1;
-				private int       currentOff           = pos + FILE_OFFSET_FILE_DATA_TABLE - 16;
-				private long      remainBlocks         = (myOldLen + (long) blockSize - 1L) / blockSize;
-				
-				@Override
-				public boolean calc(AllocatedBlocks p) throws IOException {
-					currentOff += 16;
-					remainBlocks -= p.count;
-					switch (state) {
-					case 0:
-						if (p.count < skip) {
-							skip -= p.count;
-						} else if (remove == -1L) {
-							state = 1;
-							startBlockTableOff = currentOff;
-							startBlockNum = p.startBlock + skip;
-							lastBlockRemove = (int) ( (length - inStartBlockOff) % bm.blockSize());
-							remove = (length - inStartBlockOff) / bm.blockSize();
-							remove -= startBlockNum - p.startBlock;
-							assert p.contains(startBlockNum);
-						}
-						break;
-					case 1:
-						if (p.count > remove) {
-							remove -= p.count;
-						} else {
-							state = 2;
-							lastBlockTableOff = currentOff;
-							firstNotRemovedBlock = p.startBlock + remove;
-							lastBlockNum = firstNotRemovedBlock;
-							assert p.contains(lastBlockNum);
-							final long sbn = startBlockNum;
-							byte[] stay = bm.getBlock(sbn);
-							try {
-								final long lbn = lastBlockNum;
-								byte[] del = bm.getBlock(lbn);
-								try {
-									int cpy;
-									if (blockSize - inStartBlockOff < blockSize - lastBlockRemove) {
-										cpy = blockSize - inStartBlockOff;
-										inBlockOff = lastBlockRemove - inStartBlockOff;
-										System.arraycopy(del, lastBlockRemove + cpy, del, 0, blockSize - lastBlockRemove - cpy);
-										lastBlockNum = startBlockNum;
-										startBlockNum = firstNotRemovedBlock;
-									} else {
-										cpy = blockSize - lastBlockRemove;
-										inBlockOff = blockSize - lastBlockRemove + inStartBlockOff;
-										firstNotRemovedBlock ++ ;
-										lastBlockNum = startBlockNum;
-										startBlockNum = firstNotRemovedBlock + 1;
-									}
-									System.arraycopy(del, lastBlockRemove, stay, inStartBlockOff, cpy);
-								} finally {
-									bm.setBlock(lbn);
-								}
-							} finally {
-								bm.setBlock(sbn);
-							}
-							lastBlockNum ++ ;
-							copy(blockSize, p.startBlock + p.count);
-						}
-						break;
-					case 2:
-						startBlockNum = p.startBlock;
-						copy(blockSize, p.startBlock + p.count);
-						if (remainBlocks > 0L) {
-							break;
-						}
-						byte[] bytes = bm.getBlock(block);
-						try {
-							System.arraycopy(bytes, lastBlockTableOff, bytes, startBlockTableOff, currentOff - lastBlockTableOff);
-							reallocate(blockSize, pos, currentOff - pos, currentOff - pos - lastBlockTableOff + startBlockTableOff, true);
-							longToByteArr(bytes, pos + FILE_OFFSET_FILE_LENGTH, myOldLen - length);
-						} finally {
-							bm.setBlock(block);
-						}
-						return false;
-					default:
-						throw new InternalError("illegal state: " + state);
-					}
-					return true;
-				}
-				
-				private void copy(final int blockSize, final long end) throws ClosedChannelException, IOException {
-					for (; lastBlockNum < end; startBlockNum ++ ) {
-						byte[] sbb = bm.getBlock(startBlockNum);
-						try {
-							byte[] lbb = bm.getBlock(lastBlockNum);
-							try {
-								int cpy = blockSize - inBlockOff;
-								System.arraycopy(lbb, 0, sbb, inBlockOff, cpy);
-							} finally {
-								bm.setBlock(lastBlockNum);
-							}
-						} finally {
-							bm.setBlock(startBlockNum);
-						}
-						lastBlockNum = startBlockNum;
-					}
-				}
-				
-			});
-		} finally {
-			bm.ungetBlock(block);
+		final long myOldLen = length();
+		if (offset + length > myOldLen) {
+			throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + myOldLen + ")");
 		}
+		final int blockSize = bm.blockSize();
+		iterateBlockTable(new ThrowingBooleanFunction <>() {
+			
+			private int       state                = 0;
+			private long      skip                 = offset / (long) blockSize;
+			private final int inStartBlockOff      = (int) (offset % (long) blockSize);
+			private int       startBlockTableOff   = -1;
+			private long      startBlockNum        = -1L;
+			private long      remove               = -1L;
+			private int       lastBlockRemove      = -1;
+			private long      lastBlockNum         = -1L;
+			private long      firstNotRemovedBlock = -1L;
+			private int       lastBlockTableOff    = -1;
+			private int       inBlockOff           = -1;
+			private int       currentOff           = pos + FILE_OFFSET_FILE_DATA_TABLE - 16;
+			private long      remainBlocks         = (myOldLen + (long) blockSize - 1L) / blockSize;
+			
+			@Override
+			public boolean calc(AllocatedBlocks p) throws IOException {
+				currentOff += 16;
+				remainBlocks -= p.count;
+				switch (state) {
+				case 0:
+					if (p.count < skip) {
+						skip -= p.count;
+					} else if (remove == -1L) {
+						state = 1;
+						startBlockTableOff = currentOff;
+						startBlockNum = p.startBlock + skip;
+						lastBlockRemove = (int) ( (length - inStartBlockOff) % bm.blockSize());
+						remove = (length - inStartBlockOff) / bm.blockSize();
+						remove -= startBlockNum - p.startBlock;
+						assert p.contains(startBlockNum);
+					}
+					break;
+				case 1:
+					if (p.count > remove) {
+						remove -= p.count;
+					} else {
+						state = 2;
+						lastBlockTableOff = currentOff;
+						firstNotRemovedBlock = p.startBlock + remove;
+						lastBlockNum = firstNotRemovedBlock;
+						assert p.contains(lastBlockNum);
+						final long sbn = startBlockNum;
+						byte[] stay = bm.getBlock(sbn);
+						try {
+							final long lbn = lastBlockNum;
+							byte[] del = bm.getBlock(lbn);
+							try {
+								int cpy;
+								if (blockSize - inStartBlockOff < blockSize - lastBlockRemove) {
+									cpy = blockSize - inStartBlockOff;
+									inBlockOff = lastBlockRemove - inStartBlockOff;
+									System.arraycopy(del, lastBlockRemove + cpy, del, 0, blockSize - lastBlockRemove - cpy);
+									lastBlockNum = startBlockNum;
+									startBlockNum = firstNotRemovedBlock;
+								} else {
+									cpy = blockSize - lastBlockRemove;
+									inBlockOff = blockSize - lastBlockRemove + inStartBlockOff;
+									firstNotRemovedBlock ++ ;
+									lastBlockNum = startBlockNum;
+									startBlockNum = firstNotRemovedBlock + 1;
+								}
+								System.arraycopy(del, lastBlockRemove, stay, inStartBlockOff, cpy);
+							} finally {
+								bm.setBlock(lbn);
+							}
+						} finally {
+							bm.setBlock(sbn);
+						}
+						lastBlockNum ++ ;
+						copy(blockSize, p.startBlock + p.count);
+					}
+					break;
+				case 2:
+					startBlockNum = p.startBlock;
+					copy(blockSize, p.startBlock + p.count);
+					if (remainBlocks > 0L) {
+						break;
+					}
+					byte[] bytes = bm.getBlock(block);
+					try {
+						System.arraycopy(bytes, lastBlockTableOff, bytes, startBlockTableOff, currentOff - lastBlockTableOff);
+						reallocate(blockSize, pos, currentOff - pos, currentOff - pos - lastBlockTableOff + startBlockTableOff, true);
+						longToByteArr(bytes, pos + FILE_OFFSET_FILE_LENGTH, myOldLen - length);
+					} finally {
+						bm.setBlock(block);
+					}
+					return false;
+				default:
+					throw new InternalError("illegal state: " + state);
+				}
+				return true;
+			}
+			
+			private void copy(final int blockSize, final long end) throws ClosedChannelException, IOException {
+				for (; lastBlockNum < end; startBlockNum ++ ) {
+					byte[] sbb = bm.getBlock(startBlockNum);
+					try {
+						byte[] lbb = bm.getBlock(lastBlockNum);
+						try {
+							int cpy = blockSize - inBlockOff;
+							System.arraycopy(lbb, 0, sbb, inBlockOff, cpy);
+						} finally {
+							bm.setBlock(lastBlockNum);
+						}
+					} finally {
+						bm.setBlock(startBlockNum);
+					}
+					lastBlockNum = startBlockNum;
+				}
+			}
+			
+		});
 	}
 	
 	@Override
@@ -243,54 +233,49 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	}
 	
 	private void executeWrite(final byte[] bytes, final long offset, final int bytesOff, final int length) throws ClosedChannelException, IOException {
-		bm.getBlock(block);
-		try {
-			if (offset + (long) length > length()) {
-				throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + length() + ")");
-			}
-			iterateBlockTable(new ThrowingBooleanFunction <>() {
-				
-				private long skip   = offset / bm.blockSize();
-				private int  off    = (int) (offset % (long) bm.blockSize());
-				private int  boff   = bytesOff;
-				private int  remain = length;
-				
-				@Override
-				public boolean calc(AllocatedBlocks p) throws IOException {
-					if (p.count < skip) {
-						skip -= p.count;
-						return true;
-					}
-					int blockSize = bm.blockSize();
-					long blockAdd = 0;
-					if (off > 0) {
-						blockAdd = off / blockSize;
-						off = off % blockSize;
-					}
-					for (; blockAdd < p.count && remain > 0; blockAdd ++ ) {
-						long blockNum = p.startBlock + blockAdd;
-						byte[] blockBytes = bm.getBlock(blockNum);
-						try {
-							int cpy = Math.min(remain, blockSize - off);
-							System.arraycopy(bytes, boff, blockBytes, off, cpy);
-							off = 0;
-							remain -= cpy;
-							boff += cpy;
-						} finally {
-							bm.setBlock(blockNum);
-						}
-					}
-					if (remain > 0) {
-						return true;
-					} else {
-						return false;
+		if (offset + (long) length > length()) {
+			throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + length() + ")");
+		}
+		iterateBlockTable(new ThrowingBooleanFunction <>() {
+			
+			private long skip   = offset / bm.blockSize();
+			private int  off    = (int) (offset % (long) bm.blockSize());
+			private int  boff   = bytesOff;
+			private int  remain = length;
+			
+			@Override
+			public boolean calc(AllocatedBlocks p) throws IOException {
+				if (p.count < skip) {
+					skip -= p.count;
+					return true;
+				}
+				int blockSize = bm.blockSize();
+				long blockAdd = 0;
+				if (off > 0) {
+					blockAdd = off / blockSize;
+					off = off % blockSize;
+				}
+				for (; blockAdd < p.count && remain > 0; blockAdd ++ ) {
+					long blockNum = p.startBlock + blockAdd;
+					byte[] blockBytes = bm.getBlock(blockNum);
+					try {
+						int cpy = Math.min(remain, blockSize - off);
+						System.arraycopy(bytes, boff, blockBytes, off, cpy);
+						off = 0;
+						remain -= cpy;
+						boff += cpy;
+					} finally {
+						bm.setBlock(blockNum);
 					}
 				}
-				
-			});
-		} finally {
-			bm.ungetBlock(block);
-		}
+				if (remain > 0) {
+					return true;
+				} else {
+					return false;
+				}
+			}
+			
+		});
 	}
 	
 	@Override
@@ -403,21 +388,17 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	}
 	
 	@Override
-	public void delete(long lock) throws IOException {
-		simpleWithLock(() -> executeDelete(lock));
+	public void delete(long myLock, long paretnLock) throws IOException {
+		withLock(() -> executeDelete(myLock, paretnLock), getParent());
 	}
 	
-	private void executeDelete(long lock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {
-		bm.getBlock(block);
-		try {
-			ensureAccess(lock, LOCK_NO_DELETE_ALLOWED_LOCK, true);
-			executeRemove(0, length());
-			deleteFromParent();
-			reallocate(block, pos, FILE_OFFSET_FILE_DATA_TABLE, 0, false);
-			getParent().modify(false);
-		} finally {
-			bm.ungetBlock(block);
-		}
+	private void executeDelete(long myLock, long parentLock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {
+		ensureAccess(myLock, LOCK_NO_DELETE_ALLOWED_LOCK, true);
+		getParent().ensureAccess(parentLock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+		executeRemove(0, length());
+		deleteFromParent();
+		reallocate(block, pos, FILE_OFFSET_FILE_DATA_TABLE, 0, false);
+		getParent().modify(false);
 	}
 	
 	private int iterateBlockTable(ThrowingBooleanFunction <AllocatedBlocks, ? extends IOException> func) throws IOException {

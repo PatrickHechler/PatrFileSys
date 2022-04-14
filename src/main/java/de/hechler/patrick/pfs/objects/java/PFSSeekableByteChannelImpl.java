@@ -6,7 +6,9 @@ import static de.hechler.patrick.pfs.objects.java.PFSFileSystemProviderImpl.MODE
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.ScatteringByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.WritableByteChannel;
 
@@ -14,22 +16,22 @@ import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingConsumer;
 import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
-public class PFSSeekableByteChannelImpl implements SeekableByteChannel {
+public class PFSSeekableByteChannelImpl implements SeekableByteChannel, GatheringByteChannel, ScatteringByteChannel {
 	
 	// @SuppressWarnings("unused")
 	// private String[] path;
-	private ThrowingConsumer <IOException, PatrFile> onClose;
-	private volatile int                             mode;
-	private long                                     lock;
-	private PatrFile                                 file;
-	private long                                     pos;
-	private byte[]                                   buffer;
+	private ThrowingConsumer <? extends IOException, PatrFile> onClose;
+	private volatile int                                       mode;
+	private long                                               lock;
+	private PatrFile                                           file;
+	private long                                               pos;
+	private byte[]                                             buffer;
 	
-	public PFSSeekableByteChannelImpl(long lock, String[] path, PatrFile file, ThrowingConsumer <IOException, PatrFile> onClose, int mode) {
+	public PFSSeekableByteChannelImpl(long lock, String[] path, PatrFile file, ThrowingConsumer <? extends IOException, PatrFile> onClose, int mode) {
 		this(lock, path, file, onClose, mode, 1 << 16/* ca. 32k */);
 	}
 	
-	public PFSSeekableByteChannelImpl(long lock, String[] path, PatrFile file, ThrowingConsumer <IOException, PatrFile> onClose, int mode, int bufferSize) {
+	public PFSSeekableByteChannelImpl(long lock, String[] path, PatrFile file, ThrowingConsumer <? extends IOException, PatrFile> onClose, int mode, int bufferSize) {
 		this.onClose = onClose;
 		this.mode = mode;
 		this.lock = lock;
@@ -76,11 +78,35 @@ public class PFSSeekableByteChannelImpl implements SeekableByteChannel {
 	
 	public long read(ByteBuffer[] dsts, int offset, int length) throws IOException {
 		checkRead();
-		long size = 0L;
-		for (int i = 0; i < length; i ++ ) {
-			read(dsts[offset + i]);
-		}
-		return size;
+		return file.withLockLong(() -> {
+			final long myLen = file.length(),
+				startPos = pos;
+			long myRemain = myLen - startPos;
+			if (myRemain <= 0L) {
+				return -1;
+			}
+			int off = 0;
+			for (int i = 0; i < dsts.length && myRemain > 0L; i ++ ) {
+				ByteBuffer dest = dsts[i];
+				int remain = dest.remaining();
+				for (int cpy; remain > 0 && myRemain > 0L; remain -= cpy, myRemain -= cpy, pos += cpy) {
+					cpy = Math.min(remain, (int) Math.min(myRemain, buffer.length - off));
+					file.getContent(buffer, offset, off, cpy, lock);
+					dest.put(buffer, off, cpy);
+					off += cpy;
+					if (off >= buffer.length) {
+						assert off == buffer.length;
+						off = 0;
+					}
+				}
+			}
+			return pos - startPos;
+		});
+	}
+	
+	@Override
+	public long read(ByteBuffer[] dsts) throws IOException {
+		return read(dsts, 0, dsts.length);
 	}
 	
 	@Override
@@ -117,11 +143,46 @@ public class PFSSeekableByteChannelImpl implements SeekableByteChannel {
 	
 	public long write(ByteBuffer[] srcs, int offset, int length) throws IOException {
 		checkWrite();
-		long size = 0L;
-		for (int i = 0; i < length; i ++ ) {
-			write(srcs[offset + i]);
-		}
-		return size;
+		return file.withLockLong(() -> {
+			final long myLen = file.length(),
+				startPos = pos,
+				end = offset + length;
+			long myRemain = myLen - startPos;
+			if (myRemain <= 0L) {
+				return -1;
+			}
+			int off = 0;
+			int i = offset;
+			for (i = 0; i < end && myRemain > 0L; i ++ ) {
+				ByteBuffer src = srcs[i];
+				int remain = src.remaining();
+				for (int cpy; remain > 0 && myRemain > 0L; remain -= cpy, myRemain -= cpy, pos += cpy) {
+					cpy = Math.min(remain, (int) Math.min(myRemain, buffer.length - off));
+					src.get(buffer, off, cpy);
+					file.setContent(buffer, offset, off, cpy, lock);
+					off += cpy;
+					if (off >= buffer.length) {
+						assert off == buffer.length;
+						off = 0;
+					}
+				}
+			}
+			for (; i < end; i ++ ) {
+				ByteBuffer src = srcs[i];
+				int remain = src.remaining();
+				for (int cpy; remain > 0; remain -= cpy, pos += cpy) {
+					cpy = Math.min(remain, buffer.length - off);
+					src.get(buffer, 0, cpy);
+					file.appendContent(buffer, 0, cpy, lock);
+				}
+			}
+			return pos - startPos;
+		});
+	}
+	
+	@Override
+	public long write(ByteBuffer[] srcs) throws IOException {
+		return write(srcs, 0, srcs.length);
 	}
 	
 	@Override

@@ -2,7 +2,6 @@ package de.hechler.patrick.pfs.objects.java;
 
 import java.io.IOException;
 import java.nio.file.attribute.BasicFileAttributeView;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
@@ -29,7 +28,11 @@ public class PFSBasicFileAttributeViewImpl implements BasicFileAttributeView {
 	}
 	
 	@Override
-	public BasicFileAttributes readAttributes() throws IOException {
+	public PFSBasicFileAttributesImpl readAttributes() throws IOException {
+		return readAttributes(element);
+	}
+	
+	public static PFSBasicFileAttributesImpl readAttributes(PatrFileSysElement element) throws IOException {
 		boolean isFile = element.isFile();
 		long createTime = element.getCreateTime(), lastModTime = element.getLastModTime();
 		long size;
@@ -38,10 +41,10 @@ public class PFSBasicFileAttributeViewImpl implements BasicFileAttributeView {
 		} else {
 			size = sizeOf(element.getFolder());
 		}
-		return new PFSBasicFileAttributes(size, isFile, createTime, -1L, lastModTime);
+		return new PFSBasicFileAttributesImpl(size, isFile, createTime, -1L, lastModTime);
 	}
 	
-	private static long sizeOf(PatrFolder folder) throws IOException {
+	public static long sizeOf(PatrFolder folder) throws IOException {
 		long size = 0L;
 		for (PatrFileSysElement child : folder) {
 			if (child.isFile()) {

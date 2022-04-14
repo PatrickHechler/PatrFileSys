@@ -48,8 +48,10 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	 * 
 	 * an IllegalStateException will be thrown when this folder is not empty or the root folder
 	 * 
-	 * @param lock
-	 *            the current lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
+	 * @param myLock
+	 *            the current lock of this element or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
+	 * @param parentLock
+	 *            the current lock of the parent folder of this element or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
 	 * @throws IllegalStateException
 	 *             if this folder is not empty or if this is the root folder
 	 * @throws IOException
@@ -58,7 +60,7 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	 *             when this element is locked with a different lock
 	 * @see #canDeleteWithContent()
 	 */
-	void delete(long lock) throws IllegalStateException, IOException, ElementLockedException;
+	void delete(long myLock, long parentLock) throws IllegalStateException, IOException, ElementLockedException;
 	
 	/**
 	 * returns <code>true</code> if this folder is the root folder of the file system.
@@ -103,6 +105,10 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	}
 	
 	default Iterator <PatrFileSysElement> iterator(long lock) {
+		return iterator(e -> e == this ? lock : PatrFileSysConstants.LOCK_NO_LOCK);
+	}
+	
+	default Iterator <PatrFileSysElement> iterator(LockSupplier lock) {
 		return new PatrFolderIterator(this, lock);
 	}
 	
@@ -110,13 +116,18 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	 * deletes this folder even if it has children elements (which can also have children).<br>
 	 * this operation fails, when at least one children has a non delete lock.
 	 * 
+	 * @param myLock
+	 *            the current lock of this element or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
+	 * @param parentLock
+	 *            the current lock of the parent folder of this element or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
 	 * @throws ElementLockedException
 	 *             when this element is locked with a different lock, or if at least one of it's children is locked
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	default void deepDelete(long lock) throws IOException, ElementLockedException {
-		deepDelete(e -> this == e ? lock : PatrFileSysConstants.LOCK_NO_LOCK);
+	default void deepDelete(long myLock, long parentLock) throws IOException, ElementLockedException {
+		PatrFolder p = getParent();
+		deepDelete(e -> this == e ? myLock : p.equals(e) ? parentLock : PatrFileSysConstants.LOCK_NO_LOCK);
 	}
 	
 	/**
@@ -132,15 +143,15 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 		while (ec > 0) {
 			PatrFileSysElement pfe = getElement(ec - 1, loockSupplieer.getLock(this));
 			if (pfe.isFile()) {
-				pfe.getFile().delete(loockSupplieer.getLock(pfe));
+				pfe.getFile().delete(loockSupplieer.getLock(pfe), loockSupplieer.getLock(this));
 			} else {
-				pfe.getFolder().deepDelete(loockSupplieer.getLock(pfe));
+				pfe.getFolder().deepDelete(loockSupplieer);
 			}
 			ec -- ;
 		}
 		ec = elementCount(loockSupplieer.getLock(this));
 		assert ec == 0;
-		delete(loockSupplieer.getLock(this));
+		delete(loockSupplieer.getLock(this), loockSupplieer.getLock(getParent()));
 	}
 	
 	@Override

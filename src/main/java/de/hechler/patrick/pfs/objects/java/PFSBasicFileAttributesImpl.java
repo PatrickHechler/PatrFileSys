@@ -4,7 +4,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 
 
-public class PFSBasicFileAttributes implements BasicFileAttributes {
+public class PFSBasicFileAttributesImpl implements BasicFileAttributes {
 	
 	private final long     size;
 	private final boolean  isFile;
@@ -12,7 +12,7 @@ public class PFSBasicFileAttributes implements BasicFileAttributes {
 	private final FileTime accessTime;
 	private final FileTime lastMod;
 	
-	public PFSBasicFileAttributes(long size, boolean isFile, long createTime, long accessTime, long lastMod) {
+	public PFSBasicFileAttributesImpl(long size, boolean isFile, long createTime, long accessTime, long lastMod) {
 		this.size = size;
 		this.isFile = isFile;
 		this.createTime = FileTime.fromMillis(createTime);

@@ -1,5 +1,7 @@
 package de.hechler.patrick.pfs.objects.java;
 
+import static de.hechler.patrick.pfs.objects.java.PFSFileSystemProviderImpl.*;
+
 import java.io.IOException;
 import java.nio.file.FileStore;
 import java.nio.file.attribute.FileAttributeView;
@@ -7,6 +9,7 @@ import java.nio.file.attribute.FileStoreAttributeView;
 import java.nio.file.attribute.FileTime;
 
 import de.hechler.patrick.pfs.interfaces.PatrFileSystem;
+import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
 
 public class PFSFileStoreImpl extends FileStore {
@@ -61,7 +64,7 @@ public class PFSFileStoreImpl extends FileStore {
 	
 	@Override
 	public boolean supportsFileAttributeView(String name) {
-		return PFSFileSystemImpl.ATTR_VIEW_BASIC.equalsIgnoreCase(name);
+		return PFSFileSystemImpl.ATTR_VIEW_BASIC.equalsIgnoreCase(name) ;
 	}
 	
 	@Override
@@ -79,21 +82,22 @@ public class PFSFileStoreImpl extends FileStore {
 			throw new IllegalArgumentException("attribut from unsupported view!");
 		}
 		switch (strs[1]) {
-		case "lastModifiedTime":
+		case BASIC_ATTRIBUTE_LAST_MODIFIED_TIME:
 			return FileTime.fromMillis(fileSys.getRoot().getLastModTime());
-		case "lastAccessTime":
-			return FileTime.fromMillis( -1L);
-		case "creationTime":
+		case BASIC_ATTRIBUTE_LAST_ACCESS_TIME:
+			return FileTime.fromMillis(PatrFileSysConstants.NO_TIME);
+		case BASIC_ATTRIBUTE_CREATION_TIME:
 			return FileTime.fromMillis(fileSys.getRoot().getCreateTime());
-		case "size":
+		case BASIC_ATTRIBUTE_SIZE:
 			return Long.valueOf(fileSys.usedSpace());
-		case "isRegularFile":
-		case "isSymbolicLink":
-		case "isOther":
+		case BASIC_ATTRIBUTE_IS_REGULAR_FILE:
 			return Boolean.FALSE;
-		case "isDirectory":
+		case BASIC_ATTRIBUTE_IS_SYMBOLIC_LINK:
+		case BASIC_ATTRIBUTE_IS_OTHER:
+			return Boolean.FALSE;
+		case BASIC_ATTRIBUTE_IS_DIRECTORY:
 			return Boolean.TRUE;
-		case "fileKey":
+		case BASIC_ATTRIBUTE_FILE_KEY:
 			return null;
 		}
 		throw new IllegalArgumentException("unknown value");

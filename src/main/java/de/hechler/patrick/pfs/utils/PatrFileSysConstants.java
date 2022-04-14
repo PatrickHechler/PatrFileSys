@@ -55,6 +55,6 @@ public class PatrFileSysConstants {
 	public static final long LOCK_NO_DATA                     = LOCK_SHARED_RANDOM | LOCK_SHARED_COUNTER_AND;
 	public static final long LOCK_DATA                        = ~LOCK_NO_DATA;
 	
-	public static final long NO_TIME = -1;
+	public static final long NO_TIME = -1L;
 	
 }

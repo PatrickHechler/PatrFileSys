@@ -109,24 +109,20 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	}
 	
 	@Override
-	public void delete(long lock) throws IllegalStateException, IOException, ElementLockedException {
-		simpleWithLock(() -> executeDelete(lock));
+	public void delete(long myLock, long parentLock) throws IllegalStateException, IOException, ElementLockedException {
+		withLock(() -> executeDelete(myLock, parentLock), getParent());
 	}
 	
-	private void executeDelete(long lock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {
-		bm.getBlock(block);
-		try {
-			ensureAccess(lock, LOCK_NO_DELETE_ALLOWED_LOCK, true);
-			if (getElementCount() > 0) {
-				throw new IllegalStateException("I can not delet myself, when I still have children");
-			}
-			deleteFromParent();
-			freeName();
-			reallocate(block, pos, FOLDER_OFFSET_FOLDER_ELEMENTS, 0, false);
-			getParent().modify(false);
-		} finally {
-			bm.ungetBlock(block);
+	private void executeDelete(long myLock, long parentLock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {
+		ensureAccess(myLock, LOCK_NO_DELETE_ALLOWED_LOCK, true);
+		getParent().ensureAccess(parentLock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+		if (getElementCount() > 0) {
+			throw new IllegalStateException("I can not delet myself, when I still have children");
 		}
+		deleteFromParent();
+		freeName();
+		reallocate(block, pos, FOLDER_OFFSET_FOLDER_ELEMENTS, 0, false);
+		getParent().modify(false);
 	}
 	
 	@Override

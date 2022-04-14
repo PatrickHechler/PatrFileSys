@@ -84,16 +84,13 @@ public class PFSDirectoryStreamImpl implements DirectoryStream <Path> {
 		private Path executeNext() throws NoSuchElementException, IOException {
 			try {
 				PFSPathImpl result;
-				while (true) {
+				do {
 					PatrFileSysElement e = folder.getElement(index, lock);
 					Name[] names = Arrays.copyOf(path, path.length + 1);
 					names[path.length] = Name.create(e.getName());
 					result = new PFSPathImpl(fileSys, root, names);
 					index ++ ;
-					if (filter.accept(result)) {
-						break;
-					}
-				}
+				} while ( !filter.accept(result));
 				return result;
 			} catch (IndexOutOfBoundsException e) {
 				throw new NoSuchElementException(e.getMessage());
@@ -105,9 +102,9 @@ public class PFSDirectoryStreamImpl implements DirectoryStream <Path> {
 			try {
 				PatrFileSysElement child = folder.getElement(lastindex, lock);
 				if (child.isFile()) {
-					child.getFile().delete(LOCK_NO_LOCK);
+					child.getFile().delete(LOCK_NO_LOCK, lock);
 				} else {
-					child.getFolder().delete(LOCK_NO_LOCK);
+					child.getFolder().delete(LOCK_NO_LOCK, lock);
 				}
 				lastindex = -1;
 				index -- ;
