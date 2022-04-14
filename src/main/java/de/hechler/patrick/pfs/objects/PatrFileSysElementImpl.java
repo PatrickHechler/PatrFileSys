@@ -1225,14 +1225,9 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 */
 	protected static <T extends Throwable> void simpleWithLock(BlockManager bm, ThrowingRunnable <T> exec, int i, long... blocks) throws T {
 		Object elementLock = getBlockLock(bm, blocks[i]);
-		if (Thread.holdsLock(elementLock)) {
+		synchronized (elementLock) {
 			if (i + 1 >= blocks.length) exec.execute();
 			else simpleWithLock(bm, exec, i + 1, blocks);
-		} else {
-			synchronized (elementLock) {
-				if (i + 1 >= blocks.length) exec.execute();
-				else simpleWithLock(bm, exec, i + 1, blocks);
-			}
 		}
 	}
 	
@@ -1260,14 +1255,9 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 */
 	protected static <T extends Throwable, R> R simpleWithLock(BlockManager bm, ThrowingSupplier <T, R> exec, int i, long... blocks) throws T {
 		Object elementLock = getBlockLock(bm, blocks[i]);
-		if (Thread.holdsLock(elementLock)) {
+		synchronized (elementLock) {
 			if (i + 1 >= blocks.length) return exec.supply();
 			else return simpleWithLock(bm, exec, i + 1, blocks);
-		} else {
-			synchronized (elementLock) {
-				if (i + 1 >= blocks.length) return exec.supply();
-				else return simpleWithLock(bm, exec, i + 1, blocks);
-			}
 		}
 	}
 	
@@ -1293,14 +1283,9 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 */
 	protected static <T extends Throwable> int simpleWithLockInt(BlockManager bm, ThrowingIntSupplier <T> exec, int i, long... blocks) throws T {
 		Object elementLock = getBlockLock(bm, blocks[i]);
-		if (Thread.holdsLock(elementLock)) {
+		synchronized (elementLock) {
 			if (i + 1 >= blocks.length) return exec.supply();
 			else return simpleWithLockInt(bm, exec, i + 1, blocks);
-		} else {
-			synchronized (elementLock) {
-				if (i + 1 >= blocks.length) return exec.supply();
-				else return simpleWithLockInt(bm, exec, i + 1, blocks);
-			}
 		}
 	}
 	
@@ -1326,14 +1311,9 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 */
 	protected static <T extends Throwable> long simpleWithLockLong(BlockManager bm, ThrowingLongSupplier <T> exec, int i, long... blocks) throws T {
 		Object elementLock = getBlockLock(bm, blocks[i]);
-		if (Thread.holdsLock(elementLock)) {
+		synchronized (elementLock) {
 			if (i + 1 >= blocks.length) return exec.supply();
 			else return simpleWithLockLong(bm, exec, i + 1, blocks);
-		} else {
-			synchronized (elementLock) {
-				if (i + 1 >= blocks.length) return exec.supply();
-				else return simpleWithLockLong(bm, exec, i + 1, blocks);
-			}
 		}
 	}
 	
@@ -1359,14 +1339,9 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 */
 	protected static <T extends Throwable> boolean simpleWithLockBoolean(BlockManager bm, ThrowingBooleanSupplier <T> exec, int i, long... blocks) throws T {
 		Object elementLock = getBlockLock(bm, blocks[i]);
-		if (Thread.holdsLock(elementLock)) {
+		synchronized (elementLock) {
 			if (i + 1 >= blocks.length) return exec.supply();
 			else return simpleWithLockBoolean(bm, exec, i + 1, blocks);
-		} else {
-			synchronized (elementLock) {
-				if (i + 1 >= blocks.length) return exec.supply();
-				else return simpleWithLockBoolean(bm, exec, i + 1, blocks);
-			}
 		}
 	}
 	
@@ -1477,23 +1452,13 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	protected static <T extends Throwable> void withLock(BlockManager bm, ThrowingRunnable <T> exec, int i, long... blocks) throws T, IOException {
 		long block = blocks[i];
 		Object elementLock = getBlockLock(bm, blocks[i]);
-		if (Thread.holdsLock(elementLock)) {
+		synchronized (elementLock) {
 			bm.getBlock(block);
 			try {
 				if (i + 1 >= blocks.length) exec.execute();
 				else withLock(bm, exec, i + 1, blocks);
 			} finally {
 				bm.ungetBlock(block);
-			}
-		} else {
-			synchronized (elementLock) {
-				bm.getBlock(block);
-				try {
-					if (i + 1 >= blocks.length) exec.execute();
-					else withLock(bm, exec, i + 1, blocks);
-				} finally {
-					bm.ungetBlock(block);
-				}
 			}
 		}
 	}
@@ -1509,7 +1474,8 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 * 
 	 * @param <T>
 	 *            the exception type which can be thrown from {@code exec}
-	 * @param <R> the return type from {@code exec}
+	 * @param <R>
+	 *            the return type from {@code exec}
 	 * @param bm
 	 *            the block manager
 	 * @param exec
@@ -1527,23 +1493,13 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	protected static <T extends Throwable, R> R withLock(BlockManager bm, ThrowingSupplier <T, R> exec, int i, long... blocks) throws T, IOException {
 		long block = blocks[i];
 		Object elementLock = getBlockLock(bm, blocks[i]);
-		if (Thread.holdsLock(elementLock)) {
+		synchronized (elementLock) {
 			bm.getBlock(block);
 			try {
 				if (i + 1 >= blocks.length) return exec.supply();
 				else return withLock(bm, exec, i + 1, blocks);
 			} finally {
 				bm.ungetBlock(block);
-			}
-		} else {
-			synchronized (elementLock) {
-				bm.getBlock(block);
-				try {
-					if (i + 1 >= blocks.length) return exec.supply();
-					else return withLock(bm, exec, i + 1, blocks);
-				} finally {
-					bm.ungetBlock(block);
-				}
 			}
 		}
 	}
@@ -1559,7 +1515,8 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 * 
 	 * @param <T>
 	 *            the exception type which can be thrown from {@code exec}
-	 * @param <R> the return type from {@code exec}
+	 * @param <R>
+	 *            the return type from {@code exec}
 	 * @param bm
 	 *            the block manager
 	 * @param exec
@@ -1577,23 +1534,13 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	protected static <T extends Throwable> int withLockInt(BlockManager bm, ThrowingIntSupplier <T> exec, int i, long... blocks) throws T, IOException {
 		long block = blocks[i];
 		Object elementLock = getBlockLock(bm, blocks[i]);
-		if (Thread.holdsLock(elementLock)) {
+		synchronized (elementLock) {
 			bm.getBlock(block);
 			try {
 				if (i + 1 >= blocks.length) return exec.supply();
 				else return withLockInt(bm, exec, i + 1, blocks);
 			} finally {
 				bm.ungetBlock(block);
-			}
-		} else {
-			synchronized (elementLock) {
-				bm.getBlock(block);
-				try {
-					if (i + 1 >= blocks.length) return exec.supply();
-					else return withLockInt(bm, exec, i + 1, blocks);
-				} finally {
-					bm.ungetBlock(block);
-				}
 			}
 		}
 	}
@@ -1609,7 +1556,8 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 * 
 	 * @param <T>
 	 *            the exception type which can be thrown from {@code exec}
-	 * @param <R> the return type from {@code exec}
+	 * @param <R>
+	 *            the return type from {@code exec}
 	 * @param bm
 	 *            the block manager
 	 * @param exec
@@ -1627,23 +1575,13 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	protected static <T extends Throwable> long withLockLong(BlockManager bm, ThrowingLongSupplier <T> exec, int i, long... blocks) throws T, IOException {
 		long block = blocks[i];
 		Object elementLock = getBlockLock(bm, blocks[i]);
-		if (Thread.holdsLock(elementLock)) {
+		synchronized (elementLock) {
 			bm.getBlock(block);
 			try {
 				if (i + 1 >= blocks.length) return exec.supply();
 				else return withLockLong(bm, exec, i + 1, blocks);
 			} finally {
 				bm.ungetBlock(block);
-			}
-		} else {
-			synchronized (elementLock) {
-				bm.getBlock(block);
-				try {
-					if (i + 1 >= blocks.length) return exec.supply();
-					else return withLockLong(bm, exec, i + 1, blocks);
-				} finally {
-					bm.ungetBlock(block);
-				}
 			}
 		}
 	}
@@ -1659,7 +1597,8 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 * 
 	 * @param <T>
 	 *            the exception type which can be thrown from {@code exec}
-	 * @param <R> the return type from {@code exec}
+	 * @param <R>
+	 *            the return type from {@code exec}
 	 * @param bm
 	 *            the block manager
 	 * @param exec
@@ -1677,23 +1616,13 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	protected static <T extends Throwable> boolean withLockBoolean(BlockManager bm, ThrowingBooleanSupplier <T> exec, int i, long... blocks) throws T, IOException {
 		long block = blocks[i];
 		Object elementLock = getBlockLock(bm, block);
-		if (Thread.holdsLock(elementLock)) {
+		synchronized (elementLock) {
 			bm.getBlock(block);
 			try {
 				if (i + 1 >= blocks.length) return exec.supply();
 				else return withLockBoolean(bm, exec, i + 1, blocks);
 			} finally {
 				bm.ungetBlock(block);
-			}
-		} else {
-			synchronized (elementLock) {
-				bm.getBlock(block);
-				try {
-					if (i + 1 >= blocks.length) return exec.supply();
-					else return withLockBoolean(bm, exec, i + 1, blocks);
-				} finally {
-					bm.ungetBlock(block);
-				}
 			}
 		}
 	}
