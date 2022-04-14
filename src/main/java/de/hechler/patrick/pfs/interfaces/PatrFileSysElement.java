@@ -324,10 +324,12 @@ public interface PatrFileSysElement {
 	 *            the exception type which may be thrown
 	 * @param exec
 	 *            the runnable, which should be executed
+	 * @param other
+	 *            other elements wich should also get locked
 	 * @throws T
 	 *             when the given throwing runnable throws the given exception
 	 */
-	<T extends Throwable> void withLock(ThrowingRunnable <T> exec) throws T, IOException;
+	<T extends Throwable> void withLock(ThrowingRunnable <T> exec, PatrFileSysElement... other) throws T, IOException;
 	
 	/**
 	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system.<br>
@@ -341,11 +343,13 @@ public interface PatrFileSysElement {
 	 *            the exception type which may be thrown
 	 * @param exec
 	 *            the supplier, which should be executed
+	 * @param other
+	 *            other elements wich should also get locked
 	 * @return the return value of the supplier
 	 * @throws T
 	 *             when the given throwing runnable throws the given exception
 	 */
-	<T extends Throwable, R> R withLock(ThrowingSupplier <T, R> exec) throws T, IOException;
+	<T extends Throwable, R> R withLock(ThrowingSupplier <T, R> exec, PatrFileSysElement... other) throws T, IOException;
 	
 	/**
 	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system.<br>
@@ -359,11 +363,13 @@ public interface PatrFileSysElement {
 	 *            the exception type which may be thrown
 	 * @param exec
 	 *            the supplier, which should be executed
+	 * @param other
+	 *            other elements wich should also get locked
 	 * @return the int-return-value of the supplier
 	 * @throws T
 	 *             when the given throwing runnable throws the given exception
 	 */
-	<T extends Throwable> int withLockInt(ThrowingIntSupplier <T> exec) throws T, IOException;
+	<T extends Throwable> int withLockInt(ThrowingIntSupplier <T> exec, PatrFileSysElement... other) throws T, IOException;
 	
 	/**
 	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system.<br>
@@ -377,11 +383,13 @@ public interface PatrFileSysElement {
 	 *            the exception type which may be thrown
 	 * @param exec
 	 *            the supplier, which should be executed
+	 * @param other
+	 *            other elements wich should also get locked
 	 * @return the long-return-value of the supplier
 	 * @throws T
 	 *             when the given throwing runnable throws the given exception
 	 */
-	<T extends Throwable> long withLockLong(ThrowingLongSupplier <T> exec) throws T, IOException;
+	<T extends Throwable> long withLockLong(ThrowingLongSupplier <T> exec, PatrFileSysElement... other) throws T, IOException;
 	
 	/**
 	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system.<br>
@@ -395,11 +403,13 @@ public interface PatrFileSysElement {
 	 *            the exception type which may be thrown
 	 * @param exec
 	 *            the supplier, which should be executed
+	 * @param other
+	 *            other elements wich should also get locked
 	 * @return the boolean-return-value of the supplier
 	 * @throws T
 	 *             when the given throwing runnable throws the given exception
 	 */
-	<T extends Throwable> boolean withLockBoolean(ThrowingBooleanSupplier <T> exec) throws T, IOException;
+	<T extends Throwable> boolean withLockBoolean(ThrowingBooleanSupplier <T> exec, PatrFileSysElement... other) throws T, IOException;
 	
 	/**
 	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system
@@ -410,10 +420,12 @@ public interface PatrFileSysElement {
 	 *            the exception type which may be thrown
 	 * @param exec
 	 *            the runnable, which should be executed
+	 * @param other
+	 *            other elements wich should also get locked
 	 * @throws T
 	 *             when the given throwing runnable throws the given exception
 	 */
-	<T extends Throwable> void simpleWithLock(ThrowingRunnable <T> exec) throws T;
+	<T extends Throwable> void simpleWithLock(ThrowingRunnable <T> exec, PatrFileSysElement... other) throws T;
 	
 	/**
 	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system.<br>
@@ -425,11 +437,13 @@ public interface PatrFileSysElement {
 	 *            the exception type which may be thrown
 	 * @param exec
 	 *            the supplier, which should be executed
+	 * @param other
+	 *            other elements wich should also get locked
 	 * @return the return value of the supplier
 	 * @throws T
 	 *             when the given throwing runnable throws the given exception
 	 */
-	<T extends Throwable, R> R simpleWithLock(ThrowingSupplier <T, R> exec) throws T;
+	<T extends Throwable, R> R simpleWithLock(ThrowingSupplier <T, R> exec, PatrFileSysElement... other) throws T;
 	
 	/**
 	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system.<br>
@@ -441,11 +455,13 @@ public interface PatrFileSysElement {
 	 *            the exception type which may be thrown
 	 * @param exec
 	 *            the supplier, which should be executed
+	 * @param other
+	 *            other elements wich should also get locked
 	 * @return the int-return-value of the supplier
 	 * @throws T
 	 *             when the given throwing runnable throws the given exception
 	 */
-	<T extends Throwable> int simpleWithLockInt(ThrowingIntSupplier <T> exec) throws T;
+	<T extends Throwable> int simpleWithLockInt(ThrowingIntSupplier <T> exec, PatrFileSysElement... other) throws T;
 	
 	/**
 	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system.<br>
@@ -457,11 +473,13 @@ public interface PatrFileSysElement {
 	 *            the exception type which may be thrown
 	 * @param exec
 	 *            the supplier, which should be executed
+	 * @param other
+	 *            other elements wich should also get locked
 	 * @return the long-return-value of the supplier
 	 * @throws T
 	 *             when the given throwing runnable throws the given exception
 	 */
-	<T extends Throwable> long simpleWithLockLong(ThrowingLongSupplier <T> exec) throws T;
+	<T extends Throwable> long simpleWithLockLong(ThrowingLongSupplier <T> exec, PatrFileSysElement... other) throws T;
 	
 	/**
 	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system.<br>
@@ -473,10 +491,12 @@ public interface PatrFileSysElement {
 	 *            the exception type which may be thrown
 	 * @param exec
 	 *            the supplier, which should be executed
+	 * @param other
+	 *            other elements wich should also get locked
 	 * @return the boolean-return-value of the supplier
 	 * @throws T
 	 *             when the given throwing runnable throws the given exception
 	 */
-	<T extends Throwable> boolean simpleWithLockBoolean(ThrowingBooleanSupplier <T> exec) throws T;
+	<T extends Throwable> boolean simpleWithLockBoolean(ThrowingBooleanSupplier <T> exec, PatrFileSysElement... other) throws T;
 	
 }

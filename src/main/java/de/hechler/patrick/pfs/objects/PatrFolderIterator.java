@@ -36,7 +36,7 @@ public class PatrFolderIterator implements Iterator <PatrFileSysElement> {
 	@Override
 	public PatrFileSysElement next() {
 		try {
-			return folder.withLock(() -> executeNext());
+			return folder.withLock(this::executeNext);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
@@ -57,7 +57,7 @@ public class PatrFolderIterator implements Iterator <PatrFileSysElement> {
 	@Override
 	public void remove() {
 		try {
-			folder.withLock(this::executeRemove);
+			folder.withLock(this::executeRemove, folder.getParent());
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}

@@ -33,8 +33,6 @@ import de.hechler.patrick.pfs.interfaces.BlockAccessor;
 import de.hechler.patrick.pfs.interfaces.BlockManager;
 import de.hechler.patrick.pfs.interfaces.PatrFileSystem;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
-import de.hechler.patrick.pfs.interfaces.functional.ThrowingLongSupplier;
-import de.hechler.patrick.pfs.interfaces.functional.ThrowingRunnable;
 import de.hechler.patrick.pfs.objects.ba.BlockManagerImpl;
 
 
@@ -60,7 +58,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public PatrFolder getRoot() throws IOException {
-		return simpleWithLock(bm, 0L, this::executeGetRoot);
+		return simpleWithLock(bm, this::executeGetRoot, 0, 0L);
 	}
 	
 	private PatrFolder executeGetRoot() throws ClosedChannelException, IOException {
@@ -85,7 +83,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	}
 	
 	public void format(long blockCount) throws IOException {
-		simpleWithLock(bm, 0L, (ThrowingRunnable <IOException>) () -> simpleWithLock(bm, 1L, () -> executeFormat(blockCount)));
+		simpleWithLock(bm, () -> executeFormat(blockCount), 0, 0L, 1L);
 	}
 	
 	public void executeFormat(long blockCount) throws IOException {
@@ -125,7 +123,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public long totalSpace() throws IOException {
-		return simpleWithLockLong(bm, 0L, () -> executeTotalSpace());
+		return simpleWithLockLong(bm, this::executeTotalSpace, 0, 0L);
 	}
 	
 	private long executeTotalSpace() throws ClosedChannelException, IOException {
@@ -148,7 +146,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public long freeSpace() throws IOException {
-		return simpleWithLockLong(bm, 0L, (ThrowingLongSupplier <IOException>) () -> simpleWithLock(bm, 1L, () -> executeFreeSpace()));
+		return simpleWithLockLong(bm, this::executeFreeSpace, 0, 0L, 1L);
 	}
 	
 	private long executeFreeSpace() throws IOException {
@@ -163,7 +161,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public long usedSpace() throws IOException {
-		return simpleWithLockLong(bm, 1L, () -> executeUsedSpace());
+		return simpleWithLockLong(bm, this::executeUsedSpace, 0, 1L);
 	}
 	
 	private long executeUsedSpace() throws ClosedChannelException, IOException {
@@ -188,7 +186,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public int blockSize() throws IOException {
-		return simpleWithLockInt(bm, 0L, () -> executeBlockSize());
+		return simpleWithLockInt(bm, this::executeBlockSize, 0, 0L);
 	}
 	
 	private int executeBlockSize() throws ClosedChannelException, IOException {
@@ -202,9 +200,9 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public long blockCount() throws IOException {
-		return simpleWithLockLong(bm, 0L, () -> executeBlockCount());
+		return simpleWithLockLong(bm, this::executeBlockCount, 0, 0L);
 	}
-
+	
 	private long executeBlockCount() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(0L);
 		try {

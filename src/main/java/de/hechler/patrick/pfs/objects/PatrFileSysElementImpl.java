@@ -43,6 +43,7 @@ import java.lang.ref.WeakReference;
 import java.nio.channels.ClosedChannelException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -1205,290 +1206,575 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		}
 	}
 	
+	/**
+	 * locks the array of blocks from {@code i} to to len<br>
+	 * the blocks need to be sorted in ascending order. (multiple same blocks are permitted)
+	 * 
+	 * @param <T>
+	 *            the exception type which can be thrown from {@code exec}
+	 * @param bm
+	 *            the block manager
+	 * @param exec
+	 *            the runnable to be executed
+	 * @param i
+	 *            the start index in the blocks array
+	 * @param blocks
+	 *            the array of blocks to be locked
+	 * @throws T
+	 *             the exception type possibly thrown by runnable
+	 */
+	protected static <T extends Throwable> void simpleWithLock(BlockManager bm, ThrowingRunnable <T> exec, int i, long... blocks) throws T {
+		Object elementLock = getBlockLock(bm, blocks[i]);
+		if (Thread.holdsLock(elementLock)) {
+			if (i + 1 >= blocks.length) exec.execute();
+			else simpleWithLock(bm, exec, i + 1, blocks);
+		} else {
+			synchronized (elementLock) {
+				if (i + 1 >= blocks.length) exec.execute();
+				else simpleWithLock(bm, exec, i + 1, blocks);
+			}
+		}
+	}
+	
+	/**
+	 * locks the array of blocks from {@code i} to to len<br>
+	 * the blocks need to be sorted in ascending order. (multiple same blocks are permitted)
+	 * <p>
+	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method returns the value returned by {@code exec}
+	 * 
+	 * @param <T>
+	 *            the exception type which can be thrown from {@code exec}
+	 * @param <R>
+	 *            the return type from {@code exec}
+	 * @param bm
+	 *            the block manager
+	 * @param exec
+	 *            the runnable to be executed
+	 * @param i
+	 *            the start index in the blocks array
+	 * @param blocks
+	 *            the array of blocks to be locked
+	 * @return the value returned from {@code Patrick exec}
+	 * @throws T
+	 *             the exception type possibly thrown by runnable
+	 */
+	protected static <T extends Throwable, R> R simpleWithLock(BlockManager bm, ThrowingSupplier <T, R> exec, int i, long... blocks) throws T {
+		Object elementLock = getBlockLock(bm, blocks[i]);
+		if (Thread.holdsLock(elementLock)) {
+			if (i + 1 >= blocks.length) return exec.supply();
+			else return simpleWithLock(bm, exec, i + 1, blocks);
+		} else {
+			synchronized (elementLock) {
+				if (i + 1 >= blocks.length) return exec.supply();
+				else return simpleWithLock(bm, exec, i + 1, blocks);
+			}
+		}
+	}
+	
+	/**
+	 * locks the array of blocks from {@code i} to to len<br>
+	 * the blocks need to be sorted in ascending order. (multiple same blocks are permitted)
+	 * <p>
+	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method returns the value returned by {@code exec}
+	 * 
+	 * @param <T>
+	 *            the exception type which can be thrown from {@code exec}
+	 * @param bm
+	 *            the block manager
+	 * @param exec
+	 *            the runnable to be executed
+	 * @param i
+	 *            the start index in the blocks array
+	 * @param blocks
+	 *            the array of blocks to be locked
+	 * @return the value returned from {@code Patrick exec}
+	 * @throws T
+	 *             the exception type possibly thrown by runnable
+	 */
+	protected static <T extends Throwable> int simpleWithLockInt(BlockManager bm, ThrowingIntSupplier <T> exec, int i, long... blocks) throws T {
+		Object elementLock = getBlockLock(bm, blocks[i]);
+		if (Thread.holdsLock(elementLock)) {
+			if (i + 1 >= blocks.length) return exec.supply();
+			else return simpleWithLockInt(bm, exec, i + 1, blocks);
+		} else {
+			synchronized (elementLock) {
+				if (i + 1 >= blocks.length) return exec.supply();
+				else return simpleWithLockInt(bm, exec, i + 1, blocks);
+			}
+		}
+	}
+	
+	/**
+	 * locks the array of blocks from {@code i} to to len<br>
+	 * the blocks need to be sorted in ascending order. (multiple same blocks are permitted)
+	 * <p>
+	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method returns the value returned by {@code exec}
+	 * 
+	 * @param <T>
+	 *            the exception type which can be thrown from {@code exec}
+	 * @param bm
+	 *            the block manager
+	 * @param exec
+	 *            the runnable to be executed
+	 * @param i
+	 *            the start index in the blocks array
+	 * @param blocks
+	 *            the array of blocks to be locked
+	 * @return the value returned from {@code Patrick exec}
+	 * @throws T
+	 *             the exception type possibly thrown by runnable
+	 */
+	protected static <T extends Throwable> long simpleWithLockLong(BlockManager bm, ThrowingLongSupplier <T> exec, int i, long... blocks) throws T {
+		Object elementLock = getBlockLock(bm, blocks[i]);
+		if (Thread.holdsLock(elementLock)) {
+			if (i + 1 >= blocks.length) return exec.supply();
+			else return simpleWithLockLong(bm, exec, i + 1, blocks);
+		} else {
+			synchronized (elementLock) {
+				if (i + 1 >= blocks.length) return exec.supply();
+				else return simpleWithLockLong(bm, exec, i + 1, blocks);
+			}
+		}
+	}
+	
+	/**
+	 * locks the array of blocks from {@code i} to to len<br>
+	 * the blocks need to be sorted in ascending order. (multiple same blocks are permitted)
+	 * <p>
+	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method returns the value returned by {@code exec}
+	 * 
+	 * @param <T>
+	 *            the exception type which can be thrown from {@code exec}
+	 * @param bm
+	 *            the block manager
+	 * @param exec
+	 *            the runnable to be executed
+	 * @param i
+	 *            the start index in the blocks array
+	 * @param blocks
+	 *            the array of blocks to be locked
+	 * @return the value returned from {@code Patrick exec}
+	 * @throws T
+	 *             the exception type possibly thrown by runnable
+	 */
+	protected static <T extends Throwable> boolean simpleWithLockBoolean(BlockManager bm, ThrowingBooleanSupplier <T> exec, int i, long... blocks) throws T {
+		Object elementLock = getBlockLock(bm, blocks[i]);
+		if (Thread.holdsLock(elementLock)) {
+			if (i + 1 >= blocks.length) return exec.supply();
+			else return simpleWithLockBoolean(bm, exec, i + 1, blocks);
+		} else {
+			synchronized (elementLock) {
+				if (i + 1 >= blocks.length) return exec.supply();
+				else return simpleWithLockBoolean(bm, exec, i + 1, blocks);
+			}
+		}
+	}
+	
 	@Override
-	public <T extends Throwable> void withLock(ThrowingRunnable <T> exec) throws T, IOException {
-		Object elementLock = getElementLock();
-		if (Thread.holdsLock(elementLock)) {
-			final long myBlock = block;
-			bm.getBlock(myBlock);
-			try {
-				exec.execute();
-			} finally {
-				bm.ungetBlock(myBlock);
-			}
+	public <T extends Throwable> void simpleWithLock(ThrowingRunnable <T> exec, PatrFileSysElement... other) throws T {
+		if (other.length == 0) {
+			simpleWithLock(bm, exec, 0, block);
 		} else {
-			synchronized (elementLock) {
-				final long myBlock = block;
-				bm.getBlock(myBlock);
-				try {
-					exec.execute();
-				} finally {
-					bm.ungetBlock(myBlock);
-				}
+			long[] blocks = new long[other.length + 1];
+			int i;
+			for (i = 0; i < blocks.length; i ++ ) {
+				blocks[i] = ((PatrFileSysElementImpl) other[i]).block;
 			}
-		}
-	}
-	
-	public static <T extends Throwable> void withLock(BlockManager bm, long lockBlock, ThrowingRunnable <T> exec) throws T, IOException {
-		Object elementLock = getBlockLock(bm, lockBlock);
-		if (Thread.holdsLock(elementLock)) {
-			bm.getBlock(lockBlock);
-			try {
-				exec.execute();
-			} finally {
-				bm.ungetBlock(lockBlock);
-			}
-		} else {
-			synchronized (elementLock) {
-				bm.getBlock(lockBlock);
-				try {
-					exec.execute();
-				} finally {
-					bm.ungetBlock(lockBlock);
-				}
-			}
-		}
-	}
-	
-	public static <T extends Throwable, R> R withLock(BlockManager bm, long lockBlock, ThrowingSupplier <T, R> exec) throws T, IOException {
-		Object elementLock = getBlockLock(bm, lockBlock);
-		if (Thread.holdsLock(elementLock)) {
-			bm.getBlock(lockBlock);
-			try {
-				return exec.supply();
-			} finally {
-				bm.ungetBlock(lockBlock);
-			}
-		} else {
-			synchronized (elementLock) {
-				bm.getBlock(lockBlock);
-				try {
-					return exec.supply();
-				} finally {
-					bm.ungetBlock(lockBlock);
-				}
-			}
-		}
-	}
-	
-	public static <T extends Throwable> long withLockLong(BlockManager bm, long lockBlock, ThrowingLongSupplier <T> exec) throws T, IOException {
-		Object elementLock = getBlockLock(bm, lockBlock);
-		if (Thread.holdsLock(elementLock)) {
-			bm.getBlock(lockBlock);
-			try {
-				return exec.supply();
-			} finally {
-				bm.ungetBlock(lockBlock);
-			}
-		} else {
-			synchronized (elementLock) {
-				bm.getBlock(lockBlock);
-				try {
-					return exec.supply();
-				} finally {
-					bm.ungetBlock(lockBlock);
-				}
-			}
+			blocks[i] = block;
+			Arrays.sort(blocks);
+			simpleWithLock(bm, exec, 0, blocks);
 		}
 	}
 	
 	@Override
-	public <T extends Throwable, R> R withLock(ThrowingSupplier <T, R> exec) throws T, IOException {
-		Object elementLock = getElementLock();
-		if (Thread.holdsLock(elementLock)) {
-			final long myBlock = block;
-			bm.getBlock(myBlock);
-			try {
-				return exec.supply();
-			} finally {
-				bm.ungetBlock(myBlock);
-			}
+	public <T extends Throwable, R> R simpleWithLock(ThrowingSupplier <T, R> exec, PatrFileSysElement... other) throws T {
+		if (other.length == 0) {
+			return simpleWithLock(bm, exec, 0, block);
 		} else {
-			synchronized (elementLock) {
-				final long myBlock = block;
-				bm.getBlock(myBlock);
-				try {
-					return exec.supply();
-				} finally {
-					bm.ungetBlock(myBlock);
-				}
+			long[] blocks = new long[other.length + 1];
+			int i;
+			for (i = 0; i < blocks.length; i ++ ) {
+				blocks[i] = ((PatrFileSysElementImpl) other[i]).block;
 			}
+			blocks[i] = block;
+			Arrays.sort(blocks);
+			return simpleWithLock(bm, exec, 0, blocks);
 		}
 	}
 	
 	@Override
-	public <T extends Throwable> int withLockInt(ThrowingIntSupplier <T> exec) throws T, IOException {
-		Object elementLock = getElementLock();
-		if (Thread.holdsLock(elementLock)) {
-			final long myBlock = block;
-			bm.getBlock(myBlock);
-			try {
-				return exec.supply();
-			} finally {
-				bm.ungetBlock(myBlock);
-			}
+	public <T extends Throwable> int simpleWithLockInt(ThrowingIntSupplier <T> exec, PatrFileSysElement... other) throws T {
+		if (other.length == 0) {
+			return simpleWithLockInt(bm, exec, 0, block);
 		} else {
-			synchronized (elementLock) {
-				final long myBlock = block;
-				bm.getBlock(myBlock);
-				try {
-					return exec.supply();
-				} finally {
-					bm.ungetBlock(myBlock);
-				}
+			long[] blocks = new long[other.length + 1];
+			int i;
+			for (i = 0; i < blocks.length; i ++ ) {
+				blocks[i] = ((PatrFileSysElementImpl) other[i]).block;
 			}
+			blocks[i] = block;
+			Arrays.sort(blocks);
+			return simpleWithLockInt(bm, exec, 0, blocks);
 		}
 	}
 	
 	@Override
-	public <T extends Throwable> long withLockLong(ThrowingLongSupplier <T> exec) throws T, IOException {
-		Object elementLock = getElementLock();
-		if (Thread.holdsLock(elementLock)) {
-			final long myBlock = block;
-			bm.getBlock(myBlock);
-			try {
-				return exec.supply();
-			} finally {
-				bm.ungetBlock(myBlock);
-			}
+	public <T extends Throwable> long simpleWithLockLong(ThrowingLongSupplier <T> exec, PatrFileSysElement... other) throws T {
+		if (other.length == 0) {
+			return simpleWithLockLong(bm, exec, 0, block);
 		} else {
-			synchronized (elementLock) {
-				final long myBlock = block;
-				bm.getBlock(myBlock);
-				try {
-					return exec.supply();
-				} finally {
-					bm.ungetBlock(myBlock);
-				}
+			long[] blocks = new long[other.length + 1];
+			int i;
+			for (i = 0; i < blocks.length; i ++ ) {
+				blocks[i] = ((PatrFileSysElementImpl) other[i]).block;
 			}
+			blocks[i] = block;
+			Arrays.sort(blocks);
+			return simpleWithLockLong(bm, exec, 0, blocks);
 		}
 	}
 	
 	@Override
-	public <T extends Throwable> boolean withLockBoolean(ThrowingBooleanSupplier <T> exec) throws T, IOException {
-		Object elementLock = getElementLock();
+	public <T extends Throwable> boolean simpleWithLockBoolean(ThrowingBooleanSupplier <T> exec, PatrFileSysElement... other) throws T {
+		if (other.length == 0) {
+			return simpleWithLockBoolean(bm, exec, 0, block);
+		} else {
+			long[] blocks = new long[other.length + 1];
+			int i;
+			for (i = 0; i < blocks.length; i ++ ) {
+				blocks[i] = ((PatrFileSysElementImpl) other[i]).block;
+			}
+			blocks[i] = block;
+			Arrays.sort(blocks);
+			return simpleWithLockBoolean(bm, exec, 0, blocks);
+		}
+	}
+	
+	/**
+	 * locks the array of blocks from {@code i} to to len<br>
+	 * the blocks need to be sorted in ascending order. (multiple same blocks are permitted)
+	 * <p>
+	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method also loads the blocks from the arrays.<br>
+	 * So this is the better method, when the blocks are often loaded and unloaded
+	 * 
+	 * 
+	 * @param <T>
+	 *            the exception type which can be thrown from {@code exec}
+	 * @param bm
+	 *            the block manager
+	 * @param exec
+	 *            the runnable to be executed
+	 * @param i
+	 *            the start index in the blocks array
+	 * @param blocks
+	 *            the array of blocks to be locked
+	 * @return the value returned from {@code Patrick exec}
+	 * @throws T
+	 *             the exception type possibly thrown by runnable
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	protected static <T extends Throwable> void withLock(BlockManager bm, ThrowingRunnable <T> exec, int i, long... blocks) throws T, IOException {
+		long block = blocks[i];
+		Object elementLock = getBlockLock(bm, blocks[i]);
 		if (Thread.holdsLock(elementLock)) {
-			final long myBlock = block;
-			bm.getBlock(myBlock);
+			bm.getBlock(block);
 			try {
-				return exec.supply();
+				if (i + 1 >= blocks.length) exec.execute();
+				else withLock(bm, exec, i + 1, blocks);
 			} finally {
-				bm.ungetBlock(myBlock);
+				bm.ungetBlock(block);
 			}
 		} else {
 			synchronized (elementLock) {
-				final long myBlock = block;
-				bm.getBlock(myBlock);
+				bm.getBlock(block);
 				try {
-					return exec.supply();
+					if (i + 1 >= blocks.length) exec.execute();
+					else withLock(bm, exec, i + 1, blocks);
 				} finally {
-					bm.ungetBlock(myBlock);
+					bm.ungetBlock(block);
 				}
 			}
 		}
 	}
 	
-	public static <T extends Throwable> void simpleWithLock(BlockManager bm, long block, ThrowingRunnable <T> exec) throws T {
+	/**
+	 * locks the array of blocks from {@code i} to to len<br>
+	 * the blocks need to be sorted in ascending order. (multiple same blocks are permitted)
+	 * <p>
+	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method also loads the blocks from the arrays.<br>
+	 * So this is the better method, when the blocks are often loaded and unloaded
+	 * <p>
+	 * in addition to {@link #withLock(BlockManager, ThrowingRunnable, int, long...)} this method returns the value returned by {@code exec}
+	 * 
+	 * @param <T>
+	 *            the exception type which can be thrown from {@code exec}
+	 * @param <R> the return type from {@code exec}
+	 * @param bm
+	 *            the block manager
+	 * @param exec
+	 *            the runnable to be executed
+	 * @param i
+	 *            the start index in the blocks array
+	 * @param blocks
+	 *            the array of blocks to be locked
+	 * @return the value returned from {@code Patrick exec}
+	 * @throws T
+	 *             the exception type possibly thrown by runnable
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	protected static <T extends Throwable, R> R withLock(BlockManager bm, ThrowingSupplier <T, R> exec, int i, long... blocks) throws T, IOException {
+		long block = blocks[i];
+		Object elementLock = getBlockLock(bm, blocks[i]);
+		if (Thread.holdsLock(elementLock)) {
+			bm.getBlock(block);
+			try {
+				if (i + 1 >= blocks.length) return exec.supply();
+				else return withLock(bm, exec, i + 1, blocks);
+			} finally {
+				bm.ungetBlock(block);
+			}
+		} else {
+			synchronized (elementLock) {
+				bm.getBlock(block);
+				try {
+					if (i + 1 >= blocks.length) return exec.supply();
+					else return withLock(bm, exec, i + 1, blocks);
+				} finally {
+					bm.ungetBlock(block);
+				}
+			}
+		}
+	}
+	
+	/**
+	 * locks the array of blocks from {@code i} to to len<br>
+	 * the blocks need to be sorted in ascending order. (multiple same blocks are permitted)
+	 * <p>
+	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method also loads the blocks from the arrays.<br>
+	 * So this is the better method, when the blocks are often loaded and unloaded
+	 * <p>
+	 * in addition to {@link #withLock(BlockManager, ThrowingRunnable, int, long...)} this method returns the value returned by {@code exec}
+	 * 
+	 * @param <T>
+	 *            the exception type which can be thrown from {@code exec}
+	 * @param <R> the return type from {@code exec}
+	 * @param bm
+	 *            the block manager
+	 * @param exec
+	 *            the runnable to be executed
+	 * @param i
+	 *            the start index in the blocks array
+	 * @param blocks
+	 *            the array of blocks to be locked
+	 * @return the value returned from {@code Patrick exec}
+	 * @throws T
+	 *             the exception type possibly thrown by runnable
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	protected static <T extends Throwable> int withLockInt(BlockManager bm, ThrowingIntSupplier <T> exec, int i, long... blocks) throws T, IOException {
+		long block = blocks[i];
+		Object elementLock = getBlockLock(bm, blocks[i]);
+		if (Thread.holdsLock(elementLock)) {
+			bm.getBlock(block);
+			try {
+				if (i + 1 >= blocks.length) return exec.supply();
+				else return withLockInt(bm, exec, i + 1, blocks);
+			} finally {
+				bm.ungetBlock(block);
+			}
+		} else {
+			synchronized (elementLock) {
+				bm.getBlock(block);
+				try {
+					if (i + 1 >= blocks.length) return exec.supply();
+					else return withLockInt(bm, exec, i + 1, blocks);
+				} finally {
+					bm.ungetBlock(block);
+				}
+			}
+		}
+	}
+	
+	/**
+	 * locks the array of blocks from {@code i} to to len<br>
+	 * the blocks need to be sorted in ascending order. (multiple same blocks are permitted)
+	 * <p>
+	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method also loads the blocks from the arrays.<br>
+	 * So this is the better method, when the blocks are often loaded and unloaded
+	 * <p>
+	 * in addition to {@link #withLock(BlockManager, ThrowingRunnable, int, long...)} this method returns the value returned by {@code exec}
+	 * 
+	 * @param <T>
+	 *            the exception type which can be thrown from {@code exec}
+	 * @param <R> the return type from {@code exec}
+	 * @param bm
+	 *            the block manager
+	 * @param exec
+	 *            the runnable to be executed
+	 * @param i
+	 *            the start index in the blocks array
+	 * @param blocks
+	 *            the array of blocks to be locked
+	 * @return the value returned from {@code Patrick exec}
+	 * @throws T
+	 *             the exception type possibly thrown by runnable
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	protected static <T extends Throwable> long withLockLong(BlockManager bm, ThrowingLongSupplier <T> exec, int i, long... blocks) throws T, IOException {
+		long block = blocks[i];
+		Object elementLock = getBlockLock(bm, blocks[i]);
+		if (Thread.holdsLock(elementLock)) {
+			bm.getBlock(block);
+			try {
+				if (i + 1 >= blocks.length) return exec.supply();
+				else return withLockLong(bm, exec, i + 1, blocks);
+			} finally {
+				bm.ungetBlock(block);
+			}
+		} else {
+			synchronized (elementLock) {
+				bm.getBlock(block);
+				try {
+					if (i + 1 >= blocks.length) return exec.supply();
+					else return withLockLong(bm, exec, i + 1, blocks);
+				} finally {
+					bm.ungetBlock(block);
+				}
+			}
+		}
+	}
+	
+	/**
+	 * locks the array of blocks from {@code i} to to len<br>
+	 * the blocks need to be sorted in ascending order. (multiple same blocks are permitted)
+	 * <p>
+	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method also loads the blocks from the arrays.<br>
+	 * So this is the better method, when the blocks are often loaded and unloaded
+	 * <p>
+	 * in addition to {@link #withLock(BlockManager, ThrowingRunnable, int, long...)} this method returns the value returned by {@code exec}
+	 * 
+	 * @param <T>
+	 *            the exception type which can be thrown from {@code exec}
+	 * @param <R> the return type from {@code exec}
+	 * @param bm
+	 *            the block manager
+	 * @param exec
+	 *            the runnable to be executed
+	 * @param i
+	 *            the start index in the blocks array
+	 * @param blocks
+	 *            the array of blocks to be locked
+	 * @return the value returned from {@code Patrick exec}
+	 * @throws T
+	 *             the exception type possibly thrown by runnable
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	protected static <T extends Throwable> boolean withLockBoolean(BlockManager bm, ThrowingBooleanSupplier <T> exec, int i, long... blocks) throws T, IOException {
+		long block = blocks[i];
 		Object elementLock = getBlockLock(bm, block);
 		if (Thread.holdsLock(elementLock)) {
-			exec.execute();
-		} else {
-			synchronized (elementLock) {
-				exec.execute();
+			bm.getBlock(block);
+			try {
+				if (i + 1 >= blocks.length) return exec.supply();
+				else return withLockBoolean(bm, exec, i + 1, blocks);
+			} finally {
+				bm.ungetBlock(block);
 			}
-		}
-	}
-	
-	public static <T extends Throwable, R> R simpleWithLock(BlockManager bm, long block, ThrowingSupplier <T, R> exec) throws T {
-		Object elementLock = getBlockLock(bm, block);
-		if (Thread.holdsLock(elementLock)) {
-			return exec.supply();
 		} else {
 			synchronized (elementLock) {
-				return exec.supply();
-			}
-		}
-	}
-	
-	public static <T extends Throwable> int simpleWithLockInt(BlockManager bm, long block, ThrowingIntSupplier <T> exec) throws T {
-		Object elementLock = getBlockLock(bm, block);
-		if (Thread.holdsLock(elementLock)) {
-			return exec.supply();
-		} else {
-			synchronized (elementLock) {
-				return exec.supply();
-			}
-		}
-	}
-	
-	public static <T extends Throwable> long simpleWithLockLong(BlockManager bm, long block, ThrowingLongSupplier <T> exec) throws T {
-		Object elementLock = getBlockLock(bm, block);
-		if (Thread.holdsLock(elementLock)) {
-			return exec.supply();
-		} else {
-			synchronized (elementLock) {
-				return exec.supply();
+				bm.getBlock(block);
+				try {
+					if (i + 1 >= blocks.length) return exec.supply();
+					else return withLockBoolean(bm, exec, i + 1, blocks);
+				} finally {
+					bm.ungetBlock(block);
+				}
 			}
 		}
 	}
 	
 	@Override
-	public <T extends Throwable> void simpleWithLock(ThrowingRunnable <T> exec) throws T {
-		Object elementLock = getElementLock();
-		if (Thread.holdsLock(elementLock)) {
-			exec.execute();
+	public <T extends Throwable> void withLock(ThrowingRunnable <T> exec, PatrFileSysElement... other) throws T, IOException {
+		if (other.length == 0) {
+			withLock(bm, exec, 0, block);
 		} else {
-			synchronized (elementLock) {
-				exec.execute();
+			long[] blocks = new long[other.length + 1];
+			int i;
+			for (i = 0; i < blocks.length; i ++ ) {
+				blocks[i] = ((PatrFileSysElementImpl) other[i]).block;
 			}
+			blocks[i] = block;
+			Arrays.sort(blocks);
+			withLock(bm, exec, 0, blocks);
 		}
 	}
 	
 	@Override
-	public <T extends Throwable, R> R simpleWithLock(ThrowingSupplier <T, R> exec) throws T {
-		Object elementLock = getElementLock();
-		if (Thread.holdsLock(elementLock)) {
-			return exec.supply();
+	public <T extends Throwable, R> R withLock(ThrowingSupplier <T, R> exec, PatrFileSysElement... other) throws T, IOException {
+		if (other.length == 0) {
+			return withLock(bm, exec, 0, block);
 		} else {
-			synchronized (elementLock) {
-				return exec.supply();
+			long[] blocks = new long[other.length + 1];
+			int i;
+			for (i = 0; i < blocks.length; i ++ ) {
+				blocks[i] = ((PatrFileSysElementImpl) other[i]).block;
 			}
+			blocks[i] = block;
+			Arrays.sort(blocks);
+			return withLock(bm, exec, 0, blocks);
 		}
 	}
 	
 	@Override
-	public <T extends Throwable> int simpleWithLockInt(ThrowingIntSupplier <T> exec) throws T {
-		Object elementLock = getElementLock();
-		if (Thread.holdsLock(elementLock)) {
-			return exec.supply();
+	public <T extends Throwable> int withLockInt(ThrowingIntSupplier <T> exec, PatrFileSysElement... other) throws T, IOException {
+		if (other.length == 0) {
+			return withLockInt(bm, exec, 0, block);
 		} else {
-			synchronized (elementLock) {
-				return exec.supply();
+			long[] blocks = new long[other.length + 1];
+			int i;
+			for (i = 0; i < blocks.length; i ++ ) {
+				blocks[i] = ((PatrFileSysElementImpl) other[i]).block;
 			}
+			blocks[i] = block;
+			Arrays.sort(blocks);
+			return withLockInt(bm, exec, 0, blocks);
 		}
 	}
 	
 	@Override
-	public <T extends Throwable> long simpleWithLockLong(ThrowingLongSupplier <T> exec) throws T {
-		Object elementLock = getElementLock();
-		if (Thread.holdsLock(elementLock)) {
-			return exec.supply();
+	public <T extends Throwable> long withLockLong(ThrowingLongSupplier <T> exec, PatrFileSysElement... other) throws T, IOException {
+		if (other.length == 0) {
+			return withLockLong(bm, exec, 0, block);
 		} else {
-			synchronized (elementLock) {
-				return exec.supply();
+			long[] blocks = new long[other.length + 1];
+			int i;
+			for (i = 0; i < blocks.length; i ++ ) {
+				blocks[i] = ((PatrFileSysElementImpl) other[i]).block;
 			}
+			blocks[i] = block;
+			Arrays.sort(blocks);
+			return withLockLong(bm, exec, 0, blocks);
 		}
 	}
 	
 	@Override
-	public <T extends Throwable> boolean simpleWithLockBoolean(ThrowingBooleanSupplier <T> exec) throws T {
-		Object elementLock = getElementLock();
-		if (Thread.holdsLock(elementLock)) {
-			return exec.supply();
+	public <T extends Throwable> boolean withLockBoolean(ThrowingBooleanSupplier <T> exec, PatrFileSysElement... other) throws T, IOException {
+		if (other.length == 0) {
+			return withLockBoolean(bm, exec, 0, block);
 		} else {
-			synchronized (elementLock) {
-				return exec.supply();
+			long[] blocks = new long[other.length + 1];
+			int i;
+			for (i = 0; i < blocks.length; i ++ ) {
+				blocks[i] = ((PatrFileSysElementImpl) other[i]).block;
 			}
+			blocks[i] = block;
+			Arrays.sort(blocks);
+			return withLockBoolean(bm, exec, 0, blocks);
 		}
 	}
 	

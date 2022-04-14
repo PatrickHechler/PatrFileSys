@@ -48,7 +48,7 @@ public class PatrRootFolderImpl extends PatrFolderImpl {
 	
 	@Override
 	protected void setNewPosToOthers(long oldBlock, int oldPos, long newBlock, int newPos) throws IOException {
-		simpleWithLock(bm, 0L, () -> executeSetNewPosToOthers(newBlock, newPos));
+		simpleWithLock(bm, () -> executeSetNewPosToOthers(newBlock, newPos), 0, 0L);
 	}
 	
 	private void executeSetNewPosToOthers(long newBlock, int newPos) throws ClosedChannelException, IOException {
