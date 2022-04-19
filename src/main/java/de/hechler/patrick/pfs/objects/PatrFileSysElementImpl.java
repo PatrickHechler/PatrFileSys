@@ -1739,6 +1739,40 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		}
 	}
 	
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + (int) (block ^ (block >>> 32));
+		result = prime * result + ( (bm == null) ? 0 : bm.hashCode());
+		result = prime * result + pos;
+		result = prime * result + (int) (startTime ^ (startTime >>> 32));
+		return result;
+	}
+	
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) return true;
+		if ( ! (obj instanceof PatrFileSysElementImpl)) return false;
+		PatrFileSysElementImpl other = (PatrFileSysElementImpl) obj;
+		if (block != other.block) return false;
+		if ( !bm.equals(other.bm)) return false;
+		if (pos != other.pos) return false;
+		if (startTime != other.startTime) return false;
+		return true;
+	}
+	
+	@Override
+	public String toString() {
+		StringBuilder builder = new StringBuilder();
+		builder.append("PatrFileSysElementImpl [block=");
+		builder.append(block);
+		builder.append(", pos=");
+		builder.append(pos);
+		builder.append("]");
+		return builder.toString();
+	}
+	
 	public static class BlockLock {
 		
 		public final long                         block;

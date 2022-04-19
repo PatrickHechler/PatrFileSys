@@ -1,27 +1,25 @@
 package de.hechler.patrick.pfs.objects.ba;
 
-import de.hechler.patrick.zeugs.check.Checker;
+import static de.hechler.patrick.zeugs.check.Assert.assertEquals;
+
+import java.io.IOException;
+
 import de.hechler.patrick.zeugs.check.anotations.Check;
-import de.hechler.patrick.zeugs.check.anotations.End;
+import de.hechler.patrick.zeugs.check.anotations.CheckClass;
 import de.hechler.patrick.zeugs.check.anotations.Start;
 
-public class ByteArrayArrayBlockAccessorChecker extends Checker {
+@CheckClass
+public class ByteArrayArrayBlockAccessorChecker extends BlockAccessorChecker {
 	
-	private static final int    START_SIZE = 128;
-	ByteArrayArrayBlockAccessor ba;
+	static final int START_SIZE = 128;
 	
 	@Start
 	private void setup() {
 		ba = new ByteArrayArrayBlockAccessor(START_SIZE, START_SIZE);
 	}
 	
-	@End
-	private void end() {
-		ba = null;
-	}
-	
 	@Check
-	private void checkSize() {
+	private void checBlockkSize() throws IOException {
 		assertEquals(ba.blockSize(), START_SIZE);
 		assertEquals(ba.blockSize(), START_SIZE);
 		assertEquals(ba.blockSize(), START_SIZE);

@@ -1,17 +1,21 @@
 package de.hechler.patrick.pfs.objects.java;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.WatchEvent;
 import java.nio.file.WatchEvent.Kind;
 import java.nio.file.WatchEvent.Modifier;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 
 
@@ -83,7 +87,11 @@ public class PFSPathImpl implements Path {
 	
 	@Override
 	public Path getName(int index) {
-		return new PFSPathImpl(this.fs, new PFSPathImpl(this.fs, this.relativeTo, Arrays.copyOf(this.path, index)), this.path[index]);
+		if (index == 0) {
+			return new PFSPathImpl(this.fs, PFSPathImpl.this, this.path[0]);
+		} else {
+			return new PFSPathImpl(this.fs, new PFSPathImpl(this.fs, this.relativeTo, Arrays.copyOf(this.path, index)), this.path[index]);
+		}
 	}
 	
 	@Override
@@ -97,6 +105,10 @@ public class PFSPathImpl implements Path {
 		if ( !p.fs.equals(this.fs)) {
 			return false;
 		}
+		return startsWith(p, p.relativeTo == p.relativeTo.relativeTo);
+	}
+	
+	private boolean startsWith(PFSPathImpl p, boolean abs) {
 		if (this.path.length < p.path.length) {
 			return false;
 		}
@@ -111,6 +123,10 @@ public class PFSPathImpl implements Path {
 	@Override
 	public boolean endsWith(Path other) {
 		PFSPathImpl p = getSameFSPath(other);
+		return endsWith(p, p.relativeTo == p.relativeTo.relativeTo);
+	}
+	
+	private boolean endsWith(PFSPathImpl p, boolean abs) {
 		if (this.path.length < p.path.length) {
 			return false;
 		}
@@ -149,15 +165,19 @@ public class PFSPathImpl implements Path {
 	}
 	
 	@Override
-	public Path resolve(Path other) {
-		PFSPathImpl myPath = getMyPath(other);
-		if (myPath.relativeTo.relativeTo == myPath.relativeTo) {
-			return myPath;
-		} else if (myPath.path.length == 0) {
+	public PFSPathImpl resolve(Path other) {
+		PFSPathImpl p = getMyPath(other);
+		return resolve(p, p.relativeTo == p.relativeTo.relativeTo);
+	}
+	
+	private PFSPathImpl resolve(PFSPathImpl p, boolean abs) {
+		if (abs) {
+			return p;
+		} else if (p.path.length == 0) {
 			return this;
 		} else {
-			Name[] arr = Arrays.copyOf(this.path, this.path.length + myPath.path.length);
-			System.arraycopy(myPath.path, 0, arr, this.path.length, myPath.path.length);
+			Name[] arr = Arrays.copyOf(this.path, this.path.length + p.path.length);
+			System.arraycopy(p.path, 0, arr, this.path.length, p.path.length);
 			return new PFSPathImpl(this.fs, this.relativeTo, arr);
 		}
 	}
@@ -359,6 +379,79 @@ public class PFSPathImpl implements Path {
 			}
 		}
 		
+	}
+	
+	@Override
+	public boolean startsWith(String other) {
+		return startsWith(fs.getPath(other), isAbsolute(other));
+	}
+	
+	@Override
+	public boolean endsWith(String other) {
+		return endsWith(fs.getPath(other), isAbsolute(other));
+	}
+	
+	@Override
+	public Path resolve(String other) {
+		return resolve(fs.getPath(other), isAbsolute(other));
+	}
+	
+	@Override
+	public Path resolveSibling(Path other) {
+		return getParent().resolve(other);
+	}
+	
+	@Override
+	public Path resolveSibling(String other) {
+		return getParent().resolve(fs.getPath(other), isAbsolute(other));
+	}
+	
+	private static boolean isAbsolute(String other) {
+		boolean abs = false;
+		switch (other.charAt(0)) {
+		case '/':
+		case '\\':
+		case '\0':
+			abs = true;
+		}
+		return abs;
+	}
+	
+	@Override
+	public File toFile() {
+		throw new UnsupportedOperationException("can not create File objects!");
+	}
+	
+	@Override
+	public WatchKey register(WatchService watcher, Kind <?>... events) throws IOException {
+		return register(watcher, events, new WatchEvent.Modifier[0]);
+	}
+	
+	@Override
+	public Iterator <Path> iterator() {
+		return new Iterator <Path>() {
+			
+			private int i = 0;
+			
+			@Override
+			public boolean hasNext() {
+				return (i < path.length);
+			}
+			
+			@Override
+			public Path next() {
+				if (i >= path.length) {
+					throw new NoSuchElementException("no more elements");
+				}
+				i ++ ;
+				if (i == 1) {
+					return new PFSPathImpl(fs, PFSPathImpl.this, new Name[] {path[0] });
+				} else {
+					return new PFSPathImpl(fs, new PFSPathImpl(fs, PFSPathImpl.this, Arrays.copyOf(path, i - 1)), new Name[] {path[i - 1] });
+				}
+			}
+			
+		};
 	}
 	
 }

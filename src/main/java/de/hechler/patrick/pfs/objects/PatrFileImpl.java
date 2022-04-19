@@ -2,7 +2,10 @@ package de.hechler.patrick.pfs.objects;
 
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LAST_META_MOD_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_DATA_TABLE;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_HASH_CODE;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_HASH_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_LENGTH;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_DELETE_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_READ_ALLOWED_LOCK;
@@ -10,6 +13,8 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_WRITE_AL
 
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import de.hechler.patrick.pfs.exception.ElementLockedException;
 import de.hechler.patrick.pfs.interfaces.BlockManager;
@@ -33,15 +38,15 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		}
 		withLock(() -> {
 			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
-			executeRead(bytes, offset, bytesOff, length, lock);
+			executeRead(bytes, offset, bytesOff, length);
 		});
 	}
 	
-	private void executeRead(byte[] bytes, long offset, int bytesOff, int length, long lock) throws ClosedChannelException, IOException, ElementLockedException {
+	private void executeRead(byte[] bytes, long offset, int bytesOff, int length) throws ClosedChannelException, IOException, ElementLockedException {
 		if (offset + (long) length > length()) {
 			throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + length() + ")");
 		}
-		iterateBlockTable(new ThrowingBooleanFunction <>() {
+		iterateBlockTable(new ThrowingBooleanFunction <AllocatedBlocks, IOException>() {
 			
 			private long skip   = offset / bm.blockSize();
 			private int  off    = (int) (offset % (long) bm.blockSize());
@@ -101,7 +106,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + myOldLen + ")");
 		}
 		final int blockSize = bm.blockSize();
-		iterateBlockTable(new ThrowingBooleanFunction <>() {
+		iterateBlockTable(new ThrowingBooleanFunction <AllocatedBlocks, IOException>() {
 			
 			private int       state                = 0;
 			private long      skip                 = offset / (long) blockSize;
@@ -236,7 +241,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		if (offset + (long) length > length()) {
 			throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + length() + ")");
 		}
-		iterateBlockTable(new ThrowingBooleanFunction <>() {
+		iterateBlockTable(new ThrowingBooleanFunction <AllocatedBlocks, IOException>() {
 			
 			private long skip   = offset / bm.blockSize();
 			private int  off    = (int) (offset % (long) bm.blockSize());
@@ -370,6 +375,52 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			longToByteArr(bytes, pos + FILE_OFFSET_FILE_LENGTH, myNewLen);
 		} finally {
 			bm.setBlock(block);
+		}
+	}
+	
+	@Override
+	public byte[] getHashCode(long lock) throws IOException, ElementLockedException {
+		return simpleWithLock(() -> executeGetHashCode(lock));
+	}
+	
+	private byte[] executeGetHashCode(long lock) throws IOException, ElementLockedException {
+		byte[] bytes = bm.getBlock(block);
+		try {
+			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
+			byte[] result = new byte[32];
+			long lastMod = byteArrToLong(bytes, pos + ELEMENT_OFFSET_LAST_META_MOD_TIME);
+			long hashTIme = byteArrToLong(bytes, pos + FILE_OFFSET_FILE_HASH_TIME);
+			if (hashTIme <= lastMod) {
+				longToByteArr(bytes, pos + FILE_OFFSET_FILE_HASH_TIME, System.currentTimeMillis());
+				result = executeCalcHAshCode();
+				assert result.length == 32;
+				System.arraycopy(result, 0, bytes, pos + FILE_OFFSET_FILE_HASH_CODE, 32);
+			} else {
+				System.arraycopy(bytes, pos + FILE_OFFSET_FILE_HASH_CODE, result, 0, 32);
+			}
+			return result;
+		} finally {
+			bm.ungetBlock(block);
+		}
+	}
+	
+	// http://www.java2s.com/example/java-utility-method/sha256/sha256-final-inputstream-inputstream-82aa9.html
+	private byte[] executeCalcHAshCode() throws IOException {
+		try {
+			byte[] buffer = new byte[1 << 16];
+			MessageDigest digest = MessageDigest.getInstance("SHA-256");
+			long length = length(), read;
+			for (read = 0L; length - read > buffer.length; read += buffer.length) {
+				executeRead(buffer, read, 0, buffer.length);
+				digest.update(buffer, 0, 1 << 16);
+			}
+			if (length > read) {
+				executeRead(buffer, 0, 0, (int) (length - read));
+				digest.update(buffer, 0, (int) (length - read));
+			}
+			return digest.digest();
+		} catch (NoSuchAlgorithmException e) {
+			throw new IllegalStateException("SHA-256 hashing algorithm unknown in this VM.", e);
 		}
 	}
 	

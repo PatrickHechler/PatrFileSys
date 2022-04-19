@@ -1,8 +1,7 @@
 package de.hechler.patrick.pfs;
 
-import de.hechler.patrick.pfs.objects.ba.ByteArrayArrayBlockAccessorChecker;
-import de.hechler.patrick.zeugs.check.BigCheckResult;
-import de.hechler.patrick.zeugs.check.Checker;
+import de.hechler.patrick.zeugs.check.objects.BigCheckResult;
+import de.hechler.patrick.zeugs.check.objects.BigChecker;
 
 public class Test {
 	
@@ -11,7 +10,7 @@ public class Test {
 	}
 	
 	public static void main(String[] args) {
-		BigCheckResult cr = Checker.checkAll(true, ByteArrayArrayBlockAccessorChecker.class);
+		BigCheckResult cr = BigChecker.tryCheckAll(true, Test.class.getPackage(), Test.class.getClassLoader());
 		cr.print();
 		if (cr.wentUnexpected()) {
 			cr.detailedPrintUnexpected(System.err);

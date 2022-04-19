@@ -10,11 +10,7 @@ public class ByteArrayArrayBlockAccessor implements BlockAccessor {
 	private final byte[][] blocks;
 	
 	public ByteArrayArrayBlockAccessor(int blockCount, int blockSize) {
-		this(new byte[blockCount][blockSize]);
-	}
-	
-	public ByteArrayArrayBlockAccessor(byte[][] blocks) {
-		this.blocks = blocks;
+		this.blocks = new byte[blockCount][blockSize];
 	}
 	
 	@Override

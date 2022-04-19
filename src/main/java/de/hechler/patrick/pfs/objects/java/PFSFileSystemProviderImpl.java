@@ -8,7 +8,6 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_WRITE_AL
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_SHARED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.OWNER_NO_OWNER;
 
-import com.sun.nio.file.ExtendedCopyOption;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.URI;
@@ -42,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.sun.nio.file.ExtendedCopyOption;
 import com.sun.nio.file.ExtendedOpenOption;
 
 import de.hechler.patrick.pfs.exception.ElementLockedException;

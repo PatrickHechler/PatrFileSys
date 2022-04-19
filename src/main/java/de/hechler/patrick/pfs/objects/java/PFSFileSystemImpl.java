@@ -83,7 +83,7 @@ public class PFSFileSystemImpl extends FileSystem {
 	}
 	
 	@Override
-	public Path getPath(String first, String... more) {
+	public PFSPathImpl getPath(String first, String... more) {
 		List <Name> path = new ArrayList <>();
 		add(path, first);
 		for (String p : more) {

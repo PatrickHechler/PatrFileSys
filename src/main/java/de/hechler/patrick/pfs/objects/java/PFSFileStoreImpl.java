@@ -1,6 +1,14 @@
 package de.hechler.patrick.pfs.objects.java;
 
-import static de.hechler.patrick.pfs.objects.java.PFSFileSystemProviderImpl.*;
+import static de.hechler.patrick.pfs.objects.java.PFSFileSystemProviderImpl.BASIC_ATTRIBUTE_CREATION_TIME;
+import static de.hechler.patrick.pfs.objects.java.PFSFileSystemProviderImpl.BASIC_ATTRIBUTE_FILE_KEY;
+import static de.hechler.patrick.pfs.objects.java.PFSFileSystemProviderImpl.BASIC_ATTRIBUTE_IS_DIRECTORY;
+import static de.hechler.patrick.pfs.objects.java.PFSFileSystemProviderImpl.BASIC_ATTRIBUTE_IS_OTHER;
+import static de.hechler.patrick.pfs.objects.java.PFSFileSystemProviderImpl.BASIC_ATTRIBUTE_IS_REGULAR_FILE;
+import static de.hechler.patrick.pfs.objects.java.PFSFileSystemProviderImpl.BASIC_ATTRIBUTE_IS_SYMBOLIC_LINK;
+import static de.hechler.patrick.pfs.objects.java.PFSFileSystemProviderImpl.BASIC_ATTRIBUTE_LAST_ACCESS_TIME;
+import static de.hechler.patrick.pfs.objects.java.PFSFileSystemProviderImpl.BASIC_ATTRIBUTE_LAST_MODIFIED_TIME;
+import static de.hechler.patrick.pfs.objects.java.PFSFileSystemProviderImpl.BASIC_ATTRIBUTE_SIZE;
 
 import java.io.IOException;
 import java.nio.file.FileStore;
