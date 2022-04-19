@@ -363,7 +363,14 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 		if (mode == 0) {
 			throw new IllegalArgumentException("no mode defined! (read,write,append)");
 		}
-		PatrFile file = getFile(options, strs, directParent, MODE_READ, mode);
+		if (mode == MODE_READ) {
+			options.remove(StandardOpenOption.CREATE);
+			options.remove(StandardOpenOption.CREATE_NEW);
+		} else if (options.contains(StandardOpenOption.CREATE_NEW)) {
+			options.remove(StandardOpenOption.CREATE);
+		}
+		PatrFile file;
+		file = getFile(options, strs, directParent, mode);
 		if (lock != LOCK_NO_LOCK) {
 			lock = file.lock(lock);
 		}
@@ -389,45 +396,35 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	}
 	
 	
-	private PatrFile getFile(Set <? extends OpenOption> options, String[] strs, PatrFolder directParent, final int mode_read, int mode)
+	private PatrFile getFile(Set <? extends OpenOption> options, String[] strs, PatrFolder directParent, int mode)
 		throws IOException, NotDirectoryException, FileAlreadyExistsException, ElementLockedException, NoSuchFileException {
 		PatrFile file;
 		if (options.contains(StandardOpenOption.CREATE_NEW)) {
-			if ( (mode & mode_read) != mode) {
-				try {
-					getElement(directParent, new String[] {strs[strs.length - 1] }, 1);
-					throw new FileAlreadyExistsException(buildName(strs, strs.length - 1), null, "the file exists already!");
-				} catch (NoSuchFileException e) {
+			try {
+				getElement(directParent, new String[] {strs[strs.length - 1] }, 1);
+				throw new FileAlreadyExistsException(buildName(strs, strs.length - 1), null, "the file exists already!");
+			} catch (NoSuchFileException e) {
+				file = directParent.addFile(strs[strs.length - 1], LOCK_NO_LOCK);
+			}
+		} else if (options.contains(StandardOpenOption.CREATE)) {
+			boolean rethrow = false;
+			try {
+				PatrFileSysElement element = getElement(directParent, new String[] {strs[strs.length - 1] }, 1);
+				if (element.isFile()) {
+					file = element.getFile();
+				} else {
+					rethrow = true;
+					throw new NoSuchFileException(buildName(strs, strs.length - 1), null, "the file is a folder and no file!");
+				}
+			} catch (NoSuchFileException e) {
+				if (rethrow) {
+					throw e;
+				} else {
 					file = directParent.addFile(strs[strs.length - 1], LOCK_NO_LOCK);
 				}
-			} else {
-				file = getFile(directParent, new String[] {strs[strs.length - 1] }, 1);
 			}
 		} else {
-			if (options.contains(StandardOpenOption.CREATE)) {
-				if ( (mode & mode_read) != mode) {
-					boolean rethrow = false;
-					try {
-						PatrFileSysElement element = getElement(directParent, new String[] {strs[strs.length - 1] }, 1);
-						if (element.isFile()) {
-							file = element.getFile();
-						} else {
-							rethrow = true;
-							throw new NoSuchFileException(buildName(strs, strs.length - 1), null, "the file is a folder and no file!");
-						}
-					} catch (NoSuchFileException e) {
-						if (rethrow) {
-							throw e;
-						} else {
-							file = directParent.addFile(strs[strs.length - 1], LOCK_NO_LOCK);
-						}
-					}
-				} else {
-					file = getFile(directParent, new String[] {strs[strs.length - 1] }, 1);
-				}
-			} else {
-				file = getFile(directParent, new String[] {strs[strs.length - 1] }, 1);
-			}
+			file = getFile(directParent, new String[] {strs[strs.length - 1] }, 1);
 		}
 		return file;
 	}

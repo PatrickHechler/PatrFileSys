@@ -11,28 +11,32 @@ import de.hechler.patrick.zeugs.check.anotations.Start;
 @CheckClass
 public class ByteArrayArrayBlockAccessorChecker extends BlockAccessorChecker {
 	
-	static final int START_SIZE = 128;
+	private static final int START_SIZE = 128;
 	
 	@Start
-	private void setup() {
-		ba = new ByteArrayArrayBlockAccessor(START_SIZE, START_SIZE);
+	protected void setup() {
+		newByteArrayArrayBlockAccessor(START_SIZE, START_SIZE);
 	}
 	
 	@Check
-	private void checBlockkSize() throws IOException {
+	protected void checBlockkSize() throws IOException {
 		assertEquals(ba.blockSize(), START_SIZE);
 		assertEquals(ba.blockSize(), START_SIZE);
 		assertEquals(ba.blockSize(), START_SIZE);
-		ba = new ByteArrayArrayBlockAccessor(1024, 16);
+		newByteArrayArrayBlockAccessor(1024, 16);
 		assertEquals(ba.blockSize(), 16);
 		assertEquals(ba.blockSize(), 16);
 		assertEquals(ba.blockSize(), 16);
-		ba = new ByteArrayArrayBlockAccessor(16, 1024);
+		newByteArrayArrayBlockAccessor(16, 1024);
 		assertEquals(ba.blockSize(), 1024);
-		ba = new ByteArrayArrayBlockAccessor(1, 1024);
+		newByteArrayArrayBlockAccessor(1, 1024);
 		assertEquals(ba.blockSize(), 1024);
-		ba = new ByteArrayArrayBlockAccessor(1024, 1);
+		newByteArrayArrayBlockAccessor(1024, 1);
 		assertEquals(ba.blockSize(), 1);
+	}
+	
+	protected void newByteArrayArrayBlockAccessor(int blockCount, int blockSize) {
+		ba = new ByteArrayArrayBlockAccessor(blockCount, blockSize);
 	}
 	
 }

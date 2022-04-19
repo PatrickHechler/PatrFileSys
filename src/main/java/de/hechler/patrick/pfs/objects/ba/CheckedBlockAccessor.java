@@ -46,7 +46,7 @@ public class CheckedBlockAccessor implements BlockAccessor {
 		Long blockObj = (Long) block;
 		synchronized (loaded) {
 			checkOpen();
-			byte[] bytes = loaded.get(blockObj);
+			byte[] bytes = loaded.remove(blockObj);
 			if (value != bytes) {
 				if (bytes == null) {
 					throw new IllegalArgumentException("the block " + block + " has not been loaded!");
@@ -62,7 +62,7 @@ public class CheckedBlockAccessor implements BlockAccessor {
 	public void discardBlock(long block) throws ClosedChannelException {
 		synchronized (loaded) {
 			checkOpen();
-			if (loaded.remove(block) != null) {
+			if (loaded.remove(block) == null) {
 				throw new IllegalArgumentException("the block " + block + " has not been loaded!");
 			}
 		}
