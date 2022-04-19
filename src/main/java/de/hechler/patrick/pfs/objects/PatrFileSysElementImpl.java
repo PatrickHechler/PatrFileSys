@@ -80,16 +80,31 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public PatrFolderImpl getParent() throws IllegalStateException, IOException {
-		return simpleWithLock(() -> {
-			byte[] bytes = bm.getBlock(block);
+		return simpleWithLock(this::executeGetParent);
+	}
+	
+	private PatrFolderImpl executeGetParent() throws ClosedChannelException, IOException {
+		byte[] bytes = bm.getBlock(block);
+		try {
+			long pblock = byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_BLOCK);
+			int ppos = byteArrToInt(bytes, pos + ELEMENT_OFFSET_PARENT_POS);
+			bytes = bm.getBlock(pblock);
 			try {
-				long pblock = byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_BLOCK);
-				int ppos = byteArrToInt(bytes, pos + ELEMENT_OFFSET_PARENT_POS);
-				return new PatrFolderImpl(startTime, bm, pblock, ppos);
+				long ppblock = byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_BLOCK);
+				int pppos = byteArrToInt(bytes, pos + ELEMENT_OFFSET_PARENT_POS);
+				if (ppblock == -1L) {
+					assert pppos == -1;
+					return new PatrRootFolderImpl(startTime, bm, ppblock, pppos);
+				} else {
+					assert pppos != -1;
+				}
 			} finally {
-				bm.ungetBlock(block);
+				bm.ungetBlock(pblock);
 			}
-		});
+			return new PatrFolderImpl(startTime, bm, pblock, ppos);
+		} finally {
+			bm.ungetBlock(block);
+		}
 	}
 	
 	@Override
@@ -517,9 +532,9 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			int np = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
-			int len;
-			for (len = 0; bytes[np + len] != 0 || bytes[np + len + 1] != 0; len += 2) {}
-			return len + 2;
+			int byteCount;
+			for (byteCount = 0; bytes[np + byteCount] != 0 || bytes[np + byteCount + 1] != 0; byteCount += 2) {}
+			return byteCount + 2;
 		} finally {
 			bm.ungetBlock(block);
 		}
@@ -1163,7 +1178,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 				}
 				return false;
 			} else {
-				System.arraycopy(bytes, tablestart, bytes, tablestart + 8, remindex - tablestart - 8);
+				System.arraycopy(bytes, tablestart, bytes, tablestart + 8, remindex * 8);
 				intToByteArr(bytes, bytes.length - 12, tablestart + 8);
 				intToByteArr(bytes, bytes.length - 4, tablestart + 8);
 			}
