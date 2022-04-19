@@ -115,7 +115,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		try {
 			longToByteArr(bytes, 0, 0L);
 			longToByteArr(bytes, 8, 2L);
-			intToByteArr(bytes, bytes.length - 4, 8);
+			intToByteArr(bytes, bytes.length - 4, 16);
 		} finally {
 			bm.setBlock(1L);
 		}
@@ -221,15 +221,15 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	}
 	
 	public static void initBlock(byte[] bytes, int startLen) {
-		int blockSize = bytes.length;
-		final int tableStart = blockSize - 20;
-		if (blockSize < startLen - 32) {
+		final int blockSize = bytes.length,
+			tableStart = blockSize - 20;
+		if (tableStart < 0) {
 			throw new OutOfMemoryError("the block is not big enugh! blockSize=" + blockSize + " startLen=" + startLen + " (note, that the table also needs " + (blockSize - tableStart) + " bytes)");
 		}
 		intToByteArr(bytes, blockSize - 4, tableStart);
-		intToByteArr(bytes, blockSize - 8, blockSize);
-		intToByteArr(bytes, blockSize - 12, tableStart);
-		intToByteArr(bytes, blockSize - 16, startLen);
+		intToByteArr(bytes, tableStart + 12, blockSize);
+		intToByteArr(bytes, tableStart + 8, tableStart);
+		intToByteArr(bytes, tableStart + 4, startLen);
 		intToByteArr(bytes, tableStart, 0);
 	}
 	

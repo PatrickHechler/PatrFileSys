@@ -376,8 +376,8 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			long lockTime = byteArrToLong(bytes, pos + ELEMENT_OFFSET_LOCK_TIME);
-			if (lockTime < startTime) {
-				removeLock(LOCK_NO_LOCK);
+			if (lockTime < startTime && lockTime != NO_TIME) {
+				executeRemoveLock(LOCK_NO_LOCK);
 				return NO_TIME;
 			}
 			return lockTime;
@@ -388,7 +388,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public void removeLock(long lock) throws IOException, IllegalStateException {
-		simpleWithLock(() -> executeRemoveLock(lock));
+		withLock(() -> {
+			executeRemoveLock(lock);
+			modify(true);
+		});
 	}
 	
 	private void executeRemoveLock(long lock) throws ClosedChannelException, IOException {
@@ -405,18 +408,15 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 				if ( (currentLock & LOCK_SHARED_LOCK) != 0) {
 					long cnt = (currentLock & LOCK_SHARED_COUNTER_AND) >>> LOCK_SHARED_COUNTER_SHIFT;
 					cnt -- ;
-					if (cnt <= 0L) {
-						newLock = LOCK_NO_LOCK;
-						newTime = NO_TIME;
-					} else {
+					if (cnt > 0L) {
 						newLock = cnt << LOCK_SHARED_COUNTER_SHIFT;
 						newLock |= currentLock & ~LOCK_SHARED_COUNTER_AND;
+						newTime = executeGetLockTime();
 					}
 				}
 			}
 			longToByteArr(bytes, pos + ELEMENT_OFFSET_LOCK_VALUE, newLock);
 			longToByteArr(bytes, pos + ELEMENT_OFFSET_LOCK_TIME, newTime);
-			modify(true);
 		} finally {
 			bm.setBlock(block);
 		}
@@ -432,7 +432,12 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	protected long getLock() throws IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
-			getLockTime();
+			long lockTime = byteArrToLong(bytes, pos + ELEMENT_OFFSET_LOCK_TIME);
+			if (lockTime != NO_TIME && lockTime < startTime) {
+				longToByteArr(bytes, pos + ELEMENT_OFFSET_LOCK_TIME, NO_TIME);
+				longToByteArr(bytes, pos + ELEMENT_OFFSET_LOCK_VALUE, LOCK_NO_LOCK);
+				return LOCK_NO_LOCK;
+			}
 			return byteArrToLong(bytes, pos + ELEMENT_OFFSET_LOCK_VALUE);
 		} finally {
 			bm.ungetBlock(block);
@@ -812,6 +817,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 			}
 			if (len > 0) {
 				long endBlock = byteArrToLong(bytes, end - 8);
+				result.add(new AllocatedBlocks(endBlock, len));
 				endBlock += len;
 				len -= len;
 				if (endBlock > blockCount) {
@@ -918,10 +924,16 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 			int tablestart = byteArrToInt(bytes, bytes.length - 4),
 				entrycount = (bytes.length - 4 - tablestart) >>> 3;
 			if (byteArrToInt(bytes, tablestart) >= len) {
-				if (byteArrToInt(bytes, tablestart) == len) {
+				int start = byteArrToInt(bytes, tablestart);
+				if (start == len) {
 					intToByteArr(bytes, tablestart, 0);
 				} else {
-					tableGrow(block, 0, 0, len);
+					try {
+						tableGrow(block, 0, 0, len);
+					} catch (OutOfMemoryError e) {
+						start -= len;
+						intToByteArr(bytes, tablestart, start);
+					}
 				}
 				return 0;
 			}
@@ -977,12 +989,12 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 */
 	protected int reallocate(long block, int pos, int oldLen, int newLen, boolean copy) throws OutOfMemoryError, IOException {
 		byte[] bytes = bm.getBlock(block);
-		if (newLen < 0 || oldLen < 0) {
+		if (newLen < 0 || oldLen < 0 || pos < 0) {
 			throw new IllegalArgumentException("len is smaller than zero! (newLen=" + newLen + ", odLen=" + oldLen + ")");
 		}
 		try {
 			int tablestart = byteArrToInt(bytes, bytes.length - 4),
-				entrycount = (bytes.length - 4 - tablestart) >>> 3,
+				entrycount = (bytes.length - 4 - tablestart) / 8,
 				min = 0,
 				max = entrycount - 1,
 				mid, midoff;
@@ -992,9 +1004,9 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 				int start = byteArrToInt(bytes, midoff),
 					end = byteArrToInt(bytes, midoff + 4);
 				if (pos < start) {
-					min = mid + 1;
-				} else if (end < pos) {
 					max = mid - 1;
+				} else if (end < pos) {
+					min = mid + 1;
 				} else if (oldLen > newLen) {
 					int ret = remove(block, pos + newLen, oldLen - newLen, mid, true);
 					if (ret == -2) {
@@ -1008,7 +1020,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 					boolean needNewPlace = false;
 					if (mid < entrycount - 1 && end == pos + oldLen) {
 						int nextStart = byteArrToInt(bytes, midoff + 8),
-							free = end - nextStart;
+							free = nextStart - end;
 						if (free < newLen - oldLen) {
 							needNewPlace = true;
 						}
@@ -1028,7 +1040,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 						}
 						return newPos;
 					} else {
-						intToByteArr(bytes, midoff, pos + newLen);
+						intToByteArr(bytes, midoff + 4, pos + newLen);
 						return pos;
 					}
 				}
@@ -1142,7 +1154,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 			int lastStart = byteArrToInt(bytes, bytes.length - 12);
 			if (tablestart != lastStart) {
 				System.arraycopy(bytes, remindex + 8, bytes, remindex, bytes.length - 20 - remindex);
-				intToByteArr(bytes, bytes.length - 12, tablestart);// the only case to produce to entries where end=start
+				intToByteArr(bytes, bytes.length - 12, tablestart);// one of two cases to produce to entries where prev.end=next.start
 				intToByteArr(bytes, bytes.length - 16, tablestart);
 			} else if (tablestart + 8 >= bytes.length - 12) {
 				assert tablestart + 8 >= bytes.length - 12;
@@ -1184,20 +1196,23 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		try {
 			int tablestart = byteArrToInt(bytes, bytes.length - 4),
 				lastStart = byteArrToInt(bytes, bytes.length - 12),
-				addm8 = addindex * 8,
-				addoff = tablestart + addm8;
-			if (tablestart - 8 > lastStart) {
-				System.arraycopy(bytes, tablestart, bytes, tablestart - 8, addm8);
-				intToByteArr(bytes, bytes.length - 4, tablestart - 8);
-				intToByteArr(bytes, bytes.length - 12, tablestart - 8);
-				intToByteArr(bytes, addoff - 8, start);
-				intToByteArr(bytes, addoff - 8, end);
-				assert byteArrToInt(bytes, addm8 - 4) < start;
-				assert end < byteArrToInt(bytes, addm8 + 8);
-			} else if (tablestart - 8 == lastStart) {
-				System.arraycopy(bytes, addoff, bytes, addoff + 8, bytes.length - addoff - 12);
-				intToByteArr(bytes, addoff, start);
-				intToByteArr(bytes, addoff, end);
+				addoff = tablestart + addindex * 8;
+			if (tablestart == lastStart) {
+				int prevLastEnd = byteArrToInt(bytes, bytes.length - 16);
+				if (tablestart - 8 < prevLastEnd) {
+					throw new OutOfMemoryError("there is not enugh memory for the table to grow");
+				} else if (tablestart - 8 == prevLastEnd) {
+					System.arraycopy(bytes, addoff, bytes, addoff + 8, bytes.length - addoff - 8);
+					intToByteArr(bytes, addoff, start);
+					intToByteArr(bytes, addoff, end);
+					intToByteArr(bytes, bytes.length - 4, tablestart - 8);
+				} else {
+					System.arraycopy(bytes, tablestart, bytes, tablestart - 8, addoff - tablestart);
+					intToByteArr(bytes, addoff - 8, start);
+					intToByteArr(bytes, addoff - 4, end);
+					intToByteArr(bytes, bytes.length - 4, tablestart - 8);
+					intToByteArr(bytes, bytes.length - 12, tablestart - 8);
+				}
 			} else {
 				throw new OutOfMemoryError("there is not enugh memory for the table to grow");
 			}
@@ -1717,9 +1732,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 					return obj;
 				}
 			}
-			key.obj = new WeakReference <Object>(new Object());
+			Object obj = new Object();
+			key.obj = new WeakReference <Object>(obj);
 			looks.put(key, key.obj);
-			return looks.get(key);
+			return obj;
 		}
 	}
 	
@@ -1733,9 +1749,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 					return obj;
 				}
 			}
-			key.obj = new WeakReference <>(new Object());
+			Object obj = new Object();
+			key.obj = new WeakReference <>(obj);
 			looks.put(key, key.obj);
-			return looks.get(key);
+			return obj;
 		}
 	}
 	

@@ -26,7 +26,6 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_DELETE_A
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_READ_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_WRITE_ALLOWED_LOCK;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.OWNER_NO_OWNER;
 
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
@@ -79,7 +78,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 				childPos = allocate(childBlock, childLen);
 				childNamePos = allocate(childBlock, childNameBytes.length + 2);
 			} catch (OutOfMemoryError e) {
-				if (childPos == -1) {
+				if (childPos != -1) {
 					reallocate(childBlock, childPos, childLen, 0, false);
 				}
 				childBlock = allocateOneBlock();
@@ -93,6 +92,9 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 				}
 			}
 			PatrFileSysElement result = initChild(isFolder, childPos, childNamePos, childBlock, childNameBytes);
+			int childOff = pos + FOLDER_OFFSET_FOLDER_ELEMENTS + oldElementCount * FOLDER_ELEMENT_LENGTH;
+			intToByteArr(bytes, childOff + FOLDER_ELEMENT_OFFSET_POS, childPos);
+			longToByteArr(bytes, childOff + FOLDER_ELEMENT_OFFSET_BLOCK, childBlock);
 			intToByteArr(bytes, pos + FOLDER_OFFSET_ELEMENT_COUNT, oldElementCount + 1);
 			modify(false);
 			return result;
@@ -111,8 +113,8 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_LAST_MOD_TIME, time);
 			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_LOCK_TIME, -1);
 			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_LOCK_VALUE, LOCK_NO_LOCK);
-			intToByteArr(cbytes, childPos + ELEMENT_OFFSET_NAME, childPos);
-			intToByteArr(cbytes, childPos + ELEMENT_OFFSET_OWNER, OWNER_NO_OWNER);
+			intToByteArr(cbytes, childPos + ELEMENT_OFFSET_NAME, childNamePos);
+			intToByteArr(cbytes, childPos + ELEMENT_OFFSET_OWNER, getOwner());
 			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_PARENT_BLOCK, block);
 			intToByteArr(cbytes, childPos + ELEMENT_OFFSET_PARENT_POS, pos);
 			System.arraycopy(childNameBytes, 0, cbytes, childNamePos, childNameBytes.length);
