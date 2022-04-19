@@ -4,14 +4,14 @@ package de.hechler.patrick.pfs.utils;
 public class ConvertNumByteArr {
 	
 	public static long byteArrToLong(byte[] bytes, int off) {
-		long result = bytes[off] & 0xFF;
-		result |= (bytes[off + 1] & 0xFF) << 8;
-		result |= (bytes[off + 2] & 0xFF) << 16;
-		result |= (bytes[off + 3] & 0xFF) << 24;
-		result |= (bytes[off + 4] & 0xFF) << 32;
-		result |= (bytes[off + 5] & 0xFF) << 40;
-		result |= (bytes[off + 6] & 0xFF) << 48;
-		result |= (bytes[off + 7] & 0xFF) << 56;
+		long result = bytes[off] & 0xFFL;
+		result |= (bytes[off + 1] & 0xFFL) << 8;
+		result |= (bytes[off + 2] & 0xFFL) << 16;
+		result |= (bytes[off + 3] & 0xFFL) << 24;
+		result |= (bytes[off + 4] & 0xFFL) << 32;
+		result |= (bytes[off + 5] & 0xFFL) << 40;
+		result |= (bytes[off + 6] & 0xFFL) << 48;
+		result |= (bytes[off + 7] & 0xFFL) << 56;
 		return result;
 	}
 	
