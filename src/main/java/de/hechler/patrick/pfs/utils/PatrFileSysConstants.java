@@ -31,7 +31,7 @@ public class PatrFileSysConstants {
 	public static final int FILE_OFFSET_FILE_LENGTH     = ELEMENT_OFFSET_OWNER + 4;
 	public static final int FILE_OFFSET_FILE_HASH_TIME  = FILE_OFFSET_FILE_LENGTH + 8;
 	public static final int FILE_OFFSET_FILE_HASH_CODE  = FILE_OFFSET_FILE_HASH_TIME + 8;
-	public static final int FILE_OFFSET_FILE_DATA_TABLE = FILE_OFFSET_FILE_HASH_CODE + 16;
+	public static final int FILE_OFFSET_FILE_DATA_TABLE = FILE_OFFSET_FILE_HASH_CODE + 32;
 	
 	public static final int FOLDER_ELEMENT_OFFSET_BLOCK = 0;
 	public static final int FOLDER_ELEMENT_OFFSET_POS   = FOLDER_ELEMENT_OFFSET_BLOCK + 8;
