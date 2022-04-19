@@ -189,6 +189,14 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		return simpleWithLockInt(bm, this::executeBlockSize, 0, 0L);
 	}
 	
+	public static int blockSize(byte[] bytes, int off) throws IOException {
+		return byteArrToInt(bytes, FB_BLOCK_LENGTH_OFFSET - off);
+	}
+	
+	public static long blockCount(byte[] bytes, int off) throws IOException {
+		return byteArrToLong(bytes, FB_BLOCK_COUNT_OFFSET - off);
+	}
+	
 	private int executeBlockSize() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(0L);
 		try {
