@@ -51,6 +51,10 @@ public class AllocatedBlocks implements Comparable <AllocatedBlocks> {
 		}
 	}
 	
+	public AllocatedBlocks overlapp(AllocatedBlocks other) {
+		return overlapp(other.startBlock, other.count);
+	}
+	
 	public AllocatedBlocks overlapp(long startBlock, long count) {
 		long start = Math.max(this.startBlock, startBlock),
 			cnt = Math.min(this.startBlock + this.count, startBlock + count) - start;
