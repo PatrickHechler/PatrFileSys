@@ -75,6 +75,7 @@ public class BlockManagerImpl implements BlockManager {
 				throw new IllegalStateException("this block is not loaded: " + block);
 			}
 			lb.loadCount -- ;
+			lb.needSave = true;
 			if (lb.loadCount <= 0) {
 				ba.saveBlock(lb.value, block);
 				assert lb.loadCount == 0;
@@ -112,6 +113,7 @@ public class BlockManagerImpl implements BlockManager {
 		synchronized (blocks) {
 			ensureOpen();
 			ba.discardAll();
+			blocks.clear();
 		}
 	}
 	
@@ -129,7 +131,7 @@ public class BlockManagerImpl implements BlockManager {
 		
 		public LoadedBlock(byte[] value) {
 			this.value = value;
-			this.loadCount = 0;
+			this.loadCount = 1;
 			this.needSave = false;
 		}
 		
