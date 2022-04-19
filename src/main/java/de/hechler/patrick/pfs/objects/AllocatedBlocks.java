@@ -38,6 +38,10 @@ public class AllocatedBlocks implements Comparable <AllocatedBlocks> {
 		return result.toArray(new AllocatedBlocks[result.size()]);
 	}
 	
+	public boolean hasOverlapp(AllocatedBlocks other) {
+		return hasOverlapp(other.startBlock, other.count);
+	}
+	
 	public boolean hasOverlapp(long startBlock, long count) {
 		long cnt = Math.min(this.startBlock + this.count, startBlock + count) - Math.max(this.startBlock, startBlock);
 		if (cnt > 0L) {
