@@ -3,7 +3,7 @@ package de.hechler.patrick.pfs.objects;
 import java.util.ArrayList;
 import java.util.List;
 
-public class AllocatedBlocks implements Comparable <AllocatedBlocks> {
+public class AllocatedBlocks {
 	
 	public final long startBlock;
 	public final long count;
@@ -16,7 +16,7 @@ public class AllocatedBlocks implements Comparable <AllocatedBlocks> {
 	public boolean contains(long block) {
 		if (block < startBlock) {
 			return false;
-		} else if (block > startBlock + count) {
+		} else if (block >= startBlock + count) {
 			return false;
 		} else {
 			return true;
@@ -30,7 +30,10 @@ public class AllocatedBlocks implements Comparable <AllocatedBlocks> {
 	public AllocatedBlocks[] remove(long startBlock, long count) {
 		List <AllocatedBlocks> result = new ArrayList <>();
 		if (this.startBlock < startBlock) {
-			result.add(new AllocatedBlocks(this.startBlock, startBlock - this.startBlock));
+			long cnt = Math.min(startBlock - this.startBlock, this.count);
+			if (cnt > 0L) {
+				result.add(new AllocatedBlocks(this.startBlock, cnt));
+			}
 		}
 		if (this.startBlock + this.count > startBlock + count) {
 			result.add(new AllocatedBlocks(startBlock + count, this.startBlock + this.count - startBlock - count));
@@ -65,20 +68,6 @@ public class AllocatedBlocks implements Comparable <AllocatedBlocks> {
 		} else {
 			return this;
 		}
-	}
-	
-	@Override
-	public int compareTo(AllocatedBlocks o) {
-		return compareTo(o.startBlock, o.count);
-	}
-	
-	public int compareTo(long startBlock, long count) {
-		int cmp = Long.compare(this.startBlock, startBlock);
-		if (cmp != 0) {
-			return cmp;
-		}
-		cmp = Long.compare(this.count, count);
-		return cmp;
 	}
 	
 	@Override
