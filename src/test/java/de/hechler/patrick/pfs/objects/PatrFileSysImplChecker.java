@@ -38,6 +38,16 @@ import de.hechler.patrick.zeugs.check.anotations.ParamCreater;
 import de.hechler.patrick.zeugs.check.anotations.Start;
 
 @CheckClass
+class PatrFileSysImplDiffrentBlocksChecker extends PatrFileSysImplChecker {
+	
+	@Override
+	protected int startsize() {
+		return 54131;
+	}
+	
+}
+
+@CheckClass
 class PatrFileSysImplBigBlocksChecker extends PatrFileSysImplChecker {
 	
 	@Override
