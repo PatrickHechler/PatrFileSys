@@ -34,7 +34,30 @@ import de.hechler.patrick.zeugs.check.anotations.Check;
 import de.hechler.patrick.zeugs.check.anotations.CheckClass;
 import de.hechler.patrick.zeugs.check.anotations.End;
 import de.hechler.patrick.zeugs.check.anotations.MethodParam;
+import de.hechler.patrick.zeugs.check.anotations.ParamCreater;
 import de.hechler.patrick.zeugs.check.anotations.Start;
+
+@CheckClass
+class PatrFileSysImplBigBlocksChecker extends PatrFileSysImplChecker {
+	
+	@Override
+	protected int startsize() {
+		return 1 << 30;
+	}
+	
+}
+
+
+@CheckClass
+class PatrFileSysImplNormalBlocksChecker extends PatrFileSysImplChecker {
+	
+	@Override
+	protected int startsize() {
+		return 1 << 15;
+	}
+	
+}
+
 
 @CheckClass
 public class PatrFileSysImplChecker {
@@ -52,7 +75,7 @@ public class PatrFileSysImplChecker {
 	}
 	
 	@Start
-	private void start(@MethodParam Method met) throws IOException {
+	private void start(@MethodParam Method met, @ParamCreater(method = "startsize") int startSize) throws IOException {
 		Path path = Paths.get("./testout/" + getClass().getSimpleName() + "/" + met.getName() + "/");
 		if (Files.exists(path)) {
 			deepDelete(path);
@@ -60,10 +83,14 @@ public class PatrFileSysImplChecker {
 			Files.createDirectory(path);
 		}
 		RandomAccessFile raf = new RandomAccessFile(path.resolve("./myFileSys.pfs").toFile(), "rw");
-		FileBlockAccessor ba = new FileBlockAccessor(1 << 13, raf);
+		FileBlockAccessor ba = new FileBlockAccessor(startSize, raf); // for testing use a small block size
 		BlockManagerImpl bm = new BlockManagerImpl(ba);
 		fs = new PatrFileSysImpl(bm);
 		fs.format();
+	}
+	
+	protected int startsize() {
+		return 256;
 	}
 	
 	private void deepDelete(Path path) throws IOException {
