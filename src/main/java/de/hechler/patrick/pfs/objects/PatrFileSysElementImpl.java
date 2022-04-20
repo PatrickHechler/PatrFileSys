@@ -858,7 +858,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 *             if an IO error occurs
 	 */
 	protected AllocatedBlocks[] allocate(long len) throws OutOfMemoryError, IOException {
-		long blockCount;
+		final long blockCount;
 		byte[] bytes = bm.getBlock(0L);
 		try {
 			blockCount = byteArrToLong(bytes, FB_BLOCK_COUNT_OFFSET);

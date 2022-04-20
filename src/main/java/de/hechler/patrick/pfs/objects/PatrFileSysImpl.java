@@ -7,7 +7,7 @@ import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToInt;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.intToByteArr;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FOLDER;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_CREATE_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_FLAGS;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_ID;
@@ -123,8 +123,8 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			int blockSize = bm.blockSize();
 			assert blockSize == bytes.length;
 			initBlock(bytes, FB_START_ROOT_POS + FOLDER_OFFSET_FOLDER_ELEMENTS + FOLDER_ELEMENT_LENGTH);
-			intToByteArr(bytes, FB_BLOCK_LENGTH_OFFSET, blockSize);
 			longToByteArr(bytes, FB_BLOCK_COUNT_OFFSET, blockCount);
+			intToByteArr(bytes, FB_BLOCK_LENGTH_OFFSET, blockSize);
 			longToByteArr(bytes, FB_ROOT_BLOCK_OFFSET, 0L);
 			intToByteArr(bytes, FB_ROOT_POS_OFFSET, FB_START_ROOT_POS);
 			startTime = System.currentTimeMillis();
@@ -147,15 +147,22 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		}
 	}
 	
-	public static void setBlockAndPos(PatrID id, long block, int pos) throws IllegalArgumentException, IOException {
-		// TODO
+	public static void setBlockAndPos(PatrID id, long block, int pos) throws IOException {
+		simpleWithLock(id.bm, () -> executeSetBlockAndPos(id, block, pos));
+	}
+	
+	private static void executeSetBlockAndPos(PatrID id, long block, int pos) throws IOException {
+		byte[] bytes = new byte[ELEMENT_TABLE_ELEMENT_LENGTH];
+		longToByteArr(bytes, ELEMENT_TABLE_OFFSET_BLOCK, block);
+		intToByteArr(bytes, ELEMENT_TABLE_OFFSET_POS, pos);
+		id.fs.blockTable.setContent(bytes, id.id, 0, ELEMENT_TABLE_ELEMENT_LENGTH, LOCK_NO_LOCK);
 	}
 	
 	public static LongInt getBlockAndPos(PatrID id) throws IllegalArgumentException, IOException {
 		return simpleWithLock(id.bm, () -> executeGetBlockAndPos(id));
 	}
 	
-	private static LongInt executeGetBlockAndPos(PatrID id) throws ClosedChannelException, IOException {
+	private static LongInt executeGetBlockAndPos(PatrID id) throws IllegalArgumentException, IOException {
 		long block;
 		int pos;
 		if (id.id == ELEMENT_TABLE_FILE_ID) {
