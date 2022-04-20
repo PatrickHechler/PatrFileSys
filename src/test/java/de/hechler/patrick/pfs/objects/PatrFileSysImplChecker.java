@@ -42,7 +42,17 @@ class PatrFileSysImplDiffrentBlocksChecker extends PatrFileSysImplChecker {
 	
 	@Override
 	protected int startsize() {
-		return 54131;
+		return 5131;
+	}
+	
+}
+
+@CheckClass
+class PatrFileSysImplSmallDiffrentBlocksChecker extends PatrFileSysImplChecker {
+	
+	@Override
+	protected int startsize() {
+		return 131;
 	}
 	
 }
