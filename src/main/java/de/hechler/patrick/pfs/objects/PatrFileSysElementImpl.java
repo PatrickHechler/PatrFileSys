@@ -5,8 +5,10 @@ import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.intToByteArr;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_EXECUTABLE;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FILE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FOLDER;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_HIDDEN;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_LINK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_READ_ONLY;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_CREATE_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_FLAGS;
@@ -16,14 +18,11 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_L
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LOCK_VALUE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_NAME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_OWNER;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_PARENT_BLOCK;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_PARENT_POS;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_PARENT_ID;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_BLOCK_COUNT_OFFSET;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_DATA_TABLE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_LENGTH;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_ELEMENT_LENGTH;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_ELEMENT_OFFSET_BLOCK;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_ELEMENT_OFFSET_POS;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_ELEMENT_COUNT;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_FOLDER_ELEMENTS;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_DATA;
@@ -39,14 +38,10 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_USER_SHIFT;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_TIME;
 
 import java.io.IOException;
-import java.lang.ref.WeakReference;
 import java.nio.channels.ClosedChannelException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 import de.hechler.patrick.pfs.exception.ElementLockedException;
@@ -54,6 +49,7 @@ import de.hechler.patrick.pfs.interfaces.BlockManager;
 import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
+import de.hechler.patrick.pfs.interfaces.PatrLink;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingBooleanSupplier;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingIntSupplier;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingLongSupplier;
@@ -62,46 +58,37 @@ import de.hechler.patrick.pfs.interfaces.functional.ThrowingSupplier;
 import de.hechler.patrick.pfs.objects.java.PFSFileSystemProviderImpl;
 import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
-public class PatrFileSysElementImpl implements PatrFileSysElement {
+public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement {
 	
-	private static Map <BlockLock, WeakReference <Object>> looks = new HashMap <>();
+	// private static Map <BlockLock, WeakReference <Object>> looks = new HashMap <>();
 	
-	protected final long         startTime;
-	protected final BlockManager bm;
-	protected long               block;
-	protected int                pos;
+	public PatrFileSysElementImpl(PatrFileSysImpl fs, long startTime, BlockManager bm, long id) {
+		super(fs, bm, id, startTime);
+	}
 	
-	public PatrFileSysElementImpl(long startTime, BlockManager bm, long block, int pos) {
-		this.startTime = startTime;
-		this.bm = bm;
-		this.block = block;
-		this.pos = pos;
+	protected long block;
+	protected int  pos;
+	
+	
+	protected void updatePosAndBlock() throws IOException {
+		LongInt blockAndPos = PatrFileSysImpl.getBlockAndPos(this);
+		block = blockAndPos.l;
+		pos = blockAndPos.i;
 	}
 	
 	@Override
 	public PatrFolderImpl getParent() throws IllegalStateException, IOException {
-		return simpleWithLock(this::executeGetParent);
+		return simpleWithLock(() -> {
+			updatePosAndBlock();
+			return executeGetParent();
+		});
 	}
 	
 	private PatrFolderImpl executeGetParent() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
-			long pblock = byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_BLOCK);
-			int ppos = byteArrToInt(bytes, pos + ELEMENT_OFFSET_PARENT_POS);
-			bytes = bm.getBlock(pblock);
-			try {
-				long ppblock = byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_BLOCK);
-				int pppos = byteArrToInt(bytes, pos + ELEMENT_OFFSET_PARENT_POS);
-				if (ppblock == -1L) {
-					assert pppos == -1;
-					return new PatrRootFolderImpl(startTime, bm, ppblock, pppos);
-				} else {
-					assert pppos != -1;
-				}
-			} finally {
-				bm.ungetBlock(pblock);
-			}
-			return new PatrFolderImpl(startTime, bm, pblock, ppos);
+			long pid = byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_ID);
+			return new PatrFolderImpl(fs, startTime, bm, pid);
 		} finally {
 			bm.ungetBlock(block);
 		}
@@ -116,15 +103,21 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		if (np.bm != bm) {
 			throw new IllegalArgumentException("I can not set my parent to an folder of an other fils system");
 		}
-		simpleWithLock((ThrowingRunnable <IOException>) () -> newParent.simpleWithLock((ThrowingRunnable <IOException>) () -> getParent().simpleWithLock(() -> executeSetParent(np, lock, oldParentLock, newParentLock))));
+		simpleWithLock(() -> {
+			updatePosAndBlock();
+			executeSetParent(np, lock, oldParentLock, newParentLock);
+		});
 	}
 	
 	private void executeSetParent(PatrFileSysElementImpl np, long lock, long oldParentLock, long newParentLock) throws IllegalStateException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
-			byte[] pbytes = bm.getBlock(np.block);
+			np.updatePosAndBlock();
+			long npblock = np.block;
+			byte[] pbytes = bm.getBlock(npblock);
 			try {
 				PatrFolderImpl oldParent = getParent();
+				oldParent.updatePosAndBlock();
 				bm.getBlock(oldParent.block);
 				try {
 					oldParent.ensureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK, false);
@@ -139,15 +132,18 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 					oldLen = FOLDER_OFFSET_FOLDER_ELEMENTS + pelementcount * FOLDER_ELEMENT_LENGTH,
 					newLen = oldLen + FOLDER_ELEMENT_LENGTH,
 					addPos = np.pos + oldLen;
-				reallocate(np.block, np.pos, oldLen, newLen, true);
-				longToByteArr(bytes, addPos + FOLDER_ELEMENT_OFFSET_BLOCK, block);
-				intToByteArr(bytes, addPos + FOLDER_ELEMENT_OFFSET_POS, pos);
-				longToByteArr(bytes, pos + ELEMENT_OFFSET_PARENT_BLOCK, np.block);
-				intToByteArr(bytes, pos + ELEMENT_OFFSET_PARENT_POS, np.pos);
+				try {
+					np.reallocate(npblock, np.pos, oldLen, newLen, true);
+				} catch (OutOfMemoryError e) {
+					np.relocate();
+					np.reallocate(npblock, np.pos, oldLen, newLen, true);
+				}
+				longToByteArr(bytes, addPos, id);
+				longToByteArr(bytes, pos + ELEMENT_OFFSET_PARENT_ID, np.id);
 				np.modify(false);
 				modify(true);
 			} finally {
-				bm.setBlock(np.block);
+				bm.setBlock(npblock);
 			}
 		} finally {
 			bm.ungetBlock(block);
@@ -156,24 +152,62 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public PatrFolder getFolder() throws IllegalStateException, IOException {
-		if ( !isFolder()) {
+		return withLock(() -> {
+			updatePosAndBlock();
+			return executeGetFolder();
+		});
+	}
+	
+	private PatrFolder executeGetFolder() throws IOException {
+		if (0 == (ELEMENT_FLAG_FOLDER & executeGetFlags())) {
 			throw new IllegalStateException("this is no folder!");
 		}
 		if (this instanceof PatrFolder) {
 			return (PatrFolder) this;
 		}
-		return new PatrFolderImpl(startTime, bm, block, pos);
+		if (0 != (ELEMENT_FLAG_LINK & executeGetFlags())) {
+			return executeGetLink().getTargetFolder();
+		}
+		return new PatrFolderImpl(fs, startTime, bm, id);
 	}
 	
 	@Override
 	public PatrFile getFile() throws IllegalStateException, IOException {
-		if ( !isFile()) {
+		return withLock(() -> {
+			updatePosAndBlock();
+			return executeGetFile();
+		});
+	}
+	
+	private PatrFile executeGetFile() throws IOException {
+		if (0 == (ELEMENT_FLAG_FILE & executeGetFlags())) {
 			throw new IllegalStateException("this is no file!");
 		}
 		if (this instanceof PatrFile) {
 			return (PatrFile) this;
 		}
-		return new PatrFileImpl(startTime, bm, block, pos);
+		if (0 != (ELEMENT_FLAG_LINK & executeGetFlags())) {
+			return executeGetLink().getTargetFile();
+		}
+		return new PatrFileImpl(fs, startTime, bm, id);
+	}
+	
+	@Override
+	public PatrLink getLink() throws IllegalStateException, IOException {
+		return withLock(() -> {
+			updatePosAndBlock();
+			return executeGetLink();
+		});
+	}
+	
+	private PatrLink executeGetLink() throws IOException {
+		if (0 == (ELEMENT_FLAG_LINK & executeGetFlags())) {
+			throw new IllegalStateException("this is no link!");
+		}
+		if (this instanceof PatrLink) {
+			return (PatrLink) this;
+		}
+		return new PatrLinkImpl(fs, startTime, bm, id);
 	}
 	
 	@Override
@@ -183,7 +217,12 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public boolean isFile() throws IOException {
-		return (getFlags() & ELEMENT_FLAG_FOLDER) == 0;
+		return (getFlags() & ELEMENT_FLAG_FILE) != 0;
+	}
+	
+	@Override
+	public boolean isLink() throws IOException {
+		return (getFlags() & ELEMENT_FLAG_LINK) != 0;
 	}
 	
 	@Override
@@ -203,54 +242,33 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public void setExecutable(boolean isExecutale, long lock) throws IOException, ElementLockedException {
-		simpleWithLock(() -> executeSetExecutable(isExecutale, lock));
-	}
-	
-	private void executeSetExecutable(boolean isExecutale, long lock) throws IOException, ElementLockedException {
-		bm.getBlock(block);
-		try {
-			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
-			flag(ELEMENT_FLAG_EXECUTABLE, isExecutale);
-			modify(true);
-		} finally {
-			bm.ungetBlock(block);
-		}
+		setFlag(isExecutale, lock, ELEMENT_FLAG_EXECUTABLE);
 	}
 	
 	@Override
 	public void setHidden(boolean isHidden, long lock) throws IOException, ElementLockedException {
-		simpleWithLock(() -> executeSetHidden(isHidden, lock));
-	}
-	
-	private void executeSetHidden(boolean isHidden, long lock) throws IOException, ElementLockedException {
-		bm.getBlock(block);
-		try {
-			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
-			flag(ELEMENT_FLAG_HIDDEN, isHidden);
-			modify(true);
-		} finally {
-			bm.ungetBlock(block);
-		}
+		setFlag(isHidden, lock, ELEMENT_FLAG_HIDDEN);
 	}
 	
 	@Override
 	public void setReadOnly(boolean isReadOnly, long lock) throws IOException, ElementLockedException {
-		simpleWithLock(() -> executeSetReadOnly(isReadOnly, lock));
+		setFlag(isReadOnly, lock, ELEMENT_FLAG_READ_ONLY);
 	}
 	
-	private void executeSetReadOnly(boolean isReadOnly, long lock) throws IOException, ElementLockedException {
-		bm.getBlock(block);
-		try {
+	private void setFlag(boolean isSet, long lock, int flag) throws IOException {
+		withLock(() -> {
+			updatePosAndBlock();
 			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
-			flag(ELEMENT_FLAG_READ_ONLY, isReadOnly);
+			flag(flag, isSet);
 			modify(true);
-		} finally {
-			bm.ungetBlock(block);
-		}
+		});
 	}
 	
 	public int getFlags() throws IOException {
-		return simpleWithLockInt(this::executeGetFlags);
+		return simpleWithLockInt(() -> {
+			updatePosAndBlock();
+			return executeGetFlags();
+		});
 	}
 	
 	private int executeGetFlags() throws ClosedChannelException, IOException {
@@ -260,6 +278,11 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		} finally {
 			bm.ungetBlock(block);
 		}
+	}
+	
+	@Override
+	public Object getID() throws IOException {
+		return this;
 	}
 	
 	/**
@@ -272,21 +295,34 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	protected void flag(int flag, boolean isSet) throws IOException {
+	protected void flag(int flags, boolean isSet) throws IOException {
+		flag(isSet ? flags : 0, isSet ? 0 : flags);
+	}
+	
+	/**
+	 * sets and removes the given flags
+	 * <p>
+	 * if ({@code addFlags & remFlags}) is not zero the behavior is undefined
+	 * 
+	 * @param addFlags
+	 *            the flags to add/set
+	 * @param remFlags
+	 *            the flags to remove
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	protected void flag(int addFlags, int remFlags) throws IOException {
 		int flags = getFlags();
-		if (isSet) {
-			flags |= flag;
-		} else {
-			flags &= ~flag;
-		}
+		flags |= addFlags;
+		flags &= ~remFlags;
 		setFlags(flags);
 	}
 	
 	/**
 	 * sets the flags of this element
 	 * <p>
-	 * this method should only be used with great care, since the flags also decide, which element is a file and which is a folder!<br>
-	 * the preferred method to modify to modify the flags is {@link #flag(int, boolean)}.
+	 * this method should only be used with great care, since the flags also decide, which element is a file, folder and link!<br>
+	 * the preferred method to modify to modify the flags is {@link #flag(int, boolean)} and {@link #flag(int, int)}.
 	 * 
 	 * @param flags
 	 *            the new flags of this element
@@ -304,6 +340,13 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public int getOwner() throws IOException {
+		return simpleWithLockInt(() -> {
+			updatePosAndBlock();
+			return executeGetOwner();
+		});
+	}
+	
+	private int executeGetOwner() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			return byteArrToInt(bytes, pos + ELEMENT_OFFSET_OWNER);
@@ -314,6 +357,13 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public void setOwner(int owner, long lock) throws IOException {
+		simpleWithLock(() -> {
+			updatePosAndBlock();
+			executeSetOwner(owner, lock);
+		});
+	}
+	
+	private void executeSetOwner(int owner, long lock) throws ClosedChannelException, IOException, ElementLockedException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
@@ -326,7 +376,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public long getCreateTime() throws IOException {
-		return simpleWithLockLong(this::executeGetCreateTime);
+		return simpleWithLockLong(() -> {
+			updatePosAndBlock();
+			return executeGetCreateTime();
+		});
 	}
 	
 	private long executeGetCreateTime() throws ClosedChannelException, IOException {
@@ -340,7 +393,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public long getLastModTime() throws IOException {
-		return simpleWithLockLong(this::executeGetLastModTime);
+		return simpleWithLockLong(() -> {
+			updatePosAndBlock();
+			return executeGetLastModTime();
+		});
 	}
 	
 	private long executeGetLastModTime() throws ClosedChannelException, IOException {
@@ -354,7 +410,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public long getLastMetaModTime() throws IOException {
-		return simpleWithLockLong(this::executeGetLastMetaModTime);
+		return simpleWithLockLong(() -> {
+			updatePosAndBlock();
+			return executeGetLastMetaModTime();
+		});
 	}
 	
 	private long executeGetLastMetaModTime() throws ClosedChannelException, IOException {
@@ -368,7 +427,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public long getLockData() throws IOException {
-		return simpleWithLockLong(this::executeGetLockData);
+		return simpleWithLockLong(() -> {
+			updatePosAndBlock();
+			return executeGetLockData();
+		});
 	}
 	
 	private long executeGetLockData() throws ClosedChannelException, IOException {
@@ -384,7 +446,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public long getLockTime() throws IOException, IllegalStateException {
-		return simpleWithLockLong(this::executeGetLockTime);
+		return simpleWithLockLong(() -> {
+			updatePosAndBlock();
+			return executeGetLockTime();
+		});
 	}
 	
 	private long executeGetLockTime() throws ClosedChannelException, IOException {
@@ -404,6 +469,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	@Override
 	public void removeLock(long lock) throws IOException, IllegalStateException {
 		withLock(() -> {
+			updatePosAndBlock();
 			executeRemoveLock(lock);
 			modify(true);
 		});
@@ -464,7 +530,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		if (newLock == LOCK_NO_LOCK) {
 			throw new IllegalArgumentException("can't lock with the LOCK_NO_LOCK (val=" + Long.toHexString(newLock) + ")");
 		}
-		return simpleWithLockLong(() -> executeLock(newLock));
+		return simpleWithLockLong(() -> {
+			updatePosAndBlock();
+			return executeLock(newLock);
+		});
 	}
 	
 	private long executeLock(long newLock) throws ClosedChannelException, IOException, ElementLockedException {
@@ -503,7 +572,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		if (check != forbiddenBits) {
 			throw new IllegalArgumentException("the forbidden bits are not allowed to contain non data bits!");
 		}
-		withLock(() -> executeEnsureAccess(lock, forbiddenBits, readOnlyForbidden));
+		withLock(() -> {
+			updatePosAndBlock();
+			executeEnsureAccess(lock, forbiddenBits, readOnlyForbidden);
+		});
 	}
 	
 	public void executeEnsureAccess(long lock, long forbiddenBits, boolean readOnlyForbidden) throws IOException, ElementLockedException, IllegalArgumentException {
@@ -543,7 +615,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	@Override
 	public void setName(String name, long lock) throws IOException, NullPointerException, IllegalStateException, ElementLockedException {
 		Objects.requireNonNull(name, "element names can not be null!");
-		simpleWithLock(() -> executeSetName(name, lock));
+		simpleWithLock(() -> {
+			updatePosAndBlock();
+			executeSetName(name, lock);
+		});
 	}
 	
 	private void executeSetName(String name, long lock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {
@@ -563,7 +638,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public String getName() throws IOException {
-		return simpleWithLock(() -> executeGetName());
+		return simpleWithLock(() -> {
+			updatePosAndBlock();
+			return executeGetName();
+		});
 	}
 	
 	private String executeGetName() throws ClosedChannelException, IOException {
@@ -626,20 +704,20 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	protected void deleteFromParent() throws IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
-			long pblock = byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_BLOCK);
-			int ppos = byteArrToInt(bytes, pos + ELEMENT_OFFSET_PARENT_POS);
-			bytes = bm.getBlock(pblock);
+			long pid = byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_ID);
+			LongInt parent = PatrFileSysImpl.getBlockAndPos(new PatrID(fs, bm, pid, startTime));
+			bytes = bm.getBlock(parent.l);
 			try {
-				int index = indexInParentList(pblock, ppos),
+				int index = indexInParentList(parent.l, parent.i),
 					imel = index * FOLDER_ELEMENT_LENGTH,
-					off = ppos + FOLDER_OFFSET_FOLDER_ELEMENTS + imel,
-					oldElementCount = byteArrToInt(bytes, ppos + FOLDER_OFFSET_ELEMENT_COUNT),
+					off = parent.i + FOLDER_OFFSET_FOLDER_ELEMENTS + imel,
+					oldElementCount = byteArrToInt(bytes, parent.i + FOLDER_OFFSET_ELEMENT_COUNT),
 					oldElementSize = oldElementCount * FOLDER_ELEMENT_LENGTH,
 					copySize = oldElementSize - imel - FOLDER_ELEMENT_LENGTH;
 				System.arraycopy(bytes, off + FOLDER_ELEMENT_LENGTH, bytes, off, copySize);
-				intToByteArr(bytes, ppos + FOLDER_OFFSET_ELEMENT_COUNT, oldElementCount - 1);
+				intToByteArr(bytes, parent.i + FOLDER_OFFSET_ELEMENT_COUNT, oldElementCount - 1);
 			} finally {
-				bm.setBlock(pblock);
+				bm.setBlock(parent.l);
 			}
 		} finally {
 			bm.ungetBlock(block);
@@ -665,22 +743,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 *             if an IO error occurs
 	 */
 	protected void setNewPosToOthers(long oldBlock, int oldPos, long newBlock, int newPos) throws IOException {
-		byte[] bytes = bm.getBlock(oldBlock);
-		try {
-			long pblock = byteArrToLong(bytes, oldPos + ELEMENT_OFFSET_PARENT_BLOCK);
-			int ppos = byteArrToInt(bytes, oldPos + ELEMENT_OFFSET_PARENT_POS);
-			bytes = bm.getBlock(pblock);
-			try {
-				int index = indexInParentList(pblock, ppos);
-				int offset = ppos + FOLDER_OFFSET_FOLDER_ELEMENTS + index * 8;
-				longToByteArr(bytes, offset + FOLDER_ELEMENT_OFFSET_BLOCK, newBlock);
-				intToByteArr(bytes, offset + FOLDER_ELEMENT_OFFSET_POS, newPos);
-			} finally {
-				bm.ungetBlock(pblock);
-			}
-		} finally {
-			bm.ungetBlock(oldBlock);
-		}
+		PatrFileSysImpl.setBlockAndPos(this, newBlock, newPos);
 	}
 	
 	/**
@@ -700,13 +763,9 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 			final int len = byteArrToInt(bytes, ppos + FOLDER_OFFSET_ELEMENT_COUNT),
 				off = ppos + FOLDER_OFFSET_FOLDER_ELEMENTS;
 			for (int i = 0; i < len; i ++ ) {
-				final int im8 = i * FOLDER_ELEMENT_LENGTH;
-				long cblock = byteArrToLong(bytes, off + FOLDER_ELEMENT_OFFSET_BLOCK + im8);
-				if (cblock != block) {
-					continue;
-				}
-				int cpos = byteArrToInt(bytes, off + FOLDER_ELEMENT_OFFSET_POS + im8);
-				if (cpos != pos) {
+				final int imfel = i * FOLDER_ELEMENT_LENGTH;
+				long cid = byteArrToLong(bytes, off + imfel);
+				if (cid != id) {
 					continue;
 				}
 				return i;
@@ -728,8 +787,8 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	protected void relocate() throws IOException {
 		final long oldBlockNum = block;
 		final int oldPos = pos;
-		long newBlockNum;
-		newBlockNum = allocateOneBlock();
+		long myNewBlockNum;
+		myNewBlockNum = allocateOneBlock();
 		byte[] oldBlock = bm.getBlock(oldBlockNum);
 		try {
 			int mylen,
@@ -749,10 +808,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 			}
 			oldnamepos = byteArrToInt(oldBlock, oldPos + ELEMENT_OFFSET_NAME);
 			namelen = getNameByteCount();
-			byte[] newBlock = bm.getBlock(newBlockNum);
+			byte[] newBlock = bm.getBlock(myNewBlockNum);
 			try {
 				final int myNewPos = namelen, nameNewPos = 0;
-				setNewPosToOthers(oldBlockNum, oldPos, newBlockNum, myNewPos);
+				setNewPosToOthers(oldBlockNum, oldPos, myNewBlockNum, myNewPos);
 				PatrFileSysImpl.initBlock(newBlock, mylen + namelen);
 				System.arraycopy(oldBlock, oldPos, newBlock, myNewPos, mylen);
 				if (namelen > 0) {
@@ -760,9 +819,10 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 					intToByteArr(newBlock, namelen + ELEMENT_OFFSET_NAME, 0);
 				}
 				pos = myNewPos;
-				block = newBlockNum;
+				block = myNewBlockNum;
+				PatrFileSysImpl.setBlockAndPos(this, myNewBlockNum, myNewPos);
 			} finally {
-				bm.setBlock(newBlockNum);
+				bm.setBlock(myNewBlockNum);
 			}
 		} finally {
 			bm.setBlock(oldBlockNum);
@@ -1237,8 +1297,7 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	}
 	
 	/**
-	 * locks the array of blocks from {@code i} to to len<br>
-	 * the blocks need to be sorted in ascending order. (multiple same blocks are permitted)
+	 * locks the array block manager
 	 * 
 	 * @param <T>
 	 *            the exception type which can be thrown from {@code exec}
@@ -1246,24 +1305,17 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 *            the block manager
 	 * @param exec
 	 *            the runnable to be executed
-	 * @param i
-	 *            the start index in the blocks array
-	 * @param blocks
-	 *            the array of blocks to be locked
 	 * @throws T
 	 *             the exception type possibly thrown by runnable
 	 */
-	protected static <T extends Throwable> void simpleWithLock(BlockManager bm, ThrowingRunnable <T> exec, int i, long... blocks) throws T {
-		Object elementLock = getBlockLock(bm, blocks[i]);
-		synchronized (elementLock) {
-			if (i + 1 >= blocks.length) exec.execute();
-			else simpleWithLock(bm, exec, i + 1, blocks);
+	protected static <T extends Throwable> void simpleWithLock(BlockManager bm, ThrowingRunnable <T> exec) throws T {
+		synchronized (bm) {
+			exec.execute();
 		}
 	}
 	
 	/**
-	 * locks the array of blocks from {@code i} to to len<br>
-	 * the blocks need to be sorted in ascending order. (multiple same blocks are permitted)
+	 * lock the block manager
 	 * <p>
 	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method returns the value returned by {@code exec}
 	 * 
@@ -1275,25 +1327,18 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 *            the block manager
 	 * @param exec
 	 *            the runnable to be executed
-	 * @param i
-	 *            the start index in the blocks array
-	 * @param blocks
-	 *            the array of blocks to be locked
 	 * @return the value returned from {@code Patrick exec}
 	 * @throws T
 	 *             the exception type possibly thrown by runnable
 	 */
-	protected static <T extends Throwable, R> R simpleWithLock(BlockManager bm, ThrowingSupplier <T, R> exec, int i, long... blocks) throws T {
-		Object elementLock = getBlockLock(bm, blocks[i]);
-		synchronized (elementLock) {
-			if (i + 1 >= blocks.length) return exec.supply();
-			else return simpleWithLock(bm, exec, i + 1, blocks);
+	protected static <T extends Throwable, R> R simpleWithLock(BlockManager bm, ThrowingSupplier <T, R> exec) throws T {
+		synchronized (bm) {
+			return exec.supply();
 		}
 	}
 	
 	/**
-	 * locks the array of blocks from {@code i} to to len<br>
-	 * the blocks need to be sorted in ascending order. (multiple same blocks are permitted)
+	 * locks the block manager
 	 * <p>
 	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method returns the value returned by {@code exec}
 	 * 
@@ -1303,25 +1348,18 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 *            the block manager
 	 * @param exec
 	 *            the runnable to be executed
-	 * @param i
-	 *            the start index in the blocks array
-	 * @param blocks
-	 *            the array of blocks to be locked
 	 * @return the value returned from {@code Patrick exec}
 	 * @throws T
 	 *             the exception type possibly thrown by runnable
 	 */
-	protected static <T extends Throwable> int simpleWithLockInt(BlockManager bm, ThrowingIntSupplier <T> exec, int i, long... blocks) throws T {
-		Object elementLock = getBlockLock(bm, blocks[i]);
-		synchronized (elementLock) {
-			if (i + 1 >= blocks.length) return exec.supply();
-			else return simpleWithLockInt(bm, exec, i + 1, blocks);
+	protected static <T extends Throwable> int simpleWithLockInt(BlockManager bm, ThrowingIntSupplier <T> exec) throws T {
+		synchronized (bm) {
+			return exec.supply();
 		}
 	}
 	
 	/**
-	 * locks the array of blocks from {@code i} to to len<br>
-	 * the blocks need to be sorted in ascending order. (multiple same blocks are permitted)
+	 * locks the block manager
 	 * <p>
 	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method returns the value returned by {@code exec}
 	 * 
@@ -1331,25 +1369,18 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 *            the block manager
 	 * @param exec
 	 *            the runnable to be executed
-	 * @param i
-	 *            the start index in the blocks array
-	 * @param blocks
-	 *            the array of blocks to be locked
 	 * @return the value returned from {@code Patrick exec}
 	 * @throws T
 	 *             the exception type possibly thrown by runnable
 	 */
-	protected static <T extends Throwable> long simpleWithLockLong(BlockManager bm, ThrowingLongSupplier <T> exec, int i, long... blocks) throws T {
-		Object elementLock = getBlockLock(bm, blocks[i]);
-		synchronized (elementLock) {
-			if (i + 1 >= blocks.length) return exec.supply();
-			else return simpleWithLockLong(bm, exec, i + 1, blocks);
+	protected static <T extends Throwable> long simpleWithLockLong(BlockManager bm, ThrowingLongSupplier <T> exec) throws T {
+		synchronized (bm) {
+			return exec.supply();
 		}
 	}
 	
 	/**
-	 * locks the array of blocks from {@code i} to to len<br>
-	 * the blocks need to be sorted in ascending order. (multiple same blocks are permitted)
+	 * locks the block manager
 	 * <p>
 	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method returns the value returned by {@code exec}
 	 * 
@@ -1359,105 +1390,53 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 *            the block manager
 	 * @param exec
 	 *            the runnable to be executed
-	 * @param i
-	 *            the start index in the blocks array
-	 * @param blocks
-	 *            the array of blocks to be locked
 	 * @return the value returned from {@code Patrick exec}
 	 * @throws T
 	 *             the exception type possibly thrown by runnable
 	 */
-	protected static <T extends Throwable> boolean simpleWithLockBoolean(BlockManager bm, ThrowingBooleanSupplier <T> exec, int i, long... blocks) throws T {
-		Object elementLock = getBlockLock(bm, blocks[i]);
-		synchronized (elementLock) {
-			if (i + 1 >= blocks.length) return exec.supply();
-			else return simpleWithLockBoolean(bm, exec, i + 1, blocks);
+	protected static <T extends Throwable> boolean simpleWithLockBoolean(BlockManager bm, ThrowingBooleanSupplier <T> exec) throws T {
+		synchronized (bm) {
+			return exec.supply();
 		}
 	}
 	
 	@Override
-	public <T extends Throwable> void simpleWithLock(ThrowingRunnable <T> exec, PatrFileSysElement... other) throws T {
-		if (other.length == 0) {
-			simpleWithLock(bm, exec, 0, block);
-		} else {
-			long[] blocks = new long[other.length + 1];
-			int i;
-			for (i = 0; i < blocks.length; i ++ ) {
-				blocks[i] = ((PatrFileSysElementImpl) other[i]).block;
-			}
-			blocks[i] = block;
-			Arrays.sort(blocks);
-			simpleWithLock(bm, exec, 0, blocks);
+	public <T extends Throwable> void simpleWithLock(ThrowingRunnable <T> exec) throws T {
+		synchronized (bm) {
+			exec.execute();
 		}
 	}
 	
 	@Override
-	public <T extends Throwable, R> R simpleWithLock(ThrowingSupplier <T, R> exec, PatrFileSysElement... other) throws T {
-		if (other.length == 0) {
-			return simpleWithLock(bm, exec, 0, block);
-		} else {
-			long[] blocks = new long[other.length + 1];
-			int i;
-			for (i = 0; i < blocks.length; i ++ ) {
-				blocks[i] = ((PatrFileSysElementImpl) other[i]).block;
-			}
-			blocks[i] = block;
-			Arrays.sort(blocks);
-			return simpleWithLock(bm, exec, 0, blocks);
+	public <T extends Throwable, R> R simpleWithLock(ThrowingSupplier <T, R> exec) throws T {
+		synchronized (bm) {
+			return exec.supply();
 		}
 	}
 	
 	@Override
-	public <T extends Throwable> int simpleWithLockInt(ThrowingIntSupplier <T> exec, PatrFileSysElement... other) throws T {
-		if (other.length == 0) {
-			return simpleWithLockInt(bm, exec, 0, block);
-		} else {
-			long[] blocks = new long[other.length + 1];
-			int i;
-			for (i = 0; i < blocks.length; i ++ ) {
-				blocks[i] = ((PatrFileSysElementImpl) other[i]).block;
-			}
-			blocks[i] = block;
-			Arrays.sort(blocks);
-			return simpleWithLockInt(bm, exec, 0, blocks);
+	public <T extends Throwable> int simpleWithLockInt(ThrowingIntSupplier <T> exec) throws T {
+		synchronized (bm) {
+			return exec.supply();
 		}
 	}
 	
 	@Override
-	public <T extends Throwable> long simpleWithLockLong(ThrowingLongSupplier <T> exec, PatrFileSysElement... other) throws T {
-		if (other.length == 0) {
-			return simpleWithLockLong(bm, exec, 0, block);
-		} else {
-			long[] blocks = new long[other.length + 1];
-			int i;
-			for (i = 0; i < blocks.length; i ++ ) {
-				blocks[i] = ((PatrFileSysElementImpl) other[i]).block;
-			}
-			blocks[i] = block;
-			Arrays.sort(blocks);
-			return simpleWithLockLong(bm, exec, 0, blocks);
+	public <T extends Throwable> long simpleWithLockLong(ThrowingLongSupplier <T> exec) throws T {
+		synchronized (bm) {
+			return exec.supply();
 		}
 	}
 	
 	@Override
-	public <T extends Throwable> boolean simpleWithLockBoolean(ThrowingBooleanSupplier <T> exec, PatrFileSysElement... other) throws T {
-		if (other.length == 0) {
-			return simpleWithLockBoolean(bm, exec, 0, block);
-		} else {
-			long[] blocks = new long[other.length + 1];
-			int i;
-			for (i = 0; i < blocks.length; i ++ ) {
-				blocks[i] = ((PatrFileSysElementImpl) other[i]).block;
-			}
-			blocks[i] = block;
-			Arrays.sort(blocks);
-			return simpleWithLockBoolean(bm, exec, 0, blocks);
+	public <T extends Throwable> boolean simpleWithLockBoolean(ThrowingBooleanSupplier <T> exec) throws T {
+		synchronized (bm) {
+			return exec.supply();
 		}
 	}
 	
 	/**
-	 * locks the array of blocks from {@code i} to to len<br>
-	 * the blocks need to be sorted in ascending order. (multiple same blocks are permitted)
+	 * locks the block manager
 	 * <p>
 	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method also loads the blocks from the arrays.<br>
 	 * So this is the better method, when the blocks are often loaded and unloaded
@@ -1469,24 +1448,54 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 *            the block manager
 	 * @param exec
 	 *            the runnable to be executed
-	 * @param i
-	 *            the start index in the blocks array
-	 * @param blocks
-	 *            the array of blocks to be locked
+	 * @param block
+	 *            the block to be loaded
 	 * @return the value returned from {@code Patrick exec}
 	 * @throws T
 	 *             the exception type possibly thrown by runnable
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	protected static <T extends Throwable> void withLock(BlockManager bm, ThrowingRunnable <T> exec, int i, long... blocks) throws T, IOException {
-		long block = blocks[i];
-		Object elementLock = getBlockLock(bm, blocks[i]);
-		synchronized (elementLock) {
+	protected static <T extends Throwable> void withLock(BlockManager bm, ThrowingRunnable <T> exec, long block) throws T, IOException {
+		synchronized (bm) {
 			bm.getBlock(block);
 			try {
-				if (i + 1 >= blocks.length) exec.execute();
-				else withLock(bm, exec, i + 1, blocks);
+				exec.execute();
+			} finally {
+				bm.ungetBlock(block);
+			}
+		}
+	}
+	
+	/**
+	 * locks the block manager
+	 * <p>
+	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method also loads the blocks from the arrays.<br>
+	 * So this is the better method, when the blocks are often loaded and unloaded
+	 * <p>
+	 * in addition to {@link #withLock(BlockManager, ThrowingRunnable, int, long...)} this method returns the value returned by {@code exec}
+	 * 
+	 * @param <T>
+	 *            the exception type which can be thrown from {@code exec}
+	 * @param <R>
+	 *            the return type from {@code exec}
+	 * @param bm
+	 *            the block manager
+	 * @param exec
+	 *            the runnable to be executed
+	 * @param block
+	 *            the block to be loaded
+	 * @return the value returned from {@code Patrick exec}
+	 * @throws T
+	 *             the exception type possibly thrown by runnable
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	protected static <T extends Throwable, R> R withLock(BlockManager bm, ThrowingSupplier <T, R> exec, long block) throws T, IOException {
+		synchronized (bm) {
+			bm.getBlock(block);
+			try {
+				return exec.supply();
 			} finally {
 				bm.ungetBlock(block);
 			}
@@ -1510,24 +1519,19 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 *            the block manager
 	 * @param exec
 	 *            the runnable to be executed
-	 * @param i
-	 *            the start index in the blocks array
-	 * @param blocks
-	 *            the array of blocks to be locked
+	 * @param block
+	 *            the block to be loaded
 	 * @return the value returned from {@code Patrick exec}
 	 * @throws T
 	 *             the exception type possibly thrown by runnable
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	protected static <T extends Throwable, R> R withLock(BlockManager bm, ThrowingSupplier <T, R> exec, int i, long... blocks) throws T, IOException {
-		long block = blocks[i];
-		Object elementLock = getBlockLock(bm, blocks[i]);
-		synchronized (elementLock) {
+	protected static <T extends Throwable> int withLockInt(BlockManager bm, ThrowingIntSupplier <T> exec, long block) throws T, IOException {
+		synchronized (bm) {
 			bm.getBlock(block);
 			try {
-				if (i + 1 >= blocks.length) return exec.supply();
-				else return withLock(bm, exec, i + 1, blocks);
+				return exec.supply();
 			} finally {
 				bm.ungetBlock(block);
 			}
@@ -1551,24 +1555,19 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 *            the block manager
 	 * @param exec
 	 *            the runnable to be executed
-	 * @param i
-	 *            the start index in the blocks array
-	 * @param blocks
-	 *            the array of blocks to be locked
+	 * @param block
+	 *            the block to be loaded
 	 * @return the value returned from {@code Patrick exec}
 	 * @throws T
 	 *             the exception type possibly thrown by runnable
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	protected static <T extends Throwable> int withLockInt(BlockManager bm, ThrowingIntSupplier <T> exec, int i, long... blocks) throws T, IOException {
-		long block = blocks[i];
-		Object elementLock = getBlockLock(bm, blocks[i]);
-		synchronized (elementLock) {
+	protected static <T extends Throwable> long withLockLong(BlockManager bm, ThrowingLongSupplier <T> exec, long block) throws T, IOException {
+		synchronized (bm) {
 			bm.getBlock(block);
 			try {
-				if (i + 1 >= blocks.length) return exec.supply();
-				else return withLockInt(bm, exec, i + 1, blocks);
+				return exec.supply();
 			} finally {
 				bm.ungetBlock(block);
 			}
@@ -1592,65 +1591,19 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	 *            the block manager
 	 * @param exec
 	 *            the runnable to be executed
-	 * @param i
-	 *            the start index in the blocks array
-	 * @param blocks
-	 *            the array of blocks to be locked
+	 * @param block
+	 *            the block to be loaded
 	 * @return the value returned from {@code Patrick exec}
 	 * @throws T
 	 *             the exception type possibly thrown by runnable
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	protected static <T extends Throwable> long withLockLong(BlockManager bm, ThrowingLongSupplier <T> exec, int i, long... blocks) throws T, IOException {
-		long block = blocks[i];
-		Object elementLock = getBlockLock(bm, blocks[i]);
-		synchronized (elementLock) {
+	protected static <T extends Throwable> boolean withLockBoolean(BlockManager bm, ThrowingBooleanSupplier <T> exec, long block) throws T, IOException {
+		synchronized (bm) {
 			bm.getBlock(block);
 			try {
-				if (i + 1 >= blocks.length) return exec.supply();
-				else return withLockLong(bm, exec, i + 1, blocks);
-			} finally {
-				bm.ungetBlock(block);
-			}
-		}
-	}
-	
-	/**
-	 * locks the array of blocks from {@code i} to to len<br>
-	 * the blocks need to be sorted in ascending order. (multiple same blocks are permitted)
-	 * <p>
-	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method also loads the blocks from the arrays.<br>
-	 * So this is the better method, when the blocks are often loaded and unloaded
-	 * <p>
-	 * in addition to {@link #withLock(BlockManager, ThrowingRunnable, int, long...)} this method returns the value returned by {@code exec}
-	 * 
-	 * @param <T>
-	 *            the exception type which can be thrown from {@code exec}
-	 * @param <R>
-	 *            the return type from {@code exec}
-	 * @param bm
-	 *            the block manager
-	 * @param exec
-	 *            the runnable to be executed
-	 * @param i
-	 *            the start index in the blocks array
-	 * @param blocks
-	 *            the array of blocks to be locked
-	 * @return the value returned from {@code Patrick exec}
-	 * @throws T
-	 *             the exception type possibly thrown by runnable
-	 * @throws IOException
-	 *             if an IO error occurs
-	 */
-	protected static <T extends Throwable> boolean withLockBoolean(BlockManager bm, ThrowingBooleanSupplier <T> exec, int i, long... blocks) throws T, IOException {
-		long block = blocks[i];
-		Object elementLock = getBlockLock(bm, block);
-		synchronized (elementLock) {
-			bm.getBlock(block);
-			try {
-				if (i + 1 >= blocks.length) return exec.supply();
-				else return withLockBoolean(bm, exec, i + 1, blocks);
+				return exec.supply();
 			} finally {
 				bm.ungetBlock(block);
 			}
@@ -1658,116 +1611,62 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 	}
 	
 	@Override
-	public <T extends Throwable> void withLock(ThrowingRunnable <T> exec, PatrFileSysElement... other) throws T, IOException {
-		if (other.length == 0) {
-			withLock(bm, exec, 0, block);
-		} else {
-			long[] blocks = new long[other.length + 1];
-			int i;
-			for (i = 0; i < blocks.length; i ++ ) {
-				blocks[i] = ((PatrFileSysElementImpl) other[i]).block;
+	public <T extends Throwable> void withLock(ThrowingRunnable <T> exec) throws T, IOException {
+		synchronized (bm) {
+			bm.getBlock(block);
+			try {
+				exec.execute();
+			} finally {
+				bm.ungetBlock(block);
 			}
-			blocks[i] = block;
-			Arrays.sort(blocks);
-			withLock(bm, exec, 0, blocks);
 		}
 	}
 	
 	@Override
-	public <T extends Throwable, R> R withLock(ThrowingSupplier <T, R> exec, PatrFileSysElement... other) throws T, IOException {
-		if (other.length == 0) {
-			return withLock(bm, exec, 0, block);
-		} else {
-			long[] blocks = new long[other.length + 1];
-			int i;
-			for (i = 0; i < blocks.length; i ++ ) {
-				blocks[i] = ((PatrFileSysElementImpl) other[i]).block;
+	public <T extends Throwable, R> R withLock(ThrowingSupplier <T, R> exec) throws T, IOException {
+		synchronized (bm) {
+			bm.getBlock(block);
+			try {
+				return exec.supply();
+			} finally {
+				bm.ungetBlock(block);
 			}
-			blocks[i] = block;
-			Arrays.sort(blocks);
-			return withLock(bm, exec, 0, blocks);
 		}
 	}
 	
 	@Override
-	public <T extends Throwable> int withLockInt(ThrowingIntSupplier <T> exec, PatrFileSysElement... other) throws T, IOException {
-		if (other.length == 0) {
-			return withLockInt(bm, exec, 0, block);
-		} else {
-			long[] blocks = new long[other.length + 1];
-			int i;
-			for (i = 0; i < blocks.length; i ++ ) {
-				blocks[i] = ((PatrFileSysElementImpl) other[i]).block;
+	public <T extends Throwable> int withLockInt(ThrowingIntSupplier <T> exec) throws T, IOException {
+		synchronized (bm) {
+			bm.getBlock(block);
+			try {
+				return exec.supply();
+			} finally {
+				bm.ungetBlock(block);
 			}
-			blocks[i] = block;
-			Arrays.sort(blocks);
-			return withLockInt(bm, exec, 0, blocks);
 		}
 	}
 	
 	@Override
-	public <T extends Throwable> long withLockLong(ThrowingLongSupplier <T> exec, PatrFileSysElement... other) throws T, IOException {
-		if (other.length == 0) {
-			return withLockLong(bm, exec, 0, block);
-		} else {
-			long[] blocks = new long[other.length + 1];
-			int i;
-			for (i = 0; i < blocks.length; i ++ ) {
-				blocks[i] = ((PatrFileSysElementImpl) other[i]).block;
+	public <T extends Throwable> long withLockLong(ThrowingLongSupplier <T> exec) throws T, IOException {
+		synchronized (bm) {
+			bm.getBlock(block);
+			try {
+				return exec.supply();
+			} finally {
+				bm.ungetBlock(block);
 			}
-			blocks[i] = block;
-			Arrays.sort(blocks);
-			return withLockLong(bm, exec, 0, blocks);
 		}
 	}
 	
 	@Override
-	public <T extends Throwable> boolean withLockBoolean(ThrowingBooleanSupplier <T> exec, PatrFileSysElement... other) throws T, IOException {
-		if (other.length == 0) {
-			return withLockBoolean(bm, exec, 0, block);
-		} else {
-			long[] blocks = new long[other.length + 1];
-			int i;
-			for (i = 0; i < blocks.length; i ++ ) {
-				blocks[i] = ((PatrFileSysElementImpl) other[i]).block;
+	public <T extends Throwable> boolean withLockBoolean(ThrowingBooleanSupplier <T> exec) throws T, IOException {
+		synchronized (bm) {
+			bm.getBlock(block);
+			try {
+				return exec.supply();
+			} finally {
+				bm.ungetBlock(block);
 			}
-			blocks[i] = block;
-			Arrays.sort(blocks);
-			return withLockBoolean(bm, exec, 0, blocks);
-		}
-	}
-	
-	protected static Object getBlockLock(BlockManager bm, long block) {
-		synchronized (looks) {
-			BlockLock key = new BlockLock(block, bm, null);
-			WeakReference <Object> look = looks.get(key);
-			if (look != null) {
-				Object obj = look.get();
-				if (obj != null) {
-					return obj;
-				}
-			}
-			Object obj = new Object();
-			key.obj = new WeakReference <Object>(obj);
-			looks.put(key, key.obj);
-			return obj;
-		}
-	}
-	
-	protected Object getElementLock() {
-		synchronized (looks) {
-			BlockLock key = new BlockLock(block, bm, null);
-			WeakReference <?> look = looks.get(key);
-			if (look != null) {
-				Object obj = look.get();
-				if (obj != null) {
-					return obj;
-				}
-			}
-			Object obj = new Object();
-			key.obj = new WeakReference <>(obj);
-			looks.put(key, key.obj);
-			return obj;
 		}
 	}
 	
@@ -1803,53 +1702,6 @@ public class PatrFileSysElementImpl implements PatrFileSysElement {
 		builder.append(pos);
 		builder.append("]");
 		return builder.toString();
-	}
-	
-	public static class BlockLock {
-		
-		public final long                         block;
-		public final WeakReference <BlockManager> bm;
-		
-		public WeakReference <Object> obj;
-		
-		public BlockLock(long block, BlockManager bm, Object obj) {
-			this.block = block;
-			this.bm = new WeakReference <>(bm);
-			this.obj = new WeakReference <>(obj);
-		}
-		
-		@Override
-		public int hashCode() {
-			final int prime = 31;
-			int result = 1;
-			result = prime * result + (int) (block ^ (block >>> 32));
-			result = prime * result + ( (bm == null) ? 0 : bm.hashCode());
-			return result;
-		}
-		
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj) return true;
-			else if (obj == null) return false;
-			else if (getClass() != obj.getClass()) return false;
-			BlockLock other = (BlockLock) obj;
-			if (block != other.block) return false;
-			else if ( !bm.equals(other.bm)) return false;
-			else return true;
-		}
-		
-		@Override
-		protected void finalize() throws Throwable {
-			synchronized (looks) {
-				WeakReference <Object> ref = looks.remove(this);
-				Object otehr = ref.get();
-				if (otehr != null && otehr != this.obj) {
-					this.obj = ref;
-					looks.put(this, ref);
-				}
-			}
-		}
-		
 	}
 	
 }

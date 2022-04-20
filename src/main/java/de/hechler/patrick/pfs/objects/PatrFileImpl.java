@@ -24,8 +24,8 @@ import de.hechler.patrick.pfs.interfaces.functional.ThrowingBooleanFunction;
 
 public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	
-	public PatrFileImpl(long startTime, BlockManager bm, long block, int pos) {
-		super(startTime, bm, block, pos);
+	public PatrFileImpl(PatrFileSysImpl fs, long startTime, BlockManager bm, long id) {
+		super(fs, startTime, bm, id);
 	}
 	
 	@Override
@@ -440,7 +440,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	
 	@Override
 	public void delete(long myLock, long paretnLock) throws IOException {
-		withLock(() -> executeDelete(myLock, paretnLock), getParent());
+		withLock(() -> executeDelete(myLock, paretnLock));
 	}
 	
 	private void executeDelete(long myLock, long parentLock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {

@@ -15,6 +15,21 @@ public interface PatrFileSystem extends Closeable {
 	PatrFolder getRoot() throws IOException;
 	
 	/**
+	 * returns the element with the given {@code id}
+	 * 
+	 * @param id
+	 *            the id from the element
+	 * @return the element
+	 * @throws IOException
+	 *             if an IO error occurs
+	 * @throws IllegalArgumentException
+	 *             if the given id is invalid
+	 * @throws NullPointerException
+	 *             if the given id is <code>null</code>
+	 */
+	PatrFileSysElement fromID(Object id) throws IOException, IllegalArgumentException, NullPointerException;
+	
+	/**
 	 * formats this file system.<br>
 	 * after this operation this file system will be empty.
 	 * 

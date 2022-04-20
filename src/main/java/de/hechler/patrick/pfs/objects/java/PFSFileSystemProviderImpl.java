@@ -51,7 +51,6 @@ import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
 import de.hechler.patrick.pfs.interfaces.PatrFileSystem;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
-import de.hechler.patrick.pfs.interfaces.functional.ThrowingRunnable;
 import de.hechler.patrick.pfs.objects.PatrFileSysImpl;
 import de.hechler.patrick.pfs.objects.ba.ByteArrayArrayBlockAccessor;
 import de.hechler.patrick.pfs.objects.java.PFSPathImpl.Name;
@@ -206,7 +205,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 								parent.removeLock(LOCK_NO_LOCK);
 							}
 							patrFile.delete(LOCK_NO_LOCK, LOCK_NO_LOCK);
-						}, patrFile.getParent());
+						});
 					} catch (IOException e) {
 						if (err != null) {
 							err.addSuppressed(e);
@@ -526,7 +525,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 		checkCopyMoveTarget(opts, sourcestrs, targetstrs, newParent);
 		PatrFile copyTarget = newParent.addFile(targetstrs[targetstrs.length - 1], LOCK_NO_LOCK);
 		checkInterrupted(opts, 0L);
-		src.withLock((ThrowingRunnable <IOException>) () -> executeCopy(copyTarget, src, targetstrs, newParent, options, opts), newParent, copyTarget);
+		src.withLock(() -> executeCopy(copyTarget, src, targetstrs, newParent, options, opts));
 	}
 	
 	private void checkInterrupted(CopyOptions opts, long progress) throws InterruptedIOException {
@@ -602,7 +601,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 				copyTarget.setHidden(false, LOCK_NO_LOCK);
 				copyTarget.setOwner(OWNER_NO_OWNER, LOCK_NO_LOCK);
 			}
-		}, copyTarget.getParent(), newParent);
+		});
 	}
 	
 	private void checkCopyMoveTarget(CopyOptions opts, String[] sourcestrs, String[] targetstrs, PatrFolder newParent) {

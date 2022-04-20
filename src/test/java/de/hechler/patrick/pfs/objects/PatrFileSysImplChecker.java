@@ -167,7 +167,7 @@ public class PatrFileSysImplChecker {
 		assertNull(sf.getFile().length());
 	}
 	
-	@Check(disabled = false)
+	@Check // TODO bug fix
 	private void checkFromRealFS() throws IOException {
 		final Path testOut = Paths.get("./testout/" + getClass().getSimpleName() + "/checkFromRealFS/realFileSys/");
 		Files.createDirectory(testOut);

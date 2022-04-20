@@ -72,6 +72,28 @@ public interface PatrFileSysElement {
 	PatrFile getFile() throws IllegalStateException, IOException;
 	
 	/**
+	 * returns the file representing this element<br>
+	 * if this element is no file an {@link IllegalStateException} will be thrown.
+	 * 
+	 * @return the file representing this element
+	 * @throws IllegalStateException
+	 *             if this element is no link
+	 * @throws IOException
+	 *             if an IO error occurs
+	 * @see #isFile()
+	 */
+	PatrLink getLink() throws IllegalStateException, IOException;
+	
+	/**
+	 * returns the id from this element
+	 * 
+	 * @return the id from this element
+	 * @throws IOException
+	 *             if an IOError occurs
+	 */
+	Object getID() throws IOException;
+	
+	/**
 	 * returns <code>true</code> if this element represents a folder
 	 * 
 	 * @return <code>true</code> if this element represents a folder
@@ -90,6 +112,16 @@ public interface PatrFileSysElement {
 	 * @see #getFile()
 	 */
 	boolean isFile() throws IOException;
+	
+	/**
+	 * returns <code>true</code> if this element represents a link
+	 * 
+	 * @return <code>true</code> if this element represents a link
+	 * @throws IOException
+	 *             if an IO error occurs
+	 * @see #getLink()
+	 */
+	boolean isLink() throws IOException;
 	
 	/**
 	 * returns <code>true</code> if this element is marked as executable
@@ -316,187 +348,147 @@ public interface PatrFileSysElement {
 	/**
 	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system
 	 * <p>
-	 * this method also checks if the thread already has the lock (see: {@link Thread#holdsLock(Object)})
-	 * <p>
 	 * the method will also ensure that the block of this element is loaded, so the access will be a bit faster.
 	 * 
 	 * @param <T>
 	 *            the exception type which may be thrown
 	 * @param exec
 	 *            the runnable, which should be executed
-	 * @param other
-	 *            other elements wich should also get locked
 	 * @throws T
 	 *             when the given throwing runnable throws the given exception
 	 */
-	<T extends Throwable> void withLock(ThrowingRunnable <T> exec, PatrFileSysElement... other) throws T, IOException;
+	<T extends Throwable> void withLock(ThrowingRunnable <T> exec) throws T, IOException;
 	
 	/**
 	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system.<br>
 	 * in addition to {@link #withLock(ThrowingRunnable)} this method returns the value returned by the supplier
 	 * <p>
-	 * this method also checks if the thread already has the lock (see: {@link Thread#holdsLock(Object)})
-	 * <p>
 	 * the method will also ensure that the block of this element is loaded, so the access will be a bit faster.
 	 * 
 	 * @param <T>
 	 *            the exception type which may be thrown
 	 * @param exec
 	 *            the supplier, which should be executed
-	 * @param other
-	 *            other elements wich should also get locked
 	 * @return the return value of the supplier
 	 * @throws T
 	 *             when the given throwing runnable throws the given exception
 	 */
-	<T extends Throwable, R> R withLock(ThrowingSupplier <T, R> exec, PatrFileSysElement... other) throws T, IOException;
+	<T extends Throwable, R> R withLock(ThrowingSupplier <T, R> exec) throws T, IOException;
 	
 	/**
 	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system.<br>
 	 * in addition to {@link #withLock(ThrowingRunnable)} this method returns the int-value returned by the int-supplier
 	 * <p>
-	 * this method also checks if the thread already has the lock (see: {@link Thread#holdsLock(Object)})
-	 * <p>
 	 * the method will also ensure that the block of this element is loaded, so the access will be a bit faster.
 	 * 
 	 * @param <T>
 	 *            the exception type which may be thrown
 	 * @param exec
 	 *            the supplier, which should be executed
-	 * @param other
-	 *            other elements wich should also get locked
 	 * @return the int-return-value of the supplier
 	 * @throws T
 	 *             when the given throwing runnable throws the given exception
 	 */
-	<T extends Throwable> int withLockInt(ThrowingIntSupplier <T> exec, PatrFileSysElement... other) throws T, IOException;
+	<T extends Throwable> int withLockInt(ThrowingIntSupplier <T> exec) throws T, IOException;
 	
 	/**
 	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system.<br>
 	 * in addition to {@link #withLock(ThrowingRunnable)} this method returns the long-value returned by the long-supplier
 	 * <p>
-	 * this method also checks if the thread already has the lock (see: {@link Thread#holdsLock(Object)})
-	 * <p>
 	 * the method will also ensure that the block of this element is loaded, so the access will be a bit faster.
 	 * 
 	 * @param <T>
 	 *            the exception type which may be thrown
 	 * @param exec
 	 *            the supplier, which should be executed
-	 * @param other
-	 *            other elements wich should also get locked
 	 * @return the long-return-value of the supplier
 	 * @throws T
 	 *             when the given throwing runnable throws the given exception
 	 */
-	<T extends Throwable> long withLockLong(ThrowingLongSupplier <T> exec, PatrFileSysElement... other) throws T, IOException;
+	<T extends Throwable> long withLockLong(ThrowingLongSupplier <T> exec) throws T, IOException;
 	
 	/**
 	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system.<br>
 	 * in addition to {@link #withLock(ThrowingRunnable)} this method returns the boolean-value returned by the boolean-supplier
 	 * <p>
-	 * this method also checks if the thread already has the lock (see: {@link Thread#holdsLock(Object)})
-	 * <p>
 	 * the method will also ensure that the block of this element is loaded, so the access will be a bit faster.
 	 * 
 	 * @param <T>
 	 *            the exception type which may be thrown
 	 * @param exec
 	 *            the supplier, which should be executed
-	 * @param other
-	 *            other elements wich should also get locked
 	 * @return the boolean-return-value of the supplier
 	 * @throws T
 	 *             when the given throwing runnable throws the given exception
 	 */
-	<T extends Throwable> boolean withLockBoolean(ThrowingBooleanSupplier <T> exec, PatrFileSysElement... other) throws T, IOException;
+	<T extends Throwable> boolean withLockBoolean(ThrowingBooleanSupplier <T> exec) throws T, IOException;
 	
 	/**
 	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system
-	 * <p>
-	 * this method also checks if the thread already has the lock (see: {@link Thread#holdsLock(Object)})
 	 * 
 	 * @param <T>
 	 *            the exception type which may be thrown
 	 * @param exec
 	 *            the runnable, which should be executed
-	 * @param other
-	 *            other elements wich should also get locked
 	 * @throws T
 	 *             when the given throwing runnable throws the given exception
 	 */
-	<T extends Throwable> void simpleWithLock(ThrowingRunnable <T> exec, PatrFileSysElement... other) throws T;
+	<T extends Throwable> void simpleWithLock(ThrowingRunnable <T> exec) throws T;
 	
 	/**
 	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system.<br>
 	 * in addition to {@link #simpleWithLock(ThrowingSupplier)} this method returns the value returned by the supplier
-	 * <p>
-	 * this method also checks if the thread already has the lock (see: {@link Thread#holdsLock(Object)})
 	 * 
 	 * @param <T>
 	 *            the exception type which may be thrown
 	 * @param exec
 	 *            the supplier, which should be executed
-	 * @param other
-	 *            other elements wich should also get locked
 	 * @return the return value of the supplier
 	 * @throws T
 	 *             when the given throwing runnable throws the given exception
 	 */
-	<T extends Throwable, R> R simpleWithLock(ThrowingSupplier <T, R> exec, PatrFileSysElement... other) throws T;
+	<T extends Throwable, R> R simpleWithLock(ThrowingSupplier <T, R> exec) throws T;
 	
 	/**
 	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system.<br>
 	 * in addition to {@link #simpleWithLock(ThrowingSupplier)} this method returns the int-value returned by the int-supplier
-	 * <p>
-	 * this method also checks if the thread already has the lock (see: {@link Thread#holdsLock(Object)})
 	 * 
 	 * @param <T>
 	 *            the exception type which may be thrown
 	 * @param exec
 	 *            the supplier, which should be executed
-	 * @param other
-	 *            other elements wich should also get locked
 	 * @return the int-return-value of the supplier
 	 * @throws T
 	 *             when the given throwing runnable throws the given exception
 	 */
-	<T extends Throwable> int simpleWithLockInt(ThrowingIntSupplier <T> exec, PatrFileSysElement... other) throws T;
+	<T extends Throwable> int simpleWithLockInt(ThrowingIntSupplier <T> exec) throws T;
 	
 	/**
 	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system.<br>
 	 * in addition to {@link #simpleWithLock(ThrowingSupplier)} this method returns the long-value returned by the long-supplier
-	 * <p>
-	 * this method also checks if the thread already has the lock (see: {@link Thread#holdsLock(Object)})
 	 * 
 	 * @param <T>
 	 *            the exception type which may be thrown
 	 * @param exec
 	 *            the supplier, which should be executed
-	 * @param other
-	 *            other elements wich should also get locked
 	 * @return the long-return-value of the supplier
 	 * @throws T
 	 *             when the given throwing runnable throws the given exception
 	 */
-	<T extends Throwable> long simpleWithLockLong(ThrowingLongSupplier <T> exec, PatrFileSysElement... other) throws T;
+	<T extends Throwable> long simpleWithLockLong(ThrowingLongSupplier <T> exec) throws T;
 	
 	/**
 	 * executes the given throwing runnable with to lock of this file system element. this may be the lock for the entire file system.<br>
 	 * in addition to {@link #simpleWithLock(ThrowingSupplier)} this method returns the boolean-value returned by the boolean-supplier
-	 * <p>
-	 * this method also checks if the thread already has the lock (see: {@link Thread#holdsLock(Object)})
 	 * 
 	 * @param <T>
 	 *            the exception type which may be thrown
 	 * @param exec
 	 *            the supplier, which should be executed
-	 * @param other
-	 *            other elements wich should also get locked
 	 * @return the boolean-return-value of the supplier
 	 * @throws T
 	 *             when the given throwing runnable throws the given exception
 	 */
-	<T extends Throwable> boolean simpleWithLockBoolean(ThrowingBooleanSupplier <T> exec, PatrFileSysElement... other) throws T;
+	<T extends Throwable> boolean simpleWithLockBoolean(ThrowingBooleanSupplier <T> exec) throws T;
 	
 }

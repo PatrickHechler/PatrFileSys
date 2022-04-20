@@ -38,10 +38,31 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	 *             if {@code name} is <code>null</code>
 	 * @throws IOException
 	 *             if an IO error occurs
+	 * @throws NullPointerException
+	 *             if <code>name</code> is <code>null</code>
 	 * @throws ElementLockedException
 	 *             when this element is locked with a different lock
 	 */
 	PatrFile addFile(String name, long lock) throws IOException, NullPointerException, ElementLockedException;
+	
+	/**
+	 * adds an link with the given target and the specified name to this folder
+	 * 
+	 * @param name
+	 *            the name of the new link
+	 * @param target
+	 *            the target of the new link
+	 * @param lock
+	 *            the current lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
+	 * @return the new created link
+	 * @throws IOException
+	 *             if an IO error occurs
+	 * @throws NullPointerException
+	 *             if <code>name</code> or <code>target</code> is <code>null</code>
+	 * @throws ElementLockedException
+	 *             when this element is locked with a different lock
+	 */
+	PatrLink addLink(String name, PatrFileSysElement target, long lock) throws IOException, NullPointerException, ElementLockedException;
 	
 	/**
 	 * deletes this Folder.<br>
