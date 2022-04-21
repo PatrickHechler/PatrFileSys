@@ -47,15 +47,17 @@ class PatrFileSysImplDiffrentBlocksChecker extends PatrFileSysImplChecker {
 	
 }
 
+
 @CheckClass
 class PatrFileSysImplSmallDiffrentBlocksChecker extends PatrFileSysImplChecker {
 	
 	@Override
 	protected int startsize() {
-		return 131;
+		return 123;
 	}
 	
 }
+
 
 @CheckClass
 class PatrFileSysImplBigBlocksChecker extends PatrFileSysImplChecker {
@@ -103,7 +105,7 @@ public class PatrFileSysImplChecker {
 			Files.createDirectory(path);
 		}
 		RandomAccessFile raf = new RandomAccessFile(path.resolve("./myFileSys.pfs").toFile(), "rw");
-		FileBlockAccessor ba = new FileBlockAccessor(startSize, raf); // for testing use a small block size
+		FileBlockAccessor ba = new FileBlockAccessor(startSize, raf);
 		BlockManagerImpl bm = new BlockManagerImpl(ba);
 		fs = new PatrFileSysImpl(bm);
 		fs.format();

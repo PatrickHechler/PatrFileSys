@@ -37,6 +37,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			throw new IllegalArgumentException("negative value! offset/len can not be negative! (bytesOff=" + bytesOff + ", offset=" + offset + ", length=" + length + ")");
 		}
 		withLock(() -> {
+			updatePosAndBlock();
 			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
 			executeRead(bytes, offset, bytesOff, length);
 		});
@@ -94,6 +95,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			throw new IllegalArgumentException("negative value! offset/len can not be negative! (offset=" + offset + ", length=" + length + ")");
 		}
 		withLock(() -> {
+			updatePosAndBlock();
 			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			executeRemove(offset, length);
 			modify(false);
@@ -231,6 +233,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			throw new IllegalArgumentException("negative value! offset/len can not be negative! (bytesOff=" + bytesOff + ", offset=" + offset + ", length=" + length + ")");
 		}
 		withLock(() -> {
+			updatePosAndBlock();
 			ensureAccess(bytesOff, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			executeWrite(bytes, offset, bytesOff, length);
 			modify(false);
@@ -289,6 +292,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			throw new IllegalArgumentException("too large for the given byte array! (array-len=" + bytes.length + ", array-off=" + bytesOff + ", length=" + length + ")");
 		}
 		withLock(() -> {
+			updatePosAndBlock();
 			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			executeAppend(bytes, bytesOff, length, lock);
 			modify(false);
@@ -380,7 +384,10 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	
 	@Override
 	public byte[] getHashCode(long lock) throws IOException, ElementLockedException {
-		return simpleWithLock(() -> executeGetHashCode(lock));
+		return simpleWithLock(() -> {
+			updatePosAndBlock();
+			return executeGetHashCode(lock);
+		});
 	}
 	
 	private byte[] executeGetHashCode(long lock) throws IOException, ElementLockedException {
@@ -426,7 +433,10 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	
 	@Override
 	public long length() throws IOException {
-		return simpleWithLockLong(this::executeLength);
+		return simpleWithLockLong(() -> {
+			updatePosAndBlock();
+			return executeLength();
+		});
 	}
 	
 	private long executeLength() throws ClosedChannelException, IOException {
@@ -440,7 +450,10 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	
 	@Override
 	public void delete(long myLock, long paretnLock) throws IOException {
-		withLock(() -> executeDelete(myLock, paretnLock));
+		withLock(() -> {
+			updatePosAndBlock();
+			executeDelete(myLock, paretnLock);
+		});
 	}
 	
 	private void executeDelete(long myLock, long parentLock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {

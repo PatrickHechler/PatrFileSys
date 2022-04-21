@@ -19,7 +19,6 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_L
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_NAME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_OWNER;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_PARENT_ID;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_BLOCK_COUNT_OFFSET;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_DATA_TABLE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_LENGTH;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_ELEMENT_LENGTH;
@@ -255,11 +254,11 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		setFlag(isReadOnly, lock, ELEMENT_FLAG_READ_ONLY);
 	}
 	
-	private void setFlag(boolean isSet, long lock, int flag) throws IOException {
+	private void setFlag(boolean doSet, long lock, int flag) throws IOException {
 		withLock(() -> {
 			updatePosAndBlock();
 			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
-			flag(flag, isSet);
+			flag(flag, doSet);
 			modify(true);
 		});
 	}
@@ -286,17 +285,17 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	}
 	
 	/**
-	 * sets or removes the given flag
+	 * sets or removes the given flags
 	 * 
-	 * @param flag
-	 *            the flag to modify
-	 * @param isSet
-	 *            if the flag should be set or cleared
+	 * @param flags
+	 *            the flags to modify
+	 * @param doSet
+	 *            if the flags should be set or cleared
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	protected void flag(int flags, boolean isSet) throws IOException {
-		flag(isSet ? flags : 0, isSet ? 0 : flags);
+	protected void flag(int flags, boolean doSet) throws IOException {
+		flag(doSet ? flags : 0, doSet ? 0 : flags);
 	}
 	
 	/**
@@ -725,28 +724,6 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	}
 	
 	/**
-	 * sets the new position of this element on all related position, like the parent or if this element is a folder it's children<br>
-	 * called when this element changes it's position<br>
-	 * when this method is called, no changes has been made.
-	 * <p>
-	 * this method should only be called indirectly using {@link #relocate()}
-	 * 
-	 * @param oldBlock
-	 *            the old block
-	 * @param oldPos
-	 *            the old position in the old block
-	 * @param newBlock
-	 *            the new block
-	 * @param newBlockNum
-	 *            the new position in the new block
-	 * @throws IOException
-	 *             if an IO error occurs
-	 */
-	protected void setNewPosToOthers(long oldBlock, int oldPos, long newBlock, int newPos) throws IOException {
-		PatrFileSysImpl.setBlockAndPos(this, newBlock, newPos);
-	}
-	
-	/**
 	 * helper method, which should not directly be called
 	 * 
 	 * @param pblock
@@ -811,7 +788,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 			byte[] newBlock = bm.getBlock(myNewBlockNum);
 			try {
 				final int myNewPos = namelen, nameNewPos = 0;
-				setNewPosToOthers(oldBlockNum, oldPos, myNewBlockNum, myNewPos);
+				PatrFileSysImpl.setBlockAndPos(this, myNewBlockNum, myNewPos);
 				PatrFileSysImpl.initBlock(newBlock, mylen + namelen);
 				System.arraycopy(oldBlock, oldPos, newBlock, myNewPos, mylen);
 				if (namelen > 0) {
@@ -858,14 +835,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 *             if an IO error occurs
 	 */
 	protected AllocatedBlocks[] allocate(long len) throws OutOfMemoryError, IOException {
-		final long blockCount;
-		byte[] bytes = bm.getBlock(0L);
-		try {
-			blockCount = byteArrToLong(bytes, FB_BLOCK_COUNT_OFFSET);
-		} finally {
-			bm.ungetBlock(0L);
-		}
-		bytes = bm.getBlock(1L);
+		byte[] bytes = bm.getBlock(1L);
 		try {
 			List <AllocatedBlocks> result = new ArrayList <>();
 			int end = byteArrToInt(bytes, bytes.length - 4);
@@ -895,6 +865,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 				result.add(new AllocatedBlocks(endBlock, len));
 				endBlock += len;
 				len -= len;
+				final long blockCount = fs.blockCount();
 				if (endBlock > blockCount) {
 					for (AllocatedBlocks ab : result) {
 						free(ab);
@@ -1493,11 +1464,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 */
 	protected static <T extends Throwable, R> R withLock(BlockManager bm, ThrowingSupplier <T, R> exec, long block) throws T, IOException {
 		synchronized (bm) {
-			bm.getBlock(block);
+			long oblock = block;
+			bm.getBlock(oblock);
 			try {
 				return exec.supply();
 			} finally {
-				bm.ungetBlock(block);
+				bm.ungetBlock(oblock);
 			}
 		}
 	}
@@ -1529,11 +1501,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 */
 	protected static <T extends Throwable> int withLockInt(BlockManager bm, ThrowingIntSupplier <T> exec, long block) throws T, IOException {
 		synchronized (bm) {
-			bm.getBlock(block);
+			long oblock = block;
+			bm.getBlock(oblock);
 			try {
 				return exec.supply();
 			} finally {
-				bm.ungetBlock(block);
+				bm.ungetBlock(oblock);
 			}
 		}
 	}
@@ -1565,11 +1538,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 */
 	protected static <T extends Throwable> long withLockLong(BlockManager bm, ThrowingLongSupplier <T> exec, long block) throws T, IOException {
 		synchronized (bm) {
-			bm.getBlock(block);
+			long oblock = block;
+			bm.getBlock(oblock);
 			try {
 				return exec.supply();
 			} finally {
-				bm.ungetBlock(block);
+				bm.ungetBlock(oblock);
 			}
 		}
 	}
@@ -1601,11 +1575,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 */
 	protected static <T extends Throwable> boolean withLockBoolean(BlockManager bm, ThrowingBooleanSupplier <T> exec, long block) throws T, IOException {
 		synchronized (bm) {
-			bm.getBlock(block);
+			long oblock = block;
+			bm.getBlock(oblock);
 			try {
 				return exec.supply();
 			} finally {
-				bm.ungetBlock(block);
+				bm.ungetBlock(oblock);
 			}
 		}
 	}
@@ -1625,11 +1600,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	@Override
 	public <T extends Throwable, R> R withLock(ThrowingSupplier <T, R> exec) throws T, IOException {
 		synchronized (bm) {
-			bm.getBlock(block);
+			long oblock = block;
+			bm.getBlock(oblock);
 			try {
 				return exec.supply();
 			} finally {
-				bm.ungetBlock(block);
+				bm.ungetBlock(oblock);
 			}
 		}
 	}
@@ -1637,11 +1613,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	@Override
 	public <T extends Throwable> int withLockInt(ThrowingIntSupplier <T> exec) throws T, IOException {
 		synchronized (bm) {
-			bm.getBlock(block);
+			long oblock = block;
+			bm.getBlock(oblock);
 			try {
 				return exec.supply();
 			} finally {
-				bm.ungetBlock(block);
+				bm.ungetBlock(oblock);
 			}
 		}
 	}
@@ -1649,11 +1626,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	@Override
 	public <T extends Throwable> long withLockLong(ThrowingLongSupplier <T> exec) throws T, IOException {
 		synchronized (bm) {
-			bm.getBlock(block);
+			long oblock = block;
+			bm.getBlock(oblock);
 			try {
 				return exec.supply();
 			} finally {
-				bm.ungetBlock(block);
+				bm.ungetBlock(oblock);
 			}
 		}
 	}
@@ -1661,11 +1639,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	@Override
 	public <T extends Throwable> boolean withLockBoolean(ThrowingBooleanSupplier <T> exec) throws T, IOException {
 		synchronized (bm) {
-			bm.getBlock(block);
+			long oblock = block;
+			bm.getBlock(oblock);
 			try {
 				return exec.supply();
 			} finally {
-				bm.ungetBlock(block);
+				bm.ungetBlock(oblock);
 			}
 		}
 	}

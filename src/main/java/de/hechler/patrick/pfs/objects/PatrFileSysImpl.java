@@ -110,16 +110,16 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	}
 	
 	public void executeFormat(long blockCount) throws IOException {
-		byte[] bytes = bm.getBlock(0L);
+		byte[] bytes = bm.getBlock(1L);
 		try {
-			bytes = bm.getBlock(1L);
-			try {
-				longToByteArr(bytes, 0, 0L);
-				longToByteArr(bytes, 8, 2L);
-				intToByteArr(bytes, bytes.length - 4, 16);
-			} finally {
-				bm.setBlock(1L);
-			}
+			longToByteArr(bytes, 0, 0L);
+			longToByteArr(bytes, 8, 2L);
+			intToByteArr(bytes, bytes.length - 4, 16);
+		} finally {
+			bm.setBlock(1L);
+		}
+		bytes = bm.getBlock(0L);
+		try {
 			int blockSize = bm.blockSize();
 			assert blockSize == bytes.length;
 			initBlock(bytes, FB_START_ROOT_POS + FOLDER_OFFSET_FOLDER_ELEMENTS + FOLDER_ELEMENT_LENGTH);
@@ -151,11 +151,31 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		simpleWithLock(id.bm, () -> executeSetBlockAndPos(id, block, pos));
 	}
 	
-	private static void executeSetBlockAndPos(PatrID id, long block, int pos) throws IOException {
-		byte[] bytes = new byte[ELEMENT_TABLE_ELEMENT_LENGTH];
-		longToByteArr(bytes, ELEMENT_TABLE_OFFSET_BLOCK, block);
-		intToByteArr(bytes, ELEMENT_TABLE_OFFSET_POS, pos);
-		id.fs.blockTable.setContent(bytes, id.id, 0, ELEMENT_TABLE_ELEMENT_LENGTH, LOCK_NO_LOCK);
+	private static void executeSetBlockAndPos(PatrID id, long block, int pos) throws IOException, IllegalArgumentException {
+		if (id.id == ROOT_FOLDER_ID) {
+			byte[] bytes = id.bm.getBlock(0L);
+			try {
+				longToByteArr(bytes, FB_ROOT_BLOCK_OFFSET, block);
+				longToByteArr(bytes, FB_ROOT_POS_OFFSET, pos);
+			} finally {
+				id.bm.setBlock(0L);
+			}
+		} else if (id.id == ELEMENT_TABLE_FILE_ID) {
+			byte[] bytes = id.bm.getBlock(0L);
+			try {
+				longToByteArr(bytes, FB_TABLE_FILE_BLOCK_OFFSET, block);
+				longToByteArr(bytes, FB_TABLE_FILE_POS_OFFSET, pos);
+			} finally {
+				id.bm.setBlock(0L);
+			}
+		} else if (id.id >= 0L) {
+			byte[] bytes = new byte[ELEMENT_TABLE_ELEMENT_LENGTH];
+			longToByteArr(bytes, ELEMENT_TABLE_OFFSET_BLOCK, block);
+			intToByteArr(bytes, ELEMENT_TABLE_OFFSET_POS, pos);
+			id.fs.blockTable.setContent(bytes, id.id, 0, ELEMENT_TABLE_ELEMENT_LENGTH, LOCK_NO_LOCK);
+		} else {
+			throw new IllegalArgumentException("illegal id; id=" + id.id);
+		}
 	}
 	
 	public static LongInt getBlockAndPos(PatrID id) throws IllegalArgumentException, IOException {
