@@ -82,7 +82,11 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 				oldSize = oldElementCount * FOLDER_ELEMENT_LENGTH + FOLDER_OFFSET_FOLDER_ELEMENTS,
 				newSize = oldSize + FOLDER_ELEMENT_LENGTH;
 			try {
+				final long oldPos = pos;
 				pos = reallocate(oldBlock, pos, oldSize, newSize, true);
+				if (pos != oldPos) {
+					PatrFileSysImpl.setBlockAndPos(this, block, pos);
+				}
 			} catch (OutOfMemoryError e) {
 				relocate();
 			}
@@ -195,6 +199,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 		freeName();
 		reallocate(block, pos, FOLDER_OFFSET_FOLDER_ELEMENTS, 0, false);
 		getParent().modify(false);
+		PatrFileSysImpl.removeID(this);
 	}
 	
 	@Override

@@ -238,6 +238,11 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		return len;
 	}
 	
+	public static void removeID(PatrID id) {
+		// TODO Auto-generated method stub
+		
+	}
+	
 	@Override
 	public long totalSpace() throws IOException {
 		return simpleWithLockLong(bm, this::executeTotalSpace);

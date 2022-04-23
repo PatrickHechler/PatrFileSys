@@ -191,7 +191,11 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 					byte[] bytes = bm.getBlock(block);
 					try {
 						System.arraycopy(bytes, lastBlockTableOff, bytes, startBlockTableOff, currentOff - lastBlockTableOff);
-						reallocate(blockSize, pos, currentOff - pos, currentOff - pos - lastBlockTableOff + startBlockTableOff, true);
+						long oldPos = pos;
+						pos = reallocate(blockSize, pos, currentOff - pos, currentOff - pos - lastBlockTableOff + startBlockTableOff, true);
+						if (pos != oldPos) {
+							PatrFileSysImpl.setBlockAndPos(PatrFileImpl.this, block, pos);
+						}
 						longToByteArr(bytes, pos + FILE_OFFSET_FILE_LENGTH, myOldLen - length);
 					} finally {
 						bm.setBlock(block);
@@ -345,7 +349,11 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 					newLen -= 16;
 				}
 				try {
-					reallocate(block, pos, off - pos, newLen, true);
+					long oldPos = pos;
+					pos = reallocate(block, pos, off - pos, newLen, true);
+					if (pos != oldPos) {
+						PatrFileSysImpl.setBlockAndPos(PatrFileImpl.this, block, pos);
+					}
 				} catch (OutOfMemoryError e) {
 					relocate();
 				}

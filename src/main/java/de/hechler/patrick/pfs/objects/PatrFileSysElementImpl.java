@@ -295,7 +295,8 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 *             if an IO error occurs
 	 */
 	protected void flag(int flags, boolean doSet) throws IOException {
-		flag(doSet ? flags : 0, doSet ? 0 : flags);
+		if (doSet) flag(flags, 0);
+		else flag(0, flags);
 	}
 	
 	/**
@@ -311,6 +312,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 *             if an IO error occurs
 	 */
 	protected void flag(int addFlags, int remFlags) throws IOException {
+		simpleWithLock(() -> {
+			executeFlag(addFlags, remFlags);
+		});
+	}
+	
+	protected void executeFlag(int addFlags, int remFlags) throws IOException {
 		int flags = getFlags();
 		flags |= addFlags;
 		flags &= ~remFlags;
