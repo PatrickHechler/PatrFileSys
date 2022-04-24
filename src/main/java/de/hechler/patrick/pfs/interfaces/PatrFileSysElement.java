@@ -317,6 +317,24 @@ public interface PatrFileSysElement {
 	long lock(long lock) throws IOException, IllegalStateException, ElementLockedException;
 	
 	/**
+	 * deletes this element from the file system.<br>
+	 * this operation may fail, if this element is not empty.
+	 * 
+	 * 
+	 * @param myLock
+	 *            the current lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
+	 * @param myLock
+	 *            the current of the parent element lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
+	 * @throws IOException
+	 *             if an IO error occurs
+	 * @throws ElementLockedException
+	 *             when this element is locked with a different lock
+	 * @throws IllegalStateException
+	 *             if this element can not be deleted currently
+	 */
+	void delete(long myLock, long parentLock) throws IOException, IllegalStateException, ElementLockedException;
+	
+	/**
 	 * sets the name of this element<br>
 	 * if this element is the root element an {@link IllegalStateException} will be thrown
 	 * 

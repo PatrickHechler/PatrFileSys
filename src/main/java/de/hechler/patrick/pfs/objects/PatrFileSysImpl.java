@@ -138,10 +138,11 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			intToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_OWNER, OWNER_NO_OWNER);
 			longToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_ID, ROOT_FOLDER_ID);
 			longToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_PARENT_ID, NO_ID);
-			intToByteArr(bytes, FB_START_ROOT_POS + FOLDER_OFFSET_ELEMENT_COUNT, 1);
-			longToByteArr(bytes, FB_START_ROOT_POS + FOLDER_OFFSET_FOLDER_ELEMENTS, ELEMENT_TABLE_FILE_ID);
+			intToByteArr(bytes, FB_START_ROOT_POS + FOLDER_OFFSET_ELEMENT_COUNT, 0);
 			int blockTablePos = blockTable.allocate(0L, FILE_OFFSET_FILE_DATA_TABLE);
 			PatrFolderImpl.initChild(bm, NO_ID, OWNER_NO_OWNER, false, blockTablePos, -1, 0L, null, null);
+			longToByteArr(bytes, FB_TABLE_FILE_BLOCK_OFFSET, 0L);
+			longToByteArr(bytes, FB_TABLE_FILE_POS_OFFSET, blockTablePos);
 		} finally {
 			bm.setBlock(0L);
 		}
@@ -201,7 +202,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			} finally {
 				id.bm.ungetBlock(0L);
 			}
-		} else if (id.id > 0L) {
+		} else if (id.id >= 0L) {
 			byte[] bytes = new byte[ELEMENT_TABLE_ELEMENT_LENGTH];
 			id.fs.blockTable.getContent(bytes, id.id, 0, ELEMENT_TABLE_ELEMENT_LENGTH, LOCK_NO_LOCK);
 			block = byteArrToLong(bytes, ELEMENT_TABLE_OFFSET_BLOCK);

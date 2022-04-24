@@ -118,9 +118,9 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 			intToByteArr(bytes, pos + FOLDER_OFFSET_ELEMENT_COUNT, oldElementCount + 1);
 			modify(false);
 			if (isFolder) {
-				return new PatrFileImpl(fs, childBlock, bm, cid);
-			} else {
 				return new PatrFolderImpl(fs, childBlock, bm, cid);
+			} else {
+				return new PatrFileImpl(fs, childBlock, bm, cid);
 			}
 		} finally {
 			bm.setBlock(oldBlock);

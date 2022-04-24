@@ -4,7 +4,7 @@ import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToInt;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.intToByteArr;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_EXECUTABLE;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FILE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FOLDER;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_HIDDEN;
@@ -584,7 +584,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		});
 	}
 	
-	public void executeEnsureAccess(long lock, long forbiddenBits, boolean readOnlyForbidden) throws IOException, ElementLockedException, IllegalArgumentException {
+	protected void executeEnsureAccess(long lock, long forbiddenBits, boolean readOnlyForbidden) throws IOException, ElementLockedException, IllegalArgumentException {
 		if (readOnlyForbidden) {
 			if (isReadOnly()) {
 				throw new ElementLockedException(PFSFileSystemProviderImpl.buildName(this), "this element is read only, but non read access was requested!");
@@ -697,6 +697,25 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		} finally {
 			bm.setBlock(block);
 		}
+	}
+	
+	@Override
+	public void delete(long myLock, long parentLock) throws IOException, IllegalStateException, ElementLockedException {
+		withLock(() -> executeDelete(myLock, parentLock));
+	}
+	
+	private void executeDelete(long myLock, long parentLock) throws ElementLockedException, IllegalStateException, IOException {
+		if (isFolder()) {
+			if (getFolder().elementCount(myLock) > 0) {
+				throw new IllegalStateException("this element is a non empty folder!");
+			}
+		}
+		ensureAccess(myLock, LOCK_NO_DELETE_ALLOWED_LOCK, true);
+		PatrFolderImpl parent = getParent();
+		parent.ensureAccess(parentLock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+		deleteFromParent();
+		parent.modify(false);
+		PatrFileSysImpl.removeID(this);
 	}
 	
 	/**
@@ -1252,6 +1271,9 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 				addoff = tablestart + addindex * 8;
 			if (tablestart == lastStart) {
 				int prevLastEnd = byteArrToInt(bytes, bytes.length - 16);
+				if (addoff == bytes.length - 12) {
+					prevLastEnd = end;
+				}
 				if (tablestart - 8 < prevLastEnd) {
 					throw new OutOfMemoryError("there is not enugh memory for the table to grow");
 				} else if (tablestart - 8 == prevLastEnd) {
@@ -1657,35 +1679,10 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	}
 	
 	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + (int) (block ^ (block >>> 32));
-		result = prime * result + ( (bm == null) ? 0 : bm.hashCode());
-		result = prime * result + pos;
-		result = prime * result + (int) (startTime ^ (startTime >>> 32));
-		return result;
-	}
-	
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj) return true;
-		if ( ! (obj instanceof PatrFileSysElementImpl)) return false;
-		PatrFileSysElementImpl other = (PatrFileSysElementImpl) obj;
-		if (block != other.block) return false;
-		if ( !bm.equals(other.bm)) return false;
-		if (pos != other.pos) return false;
-		if (startTime != other.startTime) return false;
-		return true;
-	}
-	
-	@Override
 	public String toString() {
 		StringBuilder builder = new StringBuilder();
-		builder.append("PatrFileSysElementImpl [block=");
-		builder.append(block);
-		builder.append(", pos=");
-		builder.append(pos);
+		builder.append("PatrFileSysElementImpl [id=");
+		builder.append(id);
 		builder.append("]");
 		return builder.toString();
 	}

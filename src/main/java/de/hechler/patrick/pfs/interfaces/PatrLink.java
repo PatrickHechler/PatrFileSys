@@ -2,6 +2,7 @@ package de.hechler.patrick.pfs.interfaces;
 
 import java.io.IOException;
 
+import de.hechler.patrick.pfs.exception.ElementLockedException;
 import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
 public interface PatrLink extends PatrFileSysElement {
@@ -50,5 +51,21 @@ public interface PatrLink extends PatrFileSysElement {
 	 *             if {@code newTarget} is invalid (for example it belongs to an different file system)
 	 */
 	void setTarget(PatrFileSysElement newTarget, long lock) throws IOException, IllegalArgumentException;
+	
+	/**
+	 * deletes this element from the file system.
+	 * 
+	 * 
+	 * @param myLock
+	 *            the current lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
+	 * @param myLock
+	 *            the current of the parent element lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
+	 * @throws IOException
+	 *             if an IO error occurs
+	 * @throws ElementLockedException
+	 *             when this element is locked with a different lock
+	 */
+	@Override
+	void delete(long myLock, long parentLock) throws IOException, ElementLockedException;
 	
 }

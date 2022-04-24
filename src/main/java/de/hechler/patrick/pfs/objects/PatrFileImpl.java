@@ -478,6 +478,12 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		try {
 			int off;
 			long remain = length();
+			int blockSize = bm.blockSize();
+			if (remain % blockSize != 0) {
+				remain = remain / blockSize;
+			} else {
+				remain = remain / blockSize + 1;
+			}
 			for (off = pos + FILE_OFFSET_FILE_DATA_TABLE; remain > 0; off += 16) {
 				long start = byteArrToLong(bytes, off),
 					end = byteArrToLong(bytes, off + 8),
@@ -491,7 +497,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 					return off;
 				}
 			}
-			assert remain == 0;
+			assert remain <= 0 : "remain=" + remain + " blockSize=" + blockSize;
 			return off;
 		} finally {
 			bm.ungetBlock(block);

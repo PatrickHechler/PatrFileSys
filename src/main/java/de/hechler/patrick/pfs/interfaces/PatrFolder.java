@@ -1,5 +1,7 @@
 package de.hechler.patrick.pfs.interfaces;
 
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
+
 import java.io.IOException;
 import java.util.Iterator;
 
@@ -147,8 +149,10 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	 *             if an IO error occurs
 	 */
 	default void deepDelete(long myLock, long parentLock) throws IOException, ElementLockedException {
-		PatrFolder p = getParent();
-		deepDelete(e -> this == e ? myLock : p.equals(e) ? parentLock : PatrFileSysConstants.LOCK_NO_LOCK);
+		withLock(() -> {
+			PatrFolder p = getParent();
+			deepDelete(e -> this == e ? myLock : p.equals(e) ? parentLock : PatrFileSysConstants.LOCK_NO_LOCK);
+		});
 	}
 	
 	/**
@@ -159,20 +163,27 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	default void deepDelete(LockSupplier loockSupplieer) throws IOException, ElementLockedException {
-		int ec = elementCount(loockSupplieer.getLock(this));
-		while (ec > 0) {
-			PatrFileSysElement pfe = getElement(ec - 1, loockSupplieer.getLock(this));
-			if (pfe.isFile()) {
-				pfe.getFile().delete(loockSupplieer.getLock(pfe), loockSupplieer.getLock(this));
-			} else {
-				pfe.getFolder().deepDelete(loockSupplieer);
+	default void deepDelete(LockSupplier lockSupplieer) throws IOException, ElementLockedException {
+		withLock(() -> {
+			PatrFolder parent = getParent();
+			long delLock = lockSupplieer.getLock(this);
+			long parentLock = lockSupplieer.getLock(parent);
+			ensureAccess(delLock, LOCK_NO_DELETE_ALLOWED_LOCK, true);
+			parent.ensureAccess(parentLock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+			int ec = elementCount(delLock);
+			while (ec > 0) {
+				PatrFileSysElement pfe = this.getElement(ec - 1, delLock);
+				if (pfe.isFolder()) {
+					pfe.getFolder().deepDelete(lockSupplieer);
+				} else {
+					pfe.delete(lockSupplieer.getLock(pfe), delLock);
+				}
+				ec -- ;
 			}
-			ec -- ;
-		}
-		ec = elementCount(loockSupplieer.getLock(this));
-		assert ec == 0;
-		delete(loockSupplieer.getLock(this), loockSupplieer.getLock(getParent()));
+			ec = elementCount(delLock);
+			assert ec == 0;
+			delete(delLock, parentLock);
+		});
 	}
 	
 	@Override
