@@ -61,8 +61,11 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	
 	// private static Map <BlockLock, WeakReference <Object>> looks = new HashMap <>();
 	
+	public final BlockManager bm;
+	
 	public PatrFileSysElementImpl(PatrFileSysImpl fs, long startTime, BlockManager bm, long id) {
-		super(fs, bm, id, startTime);
+		super(fs, id, startTime);
+		this.bm = bm;
 	}
 	
 	protected long block;
@@ -77,6 +80,9 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	
 	@Override
 	public PatrFolderImpl getParent() throws IllegalStateException, IOException {
+		if (id == ROOT_FOLDER_ID) {
+			throw new IllegalStateException("this is the root folder!");
+		}
 		return simpleWithLock(() -> {
 			updatePosAndBlock();
 			return executeGetParent();
@@ -87,7 +93,8 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		byte[] bytes = bm.getBlock(block);
 		try {
 			long pid = byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_ID);
-			return new PatrFolderImpl(fs, startTime, bm, pid);
+			if (pid == NO_ID) throw new InternalError("this element has no parent!");
+			else return new PatrFolderImpl(fs, startTime, bm, pid);
 		} finally {
 			bm.ungetBlock(block);
 		}
@@ -97,6 +104,9 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	public void setParent(PatrFolder newParent, long lock, long oldParentLock, long newParentLock) throws IllegalStateException, IOException {
 		if ( ! (newParent instanceof PatrFileSysImpl)) {
 			throw new IllegalArgumentException("I can not set my parent to an folder of an unknown implementation");
+		}
+		if (id == ROOT_FOLDER_ID) {
+			throw new IllegalStateException("this is the root folder!");
 		}
 		PatrFileSysElementImpl np = (PatrFileSysElementImpl) newParent;
 		if (np.bm != bm) {
@@ -621,6 +631,9 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	@Override
 	public void setName(String name, long lock) throws IOException, NullPointerException, IllegalStateException, ElementLockedException {
 		Objects.requireNonNull(name, "element names can not be null!");
+		if (id == ROOT_FOLDER_ID) {
+			throw new IllegalStateException("this element is the root folder!");
+		}
 		simpleWithLock(() -> {
 			updatePosAndBlock();
 			executeSetName(name, lock);
@@ -628,22 +641,45 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	}
 	
 	private void executeSetName(String name, long lock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {
-		byte[] bytes = bm.getBlock(block);
+		long oldblock = block;
+		byte[] bytes = bm.getBlock(oldblock);
 		try {
 			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
 			int oldlen = getNameByteCount();
 			int np = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
 			byte[] namebytes = name.getBytes(StandardCharsets.UTF_16);
-			np = reallocate(block, np, oldlen, namebytes.length, false);
-			System.arraycopy(namebytes, 0, bytes, np, namebytes.length);
-			modify(true);
+			try {
+				np = reallocate(oldblock, np, oldlen, namebytes.length + 2, false);
+			} catch (OutOfMemoryError e) {
+				relocate();
+				np = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
+				try {
+					np = reallocate(oldblock, np, oldlen, namebytes.length + 2, false);
+				} catch (OutOfMemoryError e1) {
+					e.addSuppressed(e1);
+					IOException.class.getClass();
+					throw e;
+				}
+			}
+			bytes = bm.getBlock(block);
+			try {
+				System.arraycopy(namebytes, 0, bytes, np, namebytes.length);
+				bytes[np + namebytes.length] = 0;
+				bytes[np + namebytes.length + 1] = 0;
+				modify(true);
+			} finally {
+				bm.setBlock(block);
+			}
 		} finally {
-			bm.setBlock(block);
+			bm.setBlock(oldblock);
 		}
 	}
 	
 	@Override
 	public String getName() throws IOException {
+		if (id == ROOT_FOLDER_ID) {
+			return "";
+		}
 		return simpleWithLock(() -> {
 			updatePosAndBlock();
 			return executeGetName();
@@ -730,7 +766,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		byte[] bytes = bm.getBlock(block);
 		try {
 			long pid = byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_ID);
-			LongInt parent = PatrFileSysImpl.getBlockAndPos(new PatrID(fs, bm, pid, startTime));
+			LongInt parent = PatrFileSysImpl.getBlockAndPos(new PatrID(fs, pid, startTime));
 			bytes = bm.getBlock(parent.l);
 			try {
 				int index = indexInParentList(parent.l, parent.i),
@@ -1458,11 +1494,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 */
 	protected static <T extends Throwable> void withLock(BlockManager bm, ThrowingRunnable <T> exec, long block) throws T, IOException {
 		synchronized (bm) {
-			bm.getBlock(block);
+			long oldblock = block;
+			bm.getBlock(oldblock);
 			try {
 				exec.execute();
 			} finally {
-				bm.ungetBlock(block);
+				bm.ungetBlock(oldblock);
 			}
 		}
 	}
@@ -1493,12 +1530,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 */
 	protected static <T extends Throwable, R> R withLock(BlockManager bm, ThrowingSupplier <T, R> exec, long block) throws T, IOException {
 		synchronized (bm) {
-			long oblock = block;
-			bm.getBlock(oblock);
+			long oldblock = block;
+			bm.getBlock(oldblock);
 			try {
 				return exec.supply();
 			} finally {
-				bm.ungetBlock(oblock);
+				bm.ungetBlock(oldblock);
 			}
 		}
 	}
@@ -1617,11 +1654,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	@Override
 	public <T extends Throwable> void withLock(ThrowingRunnable <T> exec) throws T, IOException {
 		synchronized (bm) {
-			bm.getBlock(block);
+			long oldblock = block;
+			bm.getBlock(oldblock);
 			try {
 				exec.execute();
 			} finally {
-				bm.ungetBlock(block);
+				bm.ungetBlock(oldblock);
 			}
 		}
 	}
@@ -1676,15 +1714,6 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 				bm.ungetBlock(oblock);
 			}
 		}
-	}
-	
-	@Override
-	public String toString() {
-		StringBuilder builder = new StringBuilder();
-		builder.append("PatrFileSysElementImpl [id=");
-		builder.append(id);
-		builder.append("]");
-		return builder.toString();
 	}
 	
 }

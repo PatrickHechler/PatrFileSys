@@ -71,7 +71,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 					byte[] blockBytes = bm.getBlock(blockNum);
 					try {
 						int cpy = Math.min(remain, blockSize - off);
-						System.arraycopy(blockBytes, boff, bytes, off, cpy);
+						System.arraycopy(blockBytes, off, bytes, boff, cpy);
 						off = 0;
 						remain -= cpy;
 						boff += cpy;
@@ -238,7 +238,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		}
 		withLock(() -> {
 			updatePosAndBlock();
-			ensureAccess(bytesOff, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			executeWrite(bytes, offset, bytesOff, length);
 			modify(false);
 		});
@@ -314,7 +314,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			int lastBlockPos = (int) (myOldLen % (long) blockSize);
 			if (lastBlockPos > 0) {
 				int remain = blockSize - lastBlockPos;
-				long lastBlock = byteArrToLong(bytes, off - 8) - 1L;
+				long lastBlock = byteArrToLong(myBlockBytes, off - 8) - 1L;
 				byte[] lbbytes = bm.getBlock(lastBlock);
 				try {
 					int cpy = Math.min(remain, length);
@@ -342,11 +342,13 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 						}
 					}
 				}
-				int newLen = off - pos;
-				newLen += newBlocks.length * 16;
-				boolean lastOldAndFirstNewMatches = newBlocks[0].startBlock == byteArrToLong(myBlockBytes, off - 8);
+				final int relOff = off - pos,
+					newLen;
+				boolean lastOldAndFirstNewMatches = relOff == FILE_OFFSET_FILE_DATA_TABLE ? false : newBlocks[0].startBlock == byteArrToLong(myBlockBytes, off - 8);
 				if (lastOldAndFirstNewMatches) {
-					newLen -= 16;
+					newLen = (relOff + (newBlocks.length * 16)) - 16;
+				} else {
+					newLen = relOff + (newBlocks.length * 16);
 				}
 				try {
 					long oldPos = pos;
@@ -357,9 +359,10 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 				} catch (OutOfMemoryError e) {
 					relocate();
 				}
+				off = pos + relOff;
 				myBlockBytes = bm.getBlock(block);
 				try {
-					longToByteArr(myBlockBytes, pos + FILE_OFFSET_FILE_LENGTH, myOldLen + (long) length);
+					longToByteArr(myBlockBytes, pos + FILE_OFFSET_FILE_LENGTH, myNewLen);
 					int i = 0;
 					if (lastOldAndFirstNewMatches) {
 						longToByteArr(myBlockBytes, off - 8, newBlocks[0].startBlock + newBlocks[0].count);
@@ -479,16 +482,17 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			int off;
 			long remain = length();
 			int blockSize = bm.blockSize();
-			if (remain % blockSize != 0) {
+			if (remain % blockSize == 0) {
 				remain = remain / blockSize;
 			} else {
-				remain = remain / blockSize + 1;
+				remain = (remain / blockSize) + 1;
 			}
 			for (off = pos + FILE_OFFSET_FILE_DATA_TABLE; remain > 0; off += 16) {
 				long start = byteArrToLong(bytes, off),
 					end = byteArrToLong(bytes, off + 8),
 					cnt = end - start;
 				remain -= cnt;
+				assert cnt > 0;
 				boolean cont = func.calc(new AllocatedBlocks(start, cnt));
 				if (cont) {
 					continue;
@@ -497,7 +501,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 					return off;
 				}
 			}
-			assert remain <= 0 : "remain=" + remain + " blockSize=" + blockSize;
+			assert remain == 0;
 			return off;
 		} finally {
 			bm.ungetBlock(block);

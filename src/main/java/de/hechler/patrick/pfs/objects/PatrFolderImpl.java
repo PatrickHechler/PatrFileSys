@@ -4,7 +4,7 @@ import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToInt;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.intToByteArr;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FILE;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FOLDER;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_LINK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_CREATE_TIME;
@@ -62,6 +62,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	@Override
 	public PatrLink addLink(String name, PatrFileSysElement target, long lock) throws IOException, NullPointerException, ElementLockedException, IllegalArgumentException {
 		Objects.requireNonNull(name, "null names are not permitted!");
+		Objects.requireNonNull(target, "can not create a link with a null target!");
 		if ( ! (target instanceof PatrFileSysElementImpl)) {
 			throw new IllegalArgumentException("the tareget is of an unknown class: " + target.getClass().getName() + "");
 		}
@@ -90,37 +91,42 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 			} catch (OutOfMemoryError e) {
 				relocate();
 			}
-			int childPos = -1, childNamePos,
-				childLen = target == null ? isFolder ? FOLDER_OFFSET_FOLDER_ELEMENTS : FILE_OFFSET_FILE_DATA_TABLE : LINK_LENGTH;
-			long childBlock = block;
-			byte[] childNameBytes = name.getBytes(StandardCharsets.UTF_16);
+			bytes = bm.getBlock(block);
 			try {
-				childPos = allocate(childBlock, childLen);
-				childNamePos = allocate(childBlock, childNameBytes.length + 2);
-			} catch (OutOfMemoryError e) {
-				if (childPos != -1) {
-					reallocate(childBlock, childPos, childLen, 0, false);
-				}
-				childBlock = allocateOneBlock();
-				byte[] cbytes = bm.getBlock(childBlock);
+				int childPos = -1, childNamePos,
+					childLen = target == null ? isFolder ? FOLDER_OFFSET_FOLDER_ELEMENTS : FILE_OFFSET_FILE_DATA_TABLE : LINK_LENGTH;
+				long childBlock = block;
+				byte[] childNameBytes = name.getBytes(StandardCharsets.UTF_16);
 				try {
-					PatrFileSysImpl.initBlock(cbytes, childLen + childNameBytes.length + 2);
-					childPos = childNameBytes.length + 2;
-					childNamePos = 0;
-				} finally {
-					bm.setBlock(childBlock);
+					childPos = allocate(childBlock, childLen);
+					childNamePos = allocate(childBlock, childNameBytes.length + 2);
+				} catch (OutOfMemoryError e) {
+					if (childPos != -1) {
+						reallocate(childBlock, childPos, childLen, 0, false);
+					}
+					childBlock = allocateOneBlock();
+					byte[] cbytes = bm.getBlock(childBlock);
+					try {
+						PatrFileSysImpl.initBlock(cbytes, childLen + childNameBytes.length + 2);
+						childPos = childNameBytes.length + 2;
+						childNamePos = 0;
+					} finally {
+						bm.setBlock(childBlock);
+					}
 				}
-			}
-			initChild(bm, id, getOwner(), isFolder, childPos, childNamePos, childBlock, childNameBytes, target);
-			final long cid = PatrFileSysImpl.generateID(this, childBlock, childPos);
-			int childOff = pos + FOLDER_OFFSET_FOLDER_ELEMENTS + oldElementCount * FOLDER_ELEMENT_LENGTH;
-			longToByteArr(bytes, childOff, cid);
-			intToByteArr(bytes, pos + FOLDER_OFFSET_ELEMENT_COUNT, oldElementCount + 1);
-			modify(false);
-			if (isFolder) {
-				return new PatrFolderImpl(fs, childBlock, bm, cid);
-			} else {
-				return new PatrFileImpl(fs, childBlock, bm, cid);
+				initChild(bm, id, getOwner(), isFolder, childPos, childNamePos, childBlock, childNameBytes, target);
+				final long cid = PatrFileSysImpl.generateID(this, childBlock, childPos);
+				int childOff = pos + FOLDER_OFFSET_FOLDER_ELEMENTS + oldElementCount * FOLDER_ELEMENT_LENGTH;
+				longToByteArr(bytes, childOff, cid);
+				intToByteArr(bytes, pos + FOLDER_OFFSET_ELEMENT_COUNT, oldElementCount + 1);
+				modify(false);
+				if (isFolder) {
+					return new PatrFolderImpl(fs, startTime, bm, cid);
+				} else {
+					return new PatrFileImpl(fs, startTime, bm, cid);
+				}
+			} finally {
+				bm.setBlock(block);
 			}
 		} finally {
 			bm.setBlock(oldBlock);
@@ -204,14 +210,14 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	
 	@Override
 	public boolean isRoot() {
-		return false;
+		return id == ROOT_FOLDER_ID;
 	}
 	
 	@Override
 	public int elementCount(long lock) throws IOException {
 		return withLockInt(() -> {
 			updatePosAndBlock();
-			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, true);
+			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
 			return getElementCount();
 		});
 	}
@@ -239,7 +245,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	private PatrFileSysElement executeGetElement(int index, long lock) throws ClosedChannelException, IOException, ElementLockedException {
 		byte[] bytes = bm.getBlock(block);
 		try {
-			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, true);
+			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
 			if (index >= getElementCount()) {
 				throw new IndexOutOfBoundsException("the index is greather the my element count: index=" + index + " elementCount=" + getElementCount());
 			}

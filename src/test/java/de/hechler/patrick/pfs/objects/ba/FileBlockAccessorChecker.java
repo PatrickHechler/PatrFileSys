@@ -24,7 +24,9 @@ public class FileBlockAccessorChecker extends BlockAccessorChecker {
 	@Start(onlyOnce = true)
 	private void init() throws IOException {
 		Path path = Paths.get("./testout/" + this.getClass().getSimpleName() + "/");
-		Files.createDirectories(path);
+		if (!Files.exists(path)) {
+			Files.createDirectories(path);
+		}
 	}
 	
 	@Start

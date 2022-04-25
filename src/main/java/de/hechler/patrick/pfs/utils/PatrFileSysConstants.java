@@ -69,8 +69,8 @@ public class PatrFileSysConstants {
 	public static final long NO_TIME = -1L;
 	
 	
-	public static final long ELEMENT_TABLE_FILE_ID = -1L;
-	public static final long ROOT_FOLDER_ID = -2L;
-	public static final long NO_ID = -3L;
+	public static final long NO_ID                 = -1L;
+	public static final long ROOT_FOLDER_ID        = -2L;
+	public static final long ELEMENT_TABLE_FILE_ID = -3L;
 	
 }

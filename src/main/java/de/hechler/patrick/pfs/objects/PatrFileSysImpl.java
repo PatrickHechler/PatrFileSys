@@ -38,6 +38,7 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ROOT_FOLDER_ID;
 
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
+import java.util.Arrays;
 
 import de.hechler.patrick.pfs.interfaces.BlockAccessor;
 import de.hechler.patrick.pfs.interfaces.BlockManager;
@@ -62,7 +63,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		this.bm = bm;
 		this.startTime = System.currentTimeMillis();
 		this.blockTable = new PatrElementTableFileImpl(this, startTime, bm, ELEMENT_TABLE_FILE_ID);
-		this.root = new PatrRootFolderImpl(this, startTime, bm, ROOT_FOLDER_ID);
+		this.root = new PatrFolderImpl(this, startTime, bm, ROOT_FOLDER_ID);
 	}
 	
 	
@@ -89,10 +90,10 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			throw new IllegalAccessError("the given id is invalid (class: '" + id.getClass() + "' tos: '" + id + "')");
 		}
 		PatrID pid = (PatrID) id;
-		if (pid.startTime != startTime || pid.bm != bm || pid.fs != this) {
+		if (pid.startTime != startTime || pid.fs.bm != bm || pid.fs != this) {
 			throw new IllegalAccessError("the given id does not belong th this file system");
 		}
-		return new PatrFileSysElementImpl(this, pid.startTime, pid.bm, pid.id);
+		return new PatrFileSysElementImpl(this, pid.startTime, pid.fs.bm, pid.id);
 	}
 	
 	@Override
@@ -129,7 +130,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			intToByteArr(bytes, FB_ROOT_POS_OFFSET, FB_START_ROOT_POS);
 			startTime = System.currentTimeMillis();
 			blockTable = new PatrElementTableFileImpl(this, startTime, bm, ELEMENT_TABLE_FILE_ID);
-			root = new PatrRootFolderImpl(this, startTime, bm, ROOT_FOLDER_ID);
+			root = new PatrFolderImpl(this, startTime, bm, ROOT_FOLDER_ID);
 			longToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_CREATE_TIME, startTime);
 			intToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_FLAGS, ELEMENT_FLAG_FOLDER);
 			longToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_LAST_MOD_TIME, startTime);
@@ -149,25 +150,25 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	}
 	
 	public static void setBlockAndPos(PatrID id, long block, int pos) throws IOException {
-		simpleWithLock(id.bm, () -> executeSetBlockAndPos(id, block, pos));
+		simpleWithLock(id.fs.bm, () -> executeSetBlockAndPos(id, block, pos));
 	}
 	
 	private static void executeSetBlockAndPos(PatrID id, long block, int pos) throws IOException, IllegalArgumentException {
 		if (id.id == ROOT_FOLDER_ID) {
-			byte[] bytes = id.bm.getBlock(0L);
+			byte[] bytes = id.fs.bm.getBlock(0L);
 			try {
 				longToByteArr(bytes, FB_ROOT_BLOCK_OFFSET, block);
 				longToByteArr(bytes, FB_ROOT_POS_OFFSET, pos);
 			} finally {
-				id.bm.setBlock(0L);
+				id.fs.bm.setBlock(0L);
 			}
 		} else if (id.id == ELEMENT_TABLE_FILE_ID) {
-			byte[] bytes = id.bm.getBlock(0L);
+			byte[] bytes = id.fs.bm.getBlock(0L);
 			try {
 				longToByteArr(bytes, FB_TABLE_FILE_BLOCK_OFFSET, block);
 				longToByteArr(bytes, FB_TABLE_FILE_POS_OFFSET, pos);
 			} finally {
-				id.bm.setBlock(0L);
+				id.fs.bm.setBlock(0L);
 			}
 		} else if (id.id >= 0L) {
 			byte[] bytes = new byte[ELEMENT_TABLE_ELEMENT_LENGTH];
@@ -180,27 +181,27 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	}
 	
 	public static LongInt getBlockAndPos(PatrID id) throws IllegalArgumentException, IOException {
-		return simpleWithLock(id.bm, () -> executeGetBlockAndPos(id));
+		return simpleWithLock(id.fs.bm, () -> executeGetBlockAndPos(id));
 	}
 	
 	private static LongInt executeGetBlockAndPos(PatrID id) throws IllegalArgumentException, IOException {
 		long block;
 		int pos;
 		if (id.id == ELEMENT_TABLE_FILE_ID) {
-			byte[] bytes = id.bm.getBlock(0L);
+			byte[] bytes = id.fs.bm.getBlock(0L);
 			try {
 				block = byteArrToLong(bytes, FB_TABLE_FILE_BLOCK_OFFSET);
 				pos = byteArrToInt(bytes, FB_TABLE_FILE_POS_OFFSET);
 			} finally {
-				id.bm.ungetBlock(0L);
+				id.fs.bm.ungetBlock(0L);
 			}
 		} else if (id.id == ROOT_FOLDER_ID) {
-			byte[] bytes = id.bm.getBlock(0L);
+			byte[] bytes = id.fs.bm.getBlock(0L);
 			try {
 				block = byteArrToLong(bytes, FB_ROOT_BLOCK_OFFSET);
 				pos = byteArrToInt(bytes, FB_ROOT_POS_OFFSET);
 			} finally {
-				id.bm.ungetBlock(0L);
+				id.fs.bm.ungetBlock(0L);
 			}
 		} else if (id.id >= 0L) {
 			byte[] bytes = new byte[ELEMENT_TABLE_ELEMENT_LENGTH];
@@ -214,13 +215,13 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	}
 	
 	public static long generateID(PatrID parent, long block, int pos) throws IOException {
-		return simpleWithLockLong(parent.bm, () -> executeGenerateID(parent, block, pos));
+		return simpleWithLockLong(parent.fs.bm, () -> executeGenerateID(parent, block, pos));
 	}
 	
 	private static long executeGenerateID(PatrID parent, long block, int pos) throws IOException {
-		byte[] bytes = new byte[1 << 16];
 		long len = parent.fs.blockTable.length(),
 			off = 0L;
+		byte[] bytes = new byte[Math.max(ELEMENT_TABLE_ELEMENT_LENGTH, (int) Math.min(1 << 16 - 1 << 16 % ELEMENT_TABLE_ELEMENT_LENGTH, len))];
 		for (int cpy; off < len; off += cpy) {
 			cpy = (int) Math.min(len - off, bytes.length);
 			parent.fs.blockTable.getContent(bytes, off, 0, cpy, LOCK_NO_LOCK);
@@ -239,9 +240,16 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		return len;
 	}
 	
-	public static void removeID(PatrID id) {
-		// TODO Auto-generated method stub
-		
+	public static void removeID(PatrID id) throws IOException {
+		long len = id.fs.blockTable.length();
+		if (id.startTime != id.fs.startTime) {
+			assert id.startTime < id.fs.startTime;
+			throw new IllegalStateException("the id has the wrong startTime!");
+		}
+		assert len > id.id + ELEMENT_TABLE_ELEMENT_LENGTH;
+		byte[] bytes = new byte[ELEMENT_TABLE_ELEMENT_LENGTH];
+		Arrays.fill(bytes, (byte) -1);
+		id.fs.blockTable.setContent(bytes, id.id, 0, ELEMENT_TABLE_ELEMENT_LENGTH, LOCK_NO_LOCK);
 	}
 	
 	@Override

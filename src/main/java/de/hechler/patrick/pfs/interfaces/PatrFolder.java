@@ -124,7 +124,7 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	
 	@Override
 	default Iterator <PatrFileSysElement> iterator() {
-		return iterator(PatrFileSysConstants.LOCK_NO_LOCK);
+		return iterator(e -> PatrFileSysConstants.LOCK_NO_LOCK);
 	}
 	
 	default Iterator <PatrFileSysElement> iterator(long lock) {

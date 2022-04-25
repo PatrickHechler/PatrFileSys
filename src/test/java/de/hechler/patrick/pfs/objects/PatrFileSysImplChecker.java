@@ -16,12 +16,15 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.Iterator;
+import java.util.HashSet;
+import java.util.Random;
+import java.util.Set;
 
 import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
@@ -37,7 +40,7 @@ import de.hechler.patrick.zeugs.check.anotations.MethodParam;
 import de.hechler.patrick.zeugs.check.anotations.ParamCreater;
 import de.hechler.patrick.zeugs.check.anotations.Start;
 
-@CheckClass
+@CheckClass(disabled = PatrFileSysImplChecker.DISABLE_OTHERS)
 class PatrFileSysImplDiffrentBlocksChecker extends PatrFileSysImplChecker {
 	
 	@Override
@@ -48,18 +51,18 @@ class PatrFileSysImplDiffrentBlocksChecker extends PatrFileSysImplChecker {
 }
 
 
-@CheckClass
+@CheckClass(disabled = PatrFileSysImplChecker.DISABLE_OTHERS)
 class PatrFileSysImplSmallDiffrentBlocksChecker extends PatrFileSysImplChecker {
 	
 	@Override
 	protected int startsize() {
-		return 123;
+		return 321;
 	}
 	
 }
 
 
-@CheckClass(disabled = true) //TODO bug fixes and than reactivate
+@CheckClass(disabled = PatrFileSysImplChecker.DISABLE_OTHERS)
 class PatrFileSysImplBigBlocksChecker extends PatrFileSysImplChecker {
 	
 	@Override
@@ -81,8 +84,10 @@ class PatrFileSysImplNormalBlocksChecker extends PatrFileSysImplChecker {
 }
 
 
-@CheckClass
+@CheckClass(disabled = PatrFileSysImplChecker.DISABLE_OTHERS)
 public class PatrFileSysImplChecker {
+	
+	public static final boolean DISABLE_OTHERS = true;
 	
 	private static final long NO_LOCK  = PatrFileSysConstants.LOCK_NO_LOCK;
 	private static final long NO_OWNER = PatrFileSysConstants.OWNER_NO_OWNER;
@@ -93,17 +98,17 @@ public class PatrFileSysImplChecker {
 	@Start(onlyOnce = true)
 	private void init() throws IOException {
 		Path path = Paths.get("./testout/" + getClass().getSimpleName() + "/");
-		Files.createDirectories(path);
+		if (Files.exists(path)) {
+			deepDeleteChildren(path);
+		} else {
+			Files.createDirectories(path);
+		}
 	}
 	
 	@Start
 	private void start(@MethodParam Method met, @ParamCreater(method = "startsize") int startSize) throws IOException {
 		Path path = Paths.get("./testout/" + getClass().getSimpleName() + "/" + met.getName() + "/");
-		if (Files.exists(path)) {
-			deepDeleteChildren(path);
-		} else {
-			Files.createDirectory(path);
-		}
+		Files.createDirectory(path);
 		RandomAccessFile raf = new RandomAccessFile(path.resolve("./myFileSys.pfs").toFile(), "rw");
 		FileBlockAccessor ba = new FileBlockAccessor(startSize, raf);
 		BlockManagerImpl bm = new BlockManagerImpl(ba);
@@ -118,6 +123,9 @@ public class PatrFileSysImplChecker {
 	private void deepDeleteChildren(Path path) throws IOException {
 		try (DirectoryStream <Path> dirStr = Files.newDirectoryStream(path)) {
 			for (Path p : dirStr) {
+				if ( !Files.isWritable(path)) {
+					path.toFile().setWritable(true);
+				}
 				if (Files.isDirectory(p)) {
 					deepDeleteChildren(p);
 				}
@@ -132,6 +140,39 @@ public class PatrFileSysImplChecker {
 			fs.close();
 		}
 		fs = null;
+	}
+	
+	@Check
+	private void checkWithNonEmptyFiles() throws IOException {
+		PatrFolder root = fs.getRoot();
+		PatrFile file1 = root.addFile("myName", NO_LOCK);
+		PatrFile file2 = root.addFile("mySecondName", NO_LOCK);
+		byte[] bytes1 = ("hello world!\n"
+			+ "this is some texxt file.\n"
+			+ "\n"
+			+ "here comes some text.\n"
+			+ "this is some more text.\n"
+			+ "now the there comes no more text in this file!").getBytes(StandardCharsets.UTF_8);
+		file1.appendContent(bytes1, 0, bytes1.length, NO_LOCK);
+		Random rnd = new Random();
+		byte[] bytes2 = new byte[rnd.nextInt(1000) + 200];
+		rnd.nextBytes(bytes2);
+		file2.appendContent(bytes2, 0, bytes2.length, NO_LOCK);
+		assertEquals(bytes1.length, file1.length());
+		assertEquals(bytes2.length, file2.length());
+		byte[] r1 = new byte[bytes1.length];
+		byte[] r2 = new byte[bytes2.length];
+		file1.getContent(r1, 0, 0, r1.length, NO_LOCK);
+		file2.getContent(r2, 0, 0, r2.length, NO_LOCK);
+		assertArrayEquals(bytes1, r1);
+		assertArrayEquals(bytes2, r2);
+		System.arraycopy(bytes2, 50, bytes2, 10, 100);
+		file2.getContent(r2, 50L, 10, 100, NO_LOCK);
+		assertArrayEquals(bytes2, r2);
+		System.arraycopy(bytes1, 30, bytes2, 150, 20);
+		file2.setContent(bytes1, 150L, 30, 20, NO_LOCK);
+		file2.getContent(r2, 140L, 140, 40, NO_LOCK);
+		assertArrayEquals(bytes2, r2);
 	}
 	
 	@Check
@@ -178,7 +219,7 @@ public class PatrFileSysImplChecker {
 		startCreate = System.currentTimeMillis();
 		PatrFolder sd = f.addFolder("subFolder", NO_LOCK);
 		endCreate = System.currentTimeMillis();
-		assertEquals(1, f.getFolder().elementCount(NO_LOCK));
+		assertEquals(1, f.elementCount(NO_LOCK));
 		assertTrue(sd.isFolder());
 		assertFalse(sd.isFile());
 		assertFalse(sd.isExecutable());
@@ -216,7 +257,7 @@ public class PatrFileSysImplChecker {
 		assertNull(sf.getFile().length());
 	}
 	
-	@Check // TODO bug fix
+	@Check
 	private void checkFromRealFS() throws IOException {
 		final Path testOut = Paths.get("./testout/" + getClass().getSimpleName() + "/checkFromRealFS/realFileSys/");
 		Files.createDirectory(testOut);
@@ -232,15 +273,26 @@ public class PatrFileSysImplChecker {
 	private void deepRead(Path realFSFolder, PatrFolder patrFSFolder) throws IOException {
 		try (DirectoryStream <Path> dirStr = Files.newDirectoryStream(realFSFolder)) {
 			for (Path path : dirStr) {
-				String name = realFSFolder.getFileName().toString();
+				String name = path.getFileName().toString();
 				PatrFileSysElement e;
 				if (Files.isDirectory(path)) {
 					e = patrFSFolder.addFolder(name, NO_LOCK);
 					deepRead(path, e.getFolder());
 				} else {
 					e = patrFSFolder.addFile(name, NO_LOCK);
+					PatrFile f = e.getFile();
+					try (InputStream in = Files.newInputStream(path)) {
+						byte[] buff = new byte[1 << 30];
+						while (true) {
+							int r = in.read(buff);
+							if (r == -1) {
+								break;
+							}
+							f.appendContent(buff, 0, r, NO_LOCK);
+						}
+					}
 				}
-				if (Files.isWritable(path)) {
+				if (!Files.isWritable(path)) {
 					e.setReadOnly(true, NO_LOCK);
 				}
 				if (Files.isHidden(path)) {
@@ -258,7 +310,7 @@ public class PatrFileSysImplChecker {
 				deepWrite(path, child.getFolder());
 			} else {
 				try (OutputStream out = Files.newOutputStream(path, StandardOpenOption.CREATE_NEW, StandardOpenOption.APPEND)) {
-					byte[] buffer = new byte[1 << 16];
+					byte[] buffer = new byte[1 << 30];
 					PatrFile file = child.getFile();
 					long len = file.length();
 					int cpy;
@@ -285,28 +337,27 @@ public class PatrFileSysImplChecker {
 		assertTrue(Files.exists(b));
 		if (Files.isDirectory(a)) {
 			assertTrue(Files.isDirectory(b));
-			int cnt = 0;
+			Set <String> names = new HashSet <>();
 			try (DirectoryStream <Path> da = Files.newDirectoryStream(a)) {
 				for (Path path : da) {
-					deepCompare(path, b.resolve(path.relativize(a)));
-					cnt ++ ;
+					Path lastPathSeg = path.getFileName();
+					deepCompare(path, b.resolve(lastPathSeg));
+					names.add(lastPathSeg.toString());
 				}
 			}
 			try (DirectoryStream <Path> db = Files.newDirectoryStream(b)) {
-				Iterator <Path> iter = db.iterator();
-				while (iter.hasNext()) {
-					iter.next();
-					cnt -- ;
+				for (Path path : db) {
+					names.remove(path.getFileName().toString());
 				}
 			}
-			assertNull(cnt);
+			assertTrue(names.isEmpty());
 		} else {
 			assertTrue(Files.isRegularFile(a));
 			assertTrue(Files.isRegularFile(b));
 			InputStream ina = Files.newInputStream(a, StandardOpenOption.READ);
 			InputStream inb = Files.newInputStream(b, StandardOpenOption.READ);
-			byte[] bufferA = new byte[1 << 16];
-			byte[] bufferB = new byte[1 << 16];
+			byte[] bufferA = new byte[1 << 30];
+			byte[] bufferB = new byte[1 << 30];
 			while (true) {
 				int readA = ina.read(bufferA);
 				int readB = inb.read(bufferB);
