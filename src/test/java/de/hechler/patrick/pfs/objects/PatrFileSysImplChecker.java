@@ -87,7 +87,7 @@ class PatrFileSysImplNormalBlocksChecker extends PatrFileSysImplChecker {
 @CheckClass(disabled = PatrFileSysImplChecker.DISABLE_OTHERS)
 public class PatrFileSysImplChecker {
 	
-	public static final boolean DISABLE_OTHERS = true;
+	public static final boolean DISABLE_OTHERS = false;
 	
 	private static final long NO_LOCK  = PatrFileSysConstants.LOCK_NO_LOCK;
 	private static final long NO_OWNER = PatrFileSysConstants.OWNER_NO_OWNER;
@@ -284,13 +284,14 @@ public class PatrFileSysImplChecker {
 					try (InputStream in = Files.newInputStream(path)) {
 						byte[] buff = new byte[1 << 30];
 						while (true) {
-							int r = in.read(buff);
+							int r = in.read(buff, 0, buff.length);
 							if (r == -1) {
 								break;
 							}
 							f.appendContent(buff, 0, r, NO_LOCK);
 						}
 					}
+					assertEquals(Files.size(path), f.length());
 				}
 				if (!Files.isWritable(path)) {
 					e.setReadOnly(true, NO_LOCK);
@@ -317,7 +318,7 @@ public class PatrFileSysImplChecker {
 					for (long copied = 0L; copied < len; copied += cpy) {
 						cpy = (int) Math.min(buffer.length, len - copied);
 						file.getContent(buffer, copied, 0, cpy, NO_LOCK);
-						out.write(buffer);
+						out.write(buffer, 0, cpy);
 					}
 				}
 			}
@@ -359,8 +360,8 @@ public class PatrFileSysImplChecker {
 			byte[] bufferA = new byte[1 << 30];
 			byte[] bufferB = new byte[1 << 30];
 			while (true) {
-				int readA = ina.read(bufferA);
-				int readB = inb.read(bufferB);
+				int readA = ina.read(bufferA, 0, bufferA.length);
+				int readB = inb.read(bufferB, 0, readA == -1 ? 1 : readA);
 				assertEquals(readA, readB);
 				assertArrayEquals(bufferA, bufferB);
 				if (readA == -1) {

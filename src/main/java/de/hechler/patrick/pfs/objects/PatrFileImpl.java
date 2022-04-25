@@ -17,6 +17,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 import de.hechler.patrick.pfs.exception.ElementLockedException;
+import de.hechler.patrick.pfs.exception.OutOfSpaceException;
 import de.hechler.patrick.pfs.interfaces.BlockManager;
 import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingBooleanFunction;
@@ -303,7 +304,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		});
 	}
 	
-	private void executeAppend(byte[] bytes, int bytesOff, int length, long lock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {
+	private void executeAppend(byte[] bytes, int bytesOff, int length, long lock) throws ClosedChannelException, IOException, ElementLockedException, OutOfSpaceException {
 		final long oldBlock = block;
 		byte[] myBlockBytes = bm.getBlock(oldBlock);
 		try {
@@ -350,19 +351,10 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 				} else {
 					newLen = relOff + (newBlocks.length * 16);
 				}
-				try {
-					long oldPos = pos;
-					pos = reallocate(block, pos, off - pos, newLen, true);
-					if (pos != oldPos) {
-						PatrFileSysImpl.setBlockAndPos(PatrFileImpl.this, block, pos);
-					}
-				} catch (OutOfMemoryError e) {
-					relocate();
-				}
+				resize(off - pos, newLen);
 				off = pos + relOff;
 				myBlockBytes = bm.getBlock(block);
 				try {
-					longToByteArr(myBlockBytes, pos + FILE_OFFSET_FILE_LENGTH, myNewLen);
 					int i = 0;
 					if (lastOldAndFirstNewMatches) {
 						longToByteArr(myBlockBytes, off - 8, newBlocks[0].startBlock + newBlocks[0].count);
@@ -467,7 +459,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		});
 	}
 	
-	private void executeDelete(long myLock, long parentLock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {
+	private void executeDelete(long myLock, long parentLock) throws ClosedChannelException, IOException, ElementLockedException, OutOfSpaceException {
 		ensureAccess(myLock, LOCK_NO_DELETE_ALLOWED_LOCK, true);
 		getParent().ensureAccess(parentLock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 		executeRemove(0, length());

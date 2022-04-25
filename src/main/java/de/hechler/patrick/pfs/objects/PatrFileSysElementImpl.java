@@ -4,7 +4,7 @@ import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToInt;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.intToByteArr;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_EXECUTABLE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FILE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FOLDER;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_HIDDEN;
@@ -19,12 +19,15 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_L
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_NAME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_OWNER;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_PARENT_ID;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_TABLE_FILE_ID;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_DATA_TABLE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_LENGTH;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_ELEMENT_LENGTH;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_ELEMENT_COUNT;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_FOLDER_ELEMENTS;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LINK_LENGTH;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_DATA;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_DELETE_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_META_CHANGE_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_WRITE_ALLOWED_LOCK;
@@ -34,7 +37,9 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_SHARED_COUN
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_SHARED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_USER_MAX_VALUE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_USER_SHIFT;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_ID;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_TIME;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ROOT_FOLDER_ID;
 
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
@@ -44,6 +49,7 @@ import java.util.List;
 import java.util.Objects;
 
 import de.hechler.patrick.pfs.exception.ElementLockedException;
+import de.hechler.patrick.pfs.exception.OutOfSpaceException;
 import de.hechler.patrick.pfs.interfaces.BlockManager;
 import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
@@ -108,7 +114,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		if (id == ROOT_FOLDER_ID) {
 			throw new IllegalStateException("this is the root folder!");
 		}
-		PatrFileSysElementImpl np = (PatrFileSysElementImpl) newParent;
+		PatrFolderImpl np = (PatrFolderImpl) newParent;
 		if (np.bm != bm) {
 			throw new IllegalArgumentException("I can not set my parent to an folder of an other fils system");
 		}
@@ -118,7 +124,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		});
 	}
 	
-	private void executeSetParent(PatrFileSysElementImpl np, long lock, long oldParentLock, long newParentLock) throws IllegalStateException, IOException {
+	private void executeSetParent(PatrFolderImpl np, long lock, long oldParentLock, long newParentLock) throws IllegalStateException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			np.updatePosAndBlock();
@@ -141,12 +147,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 					oldLen = FOLDER_OFFSET_FOLDER_ELEMENTS + pelementcount * FOLDER_ELEMENT_LENGTH,
 					newLen = oldLen + FOLDER_ELEMENT_LENGTH,
 					addPos = np.pos + oldLen;
-				try {
-					np.reallocate(npblock, np.pos, oldLen, newLen, true);
-				} catch (OutOfMemoryError e) {
-					np.relocate();
-					np.reallocate(npblock, np.pos, oldLen, newLen, true);
-				}
+				np.resize(oldLen, newLen);
 				longToByteArr(bytes, addPos, id);
 				longToByteArr(bytes, pos + ELEMENT_OFFSET_PARENT_ID, np.id);
 				np.modify(false);
@@ -620,6 +621,10 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		byte[] bytes = bm.getBlock(block);
 		try {
 			int np = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
+			if (np == -1) {
+				assert id == ROOT_FOLDER_ID || id == ELEMENT_TABLE_FILE_ID;
+				return 0;
+			}
 			int byteCount;
 			for (byteCount = 0; bytes[np + byteCount] != 0 || bytes[np + byteCount + 1] != 0; byteCount += 2) {}
 			return byteCount + 2;
@@ -640,7 +645,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		});
 	}
 	
-	private void executeSetName(String name, long lock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {
+	private void executeSetName(String name, long lock) throws ClosedChannelException, IOException, ElementLockedException, OutOfSpaceException {
 		long oldblock = block;
 		byte[] bytes = bm.getBlock(oldblock);
 		try {
@@ -650,14 +655,14 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 			byte[] namebytes = name.getBytes(StandardCharsets.UTF_16);
 			try {
 				np = reallocate(oldblock, np, oldlen, namebytes.length + 2, false);
-			} catch (OutOfMemoryError e) {
-				relocate();
+			} catch (OutOfSpaceException e) {
+				int myLen = myLength();
+				relocate(myLen, myLen, namebytes.length + 2);
 				np = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
 				try {
 					np = reallocate(oldblock, np, oldlen, namebytes.length + 2, false);
-				} catch (OutOfMemoryError e1) {
+				} catch (OutOfSpaceException e1) {
 					e.addSuppressed(e1);
-					IOException.class.getClass();
 					throw e;
 				}
 			}
@@ -697,23 +702,23 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		}
 	}
 	
-	/**
-	 * frees the name from the block intern memory table
-	 * 
-	 * @throws IOException
-	 *             if an IO error occurs
-	 */
-	protected void freeName() throws IOException {
-		byte[] bytes = bm.getBlock(block);
-		try {
-			int nameLen = getNameByteCount();
-			int namePos = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
-			reallocate(block, namePos, nameLen, 0, false);
-		} finally {
-			bm.setBlock(block);
-		}
-	}
-	
+	// /**
+	// * frees the name from the block intern memory table
+	// *
+	// * @throws IOException
+	// * if an IO error occurs
+	// */
+	// protected void freeName() throws IOException {
+	// byte[] bytes = bm.getBlock(block);
+	// try {
+	// int nameLen = getNameByteCount();
+	// int namePos = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
+	// reallocate(block, namePos, nameLen, 0, false);
+	// } finally {
+	// bm.setBlock(block);
+	// }
+	// }
+	//
 	/**
 	 * sets the last modified time of this element.
 	 * <p>
@@ -750,6 +755,8 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		PatrFolderImpl parent = getParent();
 		parent.ensureAccess(parentLock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 		deleteFromParent();
+		int myLen = myLength();
+		reallocate(block, pos, myLen, 0, false);
 		parent.modify(false);
 		PatrFileSysImpl.removeID(this);
 	}
@@ -816,45 +823,115 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	}
 	
 	/**
-	 * relocates this element to a new allocated block.
+	 * returns the length of this element
 	 * 
-	 * @param oldBolck
-	 *            the bytes of the old block. they should be saved after this operation
+	 * @return the length of this element
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	protected void relocate() throws IOException {
-		final long oldBlockNum = block;
-		final int oldPos = pos;
-		long myNewBlockNum;
-		myNewBlockNum = allocateOneBlock();
-		byte[] oldBlock = bm.getBlock(oldBlockNum);
+	protected int myLength() throws IOException {
+		byte[] bytes = bm.getBlock(block);
 		try {
-			int mylen,
-				oldnamepos, namelen;
-			if (isFolder()) {
-				mylen = byteArrToInt(oldBlock, oldPos + FOLDER_OFFSET_ELEMENT_COUNT);
+			int mylen;
+			if (isLink()) {
+				mylen = LINK_LENGTH;
+			} else if (isFolder()) {
+				mylen = byteArrToInt(bytes, pos + FOLDER_OFFSET_ELEMENT_COUNT);
 				mylen *= FOLDER_ELEMENT_LENGTH;
 				mylen += FOLDER_OFFSET_FOLDER_ELEMENTS;
 			} else {
-				long blocks = byteArrToLong(oldBlock, oldPos + FILE_OFFSET_FILE_LENGTH);
+				long byteLen = byteArrToLong(bytes, pos + FILE_OFFSET_FILE_LENGTH),
+					blocks = (byteLen + ((long) bytes.length) - 1L) / bytes.length;
 				for (mylen = FILE_OFFSET_FILE_DATA_TABLE; blocks > 0; mylen += 16) {
-					long start = byteArrToLong(oldBlock, oldPos + mylen);
-					long end = byteArrToLong(oldBlock, oldPos + mylen + 8);
+					long start = byteArrToLong(bytes, pos + mylen);
+					long end = byteArrToLong(bytes, pos + mylen + 8);
 					blocks -= end - start;
 				}
 				assert blocks == 0L;
 			}
-			oldnamepos = byteArrToInt(oldBlock, oldPos + ELEMENT_OFFSET_NAME);
+			return mylen;
+		} finally {
+			bm.ungetBlock(block);
+		}
+	}
+	
+	/**
+	 * resizes this element.
+	 * 
+	 * @param oldSize
+	 *            the old size of this element
+	 * @param newSize
+	 *            the new size of this element
+	 * @throws IOException
+	 *             if an IO error occurs
+	 */
+	protected void resize(int oldSize, int newSize) throws IOException {
+		try {
+			final long oldPos = pos;
+			pos = reallocate(block, pos, oldSize, newSize, true);
+			if (pos != oldPos) {
+				PatrFileSysImpl.setBlockAndPos(this, block, pos);
+			}
+		} catch (OutOfSpaceException e) {
+			try {
+				relocate(oldSize, newSize, -1);
+			} catch (OutOfSpaceException e1) {
+				e.addSuppressed(e1);
+				throw e;
+			}
+		}
+	}
+	
+	/**
+	 * relocates this element to a new block.
+	 * <p>
+	 * if {@code newNameLen} is {@code -1} the name will be copied to the new name position.<br>
+	 * if {@code newNameLen} is not {@code -1} the memory for the name will be allocated, but not be touched.
+	 * 
+	 * @param myoldlen
+	 *            the old length of this element wich should be freed in the old block
+	 * @param mynewlen
+	 *            the new length of this element wich should be allocated in the new block
+	 * @param newNameLen
+	 *            the new length of the new name or -1 if the name remains unchanged.
+	 * @throws IOException
+	 *             if an IO error occurs
+	 * @throws OutOfSpaceException
+	 *             if there is not enough memory
+	 */
+	protected void relocate(int myoldlen, int mynewlen, int newNameLen) throws IOException, OutOfSpaceException {
+		final long myNewBlockNum = allocateOneBlock(),
+			myOldBlockNum = block;
+		final int myOldPos = pos;
+		int oldnamepos;
+		int namelen;
+		byte[] oldBlock = bm.getBlock(myOldBlockNum);
+		try {
+			oldnamepos = byteArrToInt(oldBlock, myOldPos + ELEMENT_OFFSET_NAME);
 			namelen = getNameByteCount();
 			byte[] newBlock = bm.getBlock(myNewBlockNum);
 			try {
+				PatrFileSysImpl.initBlock(newBlock, mynewlen + newNameLen);
 				final int myNewPos = namelen, nameNewPos = 0;
-				PatrFileSysImpl.setBlockAndPos(this, myNewBlockNum, myNewPos);
-				PatrFileSysImpl.initBlock(newBlock, mylen + namelen);
-				System.arraycopy(oldBlock, oldPos, newBlock, myNewPos, mylen);
+				try {
+					reallocate(myOldBlockNum, myOldPos, myoldlen, 0, false);
+					if (namelen > 0) {
+						try {
+							reallocate(myOldBlockNum, oldnamepos, namelen, 0, false);
+						} catch (OutOfSpaceException e) {
+							allocate(myOldBlockNum, myoldlen);
+							throw e;
+						}
+					}
+				} catch (OutOfSpaceException e) {
+					free(new AllocatedBlocks(myNewBlockNum, 1L));
+					throw e;
+				}
+				System.arraycopy(oldBlock, myOldPos, newBlock, myNewPos, myoldlen);
 				if (namelen > 0) {
-					System.arraycopy(oldBlock, oldnamepos, newBlock, nameNewPos, namelen);
+					if (namelen == -1) {
+						System.arraycopy(oldBlock, oldnamepos, newBlock, nameNewPos, namelen);
+					}
 					intToByteArr(newBlock, namelen + ELEMENT_OFFSET_NAME, 0);
 				}
 				pos = myNewPos;
@@ -864,7 +941,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 				bm.setBlock(myNewBlockNum);
 			}
 		} finally {
-			bm.setBlock(oldBlockNum);
+			bm.setBlock(myOldBlockNum);
 		}
 	}
 	
@@ -873,10 +950,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * this is effectively the same as <code>allocate(1L)[0].startBlock</code>
 	 * 
 	 * @return the allocated block
-	 * @throws OutOfMemoryError
+	 * @throws OutOfSpaceException
+	 *             if there is not enough memory to allocate one block
 	 * @throws IOException
+	 *             if an IO error occurs
 	 */
-	protected long allocateOneBlock() throws OutOfMemoryError, IOException {
+	protected long allocateOneBlock() throws OutOfSpaceException, IOException {
 		long newBlockNum;
 		AllocatedBlocks[] allocate = allocate(1L);
 		assert allocate.length == 1;
@@ -891,12 +970,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * @param len
 	 *            the number of blocks to be allocated
 	 * @return the array containing the allocated blocks
-	 * @throws OutOfMemoryError
+	 * @throws OutOfSpaceException
 	 *             if there is not enough memory
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	protected AllocatedBlocks[] allocate(long len) throws OutOfMemoryError, IOException {
+	protected AllocatedBlocks[] allocate(long len) throws OutOfSpaceException, IOException {
 		byte[] bytes = bm.getBlock(1L);
 		try {
 			List <AllocatedBlocks> result = new ArrayList <>();
@@ -932,7 +1011,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 					for (AllocatedBlocks ab : result) {
 						free(ab);
 					}
-					throw new OutOfMemoryError("not enugh blocks (blockCount=" + Long.toHexString(blockCount) + " endBlock=" + Long.toHexString(endBlock) + ") (I freed the new allocated blocks)");
+					throw new OutOfSpaceException("not enugh blocks (blockCount=" + Long.toHexString(blockCount) + " endBlock=" + Long.toHexString(endBlock) + ") (I freed the new allocated blocks)");
 				}
 				longToByteArr(bytes, end - 8, endBlock);
 			}
@@ -951,12 +1030,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * 
 	 * @param remove
 	 *            the blocks to remove
-	 * @throws OutOfMemoryError
+	 * @throws OutOfSpaceException
 	 *             if there is not enough memory
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	protected void free(AllocatedBlocks remove) throws OutOfMemoryError, IOException {
+	protected void free(AllocatedBlocks remove) throws OutOfSpaceException, IOException {
 		byte[] bytes = bm.getBlock(1L);
 		try {
 			int end = byteArrToInt(bytes, bytes.length - 4),
@@ -990,7 +1069,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 				break;
 			case 2:
 				if (end + 12 > bytes.length) {
-					throw new OutOfMemoryError("there is not enough memory in this block to free/remove the given block sequence!");
+					throw new OutOfSpaceException("there is not enough memory in this block to free/remove the given block sequence!");
 				}
 				System.arraycopy(bytes, mid + 16, bytes, mid + 32, end - mid - 16);
 				end += 16;
@@ -1021,12 +1100,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * @param len
 	 *            the number of bytes in the new block
 	 * @return the pos of the new allocated bytes
-	 * @throws OutOfMemoryError
+	 * @throws OutOfSpaceException
 	 *             if there is not enough memory
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	protected int allocate(long block, int len) throws OutOfMemoryError, IOException {
+	protected int allocate(long block, int len) throws OutOfSpaceException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			int tablestart = byteArrToInt(bytes, bytes.length - 4),
@@ -1038,7 +1117,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 				} else {
 					try {
 						tableGrow(block, 0, 0, len);
-					} catch (OutOfMemoryError e) {
+					} catch (OutOfSpaceException e) {
 						start -= len;
 						intToByteArr(bytes, tablestart, start);
 					}
@@ -1068,7 +1147,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 					return mystart;
 				}
 			}
-			throw new OutOfMemoryError("could not find enough memory! (len=" + len + ")");
+			throw new OutOfSpaceException("could not find enough memory! (len=" + len + ")");
 		} finally {
 			bm.setBlock(block);
 		}
@@ -1090,12 +1169,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * @param copy
 	 *            <code>true</code> if the bytes should be copied to the new position if the relocation was not in place
 	 * @return the new pos of the relocated bytes or {@code -1} if the bytes have been freed and {@code -2} if the block has been removed from the block allocation table
-	 * @throws OutOfMemoryError
+	 * @throws OutOfSpaceException
 	 *             if there is not enough memory
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	protected int reallocate(long block, int pos, int oldLen, int newLen, boolean copy) throws OutOfMemoryError, IOException {
+	protected int reallocate(long block, int pos, int oldLen, int newLen, boolean copy) throws OutOfSpaceException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		if (newLen < 0 || oldLen < 0 || pos < 0) {
 			throw new IllegalArgumentException("len is smaller than zero! (newLen=" + newLen + ", odLen=" + oldLen + ")");
@@ -1182,10 +1261,10 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * @return {@code 0} if the entry has been partly removed, {@code -1} if the entry has been completely removed and {@code -2} if the block has/would have been freed
 	 * @throws IOException
 	 *             if an IO error occurs
-	 * @throws OutOfMemoryError
+	 * @throws OutOfSpaceException
 	 *             if the entry gets separated and there is not enough memory for the table to grow
 	 */
-	private int remove(long block, int remFrom, int remTo, int index, boolean allowFreeBlock) throws IOException, OutOfMemoryError {
+	private int remove(long block, int remFrom, int remTo, int index, boolean allowFreeBlock) throws IOException, OutOfSpaceException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			int tablestart = byteArrToInt(bytes, bytes.length - 4),
@@ -1294,12 +1373,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 *            the start pointer of the element
 	 * @param end
 	 *            the end pointer of the element
-	 * @throws OutOfMemoryError
+	 * @throws OutOfSpaceException
 	 *             if there is not enough memory for the table to grow
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	protected void tableGrow(long block, int addindex, int start, int end) throws OutOfMemoryError, IOException {
+	protected void tableGrow(long block, int addindex, int start, int end) throws OutOfSpaceException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			int tablestart = byteArrToInt(bytes, bytes.length - 4),
@@ -1311,7 +1390,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 					prevLastEnd = end;
 				}
 				if (tablestart - 8 < prevLastEnd) {
-					throw new OutOfMemoryError("there is not enugh memory for the table to grow");
+					throw new OutOfSpaceException("there is not enugh memory for the table to grow");
 				} else if (tablestart - 8 == prevLastEnd) {
 					System.arraycopy(bytes, addoff, bytes, addoff + 8, bytes.length - addoff - 8);
 					intToByteArr(bytes, addoff, start);
@@ -1325,7 +1404,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 					intToByteArr(bytes, bytes.length - 12, tablestart - 8);
 				}
 			} else {
-				throw new OutOfMemoryError("there is not enugh memory for the table to grow");
+				throw new OutOfSpaceException("there is not enugh memory for the table to grow");
 			}
 		} finally {
 			bm.setBlock(block);

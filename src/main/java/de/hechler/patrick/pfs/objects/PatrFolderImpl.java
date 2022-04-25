@@ -4,7 +4,7 @@ import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToInt;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.intToByteArr;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FILE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FOLDER;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_LINK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_CREATE_TIME;
@@ -23,10 +23,10 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_EL
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_FOLDER_ELEMENTS;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LINK_LENGTH;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LINK_OFFSET_TARGET_ID;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_DELETE_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_READ_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_WRITE_ALLOWED_LOCK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ROOT_FOLDER_ID;
 
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
@@ -34,6 +34,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
 import de.hechler.patrick.pfs.exception.ElementLockedException;
+import de.hechler.patrick.pfs.exception.OutOfSpaceException;
 import de.hechler.patrick.pfs.interfaces.BlockManager;
 import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
@@ -82,15 +83,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 			final int oldElementCount = getElementCount(),
 				oldSize = oldElementCount * FOLDER_ELEMENT_LENGTH + FOLDER_OFFSET_FOLDER_ELEMENTS,
 				newSize = oldSize + FOLDER_ELEMENT_LENGTH;
-			try {
-				final long oldPos = pos;
-				pos = reallocate(oldBlock, pos, oldSize, newSize, true);
-				if (pos != oldPos) {
-					PatrFileSysImpl.setBlockAndPos(this, block, pos);
-				}
-			} catch (OutOfMemoryError e) {
-				relocate();
-			}
+			resize(oldSize, newSize);
 			bytes = bm.getBlock(block);
 			try {
 				int childPos = -1, childNamePos,
@@ -100,7 +93,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 				try {
 					childPos = allocate(childBlock, childLen);
 					childNamePos = allocate(childBlock, childNameBytes.length + 2);
-				} catch (OutOfMemoryError e) {
+				} catch (OutOfSpaceException e) {
 					if (childPos != -1) {
 						reallocate(childBlock, childPos, childLen, 0, false);
 					}
@@ -185,27 +178,6 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 		} finally {
 			bm.setBlock(childBlock);
 		}
-	}
-	
-	@Override
-	public void delete(long myLock, long parentLock) throws IllegalStateException, IOException, ElementLockedException {
-		withLock(() -> {
-			updatePosAndBlock();
-			executeDelete(myLock, parentLock);
-		});
-	}
-	
-	private void executeDelete(long myLock, long parentLock) throws ClosedChannelException, IOException, ElementLockedException, OutOfMemoryError {
-		ensureAccess(myLock, LOCK_NO_DELETE_ALLOWED_LOCK, true);
-		getParent().ensureAccess(parentLock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
-		if (getElementCount() > 0) {
-			throw new IllegalStateException("I can not delet myself, when I still have children");
-		}
-		deleteFromParent();
-		freeName();
-		reallocate(block, pos, FOLDER_OFFSET_FOLDER_ELEMENTS, 0, false);
-		getParent().modify(false);
-		PatrFileSysImpl.removeID(this);
 	}
 	
 	@Override
