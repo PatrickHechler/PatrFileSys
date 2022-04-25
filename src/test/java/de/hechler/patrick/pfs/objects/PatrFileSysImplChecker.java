@@ -78,7 +78,7 @@ class PatrFileSysImplNormalBlocksChecker extends PatrFileSysImplChecker {
 	
 	@Override
 	protected int startsize() {
-		return 1 << 15;
+		return 1 << 14;
 	}
 	
 }
@@ -114,6 +114,12 @@ public class PatrFileSysImplChecker {
 		BlockManagerImpl bm = new BlockManagerImpl(ba);
 		fs = new PatrFileSysImpl(bm);
 		fs.format();
+		System.out.println("start check: " + getClass().getSimpleName() + ": " + met.getName());
+	}
+	
+	@End(onlyOnce = true)
+	private void finish() {
+		System.out.println("finished checks of class: " + getClass().getSimpleName());
 	}
 	
 	protected int startsize() {
@@ -266,7 +272,9 @@ public class PatrFileSysImplChecker {
 			fail("the input data of this test does not exist! (testfolder='" + testIn + "')");
 		}
 		deepRead(testIn, fs.getRoot());
+		System.out.println("[" + getClass().getSimpleName() + ".checkFromRealFS]: finished read");
 		deepWrite(testOut, fs.getRoot());
+		System.out.println("[" + getClass().getSimpleName() + ".checkFromRealFS]: finished write");
 		deepCompare(testIn, testOut);
 	}
 	
@@ -293,7 +301,7 @@ public class PatrFileSysImplChecker {
 					}
 					assertEquals(Files.size(path), f.length());
 				}
-				if (!Files.isWritable(path)) {
+				if ( !Files.isWritable(path)) {
 					e.setReadOnly(true, NO_LOCK);
 				}
 				if (Files.isHidden(path)) {
