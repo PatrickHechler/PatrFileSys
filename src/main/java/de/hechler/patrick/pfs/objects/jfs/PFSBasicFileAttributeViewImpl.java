@@ -1,4 +1,4 @@
-package de.hechler.patrick.pfs.objects.java;
+package de.hechler.patrick.pfs.objects.jfs;
 
 import java.io.IOException;
 import java.nio.file.attribute.BasicFileAttributeView;

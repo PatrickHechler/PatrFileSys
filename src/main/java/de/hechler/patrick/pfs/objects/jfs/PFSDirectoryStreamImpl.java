@@ -1,4 +1,4 @@
-package de.hechler.patrick.pfs.objects.java;
+package de.hechler.patrick.pfs.objects.jfs;
 
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_LOCK;
 
@@ -11,7 +11,7 @@ import java.util.NoSuchElementException;
 
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
-import de.hechler.patrick.pfs.objects.java.PFSPathImpl.Name;
+import de.hechler.patrick.pfs.objects.jfs.PFSPathImpl.Name;
 
 
 public class PFSDirectoryStreamImpl implements DirectoryStream <Path> {

@@ -1,4 +1,4 @@
-package de.hechler.patrick.pfs.objects.java;
+package de.hechler.patrick.pfs.objects.jfs;
 
 import java.io.File;
 import java.io.IOException;

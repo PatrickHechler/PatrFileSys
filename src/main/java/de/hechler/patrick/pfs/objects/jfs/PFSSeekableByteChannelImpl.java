@@ -1,8 +1,8 @@
-package de.hechler.patrick.pfs.objects.java;
+package de.hechler.patrick.pfs.objects.jfs;
 
-import static de.hechler.patrick.pfs.objects.java.PFSFileSystemProviderImpl.MODE_APPEND;
-import static de.hechler.patrick.pfs.objects.java.PFSFileSystemProviderImpl.MODE_READ;
-import static de.hechler.patrick.pfs.objects.java.PFSFileSystemProviderImpl.MODE_WRITE;
+import static de.hechler.patrick.pfs.objects.jfs.PFSFileSystemProviderImpl.MODE_APPEND;
+import static de.hechler.patrick.pfs.objects.jfs.PFSFileSystemProviderImpl.MODE_READ;
+import static de.hechler.patrick.pfs.objects.jfs.PFSFileSystemProviderImpl.MODE_WRITE;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

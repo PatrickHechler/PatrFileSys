@@ -1,4 +1,4 @@
-package de.hechler.patrick.pfs.objects.java;
+package de.hechler.patrick.pfs.objects.jfs;
 
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_LOCKED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_DELETE_ALLOWED_LOCK;
@@ -53,7 +53,7 @@ import de.hechler.patrick.pfs.interfaces.PatrFileSystem;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
 import de.hechler.patrick.pfs.objects.ba.ByteArrayArrayBlockAccessor;
 import de.hechler.patrick.pfs.objects.fs.PatrFileSysImpl;
-import de.hechler.patrick.pfs.objects.java.PFSPathImpl.Name;
+import de.hechler.patrick.pfs.objects.jfs.PFSPathImpl.Name;
 
 public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	

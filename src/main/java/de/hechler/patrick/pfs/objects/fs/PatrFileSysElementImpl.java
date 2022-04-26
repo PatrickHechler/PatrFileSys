@@ -63,7 +63,7 @@ import de.hechler.patrick.pfs.interfaces.functional.ThrowingRunnable;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingSupplier;
 import de.hechler.patrick.pfs.objects.AllocatedBlocks;
 import de.hechler.patrick.pfs.objects.LongInt;
-import de.hechler.patrick.pfs.objects.java.PFSFileSystemProviderImpl;
+import de.hechler.patrick.pfs.objects.jfs.PFSFileSystemProviderImpl;
 import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
 public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement {

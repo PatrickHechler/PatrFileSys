@@ -1,4 +1,4 @@
-package de.hechler.patrick.pfs.objects.java;
+package de.hechler.patrick.pfs.objects.jfs;
 
 import java.io.IOException;
 import java.nio.file.FileStore;
@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import de.hechler.patrick.pfs.interfaces.PatrFileSystem;
-import de.hechler.patrick.pfs.objects.java.PFSPathImpl.Name;
+import de.hechler.patrick.pfs.objects.jfs.PFSPathImpl.Name;
 
 public class PFSFileSystemImpl extends FileSystem {
 	
