@@ -1,4 +1,4 @@
-package de.hechler.patrick.pfs.objects;
+package de.hechler.patrick.pfs.objects.fs;
 
 import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 

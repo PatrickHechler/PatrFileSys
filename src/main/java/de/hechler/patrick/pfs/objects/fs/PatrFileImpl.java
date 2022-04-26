@@ -1,4 +1,4 @@
-package de.hechler.patrick.pfs.objects;
+package de.hechler.patrick.pfs.objects.fs;
 
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
@@ -21,6 +21,7 @@ import de.hechler.patrick.pfs.exception.OutOfSpaceException;
 import de.hechler.patrick.pfs.interfaces.BlockManager;
 import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingBooleanFunction;
+import de.hechler.patrick.pfs.objects.AllocatedBlocks;
 
 
 public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {

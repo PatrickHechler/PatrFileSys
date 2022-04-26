@@ -1,8 +1,8 @@
-package de.hechler.patrick.pfs.objects;
+package de.hechler.patrick.pfs.objects.fs;
 
-import static de.hechler.patrick.pfs.objects.PatrFileSysElementImpl.simpleWithLock;
-import static de.hechler.patrick.pfs.objects.PatrFileSysElementImpl.simpleWithLockInt;
-import static de.hechler.patrick.pfs.objects.PatrFileSysElementImpl.simpleWithLockLong;
+import static de.hechler.patrick.pfs.objects.fs.PatrFileSysElementImpl.simpleWithLock;
+import static de.hechler.patrick.pfs.objects.fs.PatrFileSysElementImpl.simpleWithLockInt;
+import static de.hechler.patrick.pfs.objects.fs.PatrFileSysElementImpl.simpleWithLockLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToInt;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.intToByteArr;
@@ -46,6 +46,7 @@ import de.hechler.patrick.pfs.interfaces.BlockManager;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
 import de.hechler.patrick.pfs.interfaces.PatrFileSystem;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
+import de.hechler.patrick.pfs.objects.LongInt;
 import de.hechler.patrick.pfs.objects.ba.BlockManagerImpl;
 
 

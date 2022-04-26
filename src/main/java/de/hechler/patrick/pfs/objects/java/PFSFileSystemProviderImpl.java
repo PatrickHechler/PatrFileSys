@@ -51,8 +51,8 @@ import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
 import de.hechler.patrick.pfs.interfaces.PatrFileSystem;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
-import de.hechler.patrick.pfs.objects.PatrFileSysImpl;
 import de.hechler.patrick.pfs.objects.ba.ByteArrayArrayBlockAccessor;
+import de.hechler.patrick.pfs.objects.fs.PatrFileSysImpl;
 import de.hechler.patrick.pfs.objects.java.PFSPathImpl.Name;
 
 public class PFSFileSystemProviderImpl extends FileSystemProvider {

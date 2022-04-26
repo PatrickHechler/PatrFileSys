@@ -1,4 +1,4 @@
-package de.hechler.patrick.pfs.objects;
+package de.hechler.patrick.pfs.objects.fs;
 
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToInt;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;

@@ -32,6 +32,7 @@ import de.hechler.patrick.pfs.interfaces.PatrFileSystem;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
 import de.hechler.patrick.pfs.objects.ba.BlockManagerImpl;
 import de.hechler.patrick.pfs.objects.ba.FileBlockAccessor;
+import de.hechler.patrick.pfs.objects.fs.PatrFileSysImpl;
 import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 import de.hechler.patrick.zeugs.check.anotations.Check;
 import de.hechler.patrick.zeugs.check.anotations.CheckClass;
@@ -73,7 +74,7 @@ class PatrFileSysImplBigBlocksChecker extends PatrFileSysImplChecker {
 }
 
 
-@CheckClass
+@CheckClass(disabled = PatrFileSysImplChecker.DISABLE_NORMAL)
 class PatrFileSysImplNormalBlocksChecker extends PatrFileSysImplChecker {
 	
 	@Override
@@ -84,10 +85,12 @@ class PatrFileSysImplNormalBlocksChecker extends PatrFileSysImplChecker {
 }
 
 
-@CheckClass(disabled = PatrFileSysImplChecker.DISABLE_OTHERS)
+@CheckClass(disabled = PatrFileSysImplChecker.DISABLE_ME)
 public class PatrFileSysImplChecker {
 	
-	public static final boolean DISABLE_OTHERS      = false;
+	public static final boolean DISABLE_OTHERS      = true;
+	public static final boolean DISABLE_NORMAL      = true;
+	public static final boolean DISABLE_ME          = false;
 	public static final boolean DISABLE_SLOW        = true;
 	public static final boolean DELETE_AFTER_CHECKS = true;
 	

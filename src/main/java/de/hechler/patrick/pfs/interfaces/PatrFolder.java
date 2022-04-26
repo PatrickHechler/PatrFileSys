@@ -6,7 +6,7 @@ import java.io.IOException;
 import java.util.Iterator;
 
 import de.hechler.patrick.pfs.exception.ElementLockedException;
-import de.hechler.patrick.pfs.objects.PatrFolderIterator;
+import de.hechler.patrick.pfs.objects.fs.PatrFolderIterator;
 import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
 public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysElement {

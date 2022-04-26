@@ -1,4 +1,4 @@
-package de.hechler.patrick.pfs.objects;
+package de.hechler.patrick.pfs.objects.fs;
 
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToInt;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
@@ -61,6 +61,8 @@ import de.hechler.patrick.pfs.interfaces.functional.ThrowingIntSupplier;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingLongSupplier;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingRunnable;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingSupplier;
+import de.hechler.patrick.pfs.objects.AllocatedBlocks;
+import de.hechler.patrick.pfs.objects.LongInt;
 import de.hechler.patrick.pfs.objects.java.PFSFileSystemProviderImpl;
 import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
@@ -602,7 +604,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		if (check != forbiddenBits) {
 			throw new IllegalArgumentException("the forbidden bits are not allowed to contain non data bits!");
 		}
-		withLock(() -> {
+		simpleWithLock(() -> {
 			updatePosAndBlock();
 			executeEnsureAccess(lock, forbiddenBits, readOnlyForbidden);
 		});
@@ -623,10 +625,8 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 					throw new ElementLockedException(PFSFileSystemProviderImpl.buildName(this), "the lock is a shared lock and I have at least one of the forbidden bits set in my lock!");
 				}
 			}
-		} else {
-			if ( (myLock & forbiddenBits) != 0) {
-				throw new ElementLockedException(PFSFileSystemProviderImpl.buildName(this), "the lock is LOCK_NO_LOCK, but I have at least one of the forbidden bits set in my lock!");
-			}
+		} else if ( (myLock & forbiddenBits) != 0) {
+			throw new ElementLockedException(PFSFileSystemProviderImpl.buildName(this), "the lock is LOCK_NO_LOCK, but I have at least one of the forbidden bits set in my lock!");
 		}
 	}
 	
@@ -1229,7 +1229,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 					}
 					if (needNewPlace) {
 						int newPos;
-						if (remove(block, pos, oldLen, mid, false) == -2) {
+						if (remove(block, pos, pos + oldLen, mid, false) == -2) {
 							PatrFileSysImpl.initBlock(bytes, newLen);
 							newPos = 0;
 						} else {
@@ -1299,6 +1299,14 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 				assert start == stay[0].startBlock;
 				assert count == stay[0].count;
 				end = start + count;
+				if (end == bytes.length) {
+					if (start == bytes.length - 20) {
+						if (allowFreeBlock) {
+							free(new AllocatedBlocks(block, 1L));
+						}
+						return -2;
+					}
+				}
 				intToByteArr(bytes, offset, start);
 				intToByteArr(bytes, offset, end);
 				break;
@@ -1350,24 +1358,43 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	protected boolean tableShrink(long block, int remindex, boolean allowFreeBlock) throws IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
-			int tablestart = byteArrToInt(bytes, bytes.length - 4);
-			int lastStart = byteArrToInt(bytes, bytes.length - 12);
-			if (tablestart != lastStart) {
-				System.arraycopy(bytes, remindex + 8, bytes, remindex, bytes.length - 20 - remindex);
-				intToByteArr(bytes, bytes.length - 12, tablestart);// one of two cases to produce to entries where prev.end=next.start
-				intToByteArr(bytes, bytes.length - 16, tablestart);
-			} else if (tablestart + 8 >= bytes.length - 12) {
-				assert tablestart + 8 >= bytes.length - 12;
+			final int tablestart = byteArrToInt(bytes, bytes.length - 4),
+				lastStart = byteArrToInt(bytes, bytes.length - 12),
+				rim8 = remindex * 8,
+				remoff = tablestart + rim8;
+			assert remoff >= tablestart;
+			assert remoff <= bytes.length - 12;
+			if (remoff == bytes.length - 12) {
+				assert tablestart == remoff : "tablestart=" + tablestart + " remoff=" + remoff + " remindex=" + remindex;
 				if (allowFreeBlock) {
 					free(new AllocatedBlocks(block, 1L));
 				}
-				return false;
-			} else {
-				System.arraycopy(bytes, tablestart, bytes, tablestart + 8, remindex * 8);
+				return true;
+			}
+			if (lastStart == tablestart) {
+				System.arraycopy(bytes, tablestart, bytes, tablestart + 8, remoff - tablestart);
 				intToByteArr(bytes, bytes.length - 12, tablestart + 8);
 				intToByteArr(bytes, bytes.length - 4, tablestart + 8);
+			} else {
+				System.arraycopy(bytes, remoff + 8, bytes, remoff, bytes.length - 12 - remoff - 8);
+				intToByteArr(bytes, bytes.length - 12, tablestart);
+				intToByteArr(bytes, bytes.length - 16, tablestart);
 			}
 			return true;
+			// if (tablestart != lastStart) {
+			// System.arraycopy(bytes, remoff + 8, bytes, remoff, bytes.length - 20 - rim8);
+			// intToByteArr(bytes, bytes.length - 12, tablestart);// one of two cases to produce to entries where prev.end=next.start
+			// intToByteArr(bytes, bytes.length - 16, tablestart);
+			// } else if (tablestart + 8 >= bytes.length - 12) {
+			// if (allowFreeBlock) {
+			// free(new AllocatedBlocks(block, 1L));
+			// }
+			// return false;
+			// } else {
+			// System.arraycopy(bytes, tablestart, bytes, tablestart + 8, rim8);
+			// intToByteArr(bytes, bytes.length - 12, tablestart + 8);
+			// intToByteArr(bytes, bytes.length - 4, tablestart + 8);
+			// }
 		} finally {
 			bm.setBlock(block);
 		}
