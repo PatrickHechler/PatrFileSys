@@ -62,7 +62,7 @@ class PatrFileSysImplSmallDiffrentBlocksChecker extends PatrFileSysImplChecker {
 }
 
 
-@CheckClass(disabled = PatrFileSysImplChecker.DISABLE_OTHERS)
+@CheckClass(disabled = PatrFileSysImplChecker.DISABLE_SLOW)
 class PatrFileSysImplBigBlocksChecker extends PatrFileSysImplChecker {
 	
 	@Override
@@ -87,7 +87,9 @@ class PatrFileSysImplNormalBlocksChecker extends PatrFileSysImplChecker {
 @CheckClass(disabled = PatrFileSysImplChecker.DISABLE_OTHERS)
 public class PatrFileSysImplChecker {
 	
-	public static final boolean DISABLE_OTHERS = false;
+	public static final boolean DISABLE_OTHERS      = false;
+	public static final boolean DISABLE_SLOW        = true;
+	public static final boolean DELETE_AFTER_CHECKS = true;
 	
 	private static final long NO_LOCK  = PatrFileSysConstants.LOCK_NO_LOCK;
 	private static final long NO_OWNER = PatrFileSysConstants.OWNER_NO_OWNER;
@@ -118,7 +120,12 @@ public class PatrFileSysImplChecker {
 	}
 	
 	@End(onlyOnce = true)
-	private void finish() {
+	private void finish() throws IOException {
+		if (DELETE_AFTER_CHECKS) {
+			Path path = Paths.get("./testout/" + getClass().getSimpleName());
+			deepDeleteChildren(path);
+			Files.delete(path);
+		}
 		System.out.println("finished checks of class: " + getClass().getSimpleName());
 	}
 	
