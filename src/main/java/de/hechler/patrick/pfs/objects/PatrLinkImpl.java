@@ -9,9 +9,7 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LINK_OFFSET_TARG
 import java.io.IOException;
 
 import de.hechler.patrick.pfs.interfaces.BlockManager;
-import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
-import de.hechler.patrick.pfs.interfaces.PatrFolder;
 import de.hechler.patrick.pfs.interfaces.PatrLink;
 
 
@@ -30,53 +28,10 @@ public class PatrLinkImpl extends PatrFileSysElementImpl implements PatrLink {
 	}
 	
 	private PatrFileSysElement executeGetTarget() throws IOException {
-		updatePosAndBlock();
 		byte[] bytes = bm.getBlock(block);
 		try {
 			long tid = byteArrToLong(bytes, pos + LINK_OFFSET_TARGET_ID);
 			return new PatrFileSysElementImpl(fs, startTime, bm, tid);
-		} finally {
-			bm.ungetBlock(block);
-		}
-	}
-	
-	@Override
-	public PatrFile getTargetFile() throws IOException, IllegalStateException {
-		return simpleWithLock(() -> {
-			updatePosAndBlock();
-			return executeGetTargetFile();
-		});
-	}
-	
-	private PatrFile executeGetTargetFile() throws IOException {
-		if ( !isFile()) {
-			throw new IllegalStateException("this is no file link!");
-		}
-		byte[] bytes = bm.getBlock(block);
-		try {
-			long tid = byteArrToLong(bytes, pos + LINK_OFFSET_TARGET_ID);
-			return new PatrFileImpl(fs, startTime, bm, tid);
-		} finally {
-			bm.ungetBlock(block);
-		}
-	}
-	
-	@Override
-	public PatrFolder getTargetFolder() throws IOException, IllegalStateException {
-		return simpleWithLock(() -> {
-			updatePosAndBlock();
-			return executeGetTargetFolder();
-		});
-	}
-	
-	private PatrFolder executeGetTargetFolder() throws IOException {
-		if ( !isFile()) {
-			throw new IllegalStateException("this is no file link!");
-		}
-		byte[] bytes = bm.getBlock(block);
-		try {
-			long tid = byteArrToLong(bytes, pos + LINK_OFFSET_TARGET_ID);
-			return new PatrFolderImpl(fs, startTime, bm, tid);
 		} finally {
 			bm.ungetBlock(block);
 		}
@@ -92,7 +47,10 @@ public class PatrLinkImpl extends PatrFileSysElementImpl implements PatrLink {
 		}
 		PatrFileSysElementImpl nt = (PatrFileSysElementImpl) newTarget;
 		if (nt.fs != fs) {
-			throw new IllegalArgumentException("the target has aa diffrent file system!");
+			throw new IllegalArgumentException("the target has a diffrent file system!");
+		}
+		if (nt.startTime != startTime) {
+			throw new IllegalArgumentException("the target has a diffrent initilizing time (either I or the target is outdated (or both))!");
 		}
 		withLock(() -> executeSetTarget(nt));
 	}

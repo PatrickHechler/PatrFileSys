@@ -1,10 +1,9 @@
 package de.hechler.patrick.pfs.objects.bfs;
 
 import java.io.IOException;
+import java.lang.ref.WeakReference;
 
-import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
-import de.hechler.patrick.pfs.interfaces.PatrFolder;
 import de.hechler.patrick.pfs.interfaces.PatrLink;
 
 
@@ -16,26 +15,34 @@ public class BufferedLinkImpl extends BufferedFileSysElementImpl implements Patr
 	
 	@Override
 	public PatrFileSysElement getTarget() throws IOException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-	
-	@Override
-	public PatrFile getTargetFile() throws IOException, IllegalStateException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-	
-	@Override
-	public PatrFolder getTargetFolder() throws IOException, IllegalStateException {
-		// TODO Auto-generated method stub
-		return null;
+		if (buffer.target != null && !buffer.dataChanged) {
+			PatrFileSysElementBuffer buf = buffer.target.get();
+			if (buf != null) {
+				BufferedFileSysElementImpl te;
+				if (buf.me != null) {
+					te = buf.me.get();
+					if (te != null) {
+						return te;
+					}
+				}
+				te = new BufferedFileSysElementImpl(buf);
+				buf.me = new WeakReference <>(te);
+				return te;
+			}
+		}
+		PatrFileSysElement target = link().getTarget();
+		PatrFileSysElementBuffer buf = new PatrFileSysElementBuffer(buffer.fs, target);
+		BufferedFileSysElementImpl te = new BufferedFileSysElementImpl(buf);
+		buf.me = new WeakReference <>(te);
+		return te;
 	}
 	
 	@Override
 	public void setTarget(PatrFileSysElement newTarget, long lock) throws IOException, IllegalArgumentException {
-		// TODO Auto-generated method stub
-		
+		synchronized (buffer) {
+			link().setTarget(newTarget, lock);
+			buffer.target = null;
+		}
 	}
 	
 }

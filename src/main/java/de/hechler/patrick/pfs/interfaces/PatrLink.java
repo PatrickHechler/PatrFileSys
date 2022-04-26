@@ -18,6 +18,8 @@ public interface PatrLink extends PatrFileSysElement {
 	
 	/**
 	 * returns the target file of this link
+	 * <p>
+	 * if the target element is no file an {@link IllegalStateException} will be thrown.
 	 * 
 	 * @return the target file
 	 * @throws IOException
@@ -25,10 +27,13 @@ public interface PatrLink extends PatrFileSysElement {
 	 * @throws IllegalStateException
 	 *             if the target of this link is no file
 	 */
-	PatrFile getTargetFile() throws IOException, IllegalStateException;
+	@Override
+	PatrFile getFile() throws IOException, IllegalStateException;
 	
 	/**
 	 * returns the target folder of this link
+	 * <p>
+	 * if the target element is no folder an {@link IllegalStateException} will be thrown.
 	 * 
 	 * @return the target folder
 	 * @throws IOException
@@ -36,7 +41,8 @@ public interface PatrLink extends PatrFileSysElement {
 	 * @throws IllegalStateException
 	 *             if the target of this link is no file
 	 */
-	PatrFolder getTargetFolder() throws IOException, IllegalStateException;
+	@Override
+	PatrFolder getFolder() throws IOException, IllegalStateException;
 	
 	/**
 	 * sets the target of this link

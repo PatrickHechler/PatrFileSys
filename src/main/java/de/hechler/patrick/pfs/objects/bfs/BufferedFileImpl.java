@@ -145,20 +145,4 @@ public class BufferedFileImpl extends BufferedFileSysElementImpl implements Patr
 		}
 	}
 	
-	private PatrFile file() throws IOException {
-		PatrFile file = null;
-		try {
-			file = (PatrFile) buffer.element;
-		} catch (ClassCastException e) {
-			if (buffer.file != null) {
-				file = buffer.file.get();
-			}
-			if (file == null) {
-				file = buffer.element.getFile();
-			}
-			buffer.element = file;
-		}
-		return file;
-	}
-	
 }

@@ -18,13 +18,14 @@ import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
 public class BufferedFileSysElementImpl implements PatrFileSysElement {
 	
-	public static final int TYPE_NONE      = 0;
-	public static final int TYPE_FILE      = 1;
-	public static final int TYPE_FOLDER    = 2;
-	public static final int TYPE_LINK      = 4;
-	public static final int TYPE_EXE       = 8;
-	public static final int TYPE_HIDDEN    = 16;
-	public static final int TYPE_READ_ONLY = 32;
+	public static final int TYPE_NONE        = 0;
+	public static final int TYPE_FILE        = 1;
+	public static final int TYPE_FOLDER      = 2;
+	public static final int TYPE_LINK        = 4;
+	public static final int TYPE_ROOT_FOLDER = 8;
+	public static final int TYPE_EXE         = 16;
+	public static final int TYPE_HIDDEN      = 32;
+	public static final int TYPE_READ_ONLY   = 64;
 	
 	protected final PatrFileSysElementBuffer buffer;
 	
@@ -34,10 +35,31 @@ public class BufferedFileSysElementImpl implements PatrFileSysElement {
 	
 	@Override
 	public PatrFolder getParent() throws IllegalStateException, IOException {
-		if (buffer.parent == null) {
-			throw new IllegalStateException("this element has no parent!");
+		synchronized (buffer) {
+			if (buffer.parent != null) {
+				PatrFileSysElementBuffer p = buffer.parent.get();
+				if (p != null) {
+					if (p.me != null) {
+						BufferedFileSysElementImpl pe = p.me.get();
+						if (pe == null || ! (pe instanceof PatrFolder)) {
+							pe = new BufferedFolderImpl(p);
+							pe.folder();
+							p.me = new WeakReference <>(pe);
+						} else {
+							pe.folder();
+						}
+						return (PatrFolder) pe;
+					}
+				}
+			}
+			PatrFolder p = buffer.element.getParent();
+			PatrFileSysElementBuffer pbuf = new PatrFileSysElementBuffer(buffer.fs, p);
+			BufferedFolderImpl bufpf = new BufferedFolderImpl(pbuf);
+			pbuf.me = new WeakReference <>(bufpf);
+			pbuf.folder = new WeakReference <>(p);
+			buffer.parent = new WeakReference <>(pbuf);
+			return bufpf;
 		}
-		return buffer.parent;
 	}
 	
 	@Override
@@ -53,8 +75,13 @@ public class BufferedFileSysElementImpl implements PatrFileSysElement {
 		synchronized (buffer.parent) {
 			synchronized (this) {
 				buffer.element.setParent(newParent, myLock, oldParentLock, newParentLock);
-				buffer.parent.buffer.dataChanged = true;
-				buffer.parent = newP;
+				if (buffer.parent != null) {
+					PatrFileSysElementBuffer buf = buffer.parent.get();
+					if (buf != null) {
+						buf.dataChanged = true;
+					}
+				}
+				buffer.parent = new WeakReference <PatrFileSysElementBuffer>(newP.buffer);
 				newP.buffer.dataChanged = true;
 			}
 		}
@@ -65,6 +92,14 @@ public class BufferedFileSysElementImpl implements PatrFileSysElement {
 		if (this instanceof PatrFolder) {
 			return (PatrFolder) this;
 		} else {
+			if (buffer.me != null) {
+				BufferedFileSysElementImpl bufMe = buffer.me.get();
+				if (bufMe != null) {
+					if (bufMe instanceof PatrFolder) {
+						return (PatrFolder) bufMe;
+					}
+				}
+			}
 			PatrFolder folder;
 			if (buffer.folder == null || buffer.elementTypeChanged) {
 				folder = buffer.element.getFolder();
@@ -76,7 +111,9 @@ public class BufferedFileSysElementImpl implements PatrFileSysElement {
 					buffer.folder = new WeakReference <>(folder);
 				}
 			}
-			return new BufferedFolderImpl(buffer);
+			BufferedFolderImpl bufFolder = new BufferedFolderImpl(buffer);
+			buffer.me = new WeakReference <>(bufFolder);
+			return bufFolder;
 		}
 	}
 	
@@ -85,6 +122,14 @@ public class BufferedFileSysElementImpl implements PatrFileSysElement {
 		if (this instanceof PatrFile) {
 			return (PatrFile) this;
 		} else {
+			if (buffer.me != null) {
+				BufferedFileSysElementImpl bufMe = buffer.me.get();
+				if (bufMe != null) {
+					if (bufMe instanceof PatrFile) {
+						return (PatrFile) bufMe;
+					}
+				}
+			}
 			PatrFile file;
 			if (buffer.link == null || buffer.elementTypeChanged) {
 				file = buffer.element.getFile();
@@ -96,7 +141,9 @@ public class BufferedFileSysElementImpl implements PatrFileSysElement {
 					buffer.file = new WeakReference <>(file);
 				}
 			}
-			return new BufferedFileImpl(buffer);
+			BufferedFileImpl bufFile = new BufferedFileImpl(buffer);
+			buffer.me = new WeakReference <>(bufFile);
+			return bufFile;
 		}
 	}
 	
@@ -105,6 +152,14 @@ public class BufferedFileSysElementImpl implements PatrFileSysElement {
 		if (this instanceof PatrLink) {
 			return (PatrLink) this;
 		} else {
+			if (buffer.me != null) {
+				BufferedFileSysElementImpl bufMe = buffer.me.get();
+				if (bufMe != null) {
+					if (bufMe instanceof PatrLink) {
+						return (PatrLink) bufMe;
+					}
+				}
+			}
 			PatrLink link;
 			if (buffer.link == null || buffer.elementTypeChanged) {
 				link = buffer.element.getLink();
@@ -116,7 +171,9 @@ public class BufferedFileSysElementImpl implements PatrFileSysElement {
 					buffer.link = new WeakReference <>(link);
 				}
 			}
-			return new BufferedLinkImpl(buffer);
+			BufferedLinkImpl bufLink = new BufferedLinkImpl(buffer);
+			buffer.me = new WeakReference <>(bufLink);
+			return bufLink;
 		}
 	}
 	
@@ -155,7 +212,7 @@ public class BufferedFileSysElementImpl implements PatrFileSysElement {
 		return isTypeFlagSet(TYPE_READ_ONLY, buffer.metaChanged);
 	}
 	
-	private boolean isTypeFlagSet(int t, boolean changed) throws IOException {
+	protected boolean isTypeFlagSet(int t, boolean changed) throws IOException {
 		synchronized (buffer) {
 			if (buffer.type == TYPE_NONE || changed) {
 				doType();
@@ -172,6 +229,9 @@ public class BufferedFileSysElementImpl implements PatrFileSysElement {
 			}
 			if (buffer.element.isFolder()) {
 				buffer.type |= TYPE_FOLDER;
+				if (folder().isRoot()) {
+					buffer.type |= TYPE_ROOT_FOLDER;
+				}
 			}
 			if (buffer.element.isLink()) {
 				buffer.type |= TYPE_LINK;
@@ -186,6 +246,8 @@ public class BufferedFileSysElementImpl implements PatrFileSysElement {
 				buffer.type |= TYPE_READ_ONLY;
 			}
 		});
+		buffer.metaChanged = false;
+		buffer.elementTypeChanged = false;
 	}
 	
 	@Override
@@ -431,6 +493,82 @@ public class BufferedFileSysElementImpl implements PatrFileSysElement {
 		synchronized (buffer) {
 			return buffer.element.simpleWithLockBoolean(exec);
 		}
+	}
+	
+	protected PatrFolder folder() throws IOException {
+		PatrFolder folder;
+		if (buffer.folder != null) {
+			folder = buffer.folder.get();
+			if (folder != null) {
+				return folder;
+			}
+		}
+		if (buffer.element instanceof PatrFolder) {
+			folder = (PatrFolder) buffer.element;
+		} else {
+			if (buffer.folder != null) {
+				folder = buffer.folder.get();
+				if (folder != null) {
+					return folder;
+				}
+			}
+			folder = buffer.element.getFolder();
+			if ( !isLink()) {
+				buffer.element = folder;
+			}
+		}
+		buffer.folder = new WeakReference <>(folder);
+		return folder;
+	}
+	
+	protected PatrFile file() throws IOException {
+		PatrFile file;
+		if (buffer.file != null) {
+			file = buffer.file.get();
+			if (file != null) {
+				return file;
+			}
+		}
+		if (buffer.element instanceof PatrFile) {
+			file = (PatrFile) buffer.element;
+		} else {
+			if (buffer.file != null) {
+				file = buffer.file.get();
+				if (file != null) {
+					return file;
+				}
+			}
+			file = buffer.element.getFile();
+			if ( !isLink()) {
+				buffer.element = file;
+			}
+		}
+		buffer.file = new WeakReference <>(file);
+		return file;
+	}
+	
+	protected PatrLink link() throws IOException {
+		PatrLink link;
+		if (buffer.link != null) {
+			link = buffer.link.get();
+			if (link != null) {
+				return link;
+			}
+		}
+		if (buffer.element instanceof PatrLink) {
+			link = (PatrLink) buffer.element;
+		} else {
+			if (buffer.link != null) {
+				link = buffer.link.get();
+				if (link != null) {
+					return link;
+				}
+			}
+			link = buffer.element.getLink();
+			buffer.element = link;
+		}
+		buffer.link = new WeakReference <>(link);
+		return link;
 	}
 	
 }

@@ -89,8 +89,10 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	 * returns <code>true</code> if this folder is the root folder of the file system.
 	 * 
 	 * @return <code>true</code> if this folder is the root folder of the file system.
+	 * @throws IOException
+	 *             if an IO error occurs
 	 */
-	boolean isRoot();
+	boolean isRoot() throws IOException;
 	
 	/**
 	 * returns the number of elements in this folder

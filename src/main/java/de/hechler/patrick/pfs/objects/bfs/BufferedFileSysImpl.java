@@ -10,6 +10,7 @@ public class BufferedFileSysImpl implements PatrFileSystem {
 	
 	private final PatrFileSystem fs;
 	private final PatrFolder     root;
+	private boolean              blockDataChanged;
 	private long                 totalSpace;
 	private long                 blockCount;
 	private int                  blockSize;
@@ -27,6 +28,10 @@ public class BufferedFileSysImpl implements PatrFileSystem {
 	
 	public void change() {
 		changed = true;
+	}
+	
+	public void changeBlockData() {
+		blockDataChanged = true;
 	}
 	
 	@Override
@@ -48,13 +53,14 @@ public class BufferedFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public void format() throws IOException {
-		totalSpace = 0L;
 		fs.format();
+		blockDataChanged = true;
+		changed = true;
 	}
 	
 	@Override
 	public long totalSpace() throws IOException {
-		if (totalSpace == 0L) {
+		if (totalSpace == 0L || blockDataChanged) {
 			totalSpace = fs.totalSpace();
 		}
 		return totalSpace;
@@ -78,7 +84,7 @@ public class BufferedFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public int blockSize() throws IOException {
-		if (blockSize == 0) {
+		if (blockSize == 0 || blockDataChanged) {
 			blockSize = fs.blockSize();
 		}
 		return blockSize;
@@ -86,7 +92,7 @@ public class BufferedFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public long blockCount() throws IOException {
-		if (blockCount == 0L) {
+		if (blockCount == 0L || blockDataChanged) {
 			blockCount = fs.blockCount();
 		}
 		return blockCount;

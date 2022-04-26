@@ -46,10 +46,13 @@ public interface PatrFileSysElement {
 		throws IllegalStateException, IllegalArgumentException, NullPointerException, IOException, ElementLockedException;
 	
 	/**
-	 * returns the folder representing this element<br>
+	 * returns the folder representing this element
+	 * <p>
+	 * if this element is a link and the target represents a folder the target folder will be returned
+	 * <p>
 	 * if this element is no folder an {@link IllegalStateException} will be thrown.
 	 * 
-	 * @return the folder representing this element
+	 * @return the folder representing this element or the target folder of this link
 	 * @throws IllegalStateException
 	 *             if this element is no folder
 	 * @throws IOException
@@ -59,10 +62,13 @@ public interface PatrFileSysElement {
 	PatrFolder getFolder() throws IllegalStateException, IOException;
 	
 	/**
-	 * returns the file representing this element<br>
+	 * returns the file representing this element
+	 * <p>
+	 * if this element is a link and the target represents a file the target file will be returned
+	 * <p>
 	 * if this element is no file an {@link IllegalStateException} will be thrown.
 	 * 
-	 * @return the file representing this element
+	 * @return the file representing this element or the target file of this link
 	 * @throws IllegalStateException
 	 *             if this element is no file
 	 * @throws IOException

@@ -26,6 +26,7 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_ELEMENT_L
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_ELEMENT_COUNT;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_FOLDER_ELEMENTS;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LINK_LENGTH;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LINK_OFFSET_TARGET_ID;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_DATA;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_DELETE_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_LOCK;
@@ -168,15 +169,21 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		});
 	}
 	
-	private PatrFolder executeGetFolder() throws IOException {
-		if (0 == (ELEMENT_FLAG_FOLDER & executeGetFlags())) {
+	protected PatrFolder executeGetFolder() throws IOException {
+		int flags = executeGetFlags();
+		if (0 == (ELEMENT_FLAG_FOLDER & flags)) {
 			throw new IllegalStateException("this is no folder!");
 		}
 		if (this instanceof PatrFolder) {
 			return (PatrFolder) this;
-		}
-		if (0 != (ELEMENT_FLAG_LINK & executeGetFlags())) {
-			return executeGetLink().getTargetFolder();
+		} else if (0 != (ELEMENT_FLAG_LINK & flags)) {
+			byte[] bytes = bm.getBlock(block);
+			try {
+				long tid = byteArrToLong(bytes, pos + LINK_OFFSET_TARGET_ID);
+				return new PatrFolderImpl(fs, startTime, bm, tid);
+			} finally {
+				bm.ungetBlock(block);
+			}
 		}
 		return new PatrFolderImpl(fs, startTime, bm, id);
 	}
@@ -189,15 +196,21 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		});
 	}
 	
-	private PatrFile executeGetFile() throws IOException {
-		if (0 == (ELEMENT_FLAG_FILE & executeGetFlags())) {
+	protected PatrFile executeGetFile() throws IOException {
+		int flags = executeGetFlags();
+		if (0 == (ELEMENT_FLAG_FILE & flags)) {
 			throw new IllegalStateException("this is no file!");
 		}
 		if (this instanceof PatrFile) {
 			return (PatrFile) this;
-		}
-		if (0 != (ELEMENT_FLAG_LINK & executeGetFlags())) {
-			return executeGetLink().getTargetFile();
+		} else if (0 != (ELEMENT_FLAG_LINK & flags)) {
+			byte[] bytes = bm.getBlock(block);
+			try {
+				long tid = byteArrToLong(bytes, pos + LINK_OFFSET_TARGET_ID);
+				return new PatrFileImpl(fs, startTime, bm, tid);
+			} finally {
+				bm.ungetBlock(block);
+			}
 		}
 		return new PatrFileImpl(fs, startTime, bm, id);
 	}
