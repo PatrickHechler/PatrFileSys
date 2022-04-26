@@ -23,6 +23,7 @@ public class BufferedFolderImpl extends BufferedFileSysElementImpl implements Pa
 		synchronized (buffer) {
 			PatrFolder added = folder().addFolder(name, lock);
 			buffer.dataChanged = true;
+			buffer.fs.changeSize();
 			return added;
 		}
 	}
@@ -32,6 +33,7 @@ public class BufferedFolderImpl extends BufferedFileSysElementImpl implements Pa
 		synchronized (buffer) {
 			PatrFile added = folder().addFile(name, lock);
 			buffer.dataChanged = true;
+			buffer.fs.changeSize();
 			return added;
 		}
 	}
@@ -48,6 +50,7 @@ public class BufferedFolderImpl extends BufferedFileSysElementImpl implements Pa
 		synchronized (buffer) {
 			PatrLink added = folder().addLink(name, target, lock);
 			buffer.dataChanged = true;
+			buffer.fs.changeSize();
 			return added;
 		}
 	}

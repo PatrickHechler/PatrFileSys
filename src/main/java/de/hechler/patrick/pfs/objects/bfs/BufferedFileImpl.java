@@ -59,7 +59,7 @@ public class BufferedFileImpl extends BufferedFileSysElementImpl implements Patr
 			file().removeContent(offset, length, lock);
 			buffer.value = null;
 			buffer.dataChanged = true;
-			buffer.fs.change();
+			buffer.fs.changeSize();
 		}
 	}
 	

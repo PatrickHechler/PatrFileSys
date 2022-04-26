@@ -10,11 +10,11 @@ public class BufferedFileSysImpl implements PatrFileSystem {
 	
 	private final PatrFileSystem fs;
 	private final PatrFolder     root;
-	private boolean              blockDataChanged;
+	private boolean              bigChanged;
 	private long                 totalSpace;
 	private long                 blockCount;
 	private int                  blockSize;
-	private boolean              changed;
+	private boolean              simpleChanged;
 	private long                 freeSpace;
 	private long                 usedSpace;
 	
@@ -26,12 +26,16 @@ public class BufferedFileSysImpl implements PatrFileSystem {
 	}
 	
 	
-	public void change() {
-		changed = true;
+	public void changeSize() {
+		simpleChanged = true;
+	}
+	
+	public void changeTotalSize() {
+		bigChanged = true;
 	}
 	
 	public void changeBlockData() {
-		blockDataChanged = true;
+		bigChanged = true;
 	}
 	
 	@Override
@@ -54,13 +58,13 @@ public class BufferedFileSysImpl implements PatrFileSystem {
 	@Override
 	public void format() throws IOException {
 		fs.format();
-		blockDataChanged = true;
-		changed = true;
+		bigChanged = true;
+		simpleChanged = true;
 	}
 	
 	@Override
 	public long totalSpace() throws IOException {
-		if (totalSpace == 0L || blockDataChanged) {
+		if (totalSpace == 0L || bigChanged) {
 			totalSpace = fs.totalSpace();
 		}
 		return totalSpace;
@@ -68,7 +72,7 @@ public class BufferedFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public long freeSpace() throws IOException {
-		if (freeSpace == 0L || changed) {
+		if (freeSpace == 0L || simpleChanged) {
 			freeSpace = fs.freeSpace();
 		}
 		return freeSpace;
@@ -76,7 +80,7 @@ public class BufferedFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public long usedSpace() throws IOException {
-		if (usedSpace == 0L || changed) {
+		if (usedSpace == 0L || simpleChanged) {
 			usedSpace = fs.usedSpace();
 		}
 		return usedSpace;
@@ -84,7 +88,7 @@ public class BufferedFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public int blockSize() throws IOException {
-		if (blockSize == 0 || blockDataChanged) {
+		if (blockSize == 0 || bigChanged) {
 			blockSize = fs.blockSize();
 		}
 		return blockSize;
@@ -92,7 +96,7 @@ public class BufferedFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public long blockCount() throws IOException {
-		if (blockCount == 0L || blockDataChanged) {
+		if (blockCount == 0L || bigChanged) {
 			blockCount = fs.blockCount();
 		}
 		return blockCount;
