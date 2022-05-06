@@ -1593,7 +1593,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	/**
 	 * locks the block manager
 	 * <p>
-	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method also loads the blocks from the arrays.<br>
+	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable)} this method also loads the blocks from the arrays.<br>
 	 * So this is the better method, when the blocks are often loaded and unloaded
 	 * 
 	 * 
@@ -1626,10 +1626,10 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	/**
 	 * locks the block manager
 	 * <p>
-	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method also loads the blocks from the arrays.<br>
+	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable)} this method also loads the blocks from the arrays.<br>
 	 * So this is the better method, when the blocks are often loaded and unloaded
 	 * <p>
-	 * in addition to {@link #withLock(BlockManager, ThrowingRunnable, int, long...)} this method returns the value returned by {@code exec}
+	 * in addition to {@link #withLock(BlockManager, ThrowingRunnable)} this method returns the value returned by {@code exec}
 	 * 
 	 * @param <T>
 	 *            the exception type which can be thrown from {@code exec}
@@ -1663,10 +1663,10 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * locks the array of blocks from {@code i} to to len<br>
 	 * the blocks need to be sorted in ascending order. (multiple same blocks are permitted)
 	 * <p>
-	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method also loads the blocks from the arrays.<br>
+	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable)} this method also loads the blocks from the arrays.<br>
 	 * So this is the better method, when the blocks are often loaded and unloaded
 	 * <p>
-	 * in addition to {@link #withLock(BlockManager, ThrowingRunnable, int, long...)} this method returns the value returned by {@code exec}
+	 * in addition to {@link #withLock(BlockManager, ThrowingRunnable)} this method returns the value returned by {@code exec}
 	 * 
 	 * @param <T>
 	 *            the exception type which can be thrown from {@code exec}
@@ -1703,7 +1703,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method also loads the blocks from the arrays.<br>
 	 * So this is the better method, when the blocks are often loaded and unloaded
 	 * <p>
-	 * in addition to {@link #withLock(BlockManager, ThrowingRunnable, int, long...)} this method returns the value returned by {@code exec}
+	 * in addition to {@link #withLock(BlockManager, ThrowingRunnable)} this method returns the value returned by {@code exec}
 	 * 
 	 * @param <T>
 	 *            the exception type which can be thrown from {@code exec}
@@ -1740,7 +1740,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * in addition to {@link #simpleWithLock(BlockManager, ThrowingRunnable, int, long...)} this method also loads the blocks from the arrays.<br>
 	 * So this is the better method, when the blocks are often loaded and unloaded
 	 * <p>
-	 * in addition to {@link #withLock(BlockManager, ThrowingRunnable, int, long...)} this method returns the value returned by {@code exec}
+	 * in addition to {@link #withLock(BlockManager, ThrowingRunnable)} this method returns the value returned by {@code exec}
 	 * 
 	 * @param <T>
 	 *            the exception type which can be thrown from {@code exec}
