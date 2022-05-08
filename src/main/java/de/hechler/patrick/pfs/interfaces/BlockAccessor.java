@@ -94,6 +94,9 @@ public interface BlockAccessor extends Closeable {
 	 * creates a sub {@link BlockAccessor} of this {@link BlockAccessor}.
 	 * <p>
 	 * the {@link #close()} operation will also close this {@link BlockAccessor}.
+	 * <p>
+	 * the {@link #saveAll()} and {@link #discardAll()} methods will work only for the sub accessor.<br>
+	 * even if this accessor may support both methods the sub accessor may not support {@link #saveAll()}.<br>
 	 * 
 	 * @param offset the offset of the sub accessor
 	 * @param length the length of the sub accessors range
@@ -103,9 +106,9 @@ public interface BlockAccessor extends Closeable {
 
 	public static abstract class SubAccessor implements BlockAccessor {
 
-		private final BlockAccessor outer;
-		private final long offset;
-		private final long length;
+		protected final BlockAccessor outer;
+		protected final long offset;
+		protected final long length;
 
 		public SubAccessor(BlockAccessor outer, long offset, long length) {
 			this.outer = outer;

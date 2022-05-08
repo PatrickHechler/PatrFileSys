@@ -97,11 +97,41 @@ public class CheckedBlockAccessor implements BlockAccessor {
 			loaded.clear();
 		}
 	}
-	
+
 	public void checkOpen() throws ClosedChannelException {
 		if (closed) {
 			throw new ClosedChannelException();
 		}
+	}
+
+	@Override
+	public BlockAccessor subAccessor(long offset, long length) {
+		return new SubAccessor(this, offset, length) {
+			
+			@Override
+			public void saveAll() throws UnsupportedOperationException, IOException, ClosedChannelException {
+				synchronized (loaded) {
+					for (Entry<Long, byte[]> entry : new HashMap<>(loaded).entrySet()) {
+						long key = entry.getKey();
+						if (key < super.offset) continue;
+						else if (key >= super.offset + super.length) continue;
+						else super.outer.saveBlock(entry.getValue(), key);
+					}
+				}
+			}
+			
+			@Override
+			public void discardAll() throws ClosedChannelException {
+				synchronized (loaded) {
+					for (Entry<Long, byte[]> entry : new HashMap<>(loaded).entrySet()) {
+						long key = entry.getKey();
+						if (key < super.offset) continue;
+						else if (key >= super.offset + super.length) continue;
+						else super.outer.discardBlock(key);
+					}
+				}
+			}
+		};
 	}
 	
 }
