@@ -1,6 +1,15 @@
 package de.hechler.patrick.pfs.objects;
 
-import static de.hechler.patrick.zeugs.check.Assert.*;
+import static de.hechler.patrick.zeugs.check.Assert.assertArrayEquals;
+import static de.hechler.patrick.zeugs.check.Assert.assertEquals;
+import static de.hechler.patrick.zeugs.check.Assert.assertFalse;
+import static de.hechler.patrick.zeugs.check.Assert.assertGreatherEqual;
+import static de.hechler.patrick.zeugs.check.Assert.assertLowerEqual;
+import static de.hechler.patrick.zeugs.check.Assert.assertNotEquals;
+import static de.hechler.patrick.zeugs.check.Assert.assertNull;
+import static de.hechler.patrick.zeugs.check.Assert.assertThrows;
+import static de.hechler.patrick.zeugs.check.Assert.assertTrue;
+import static de.hechler.patrick.zeugs.check.Assert.fail;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,14 +36,12 @@ import de.hechler.patrick.pfs.objects.ba.BlockManagerImpl;
 import de.hechler.patrick.pfs.objects.ba.FileBlockAccessor;
 import de.hechler.patrick.pfs.objects.fs.PatrFileSysImpl;
 import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
-import de.hechler.patrick.zeugs.check.Assert;
 import de.hechler.patrick.zeugs.check.anotations.Check;
 import de.hechler.patrick.zeugs.check.anotations.CheckClass;
 import de.hechler.patrick.zeugs.check.anotations.End;
 import de.hechler.patrick.zeugs.check.anotations.MethodParam;
 import de.hechler.patrick.zeugs.check.anotations.ParamCreater;
 import de.hechler.patrick.zeugs.check.anotations.Start;
-import de.hechler.patrick.zeugs.check.interfaces.ThrowingRunnable;
 
 @CheckClass(disabled = PatrFileSysImplChecker.DISABLE_OTHERS)
 class PatrFileSysImplDiffrentBlocksChecker extends PatrFileSysImplChecker {
@@ -113,7 +120,7 @@ public class PatrFileSysImplChecker {
 		FileBlockAccessor ba = new FileBlockAccessor(startSize, raf);
 		BlockManagerImpl bm = new BlockManagerImpl(ba);
 		fs = new PatrFileSysImpl(bm);
-		fs.format();
+		fs.format((long) startSize, startSize);
 		System.out.println("start check: " + getClass().getSimpleName() + ": " + met.getName());
 	}
 	

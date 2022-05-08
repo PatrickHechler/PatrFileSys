@@ -102,7 +102,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	/**
 	 * name of the basic attribute view for the last access time
 	 * <p>
-	 * the corresponding value must be of type {@link FileTime}
+	 * the corresponding PFSFileSystemProviderImplvalue must be of type {@link FileTime}
 	 */
 	public static final String BASIC_ATTRIBUTE_LAST_ACCESS_TIME = "lastAccessTime";
 	/**
@@ -151,7 +151,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	/**
 	 * the attribute key for the block count.<br>
 	 * 
-	 * the value must be of the type {@link Long}
+	 * the value must be of the tyPFSFileSystemProviderImplpe {@link Long}
 	 * <p>
 	 * if a block manager is specified and format is set to <code>false</code>
 	 * (default value), this value must be the block count value saved from the
@@ -178,7 +178,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	 * <p>
 	 * if no value is set, but {@link #NEW_FILE_SYS_ENV_ATTR_FILE_SYS} is set, the
 	 * file system will be interpreted as already formatted.<br>
-	 * if a value is set, but {@link #NEW_FILE_SYS_ENV_ATTR_FILE_SYS} is not set,
+	 * if a value is set, but {@link #NPFSFileSystemProviderImplEW_FILE_SYS_ENV_ATTR_FILE_SYS} is not set,
 	 * the value will be ignored.
 	 * <p>
 	 * the value must be of type {@link Boolean}.<br>
@@ -190,7 +190,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 
 	private final Map<URI, PFSFileSystemImpl> created;
 	private PFSFileSystemImpl def;
-	private Set<PatrFile> delOnClose;manager
+	private Set<PatrFile> delOnClose;
 
 	public PFSFileSystemProviderImpl() {
 		this(new PatrFileSysImpl(new ByteArrayArrayBlockAccessor(1 << 10, 1 << 10)));
@@ -199,7 +199,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	public PFSFileSystemProviderImpl(PatrFileSystem fs) {
 		this.def = new PFSFileSystemImpl(this, fs);
 		this.created = new HashMap <>();
-		this.delOnClose = new HashSet <>();manager
+		this.delOnClose = new HashSet <>();
 		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
 			synchronized (delOnClose) {
 				IOException err = null;
@@ -236,6 +236,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	}
 
 	@Override
+	@SuppressWarnings("resource")
 	public PFSFileSystemImpl newFileSystem(URI uri, Map<String, ?> env)
 			throws IOException, FileSystemAlreadyExistsException, IllegalArgumentException {
 		synchronized (this.created) {

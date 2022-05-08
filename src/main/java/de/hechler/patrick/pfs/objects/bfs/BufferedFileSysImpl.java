@@ -56,8 +56,8 @@ public class BufferedFileSysImpl implements PatrFileSystem {
 	}
 	
 	@Override
-	public void format() throws IOException {
-		fs.format();
+	public void format(long blockCount, int blockSize) throws IOException {
+		fs.format(blockCount, blockSize);
 		bigChanged = true;
 		simpleChanged = true;
 	}
@@ -101,5 +101,5 @@ public class BufferedFileSysImpl implements PatrFileSystem {
 		}
 		return blockCount;
 	}
-	
+
 }

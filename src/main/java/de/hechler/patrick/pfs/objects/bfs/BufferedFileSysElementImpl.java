@@ -358,6 +358,30 @@ public class BufferedFileSysElementImpl implements PatrFileSysElement {
 	}
 	
 	@Override
+	public void setCreateTime(long createTime, long lock) throws IOException, ElementLockedException {
+		synchronized (buffer) {
+			buffer.element.setCreateTime(createTime, lock);
+			buffer.createTime = 0L;
+		}
+	}
+
+	@Override
+	public void setLastModTime(long lastModTime, long lock) throws IOException, ElementLockedException {
+		synchronized (buffer) {
+			buffer.element.setLastModTime(lastModTime, lock);
+			buffer.dataModTime = 0L;
+		}
+	}
+
+	@Override
+	public void setLastMetaModTime(long lastMetaModTime, long lock) throws IOException, ElementLockedException {
+		synchronized (buffer) {
+			buffer.element.setLastMetaModTime(lastMetaModTime, lock);
+			buffer.metaModTime = 0L;
+		}
+	}
+	
+	@Override
 	public void ensureAccess(long lock, long forbiddenBits, boolean readOnlyForbidden) throws IOException, ElementLockedException, IllegalArgumentException {
 		synchronized (buffer) {
 			buffer.element.ensureAccess(lock, forbiddenBits, readOnlyForbidden);
@@ -570,5 +594,5 @@ public class BufferedFileSysElementImpl implements PatrFileSysElement {
 		buffer.link = new WeakReference <>(link);
 		return link;
 	}
-	
+
 }
