@@ -11,11 +11,29 @@ public class PatrFileSysConstants {
 	public static final int FB_TABLE_FILE_POS_OFFSET   = FB_TABLE_FILE_BLOCK_OFFSET + 8;
 	public static final int FB_START_ROOT_POS          = FB_TABLE_FILE_POS_OFFSET + 4;
 	
+	/**
+	 * flag used to indicate that the element is a folder
+	 */
 	public static final int ELEMENT_FLAG_FOLDER     = 0x00000001;
+	/**
+	 * flag used to indicate that the element is a file
+	 */
 	public static final int ELEMENT_FLAG_FILE       = 0x00000002;
+	/**
+	 * flag used to indicate that the element is a link
+	 */
 	public static final int ELEMENT_FLAG_LINK       = 0x00000004;
+	/**
+	 * flag used to indicate that the element is read only
+	 */
 	public static final int ELEMENT_FLAG_READ_ONLY  = 0x00000008;
+	/**
+	 * flag used to indicate that the element is executable
+	 */
 	public static final int ELEMENT_FLAG_EXECUTABLE = 0x00000010;
+	/**
+	 * flag used to indicate that the element is hidden
+	 */
 	public static final int ELEMENT_FLAG_HIDDEN     = 0x00000020;
 	
 	public static final int ELEMENT_OFFSET_FLAGS              = 0;
@@ -46,8 +64,8 @@ public class PatrFileSysConstants {
 	public static final int ELEMENT_TABLE_OFFSET_POS     = ELEMENT_TABLE_OFFSET_BLOCK + 8;
 	public static final int ELEMENT_TABLE_ELEMENT_LENGTH = ELEMENT_TABLE_OFFSET_POS + 4;
 	
-	public static final int  OWNER_NO_OWNER = 0;
-	public static final long LOCK_NO_LOCK   = 0L;
+	public static final int  NO_OWNER = 0;
+	public static final long NO_LOCK   = 0L;
 	
 	public static final int  LOCK_USER_SHIFT                  = 0;
 	public static final long LOCK_USER_MAX_VALUE              = 0x00000000FFFFFFFFL;
@@ -69,6 +87,7 @@ public class PatrFileSysConstants {
 	public static final long NO_TIME = -1L;
 	
 	
+	public static final long MIN_NORMAL_ID         = 0L;
 	public static final long NO_ID                 = -1L;
 	public static final long ROOT_FOLDER_ID        = -2L;
 	public static final long ELEMENT_TABLE_FILE_ID = -3L;

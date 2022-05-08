@@ -3,6 +3,7 @@ package de.hechler.patrick.pfs.interfaces;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
 
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.util.Iterator;
 
 import de.hechler.patrick.pfs.exception.ElementLockedException;
@@ -25,8 +26,10 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	 *             if {@code name} is <code>null</code>
 	 * @throws ElementLockedException
 	 *             when this element is locked with a different lock
+	 * @throws FileAlreadyExistsException
+	 * 	           if a element with the same name already exists
 	 */
-	PatrFolder addFolder(String name, long lock) throws IOException, NullPointerException, ElementLockedException;
+	PatrFolder addFolder(String name, long lock) throws IOException, NullPointerException, ElementLockedException, FileAlreadyExistsException;
 	
 	/**
 	 * adds an empty file with the specified name to this folder
@@ -44,8 +47,10 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	 *             if <code>name</code> is <code>null</code>
 	 * @throws ElementLockedException
 	 *             when this element is locked with a different lock
+	 * @throws FileAlreadyExistsException
+	 * 	           if a element with the same name already exists
 	 */
-	PatrFile addFile(String name, long lock) throws IOException, NullPointerException, ElementLockedException;
+	PatrFile addFile(String name, long lock) throws IOException, NullPointerException, ElementLockedException, FileAlreadyExistsException;
 	
 	/**
 	 * adds an link with the given target and the specified name to this folder
@@ -63,8 +68,10 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	 *             if <code>name</code> or <code>target</code> is <code>null</code>
 	 * @throws ElementLockedException
 	 *             when this element is locked with a different lock
+	 * @throws FileAlreadyExistsException
+	 * 	           if a element with the same name already exists
 	 */
-	PatrLink addLink(String name, PatrFileSysElement target, long lock) throws IOException, NullPointerException, ElementLockedException;
+	PatrLink addLink(String name, PatrFileSysElement target, long lock) throws IOException, NullPointerException, ElementLockedException, FileAlreadyExistsException;
 	
 	/**
 	 * deletes this Folder.<br>
@@ -81,7 +88,6 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	 *             if an IO error occurs
 	 * @throws ElementLockedException
 	 *             when this element is locked with a different lock
-	 * @see #canDeleteWithContent()
 	 */
 	void delete(long myLock, long parentLock) throws IllegalStateException, IOException, ElementLockedException;
 	
@@ -126,11 +132,11 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	
 	@Override
 	default Iterator <PatrFileSysElement> iterator() {
-		return iterator(e -> PatrFileSysConstants.LOCK_NO_LOCK);
+		return iterator(e -> PatrFileSysConstants.NO_LOCK);
 	}
 	
 	default Iterator <PatrFileSysElement> iterator(long lock) {
-		return iterator(e -> e == this ? lock : PatrFileSysConstants.LOCK_NO_LOCK);
+		return iterator(e -> e == this ? lock : PatrFileSysConstants.NO_LOCK);
 	}
 	
 	default Iterator <PatrFileSysElement> iterator(LockSupplier lock) {
@@ -153,7 +159,7 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 	default void deepDelete(long myLock, long parentLock) throws IOException, ElementLockedException {
 		withLock(() -> {
 			PatrFolder p = getParent();
-			deepDelete(e -> this == e ? myLock : p.equals(e) ? parentLock : PatrFileSysConstants.LOCK_NO_LOCK);
+			deepDelete(e -> this == e ? myLock : p.equals(e) ? parentLock : PatrFileSysConstants.NO_LOCK);
 		});
 	}
 	

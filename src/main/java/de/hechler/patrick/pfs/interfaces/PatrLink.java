@@ -50,7 +50,7 @@ public interface PatrLink extends PatrFileSysElement {
 	 * @param newTarget
 	 *            the new target of this link
 	 * @param lock
-	 *            the lock of this link or {@link PatrFileSysConstants#LOCK_NO_LOCK} if there is no lock
+	 *            the lock of this link or {@link PatrFileSysConstants#NO_LOCK} if there is no lock
 	 * @throws IOException
 	 *             if an IO error occurs
 	 * @throws IllegalArgumentException

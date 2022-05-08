@@ -340,7 +340,7 @@ public class PFSSeekableByteChannelImpl implements SeekableByteChannel, Gatherin
 				return;
 			}
 			onClose.consumer(file);
-			if (lock != PatrFileSysConstants.LOCK_NO_LOCK) {
+			if (lock != PatrFileSysConstants.NO_LOCK) {
 				file.removeLock(lock);
 			}
 			pos = -1L;

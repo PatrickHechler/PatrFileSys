@@ -33,10 +33,12 @@ public interface PatrFileSystem extends Closeable {
 	 * formats this file system.<br>
 	 * after this operation this file system will be empty.
 	 * 
+	 * @param blockCount the number of blocks usable by this file system
+	 * @param blockSize the size of each block used by this file system
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	void format() throws IOException;
+	void format(long blockCount, int blockSize) throws IOException;
 	
 	/**
 	 * returns the total space in this file system measured in bytes <br>

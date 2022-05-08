@@ -1,23 +1,16 @@
 package de.hechler.patrick.pfs.objects;
 
-import static de.hechler.patrick.zeugs.check.Assert.assertArrayEquals;
-import static de.hechler.patrick.zeugs.check.Assert.assertEquals;
-import static de.hechler.patrick.zeugs.check.Assert.assertFalse;
-import static de.hechler.patrick.zeugs.check.Assert.assertGreatherEqual;
-import static de.hechler.patrick.zeugs.check.Assert.assertLowerEqual;
-import static de.hechler.patrick.zeugs.check.Assert.assertNotEquals;
-import static de.hechler.patrick.zeugs.check.Assert.assertNull;
-import static de.hechler.patrick.zeugs.check.Assert.assertTrue;
-import static de.hechler.patrick.zeugs.check.Assert.fail;
+import static de.hechler.patrick.zeugs.check.Assert.*;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -34,12 +27,14 @@ import de.hechler.patrick.pfs.objects.ba.BlockManagerImpl;
 import de.hechler.patrick.pfs.objects.ba.FileBlockAccessor;
 import de.hechler.patrick.pfs.objects.fs.PatrFileSysImpl;
 import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
+import de.hechler.patrick.zeugs.check.Assert;
 import de.hechler.patrick.zeugs.check.anotations.Check;
 import de.hechler.patrick.zeugs.check.anotations.CheckClass;
 import de.hechler.patrick.zeugs.check.anotations.End;
 import de.hechler.patrick.zeugs.check.anotations.MethodParam;
 import de.hechler.patrick.zeugs.check.anotations.ParamCreater;
 import de.hechler.patrick.zeugs.check.anotations.Start;
+import de.hechler.patrick.zeugs.check.interfaces.ThrowingRunnable;
 
 @CheckClass(disabled = PatrFileSysImplChecker.DISABLE_OTHERS)
 class PatrFileSysImplDiffrentBlocksChecker extends PatrFileSysImplChecker {
@@ -89,13 +84,13 @@ class PatrFileSysImplNormalBlocksChecker extends PatrFileSysImplChecker {
 public class PatrFileSysImplChecker {
 	
 	public static final boolean DISABLE_OTHERS      = true;
-	public static final boolean DISABLE_NORMAL      = true;
-	public static final boolean DISABLE_ME          = false;
+	public static final boolean DISABLE_NORMAL      = false;
+	public static final boolean DISABLE_ME          = true;
 	public static final boolean DISABLE_SLOW        = true;
 	public static final boolean DELETE_AFTER_CHECKS = true;
 	
-	private static final long NO_LOCK  = PatrFileSysConstants.LOCK_NO_LOCK;
-	private static final long NO_OWNER = PatrFileSysConstants.OWNER_NO_OWNER;
+	private static final long NO_LOCK  = PatrFileSysConstants.NO_LOCK;
+	private static final long NO_OWNER = PatrFileSysConstants.NO_OWNER;
 	private static final long NO_TIME  = PatrFileSysConstants.NO_TIME;
 	
 	private PatrFileSystem fs;
@@ -311,12 +306,6 @@ public class PatrFileSysImplChecker {
 					}
 					assertEquals(Files.size(path), f.length());
 				}
-				if ( !Files.isWritable(path)) {
-					e.setReadOnly(true, NO_LOCK);
-				}
-				if (Files.isHidden(path)) {
-					e.setHidden(true, NO_LOCK);
-				}
 			}
 		}
 	}
@@ -339,14 +328,6 @@ public class PatrFileSysImplChecker {
 						out.write(buffer, 0, cpy);
 					}
 				}
-			}
-			File file = path.toFile();
-			file.setExecutable(child.isExecutable());
-			file.setWritable( !child.isReadOnly());
-			if (child.isHidden()) {
-				Files.setAttribute(path, "dos:hidden", true);
-			} else {
-				Files.setAttribute(path, "dos:hidden", false);
 			}
 		}
 	}
@@ -389,5 +370,27 @@ public class PatrFileSysImplChecker {
 		}
 	}
 	
+	@Check
+	void checkLock() throws IOException {
+		fail("not yet done!");
+	}
+	
+	@Check
+	void checkMeta() throws IOException {
+		PatrFolder root = fs.getRoot();
+		assertFalse(root.isExecutable());
+		assertFalse(root.isFile());
+		assertTrue(root.isFolder());
+		assertFalse(root.isHidden());
+		assertFalse(root.isLink());
+		assertFalse(root.isReadOnly());
+		assertFalse(root.isRoot());
+		root.addFile("file name", NO_LOCK);
+		root.setReadOnly(true, NO_LOCK);
+		assertThrows(AccessDeniedException.class, () -> root.addFile("other file", NO_LOCK));
+		root.setReadOnly(false, NO_LOCK);
+		root.addFile("other file", NO_LOCK);
+		assertThrows(FileAlreadyExistsException.class, () -> root.addFile("other file", NO_LOCK));
+	}
 	
 }

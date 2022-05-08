@@ -214,10 +214,10 @@ public interface PatrFileSysElement {
 	 *            the current lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
 	 * @param owner
 	 *            the new owner of this element
-	 * @throws ElementLockedException
-	 *             when this element is locked with a different lock
 	 * @throws IOException
 	 *             if an IO error occurs
+	 * @throws ElementLockedException
+	 *             when this element is locked with a different lock
 	 */
 	void setOwner(int owner, long lock) throws IOException, ElementLockedException;
 	
@@ -230,6 +230,17 @@ public interface PatrFileSysElement {
 	 */
 	long getCreateTime() throws IOException;
 	
+	/**
+	 * sets the create time of this element
+	 * 
+	 * @param createTime the time when this element should be marked as created
+	 * @param lock the current lock or {@link PatrFileSysConstants#NO_LOCK}
+	 * @throws IOException
+	 *             if an IO error occurs
+	 * @throws ElementLockedException
+	 *             when this element is locked with a different lock
+	 */
+	void setCreateTime(long createTime, long lock) throws IOException, ElementLockedException;
 	
 	/**
 	 * returns the last time this element was modified
@@ -241,6 +252,18 @@ public interface PatrFileSysElement {
 	long getLastModTime() throws IOException;
 	
 	/**
+	 * sets the last modify time of this element
+	 * 
+	 * @param lastModTime the time when this element should be marked as last modified
+	 * @param lock the current lock or {@link PatrFileSysConstants#NO_LOCK}
+	 * @throws IOException
+	 *             if an IO error occurs
+	 * @throws ElementLockedException
+	 *             when this element is locked with a different lock
+	 */
+	void setLastModTime(long lastModTime, long lock) throws IOException, ElementLockedException;
+	
+	/**
 	 * returns the last time this element or it's metadata was modified
 	 * 
 	 * @return the last time this element or it's metadata was modified
@@ -248,6 +271,18 @@ public interface PatrFileSysElement {
 	 *             if an IO error occurs
 	 */
 	long getLastMetaModTime() throws IOException;
+	
+	/**
+	 * sets the last meta modify time of this element
+	 * 
+	 * @param lastMetaModTime the time when this element should be marked as last modified on meta data
+	 * @param lock the current lock or {@link PatrFileSysConstants#NO_LOCK}
+	 * @throws IOException
+	 *             if an IO error occurs
+	 * @throws ElementLockedException
+	 *             when this element is locked with a different lock
+	 */
+	void setLastMetaModTime(long lastMetaModTime, long lock) throws IOException, ElementLockedException;
 	
 	/**
 	 * returns the data of the current lock <code>(current_lock & {@link PatrFileSysConstants#LOCK_DATA})</code>
@@ -269,13 +304,13 @@ public interface PatrFileSysElement {
 	
 	/**
 	 * ensures, that this element can be accessed with the given lock.<br>
-	 * if {@code lock} is {@link PatrFileSysConstants#LOCK_NO_LOCK} it ensures that <code>(current_lock & forbiddenBits)</code> is {@code 0}.<br>
+	 * if {@code lock} is {@link PatrFileSysConstants#NO_LOCK} it ensures that <code>(current_lock & forbiddenBits)</code> is {@code 0}.<br>
 	 * if {@code readOnlyForbidden} is <code>true</code> and the {@link #isReadOnly()} flag is set an {@link ElementLockedException} will be thrown.
 	 * 
 	 * @param lock
-	 *            the lock or {@link PatrFileSysConstants#LOCK_NO_LOCK}
+	 *            the lock or {@link PatrFileSysConstants#NO_LOCK}
 	 * @param forbiddenBits
-	 *            the forbidden bits if {@code lock} is {@link PatrFileSysConstants#LOCK_NO_LOCK}
+	 *            the forbidden bits if {@code lock} is {@link PatrFileSysConstants#NO_LOCK}
 	 * @param readOnlyForbidden
 	 *            <code>true</code> if also the read only flag should be checked.
 	 * @throws IOException
@@ -288,9 +323,9 @@ public interface PatrFileSysElement {
 	void ensureAccess(long lock, long forbiddenBits, boolean readOnlyForbidden) throws IOException, ElementLockedException, IllegalArgumentException;
 	
 	/**
-	 * removes the lock from this element if the given lock is equal to the lock of this element of if the given lock is {@link PatrFileSysConstants#LOCK_NO_LOCK}
+	 * removes the lock from this element if the given lock is equal to the lock of this element of if the given lock is {@link PatrFileSysConstants#NO_LOCK}
 	 * <p>
-	 * the always remove with {@link PatrFileSysConstants#LOCK_NO_LOCK} function of this method should only be used with great care
+	 * the always remove with {@link PatrFileSysConstants#NO_LOCK} function of this method should only be used with great care
 	 * 
 	 * @param lock
 	 *            the lock to remove
@@ -306,7 +341,7 @@ public interface PatrFileSysElement {
 	 * this operation will throw an {@link IllegalStateException} if this element is already non-shared locked or if a non shared lock is requested.<br>
 	 * this operation will also throw an {@link IllegalStateException} if this element is shared locked with different lock-data
 	 * <p>
-	 * if {@code lock} is {@link PatrFileSysConstants#LOCK_NO_LOCK} an {@link IllegalArgumentException} will be thrown.
+	 * if {@code lock} is {@link PatrFileSysConstants#NO_LOCK} an {@link IllegalArgumentException} will be thrown.
 	 * <p>
 	 * the lock data with wich this element should be locked. when this is no shared lock it contains also the user
 	 * 
@@ -318,13 +353,13 @@ public interface PatrFileSysElement {
 	 * @throws ElementLockedException
 	 *             when this element is locked with a different lock
 	 * @throws IllegalArgumentException
-	 *             if {@code lock} is {@link PatrFileSysConstants#LOCK_NO_LOCK}
+	 *             if {@code lock} is {@link PatrFileSysConstants#NO_LOCK}
 	 */
 	long lock(long lock) throws IOException, IllegalStateException, ElementLockedException;
 	
 	/**
 	 * deletes this element from the file system.<br>
-	 * this operation may fail, if this element is not empty.
+	 * this operation will fail, if this element is not empty, but a folder.
 	 * 
 	 * 
 	 * @param myLock

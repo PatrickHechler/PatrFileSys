@@ -23,7 +23,7 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_EL
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_FOLDER_ELEMENTS;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LINK_LENGTH;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LINK_OFFSET_TARGET_ID;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_LOCK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_READ_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_WRITE_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ROOT_FOLDER_ID;
@@ -31,6 +31,7 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ROOT_FOLDER_ID;
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.util.Objects;
 
 import de.hechler.patrick.pfs.exception.ElementLockedException;
@@ -40,6 +41,10 @@ import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
 import de.hechler.patrick.pfs.interfaces.PatrLink;
+import de.hechler.patrick.pfs.objects.LongInt;
+import de.hechler.patrick.pfs.objects.jfs.PFSFileSystemImpl;
+import de.hechler.patrick.pfs.objects.jfs.PFSFileSystemProviderImpl;
+import de.hechler.patrick.pfs.objects.jfs.PFSPathImpl;
 
 
 public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder {
@@ -51,13 +56,13 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	@Override
 	public PatrFolder addFolder(String name, long lock) throws IOException, NullPointerException, ElementLockedException {
 		Objects.requireNonNull(name, "null names are not permitted!");
-		return simpleWithLock(() -> (PatrFolder) addElement(name, true, null, lock));
+		return simpleWithLock(() -> (PatrFolder) executeAddElement(name, true, null, lock));
 	}
 	
 	@Override
 	public PatrFile addFile(String name, long lock) throws IOException, NullPointerException, ElementLockedException {
 		Objects.requireNonNull(name, "null names are not permitted!");
-		return simpleWithLock(() -> (PatrFile) addElement(name, false, null, lock));
+		return simpleWithLock(() -> (PatrFile) executeAddElement(name, false, null, lock));
 	}
 	
 	@Override
@@ -68,11 +73,12 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 			throw new IllegalArgumentException("the tareget is of an unknown class: " + target.getClass().getName() + "");
 		}
 		PatrFileSysElementImpl t = (PatrFileSysElementImpl) target;
-		return simpleWithLock(() -> (PatrLink) addElement(name, target.isFolder(), t, lock));
+		return simpleWithLock(() -> (PatrLink) executeAddElement(name, target.isFolder(), t, lock));
 	}
 	
-	private PatrFileSysElement addElement(String name, boolean isFolder, PatrFileSysElementImpl target, long lock) throws NullPointerException, IOException, ElementLockedException {
+	private PatrFileSysElement executeAddElement(String name, boolean isFolder, PatrFileSysElementImpl target, long lock) throws NullPointerException, IOException, ElementLockedException {
 		updatePosAndBlock();
+		byte[] childNameBytes = name.getBytes(StandardCharsets.UTF_16);
 		final long oldBlock = block;
 		byte[] bytes = bm.getBlock(oldBlock);
 		try {
@@ -83,13 +89,33 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 			final int oldElementCount = getElementCount(),
 				oldSize = oldElementCount * FOLDER_ELEMENT_LENGTH + FOLDER_OFFSET_FOLDER_ELEMENTS,
 				newSize = oldSize + FOLDER_ELEMENT_LENGTH;
+			for (int i = 0, off = pos + FOLDER_OFFSET_FOLDER_ELEMENTS; i < oldElementCount; i ++, off += FOLDER_ELEMENT_LENGTH) {
+				long ocid = byteArrToLong(bytes, off);
+				LongInt oc = fs.getBlockAndPos(ocid);
+				byte[] ocbytes = bm.getBlock(oc.l);
+				try {
+					for (int ii = 0; ; ii += 2) {
+						if (ii >= childNameBytes.length) {
+							if (ocbytes[oc.i + ii] == 0 && ocbytes[oc.i + ii + 1] == 0) {
+								String fullName = PFSFileSystemProviderImpl.buildName(this) + '/' + name;
+								throw new FileAlreadyExistsException(fullName, null,
+										"there is already an element with the given name (name='" + name + "', fullName='" + fullName + "')!");
+							}
+						}
+						if (ocbytes[oc.i + ii] != childNameBytes[ii] || ocbytes[oc.i + ii + 1] != childNameBytes[ii + 1]) {
+							break;
+						}
+					}
+				} finally {
+					bm.ungetBlock(oc.l);
+				}
+			}
 			resize(oldSize, newSize);
 			bytes = bm.getBlock(block);
 			try {
 				int childPos = -1, childNamePos,
-					childLen = target == null ? isFolder ? FOLDER_OFFSET_FOLDER_ELEMENTS : FILE_OFFSET_FILE_DATA_TABLE : LINK_LENGTH;
+					childLen = target != null ? LINK_LENGTH : (isFolder ? FOLDER_OFFSET_FOLDER_ELEMENTS : FILE_OFFSET_FILE_DATA_TABLE);
 				long childBlock = block;
-				byte[] childNameBytes = name.getBytes(StandardCharsets.UTF_16);
 				try {
 					childPos = allocate(childBlock, childLen);
 					childNamePos = allocate(childBlock, childNameBytes.length + 2);
@@ -159,7 +185,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_LAST_META_MOD_TIME, time);
 			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_LAST_MOD_TIME, time);
 			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_LOCK_TIME, -1);
-			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_LOCK_VALUE, LOCK_NO_LOCK);
+			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_LOCK_VALUE, NO_LOCK);
 			intToByteArr(cbytes, childPos + ELEMENT_OFFSET_NAME, childNamePos);
 			intToByteArr(cbytes, childPos + ELEMENT_OFFSET_OWNER, owner);
 			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_PARENT_ID, parentID);

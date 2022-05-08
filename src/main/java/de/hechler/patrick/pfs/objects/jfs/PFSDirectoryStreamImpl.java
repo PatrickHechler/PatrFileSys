@@ -1,6 +1,6 @@
 package de.hechler.patrick.pfs.objects.jfs;
 
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_LOCK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_LOCK;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -34,7 +34,7 @@ public class PFSDirectoryStreamImpl implements DirectoryStream <Path> {
 	
 	@Override
 	public void close() throws IOException {
-		if (lock != LOCK_NO_LOCK) {
+		if (lock != NO_LOCK) {
 			folder.removeLock(lock);
 		}
 	}
@@ -102,9 +102,9 @@ public class PFSDirectoryStreamImpl implements DirectoryStream <Path> {
 			try {
 				PatrFileSysElement child = folder.getElement(lastindex, lock);
 				if (child.isFile()) {
-					child.getFile().delete(LOCK_NO_LOCK, lock);
+					child.getFile().delete(NO_LOCK, lock);
 				} else {
-					child.getFolder().delete(LOCK_NO_LOCK, lock);
+					child.getFolder().delete(NO_LOCK, lock);
 				}
 				lastindex = -1;
 				index -- ;
