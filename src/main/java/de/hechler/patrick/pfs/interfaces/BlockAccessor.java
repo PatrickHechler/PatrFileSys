@@ -103,11 +103,12 @@ public interface BlockAccessor extends Closeable {
 
 	public static abstract class SubAccessor implements BlockAccessor {
 
-		protected BlockAccessor outer;
-		protected long offset;
-		protected long length;
+		private final BlockAccessor outer;
+		private final long offset;
+		private final long length;
 
 		public SubAccessor(BlockAccessor outer, long offset, long length) {
+			this.outer = outer;
 			this.offset = offset;
 			this.length = length;
 		}
