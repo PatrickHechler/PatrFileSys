@@ -669,9 +669,13 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 			int oldlen = getNameByteCount();
 			int np = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
 			byte[] namebytes = name.getBytes(CHARSET);
-			int nameLen = namebytes.length == 0 ? 0 : namebytes.length + 2;
+			int nameLen = namebytes.length == 0 ? 0 : (namebytes.length + 2);
 			try {
-				np = reallocate(oldblock, np, oldlen, nameLen, false);
+				if (np == -1) {
+					np = allocate(bm, oldblock, nameLen);
+				} else {
+					np = reallocate(oldblock, np, oldlen, nameLen, false);
+				}
 			} catch (OutOfSpaceException e) {
 				int myLen = myLength();
 				relocate(myLen, myLen, nameLen);
@@ -690,6 +694,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 					bytes[np + namebytes.length] = 0;
 					bytes[np + namebytes.length + 1] = 0;
 				}
+				intToByteArr(bytes, pos + ELEMENT_OFFSET_NAME, np);
 				executeModify(true);
 			} finally {
 				bm.setBlock(block);
@@ -710,9 +715,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	private String executeGetName() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
-			int len = getNameByteCount();
-			int np = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
-			return new String(bytes, np, len - 2, CHARSET);
+			int namePos = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
+			if (namePos == -1) {
+				return "";
+			}
+			int byteCount = getNameByteCount();
+			return new String(bytes, namePos, byteCount - 2, CHARSET);
 		} finally {
 			bm.ungetBlock(block);
 		}
@@ -1192,8 +1200,8 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	protected int reallocate(long block, int pos, int oldLen, int newLen, boolean copy)
 		throws OutOfSpaceException, IOException {
 		byte[] bytes = bm.getBlock(block);
-		if (newLen < 0 || oldLen < 0 || pos < 0) {
-			throw new IllegalArgumentException("len is smaller than zero! (newLen=" + newLen + ", odLen=" + oldLen + ")");
+		if (newLen < 0 || oldLen <= 0 || pos < 0) {
+			throw new IllegalArgumentException("{newLen=" + newLen + ", odLen=" + oldLen + " pos=" + pos + "}!");
 		}
 		try {
 			int tablestart = byteArrToInt(bytes, bytes.length - 4), entrycount = (bytes.length - 4 - tablestart) / 8,
