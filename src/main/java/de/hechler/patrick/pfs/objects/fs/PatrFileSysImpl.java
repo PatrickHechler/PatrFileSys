@@ -7,15 +7,6 @@ import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToInt;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.intToByteArr;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FOLDER;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_CREATE_TIME;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_FLAGS;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_ID;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LAST_MOD_TIME;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LOCK_VALUE;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_NAME;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_OWNER;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_PARENT_ID;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_TABLE_ELEMENT_LENGTH;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_TABLE_FILE_ID;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_TABLE_OFFSET_BLOCK;
@@ -29,20 +20,20 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_TABLE_FILE_BL
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_TABLE_FILE_POS_OFFSET;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_DATA_TABLE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_ELEMENT_LENGTH;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_ELEMENT_COUNT;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_FOLDER_ELEMENTS;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_ID;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_OWNER;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ROOT_FOLDER_ID;
 
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
 import java.util.Arrays;
+import java.util.Random;
 
 import de.hechler.patrick.pfs.exception.OutOfSpaceException;
 import de.hechler.patrick.pfs.interfaces.BlockAccessor;
 import de.hechler.patrick.pfs.interfaces.BlockManager;
+import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
 import de.hechler.patrick.pfs.interfaces.PatrFileSystem;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
@@ -50,46 +41,52 @@ import de.hechler.patrick.pfs.objects.LongInt;
 import de.hechler.patrick.pfs.objects.ba.BlockManagerImpl;
 
 public class PatrFileSysImpl implements PatrFileSystem {
-
-	private final BlockManager bm;
-	private volatile long startTime;
-	private PatrFileImpl blockTable;
-	private PatrFolder root;
-
+	
+	public final Random       rnd;
+	public final BlockManager bm;
+	private volatile long     startTime;
+	private PatrFile          blockTable;
+	private PatrFolder        root;
+	
 	public PatrFileSysImpl(BlockAccessor ba) {
-		this(new BlockManagerImpl(ba));
+		this(new Random(), new BlockManagerImpl(ba));
 	}
-
+	
 	public PatrFileSysImpl(BlockManager bm) {
+		this(new Random(), bm);
+	}
+	
+	public PatrFileSysImpl(Random rnd, BlockAccessor ba) {
+		this(rnd, new BlockManagerImpl(ba));
+	}
+	
+	public PatrFileSysImpl(Random rnd, BlockManager bm) {
+		this.rnd = rnd;
 		this.bm = bm;
 		this.startTime = System.currentTimeMillis();
-		this.blockTable = new PatrElementTableFileImpl(this, startTime, bm, ELEMENT_TABLE_FILE_ID);
+		this.blockTable = new PatrFileImpl(this, startTime, bm, ELEMENT_TABLE_FILE_ID);
 		this.root = new PatrFolderImpl(this, startTime, bm, ROOT_FOLDER_ID);
 	}
-
-	public BlockManager getBlockManager() {
-		return bm;
-	}
-
+	
 	public long getStartTime() {
 		return startTime;
 	}
-
+	
 	@Override
 	public PatrFolder getRoot() throws IOException {
 		return root;
 	}
-
+	
 	@Override
 	public PatrFileSysElement fromID(Object id) throws IOException, IllegalArgumentException, NullPointerException {
 		return simpleWithLock(bm, () -> executeFromID(id));
 	}
-
+	
 	private PatrFileSysElement executeFromID(Object id) throws IllegalAccessError {
 		if (id == null) {
 			throw new NullPointerException("id is null");
 		}
-		if (!(id instanceof PatrID)) {
+		if ( ! (id instanceof PatrID)) {
 			throw new IllegalAccessError("the given id is invalid (class: '" + id.getClass() + "' tos: '" + id + "')");
 		}
 		PatrID pid = (PatrID) id;
@@ -98,21 +95,21 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		}
 		return new PatrFileSysElementImpl(this, pid.startTime, pid.fs.bm, pid.id);
 	}
-
+	
 	@Override
 	public void close() throws IOException {
 		bm.close();
 	}
-
+	
 	public void format(long blockCount) throws IOException {
 		format(blockCount, bm.blockSize());
 	}
-
+	
 	@Override
 	public void format(long blockCount, int blockSize) throws IOException {
 		simpleWithLock(bm, () -> executeFormat(blockCount, blockSize));
 	}
-
+	
 	public void executeFormat(long blockCount, int blockSize) throws IOException {
 		if (blockSize != bm.blockSize()) {
 			throw new IllegalStateException("the given size does not match the size of my block manager!");
@@ -127,6 +124,8 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		}
 		bytes = bm.getBlock(0L);
 		try {
+			root = new PatrFolderImpl(this, startTime, bm, ROOT_FOLDER_ID);
+			blockTable = new PatrFileImpl(this, startTime, bm, ELEMENT_TABLE_FILE_ID);
 			assert blockSize == bytes.length;
 			initBlock(bytes, FB_START_ROOT_POS + FOLDER_OFFSET_FOLDER_ELEMENTS + FOLDER_ELEMENT_LENGTH);
 			longToByteArr(bytes, FB_BLOCK_COUNT_OFFSET, blockCount);
@@ -134,32 +133,22 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			longToByteArr(bytes, FB_ROOT_BLOCK_OFFSET, 0L);
 			intToByteArr(bytes, FB_ROOT_POS_OFFSET, FB_START_ROOT_POS);
 			startTime = System.currentTimeMillis();
-			blockTable = new PatrElementTableFileImpl(this, startTime, bm, ELEMENT_TABLE_FILE_ID);
-			root = new PatrFolderImpl(this, startTime, bm, ROOT_FOLDER_ID);
-			longToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_CREATE_TIME, startTime);
-			intToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_FLAGS, ELEMENT_FLAG_FOLDER);
-			longToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_LAST_MOD_TIME, startTime);
-			longToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_LOCK_VALUE, NO_LOCK);
-			intToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_NAME, -1);
-			intToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_OWNER, NO_OWNER);
-			longToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_ID, ROOT_FOLDER_ID);
-			longToByteArr(bytes, FB_START_ROOT_POS + ELEMENT_OFFSET_PARENT_ID, NO_ID);
-			intToByteArr(bytes, FB_START_ROOT_POS + FOLDER_OFFSET_ELEMENT_COUNT, 0);
-			int blockTablePos = blockTable.allocate(0L, FILE_OFFSET_FILE_DATA_TABLE);
-			PatrFolderImpl.initChild(bm, NO_ID, NO_OWNER, false, blockTablePos, -1, 0L, null, null);
+			PatrFolderImpl.initChild(bm, NO_ID, ROOT_FOLDER_ID, true, FB_START_ROOT_POS, -1, 0L, null, null);
+			int blockTablePos = PatrFileSysElementImpl.allocate(bm, 0L, FILE_OFFSET_FILE_DATA_TABLE);
+			PatrFolderImpl.initChild(bm, NO_ID, ELEMENT_TABLE_FILE_ID, false, blockTablePos, -1, 0L, null, null);
 			longToByteArr(bytes, FB_TABLE_FILE_BLOCK_OFFSET, 0L);
-			longToByteArr(bytes, FB_TABLE_FILE_POS_OFFSET, blockTablePos);
+			intToByteArr(bytes, FB_TABLE_FILE_POS_OFFSET, blockTablePos);
 		} finally {
 			bm.setBlock(0L);
 		}
 	}
-
+	
 	public static void setBlockAndPos(PatrID id, long block, int pos) throws IOException {
 		simpleWithLock(id.fs.bm, () -> executeSetBlockAndPos(id, block, pos));
 	}
-
+	
 	private static void executeSetBlockAndPos(PatrID id, long block, int pos)
-			throws IOException, IllegalArgumentException {
+		throws IOException, IllegalArgumentException {
 		if (id.id == ROOT_FOLDER_ID) {
 			byte[] bytes = id.fs.bm.getBlock(0L);
 			try {
@@ -185,18 +174,18 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			throw new IllegalArgumentException("illegal id; id=" + id.id);
 		}
 	}
-
+	
 	public static LongInt getBlockAndPos(PatrID id) throws IllegalArgumentException, IOException {
 		if (id.startTime != id.fs.startTime) {
 			throw new IllegalStateException("the start time of the given id is invalid!");
 		}
 		return simpleWithLock(id.fs.bm, () -> id.fs.executeGetBlockAndPos(id.id));
 	}
-
+	
 	public LongInt getBlockAndPos(long id) throws IllegalArgumentException, IOException {
 		return simpleWithLock(bm, () -> executeGetBlockAndPos(id));
 	}
-
+	
 	private LongInt executeGetBlockAndPos(long id) throws IllegalArgumentException, IOException {
 		long block;
 		int pos;
@@ -226,15 +215,15 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		}
 		return new LongInt(block, pos);
 	}
-
+	
 	public static long generateID(PatrID parent, long block, int pos) throws IOException {
 		return simpleWithLockLong(parent.fs.bm, () -> executeGenerateID(parent, block, pos));
 	}
-
+	
 	private static long executeGenerateID(PatrID parent, long block, int pos) throws IOException {
 		long len = parent.fs.blockTable.length(), off = 0L;
 		byte[] bytes = new byte[Math.max(ELEMENT_TABLE_ELEMENT_LENGTH,
-				(int) Math.min(1 << 16 - 1 << 16 % ELEMENT_TABLE_ELEMENT_LENGTH, len))];
+			(int) Math.min(1 << 16 - 1 << 16 % ELEMENT_TABLE_ELEMENT_LENGTH, len))];
 		for (int cpy; off < len; off += cpy) {
 			cpy = (int) Math.min(len - off, bytes.length);
 			parent.fs.blockTable.getContent(bytes, off, 0, cpy, NO_LOCK);
@@ -252,7 +241,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		parent.fs.blockTable.appendContent(bytes, 0, ELEMENT_TABLE_ELEMENT_LENGTH, NO_LOCK);
 		return len;
 	}
-
+	
 	public static void removeID(PatrID id) throws IOException {
 		long len = id.fs.blockTable.length();
 		if (id.startTime != id.fs.startTime) {
@@ -264,12 +253,12 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		Arrays.fill(bytes, (byte) -1);
 		id.fs.blockTable.setContent(bytes, id.id, 0, ELEMENT_TABLE_ELEMENT_LENGTH, NO_LOCK);
 	}
-
+	
 	@Override
 	public long totalSpace() throws IOException {
 		return simpleWithLockLong(bm, this::executeTotalSpace);
 	}
-
+	
 	private long executeTotalSpace() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(0L);
 		try {
@@ -287,12 +276,12 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			bm.ungetBlock(0L);
 		}
 	}
-
+	
 	@Override
 	public long freeSpace() throws IOException {
 		return simpleWithLockLong(bm, this::executeFreeSpace);
 	}
-
+	
 	private long executeFreeSpace() throws IOException {
 		long space = executeTotalSpace();
 		if (space == Long.MAX_VALUE) {
@@ -302,12 +291,12 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			return space;
 		}
 	}
-
+	
 	@Override
 	public long usedSpace() throws IOException {
 		return simpleWithLockLong(bm, this::executeUsedSpace);
 	}
-
+	
 	private long executeUsedSpace() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(1L);
 		try {
@@ -315,7 +304,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			int end = byteArrToInt(bytes, bytes.length - 4);
 			for (int off = 0; off < end; off += 16) {
 				long startBlock = byteArrToLong(bytes, off), endBlock = byteArrToLong(bytes, off + 8),
-						count = endBlock - startBlock;
+					count = endBlock - startBlock;
 				used += count * (long) bytes.length;
 				if (used < 0L) {
 					return Long.MAX_VALUE;
@@ -326,20 +315,20 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			bm.ungetBlock(1L);
 		}
 	}
-
+	
 	@Override
 	public int blockSize() throws IOException {
 		return simpleWithLockInt(bm, this::executeBlockSize);
 	}
-
+	
 	public static int blockSize(byte[] bytes, int off) throws IOException {
 		return byteArrToInt(bytes, FB_BLOCK_LENGTH_OFFSET - off);
 	}
-
+	
 	public static long blockCount(byte[] bytes, int off) throws IOException {
 		return byteArrToLong(bytes, FB_BLOCK_COUNT_OFFSET - off);
 	}
-
+	
 	private int executeBlockSize() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(0L);
 		try {
@@ -348,12 +337,12 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			bm.ungetBlock(0L);
 		}
 	}
-
+	
 	@Override
 	public long blockCount() throws IOException {
 		return simpleWithLockLong(bm, this::executeBlockCount);
 	}
-
+	
 	private long executeBlockCount() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(0L);
 		try {
@@ -362,12 +351,12 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			bm.ungetBlock(0L);
 		}
 	}
-
+	
 	public static void initBlock(byte[] bytes, int startLen) throws OutOfSpaceException {
 		final int blockSize = bytes.length, tableStart = blockSize - 20;
 		if (tableStart < startLen) {
 			throw new OutOfSpaceException("the block is not big enugh! blockSize=" + blockSize + " startLen=" + startLen
-					+ " (note, that the table also needs " + (blockSize - tableStart) + " bytes)");
+				+ " (note, that the table also needs " + (blockSize - tableStart) + " bytes)");
 		}
 		intToByteArr(bytes, blockSize - 4, tableStart);
 		intToByteArr(bytes, tableStart + 12, blockSize);
@@ -375,5 +364,5 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		intToByteArr(bytes, tableStart + 4, startLen);
 		intToByteArr(bytes, tableStart, 0);
 	}
-
+	
 }

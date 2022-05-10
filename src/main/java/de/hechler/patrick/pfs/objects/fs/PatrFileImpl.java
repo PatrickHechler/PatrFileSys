@@ -2,12 +2,11 @@ package de.hechler.patrick.pfs.objects.fs;
 
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LAST_META_MOD_TIME;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_DATA_TABLE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_HASH_CODE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_HASH_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_LENGTH;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_DELETE_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_READ_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_WRITE_ALLOWED_LOCK;
 
@@ -100,7 +99,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			updatePosAndBlock();
 			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			executeRemove(offset, length);
-			modify(false);
+			executeModify(false);
 		});
 	}
 	
@@ -242,7 +241,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			updatePosAndBlock();
 			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			executeWrite(bytes, offset, bytesOff, length);
-			modify(false);
+			executeModify(false);
 		});
 	}
 	
@@ -301,7 +300,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			updatePosAndBlock();
 			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			executeAppend(bytes, bytesOff, length, lock);
-			modify(false);
+			executeModify(false);
 		});
 	}
 	
@@ -401,7 +400,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			byte[] result = new byte[32];
 			long lastMod = byteArrToLong(bytes, pos + ELEMENT_OFFSET_LAST_META_MOD_TIME);
 			long hashTIme = byteArrToLong(bytes, pos + FILE_OFFSET_FILE_HASH_TIME);
-			if (hashTIme <= lastMod) {
+			if (hashTIme == NO_TIME || hashTIme <= lastMod) {
 				longToByteArr(bytes, pos + FILE_OFFSET_FILE_HASH_TIME, System.currentTimeMillis());
 				result = executeCalcHAshCode();
 				assert result.length == 32;
@@ -450,23 +449,6 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		} finally {
 			bm.ungetBlock(block);
 		}
-	}
-	
-	@Override
-	public void delete(long myLock, long paretnLock) throws IOException {
-		withLock(() -> {
-			updatePosAndBlock();
-			executeDelete(myLock, paretnLock);
-		});
-	}
-	
-	private void executeDelete(long myLock, long parentLock) throws ClosedChannelException, IOException, ElementLockedException, OutOfSpaceException {
-		ensureAccess(myLock, LOCK_NO_DELETE_ALLOWED_LOCK, true);
-		getParent().ensureAccess(parentLock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
-		executeRemove(0, length());
-		deleteFromParent();
-		reallocate(block, pos, FILE_OFFSET_FILE_DATA_TABLE, 0, false);
-		getParent().modify(false);
 	}
 	
 	private int iterateBlockTable(ThrowingBooleanFunction <AllocatedBlocks, ? extends IOException> func) throws IOException {

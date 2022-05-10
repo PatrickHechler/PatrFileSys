@@ -60,19 +60,4 @@ public class FileBlockAccessor implements BlockAccessor {
 	@Override
 	public void discardAll() throws ClosedChannelException {}
 
-	@Override
-	public BlockAccessor subAccessor(long offset, long length) {
-		return new SubAccessor(this, offset, length) {
-			
-			@Override
-			public void saveAll() throws UnsupportedOperationException, IOException, ClosedChannelException {
-				throw new UnsupportedOperationException("save all is not supported");
-			}
-			
-			@Override
-			public void discardAll() throws ClosedChannelException {
-			}
-		};
-	}
-	
 }

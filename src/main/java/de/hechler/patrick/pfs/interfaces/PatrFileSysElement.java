@@ -199,29 +199,6 @@ public interface PatrFileSysElement {
 	void setReadOnly(boolean isReadOnly, long lock) throws IOException, ElementLockedException;
 	
 	/**
-	 * returns the owner of this element
-	 * 
-	 * @return the owner of this element
-	 * @throws IOException
-	 *             if an IO error occurs
-	 */
-	int getOwner() throws IOException;
-	
-	/**
-	 * sets the owner of this element
-	 * 
-	 * @param lock
-	 *            the current lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
-	 * @param owner
-	 *            the new owner of this element
-	 * @throws IOException
-	 *             if an IO error occurs
-	 * @throws ElementLockedException
-	 *             when this element is locked with a different lock
-	 */
-	void setOwner(int owner, long lock) throws IOException, ElementLockedException;
-	
-	/**
 	 * returns the time of the creation of this element
 	 * 
 	 * @return the time this element was created
@@ -233,8 +210,10 @@ public interface PatrFileSysElement {
 	/**
 	 * sets the create time of this element
 	 * 
-	 * @param createTime the time when this element should be marked as created
-	 * @param lock the current lock or {@link PatrFileSysConstants#NO_LOCK}
+	 * @param createTime
+	 *            the time when this element should be marked as created
+	 * @param lock
+	 *            the current lock or {@link PatrFileSysConstants#NO_LOCK}
 	 * @throws IOException
 	 *             if an IO error occurs
 	 * @throws ElementLockedException
@@ -254,8 +233,10 @@ public interface PatrFileSysElement {
 	/**
 	 * sets the last modify time of this element
 	 * 
-	 * @param lastModTime the time when this element should be marked as last modified
-	 * @param lock the current lock or {@link PatrFileSysConstants#NO_LOCK}
+	 * @param lastModTime
+	 *            the time when this element should be marked as last modified
+	 * @param lock
+	 *            the current lock or {@link PatrFileSysConstants#NO_LOCK}
 	 * @throws IOException
 	 *             if an IO error occurs
 	 * @throws ElementLockedException
@@ -275,8 +256,10 @@ public interface PatrFileSysElement {
 	/**
 	 * sets the last meta modify time of this element
 	 * 
-	 * @param lastMetaModTime the time when this element should be marked as last modified on meta data
-	 * @param lock the current lock or {@link PatrFileSysConstants#NO_LOCK}
+	 * @param lastMetaModTime
+	 *            the time when this element should be marked as last modified on meta data
+	 * @param lock
+	 *            the current lock or {@link PatrFileSysConstants#NO_LOCK}
 	 * @throws IOException
 	 *             if an IO error occurs
 	 * @throws ElementLockedException
@@ -376,8 +359,7 @@ public interface PatrFileSysElement {
 	void delete(long myLock, long parentLock) throws IOException, IllegalStateException, ElementLockedException;
 	
 	/**
-	 * sets the name of this element<br>
-	 * if this element is the root element an {@link IllegalStateException} will be thrown
+	 * sets the name of this element
 	 * 
 	 * @param name
 	 *            the new name
@@ -387,12 +369,10 @@ public interface PatrFileSysElement {
 	 *             when this element is locked with a different lock
 	 * @throws NullPointerException
 	 *             if the new name is null
-	 * @throws IllegalStateException
-	 *             if this is the root element
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	void setName(String name, long lock) throws IOException, NullPointerException, IllegalStateException, ElementLockedException;
+	void setName(String name, long lock) throws IOException, NullPointerException, ElementLockedException;
 	
 	/**
 	 * returns the name of this element.<br>
@@ -549,5 +529,25 @@ public interface PatrFileSysElement {
 	 *             when the given throwing runnable throws the given exception
 	 */
 	<T extends Throwable> boolean simpleWithLockBoolean(ThrowingBooleanSupplier <T> exec) throws T;
+	
+	/**
+	 * this method is equal to
+	 * 
+	 * <code>
+	 * <pre>
+	 * if (obj instanceof {@link PatrFileSysElement}) {
+	 *     return equal(({@link PatrFileSysElement}) obj);
+	 * } else {
+	 *     return false;
+	 * }
+	 * </pre>
+	 * </code>
+	 * 
+	 * @see #equals(PatrFileSysElement)
+	 */
+	@Override
+	boolean equals(Object obj);
+	
+	boolean equals(PatrFileSysElement other);
 	
 }

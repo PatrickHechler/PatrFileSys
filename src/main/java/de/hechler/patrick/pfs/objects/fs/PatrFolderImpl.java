@@ -4,8 +4,10 @@ import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToInt;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.intToByteArr;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.CHARSET;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FILE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FOLDER;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FOLDER_SORTED;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_LINK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_CREATE_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_FLAGS;
@@ -14,24 +16,27 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_L
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LOCK_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LOCK_VALUE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_NAME;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_OWNER;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_PARENT_ID;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_DATA_TABLE;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_HASH_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_LENGTH;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_ELEMENT_LENGTH;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_ELEMENT_COUNT;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_FOLDER_ELEMENTS;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LINK_LENGTH;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LINK_OFFSET_TARGET_ID;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_READ_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_WRITE_ALLOWED_LOCK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_LOCK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ROOT_FOLDER_ID;
 
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.NoSuchFileException;
+import java.util.Arrays;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 
 import de.hechler.patrick.pfs.exception.ElementLockedException;
@@ -42,9 +47,7 @@ import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
 import de.hechler.patrick.pfs.interfaces.PatrLink;
 import de.hechler.patrick.pfs.objects.LongInt;
-import de.hechler.patrick.pfs.objects.jfs.PFSFileSystemImpl;
 import de.hechler.patrick.pfs.objects.jfs.PFSFileSystemProviderImpl;
-import de.hechler.patrick.pfs.objects.jfs.PFSPathImpl;
 
 
 public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder {
@@ -78,7 +81,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	
 	private PatrFileSysElement executeAddElement(String name, boolean isFolder, PatrFileSysElementImpl target, long lock) throws NullPointerException, IOException, ElementLockedException {
 		updatePosAndBlock();
-		byte[] childNameBytes = name.getBytes(StandardCharsets.UTF_16);
+		byte[] childNameBytes = name.getBytes(CHARSET);
 		final long oldBlock = block;
 		byte[] bytes = bm.getBlock(oldBlock);
 		try {
@@ -89,20 +92,23 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 			final int oldElementCount = getElementCount(),
 				oldSize = oldElementCount * FOLDER_ELEMENT_LENGTH + FOLDER_OFFSET_FOLDER_ELEMENTS,
 				newSize = oldSize + FOLDER_ELEMENT_LENGTH;
-			for (int i = 0, off = pos + FOLDER_OFFSET_FOLDER_ELEMENTS; i < oldElementCount; i ++, off += FOLDER_ELEMENT_LENGTH) {
+			for (int i = 0, off = pos + FOLDER_OFFSET_FOLDER_ELEMENTS; i < oldElementCount; i ++ , off += FOLDER_ELEMENT_LENGTH) {
 				long ocid = byteArrToLong(bytes, off);
 				LongInt oc = fs.getBlockAndPos(ocid);
 				byte[] ocbytes = bm.getBlock(oc.l);
 				try {
-					for (int ii = 0; ; ii += 2) {
+					for (int ii = 0;; ii += 2) {
+						int ocnamepos = byteArrToInt(ocbytes, oc.i + ELEMENT_OFFSET_NAME);
 						if (ii >= childNameBytes.length) {
-							if (ocbytes[oc.i + ii] == 0 && ocbytes[oc.i + ii + 1] == 0) {
+							if (ocbytes[ocnamepos + ii] == 0 && ocbytes[ocnamepos + ii + 1] == 0) {
 								String fullName = PFSFileSystemProviderImpl.buildName(this) + '/' + name;
-								throw new FileAlreadyExistsException(fullName, null,
-										"there is already an element with the given name (name='" + name + "', fullName='" + fullName + "')!");
+								throw new FileAlreadyExistsException(fullName, null, "there is already an element with the given name (name='" + name + "', fullName='" + fullName + "')!");
 							}
 						}
-						if (ocbytes[oc.i + ii] != childNameBytes[ii] || ocbytes[oc.i + ii + 1] != childNameBytes[ii + 1]) {
+						if (ocbytes[ocnamepos + ii] != childNameBytes[ii]) {
+							break;
+						}
+						if (ocbytes[ocnamepos + ii + 1] != childNameBytes[ii + 1]) {
 							break;
 						}
 					}
@@ -117,13 +123,18 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 					childLen = target != null ? LINK_LENGTH : (isFolder ? FOLDER_OFFSET_FOLDER_ELEMENTS : FILE_OFFSET_FILE_DATA_TABLE);
 				long childBlock = block;
 				try {
-					childPos = allocate(childBlock, childLen);
-					childNamePos = allocate(childBlock, childNameBytes.length + 2);
+					childPos = allocate(bm, childBlock, childLen);
+					childNamePos = allocate(bm, childBlock, childNameBytes.length + 2);
 				} catch (OutOfSpaceException e) {
 					if (childPos != -1) {
 						reallocate(childBlock, childPos, childLen, 0, false);
 					}
-					childBlock = allocateOneBlock();
+					try {
+						childBlock = allocateOneBlock();
+					} catch (OutOfSpaceException e1) {
+						resize(newSize, oldSize);
+						throw e1;
+					}
 					byte[] cbytes = bm.getBlock(childBlock);
 					try {
 						PatrFileSysImpl.initBlock(cbytes, childLen + childNameBytes.length + 2);
@@ -133,17 +144,16 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 						bm.setBlock(childBlock);
 					}
 				}
-				initChild(bm, id, getOwner(), isFolder, childPos, childNamePos, childBlock, childNameBytes, target);
 				final long cid = PatrFileSysImpl.generateID(this, childBlock, childPos);
+				initChild(bm, id, cid, isFolder, childPos, childNamePos, childBlock, childNameBytes, target);
 				int childOff = pos + FOLDER_OFFSET_FOLDER_ELEMENTS + oldElementCount * FOLDER_ELEMENT_LENGTH;
 				longToByteArr(bytes, childOff, cid);
 				intToByteArr(bytes, pos + FOLDER_OFFSET_ELEMENT_COUNT, oldElementCount + 1);
-				modify(false);
-				if (isFolder) {
-					return new PatrFolderImpl(fs, startTime, bm, cid);
-				} else {
-					return new PatrFileImpl(fs, startTime, bm, cid);
-				}
+				executeFlag(0, ELEMENT_FLAG_FOLDER_SORTED);
+				executeModify(false);
+				if (target != null) return new PatrLinkImpl(fs, startTime, bm, cid);
+				else if (isFolder) return new PatrFolderImpl(fs, startTime, bm, cid);
+				else return new PatrFileImpl(fs, startTime, bm, cid);
 			} finally {
 				bm.setBlock(block);
 			}
@@ -176,30 +186,30 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	public static void initChild(BlockManager bm, long parentID, int owner, boolean isFolder, int childPos, int childNamePos, long childBlock, byte[] childNameBytes, PatrFileSysElementImpl target) throws IOException {
-		byte[] cbytes = bm.getBlock(childBlock);
+	public static void initChild(BlockManager bm, long parentID, long childID, boolean isFolder, final int childPos, int childNamePos, long childBlock, byte[] childNameBytes, PatrFileSysElementImpl target) throws IOException {
+		byte[] bytes = bm.getBlock(childBlock);
 		try {
 			long time = System.currentTimeMillis();
-			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_CREATE_TIME, time);
-			intToByteArr(cbytes, childPos + ELEMENT_OFFSET_FLAGS, (isFolder ? ELEMENT_FLAG_FOLDER : ELEMENT_FLAG_FILE) | (target == null ? 0 : ELEMENT_FLAG_LINK));
-			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_LAST_META_MOD_TIME, time);
-			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_LAST_MOD_TIME, time);
-			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_LOCK_TIME, -1);
-			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_LOCK_VALUE, NO_LOCK);
-			intToByteArr(cbytes, childPos + ELEMENT_OFFSET_NAME, childNamePos);
-			intToByteArr(cbytes, childPos + ELEMENT_OFFSET_OWNER, owner);
-			longToByteArr(cbytes, childPos + ELEMENT_OFFSET_PARENT_ID, parentID);
+			longToByteArr(bytes, childPos + ELEMENT_OFFSET_CREATE_TIME, time);
+			intToByteArr(bytes, childPos + ELEMENT_OFFSET_FLAGS, target == null ? (isFolder ? ELEMENT_FLAG_FOLDER : ELEMENT_FLAG_FILE) : ELEMENT_FLAG_LINK);
+			longToByteArr(bytes, childPos + ELEMENT_OFFSET_LAST_META_MOD_TIME, time);
+			longToByteArr(bytes, childPos + ELEMENT_OFFSET_LAST_MOD_TIME, time);
+			longToByteArr(bytes, childPos + ELEMENT_OFFSET_LOCK_TIME, NO_TIME);
+			longToByteArr(bytes, childPos + ELEMENT_OFFSET_LOCK_VALUE, NO_LOCK);
+			intToByteArr(bytes, childPos + ELEMENT_OFFSET_NAME, childNamePos);
+			longToByteArr(bytes, childPos + ELEMENT_OFFSET_PARENT_ID, parentID);
 			if (childNameBytes != null) {
-				System.arraycopy(childNameBytes, 0, cbytes, childNamePos, childNameBytes.length);
-				cbytes[childNamePos + childNameBytes.length] = 0;
-				cbytes[childNamePos + childNameBytes.length + 1] = 0;
+				System.arraycopy(childNameBytes, 0, bytes, childNamePos, childNameBytes.length);
+				bytes[childNamePos + childNameBytes.length] = 0;
+				bytes[childNamePos + childNameBytes.length + 1] = 0;
 			}
 			if (target != null) {
-				longToByteArr(cbytes, childPos + LINK_OFFSET_TARGET_ID, target.id);
+				longToByteArr(bytes, childPos + LINK_OFFSET_TARGET_ID, target.id);
 			} else if (isFolder) {
-				intToByteArr(cbytes, childPos + FOLDER_OFFSET_ELEMENT_COUNT, 0);
+				intToByteArr(bytes, childPos + FOLDER_OFFSET_ELEMENT_COUNT, 0);
 			} else {
-				longToByteArr(cbytes, childPos + FILE_OFFSET_FILE_LENGTH, 0);
+				longToByteArr(bytes, childPos + FILE_OFFSET_FILE_LENGTH, 0);
+				longToByteArr(bytes, childPos + FILE_OFFSET_FILE_HASH_TIME, NO_TIME);
 			}
 		} finally {
 			bm.setBlock(childBlock);
@@ -245,7 +255,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 		try {
 			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
 			if (index >= getElementCount()) {
-				throw new IndexOutOfBoundsException("the index is greather the my element count: index=" + index + " elementCount=" + getElementCount());
+				throw new IndexOutOfBoundsException("the index is greather (or equal) than my element count: index=" + index + " elementCount=" + getElementCount());
 			}
 			int off = FOLDER_OFFSET_FOLDER_ELEMENTS + index * FOLDER_ELEMENT_LENGTH;
 			long cid = byteArrToLong(bytes, pos + off);
@@ -253,6 +263,46 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 		} finally {
 			bm.ungetBlock(block);
 		}
+	}
+	
+	@Override
+	public PatrFileSysElement getElement(String name, long lock) throws ElementLockedException, NoSuchFileException, IOException {
+		return simpleWithLock(() -> {
+			updatePosAndBlock();
+			byte[] bytes = bm.getBlock(block);
+			try {
+				ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
+				byte[] nameBytes = name.getBytes(CHARSET);
+				int off = pos + FOLDER_OFFSET_FOLDER_ELEMENTS;
+				int ec = getElementCount();
+				for (int i = 0; i < ec; i ++ , off += FOLDER_ELEMENT_LENGTH) {
+					long cid = byteArrToLong(bytes, off);
+					LongInt cbp = fs.getBlockAndPos(cid);
+					byte[] cbytes = bm.getBlock(cbp.l);
+					try {
+						int cno = byteArrToInt(cbytes, cbp.i + ELEMENT_OFFSET_NAME);
+						if (cno == -1) {
+							if (nameBytes.length != 0) {
+								continue;
+							}
+						} else if (cno + nameBytes.length + 2 <= cbytes.length) {
+							if ( !Arrays.equals(nameBytes, 0, nameBytes.length - 1, bytes, cno, cno + nameBytes.length - 1)) {
+								continue;
+							}
+							if (cbytes[cno + nameBytes.length] != 0 || cbytes[cno + nameBytes.length + 1] != 0) {
+								continue;
+							}
+						}
+					} finally {
+						bm.ungetBlock(cbp.l);
+					}
+					return new PatrFileSysElementImpl(fs, startTime, bm, cid);
+				}
+				throw new NoSuchElementException("I have no child element with the name: '" + name + "'");
+			} finally {
+				bm.ungetBlock(block);
+			}
+		});
 	}
 	
 }

@@ -6,7 +6,6 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_READ_ALL
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_WRITE_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_SHARED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_LOCK;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_OWNER;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -56,55 +55,55 @@ import de.hechler.patrick.pfs.objects.fs.PatrFileSysImpl;
 import de.hechler.patrick.pfs.objects.jfs.PFSPathImpl.Name;
 
 public class PFSFileSystemProviderImpl extends FileSystemProvider {
-
+	
 	/**
 	 * name of the basic attribute view for the file key
 	 * <p>
 	 * the corresponding value must be of type {@link Object}
 	 */
-	public static final String BASIC_ATTRIBUTE_FILE_KEY = "fileKey";
+	public static final String BASIC_ATTRIBUTE_FILE_KEY           = "fileKey";
 	/**
 	 * name of the basic attribute view for is other (not file,dir,symbol-link)
 	 * <p>
 	 * the corresponding value must be of type {@link Boolean}
 	 */
-	public static final String BASIC_ATTRIBUTE_IS_OTHER = "isOther";
+	public static final String BASIC_ATTRIBUTE_IS_OTHER           = "isOther";
 	/**
 	 * name of the basic attribute view for is symbol-link
 	 * <p>
 	 * the corresponding value must be of type {@link Boolean}
 	 */
-	public static final String BASIC_ATTRIBUTE_IS_SYMBOLIC_LINK = "isSymbolicLink";
+	public static final String BASIC_ATTRIBUTE_IS_SYMBOLIC_LINK   = "isSymbolicLink";
 	/**
 	 * name of the basic attribute view for is directory
 	 * <p>
 	 * the corresponding value must be of type {@link Boolean}
 	 */
-	public static final String BASIC_ATTRIBUTE_IS_DIRECTORY = "isDirectory";
+	public static final String BASIC_ATTRIBUTE_IS_DIRECTORY       = "isDirectory";
 	/**
 	 * name of the basic attribute view for is file
 	 * <p>
 	 * the corresponding value must be of type {@link Boolean}
 	 */
-	public static final String BASIC_ATTRIBUTE_IS_REGULAR_FILE = "isRegularFile";
+	public static final String BASIC_ATTRIBUTE_IS_REGULAR_FILE    = "isRegularFile";
 	/**
 	 * name of the basic attribute view for the size
 	 * <p>
 	 * the corresponding value must be of type {@link Long}
 	 */
-	public static final String BASIC_ATTRIBUTE_SIZE = "size";
+	public static final String BASIC_ATTRIBUTE_SIZE               = "size";
 	/**
 	 * name of the basic attribute view for the creation time
 	 * <p>
 	 * the corresponding value must be of type {@link FileTime}
 	 */
-	public static final String BASIC_ATTRIBUTE_CREATION_TIME = "creationTime";
+	public static final String BASIC_ATTRIBUTE_CREATION_TIME      = "creationTime";
 	/**
 	 * name of the basic attribute view for the last access time
 	 * <p>
 	 * the corresponding PFSFileSystemProviderImplvalue must be of type {@link FileTime}
 	 */
-	public static final String BASIC_ATTRIBUTE_LAST_ACCESS_TIME = "lastAccessTime";
+	public static final String BASIC_ATTRIBUTE_LAST_ACCESS_TIME   = "lastAccessTime";
 	/**
 	 * name of the basic attribute view for the last modified time
 	 * <p>
@@ -116,46 +115,36 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	 * {@link FileAttribute#value()} must be of the {@link Boolean} type<br>
 	 * <code>true</code> to mark the element as executable
 	 */
-	public static final String PATR_VIEW_ATTR_HIDDEN = "hidden";
+	public static final String PATR_VIEW_ATTR_HIDDEN              = "hidden";
 	/**
 	 * {@link FileAttribute} name for the executable flag.<br>
 	 * {@link FileAttribute#value()} must be of the {@link Boolean} type<br>
 	 * <code>true</code> to mark the element as executable
 	 */
-	public static final String PATR_VIEW_ATTR_EXECUTABLE = "executable";
+	public static final String PATR_VIEW_ATTR_EXECUTABLE          = "executable";
 	/**
 	 * {@link FileAttribute} name for the read only flag.<br>
 	 * {@link FileAttribute#value()} must be of the {@link Boolean} type<br>
 	 * <code>true</code> to mark the element as executable
 	 */
-	public static final String PATR_VIEW_ATTR_READ_ONLY = "read_only";
-	/**
-	 * {@link FileAttribute} name for the owner.<br>
-	 * {@link FileAttribute#value()} must be of the {@link Integer} type<br>
-	 * <code>true</code> to mark the element as executable
-	 */
-	public static final String PATR_VIEW_ATTR_OWNER = "owner";
-
+	public static final String PATR_VIEW_ATTR_READ_ONLY           = "read_only";
+	
 	/**
 	 * the attribute key for the block size of each block.<br>
 	 * 
 	 * the value must to be of the type {@link Integer}
 	 * <p>
-	 * if a file system is specified and format is set to <code>false</code>
-	 * (default value), this value must be the block size value saved by the file
-	 * system.
+	 * if a file system is specified and format is set to <code>false</code> (default value), this value must be the block size value saved by the file system.
 	 * 
 	 * @see #newFileSystem(URI, Map)
 	 */
-	public static final String NEW_FILE_SYS_ENV_ATTR_BLOCK_SIZE = "block-size";
+	public static final String NEW_FILE_SYS_ENV_ATTR_BLOCK_SIZE  = "block-size";
 	/**
 	 * the attribute key for the block count.<br>
 	 * 
 	 * the value must be of the tyPFSFileSystemProviderImplpe {@link Long}
 	 * <p>
-	 * if a block manager is specified and format is set to <code>false</code>
-	 * (default value), this value must be the block count value saved from the
-	 * block manager.
+	 * if a block manager is specified and format is set to <code>false</code> (default value), this value must be the block count value saved from the block manager.
 	 * 
 	 * @see #newFileSystem(URI, Map)
 	 */
@@ -167,35 +156,31 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	 * <p>
 	 * if no value is set a {@link PatrFileSysImpl} will be created.<br>
 	 * if no value the generated file system will use virtual block manager.<br>
-	 * This automatic generated block manager and thus the file system will not be
-	 * saved.
+	 * This automatic generated block manager and thus the file system will not be saved.
 	 * 
 	 * @see #newFileSystem(URI, Map)
 	 */
-	public static final String NEW_FILE_SYS_ENV_ATTR_FILE_SYS = "file-sys";
+	public static final String NEW_FILE_SYS_ENV_ATTR_FILE_SYS    = "file-sys";
 	/**
 	 * the attribute key to specify if the file system should be formatted.
 	 * <p>
-	 * if no value is set, but {@link #NEW_FILE_SYS_ENV_ATTR_FILE_SYS} is set, the
-	 * file system will be interpreted as already formatted.<br>
-	 * if a value is set, but {@link #NPFSFileSystemProviderImplEW_FILE_SYS_ENV_ATTR_FILE_SYS} is not set,
-	 * the value will be ignored.
+	 * if no value is set, but {@link #NEW_FILE_SYS_ENV_ATTR_FILE_SYS} is set, the file system will be interpreted as already formatted.<br>
+	 * if a value is set, but {@link #NPFSFileSystemProviderImplEW_FILE_SYS_ENV_ATTR_FILE_SYS} is not set, the value will be ignored.
 	 * <p>
 	 * the value must be of type {@link Boolean}.<br>
-	 * if the {@link Boolean#booleanValue()} is <code>true</code>, the block manager
-	 * will be formatted. If the {@link Boolean#booleanValue()} is
-	 * <code>false</code> the block manager will not be. formatted
+	 * if the {@link Boolean#booleanValue()} is <code>true</code>, the block manager will be formatted. If the {@link Boolean#booleanValue()} is <code>false</code> the block manager will not be.
+	 * formatted
 	 */
-	public static final String NEW_FILE_SYS_ENV_ATTR_DO_FORMATT = "do-formatt";
-
-	private final Map<URI, PFSFileSystemImpl> created;
-	private PFSFileSystemImpl def;
-	private Set<PatrFile> delOnClose;
-
+	public static final String NEW_FILE_SYS_ENV_ATTR_DO_FORMATT  = "do-formatt";
+	
+	private final Map <URI, PFSFileSystemImpl> created;
+	private PFSFileSystemImpl                  def;
+	private Set <PatrFile>                     delOnClose;
+	
 	public PFSFileSystemProviderImpl() {
 		this(new PatrFileSysImpl(new ByteArrayArrayBlockAccessor(1 << 10, 1 << 10)));
 	}
-
+	
 	public PFSFileSystemProviderImpl(PatrFileSystem fs) {
 		this.def = new PFSFileSystemImpl(this, fs);
 		this.created = new HashMap <>();
@@ -229,16 +214,16 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			}
 		}));
 	}
-
+	
 	@Override
 	public String getScheme() {
 		return PFSPathImpl.URI_SHEME;
 	}
-
+	
 	@Override
 	@SuppressWarnings("resource")
-	public PFSFileSystemImpl newFileSystem(URI uri, Map<String, ?> env)
-			throws IOException, FileSystemAlreadyExistsException, IllegalArgumentException {
+	public PFSFileSystemImpl newFileSystem(URI uri, Map <String, ?> env)
+		throws IOException, FileSystemAlreadyExistsException, IllegalArgumentException {
 		synchronized (this.created) {
 			if (this.created.containsKey(uri)) {
 				throw new FileSystemAlreadyExistsException("uri: '" + uri + "' env: '" + env + "'");
@@ -249,26 +234,26 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			PFSFileSystemImpl fileSys;
 			if (fileSystem != null) {
 				Object doFormatt = env.get(NEW_FILE_SYS_ENV_ATTR_DO_FORMATT);
-				if (!(fileSystem instanceof BlockManager)) {
+				if ( ! (fileSystem instanceof BlockManager)) {
 					throw new IllegalArgumentException("the file system is not of type PatrFileSystem! cls: "
-							+ fileSystem.getClass().getName() + " fileSystem: '" + fileSystem + "'");
+						+ fileSystem.getClass().getName() + " fileSystem: '" + fileSystem + "'");
 				}
 				boolean formatt = false;
 				if (doFormatt != null) {
-					if (!(doFormatt instanceof Boolean)) {
+					if ( ! (doFormatt instanceof Boolean)) {
 						throw new IllegalArgumentException("do formatt is not of type Boolean! cls: "
-								+ doFormatt.getClass().getName() + " doFormatt: '" + doFormatt + "'");
+							+ doFormatt.getClass().getName() + " doFormatt: '" + doFormatt + "'");
 					}
 					formatt = (boolean) doFormatt;
 				}
 				PatrFileSystem fs = (PatrFileSystem) fileSystem;
 				long bc = -1L;
 				if (blockCount != null) {
-					if (!(blockCount instanceof Long)) {
+					if ( ! (blockCount instanceof Long)) {
 						throw new IllegalArgumentException("block count is not of type Long! cls: " + blockCount.getClass().getName() + " blockCount: '" + blockCount + "'");
 					}
 					bc = (long) blockCount;
-					if (!formatt) {
+					if ( !formatt) {
 						if (bc != fs.blockCount()) {
 							throw new IllegalArgumentException("block count is set, format is not set to true and the spezified file system has a diffrent block count!");
 						}
@@ -276,11 +261,11 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 				}
 				int bs = -1;
 				if (blockSize != null) {
-					if (!(blockSize instanceof Integer)) {
+					if ( ! (blockSize instanceof Integer)) {
 						throw new IllegalArgumentException("block size is not of type Integer! cls: " + blockCount.getClass().getName() + " blockCount: '" + blockCount + "'");
 					}
 					bs = (int) blockSize;
-					if (!formatt) {
+					if ( !formatt) {
 						if (bs != fs.blockSize()) {
 							throw new IllegalArgumentException("block size is set, format is not set to true and the spezified file system has a diffrent block size!");
 						}
@@ -293,9 +278,9 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			} else {
 				int bs;
 				if (blockSize != null) {
-					if (!(blockSize instanceof Integer)) {
+					if ( ! (blockSize instanceof Integer)) {
 						throw new IllegalArgumentException("block size is not of type Integer! cls: "
-								+ blockSize.getClass().getName() + " blockSize: '" + blockSize + "'");
+							+ blockSize.getClass().getName() + " blockSize: '" + blockSize + "'");
 					}
 					bs = (int) blockSize;
 				} else {
@@ -303,9 +288,9 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 				}
 				int bc;
 				if (blockCount != null) {
-					if (!(blockCount instanceof Integer)) {
+					if ( ! (blockCount instanceof Integer)) {
 						throw new IllegalArgumentException("block count is not of type Long! cls: "
-								+ blockCount.getClass().getName() + " blockCount: '" + blockCount + "'");
+							+ blockCount.getClass().getName() + " blockCount: '" + blockCount + "'");
 					}
 					bc = (int) blockCount;
 				} else {
@@ -319,7 +304,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			return fileSys;
 		}
 	}
-
+	
 	@Override
 	public PFSFileSystemImpl getFileSystem(URI uri) throws FileSystemNotFoundException {
 		synchronized (this.created) {
@@ -330,19 +315,19 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 				throw new FileSystemNotFoundException("uri: " + uri);
 		}
 	}
-
+	
 	@Override
 	public Path getPath(URI uri) {
 		String str = uri.getRawPath();
 		Path path = def.getPath(str);
 		return path;
 	}
-
+	
 	public static final int MODE_READ = 1, MODE_WRITE = 2, MODE_APPEND = 4;
-
+	
 	@Override
-	public SeekableByteChannel newByteChannel(Path path, Set<? extends OpenOption> options, FileAttribute<?>... attrs)
-			throws IOException {
+	public SeekableByteChannel newByteChannel(Path path, Set <? extends OpenOption> options, FileAttribute <?>... attrs)
+		throws IOException {
 		PFSPathImpl p = PFSPathImpl.getMyPath(path);
 		String[] strs = getPath(p);
 		PatrFileSystem fs = p.getFileSystem().getFileSys();
@@ -382,7 +367,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			lock = file.lock(lock);
 		}
 		if (options.contains(StandardOpenOption.TRUNCATE_EXISTING)) {
-			if ((mode & MODE_READ) != mode) {
+			if ( (mode & MODE_READ) != mode) {
 				file.removeContent(0L, file.length(), lock);
 			}
 		}
@@ -398,33 +383,32 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 				}
 			}, mode);
 		} else {
-			return new PFSSeekableByteChannelImpl(lock, strs, file, (patrFile) -> {
-			}, mode);
+			return new PFSSeekableByteChannelImpl(lock, strs, file, (patrFile) -> {}, mode);
 		}
 	}
-
-	private PatrFile getFile(Set<? extends OpenOption> options, String[] strs, PatrFolder directParent, int mode)
-			throws IOException, NotDirectoryException, FileAlreadyExistsException, ElementLockedException,
-			NoSuchFileException {
+	
+	private PatrFile getFile(Set <? extends OpenOption> options, String[] strs, PatrFolder directParent, int mode)
+		throws IOException, NotDirectoryException, FileAlreadyExistsException, ElementLockedException,
+		NoSuchFileException {
 		PatrFile file;
 		if (options.contains(StandardOpenOption.CREATE_NEW)) {
 			try {
-				getElement(directParent, new String[] { strs[strs.length - 1] }, 1);
+				getElement(directParent, new String[] {strs[strs.length - 1] }, 1);
 				throw new FileAlreadyExistsException(buildName(strs, strs.length - 1), null,
-						"the file exists already!");
+					"the file exists already!");
 			} catch (NoSuchFileException e) {
 				file = directParent.addFile(strs[strs.length - 1], NO_LOCK);
 			}
 		} else if (options.contains(StandardOpenOption.CREATE)) {
 			boolean rethrow = false;
 			try {
-				PatrFileSysElement element = getElement(directParent, new String[] { strs[strs.length - 1] }, 1);
+				PatrFileSysElement element = getElement(directParent, new String[] {strs[strs.length - 1] }, 1);
 				if (element.isFile()) {
 					file = element.getFile();
 				} else {
 					rethrow = true;
 					throw new NoSuchFileException(buildName(strs, strs.length - 1), null,
-							"the file is a folder and no file!");
+						"the file is a folder and no file!");
 				}
 			} catch (NoSuchFileException e) {
 				if (rethrow) {
@@ -434,13 +418,13 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 				}
 			}
 		} else {
-			file = getFile(directParent, new String[] { strs[strs.length - 1] }, 1);
+			file = getFile(directParent, new String[] {strs[strs.length - 1] }, 1);
 		}
 		return file;
 	}
-
+	
 	@Override
-	public DirectoryStream<Path> newDirectoryStream(Path dir, Filter<? super Path> filter) throws IOException {
+	public DirectoryStream <Path> newDirectoryStream(Path dir, Filter <? super Path> filter) throws IOException {
 		PFSPathImpl p = PFSPathImpl.getMyPath(dir);
 		String[] names = getPath(p);
 		PatrFolder folder = getFolder(p.getFileSystem().getFileSys().getRoot(), names, names.length);
@@ -452,27 +436,26 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 		}
 		return new PFSDirectoryStreamImpl(p.getFileSystem(), lock, folder, filter, p.getNames());
 	}
-
+	
 	@Override
-	public void createDirectory(Path dir, FileAttribute<?>... attrs) throws IOException {
-		Set<?> set = new HashSet<>(Arrays.asList(attrs));
+	public void createDirectory(Path dir, FileAttribute <?>... attrs) throws IOException {
+		Set <?> set = new HashSet <>(Arrays.asList(attrs));
 		PFSPathImpl p = PFSPathImpl.getMyPath(dir);
 		String[] names = getPath(p);
 		PatrFolder folder = getFolder(p.getFileSystem().getFileSys().getRoot(), names, names.length - 1);
 		folder.withLock(() -> executeCreateDirectory(set, names, folder, attrs));
 	}
-
-	private void executeCreateDirectory(Set<?> set, String[] names, PatrFolder folder, FileAttribute<?>... attrs)
-			throws IOException, ElementLockedException {
+	
+	private void executeCreateDirectory(Set <?> set, String[] names, PatrFolder folder, FileAttribute <?>... attrs)
+		throws IOException, ElementLockedException {
 		try {
-			getFolder(folder, new String[] { names[names.length - 1] }, 1);
+			getFolder(folder, new String[] {names[names.length - 1] }, 1);
 			throw new FileAlreadyExistsException(buildName(names, names.length - 1), null,
-					"the folder exists already!");
-		} catch (IOException ignore) {
-		}
+				"the folder exists already!");
+		} catch (IOException ignore) {}
 		PatrFolder added = folder.addFolder(names[names.length - 1], NO_LOCK);
-		for (int i = 0; i < attrs.length; i++) {
-			FileAttribute<?> attr = attrs[i];
+		for (int i = 0; i < attrs.length; i ++ ) {
+			FileAttribute <?> attr = attrs[i];
 			switch (attr.name()) {
 			case PATR_VIEW_ATTR_READ_ONLY:
 				added.setReadOnly(booleanValue(attr), NO_LOCK);
@@ -483,35 +466,22 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			case PATR_VIEW_ATTR_EXECUTABLE:
 				added.setExecutable(booleanValue(attr), NO_LOCK);
 				break;
-			case PATR_VIEW_ATTR_OWNER:
-				added.setOwner(intValue(attr), NO_LOCK);
-				break;
 			default:
 				throw new UnsupportedOperationException("unknown file attribute: name='" + attr.name() + "'");
 			}
 		}
 	}
-
-	private int intValue(FileAttribute<?> attr) {
-		Object val = attr.value();
-		if (val != null && val instanceof Integer) {
-			return (int) (Integer) val;
-		} else {
-			throw new UnsupportedOperationException("unknown file attribute value: name='" + attr.name() + "' value='"
-					+ val + "' (expected non null Integer value)");
-		}
-	}
-
-	private boolean booleanValue(FileAttribute<?> attr) {
+	
+	private boolean booleanValue(FileAttribute <?> attr) {
 		Object val = attr.value();
 		if (val != null && val instanceof Boolean) {
 			return (boolean) (Boolean) val;
 		} else {
 			throw new UnsupportedOperationException("unknown file attribute value: name='" + attr.name() + "' value='"
-					+ val + "' (expected non null Boolean value)");
+				+ val + "' (expected non null Boolean value)");
 		}
 	}
-
+	
 	@Override
 	public void delete(Path path) throws IOException {
 		PFSPathImpl p = PFSPathImpl.getMyPath(path);
@@ -524,7 +494,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			element.getFolder().delete(NO_LOCK, NO_LOCK);
 		}
 	}
-
+	
 	@Override
 	public void copy(Path source, Path target, CopyOption... options) throws IOException {
 		CopyOptions opts = CopyOptions.create(options);
@@ -543,7 +513,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 		checkInterrupted(opts, 0L);
 		src.withLock(() -> executeCopy(copyTarget, src, targetstrs, newParent, options, opts));
 	}
-
+	
 	private void checkInterrupted(CopyOptions opts, long progress) throws InterruptedIOException {
 		if (opts.interruptable && Thread.interrupted()) {
 			InterruptedIOException err = new InterruptedIOException("interrupted");
@@ -551,13 +521,13 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			throw err;
 		}
 	}
-
+	
 	private void executeCopy(PatrFile copyTarget, PatrFile src, String[] targetstrs, PatrFolder newParent,
-			CopyOption[] options, CopyOptions opts) throws IOException, ElementLockedException {
+		CopyOption[] options, CopyOptions opts) throws IOException, ElementLockedException {
 		long sourceLock;
 		try {
 			sourceLock = src.lock(
-					LOCK_LOCKED_LOCK | LOCK_SHARED_LOCK | LOCK_NO_WRITE_ALLOWED_LOCK | LOCK_NO_DELETE_ALLOWED_LOCK);
+				LOCK_LOCKED_LOCK | LOCK_SHARED_LOCK | LOCK_NO_WRITE_ALLOWED_LOCK | LOCK_NO_DELETE_ALLOWED_LOCK);
 		} catch (ElementLockedException e) {
 			sourceLock = NO_LOCK;
 		}
@@ -565,7 +535,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			long targetLock;
 			try {
 				targetLock = copyTarget
-						.lock(LOCK_LOCKED_LOCK | LOCK_NO_WRITE_ALLOWED_LOCK | LOCK_NO_DELETE_ALLOWED_LOCK);
+					.lock(LOCK_LOCKED_LOCK | LOCK_NO_WRITE_ALLOWED_LOCK | LOCK_NO_DELETE_ALLOWED_LOCK);
 			} catch (ElementLockedException e) {
 				targetLock = NO_LOCK;
 			}
@@ -583,7 +553,6 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 					copyTarget.setReadOnly(src.isReadOnly(), targetLock);
 					copyTarget.setExecutable(src.isExecutable(), targetLock);
 					copyTarget.setHidden(src.isHidden(), targetLock);
-					copyTarget.setOwner(src.getOwner(), targetLock);
 				}
 			} finally {
 				if (targetLock != NO_LOCK) {
@@ -596,7 +565,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			}
 		}
 	}
-
+	
 	@Override
 	public void move(Path source, Path target, CopyOption... options) throws IOException {
 		CopyOptions opts = CopyOptions.create(options);
@@ -614,18 +583,17 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 		copyTarget.withLock(() -> {
 			copyTarget.setParent(newParent, NO_LOCK, NO_LOCK, NO_LOCK);
 			copyTarget.setName(targetstrs[targetstrs.length - 1], NO_LOCK);
-			if (!opts.copyAttributes) {
+			if ( !opts.copyAttributes) {
 				copyTarget.setReadOnly(false, NO_LOCK);
 				copyTarget.setExecutable(false, NO_LOCK);
 				copyTarget.setHidden(false, NO_LOCK);
-				copyTarget.setOwner(NO_OWNER, NO_LOCK);
 			}
 		});
 	}
-
+	
 	private void checkCopyMoveTarget(CopyOptions opts, String[] sourcestrs, String[] targetstrs, PatrFolder newParent) {
 		try {
-			PatrFileSysElement f = getElement(newParent, new String[] { targetstrs[targetstrs.length - 1] }, 1);
+			PatrFileSysElement f = getElement(newParent, new String[] {targetstrs[targetstrs.length - 1] }, 1);
 			if (opts.replaceExisting) {
 				if (f.isFile()) {
 					f.getFile().delete(NO_LOCK, NO_LOCK);
@@ -634,18 +602,17 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 				}
 			} else {
 				throw new FileAlreadyExistsException(buildName(targetstrs, targetstrs.length - 1),
-						buildName(sourcestrs, sourcestrs.length - 1),
-						"the target of the move operation exists already!");
+					buildName(sourcestrs, sourcestrs.length - 1),
+					"the target of the move operation exists already!");
 			}
-		} catch (IOException ignore) {
-		}
+		} catch (IOException ignore) {}
 	}
-
+	
 	@Override
 	public boolean isSameFile(Path path, Path path2) throws IOException {
 		return path.toAbsolutePath().normalize().equals(path2.toAbsolutePath().normalize());
 	}
-
+	
 	@Override
 	public boolean isHidden(Path path) throws IOException {
 		PFSPathImpl p = PFSPathImpl.getMyPath(path);
@@ -653,24 +620,24 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 		PatrFileSysElement element = getElement(p.getFileSystem().getFileSys().getRoot(), strs, strs.length);
 		return element.isHidden();
 	}
-
+	
 	@Override
 	public FileStore getFileStore(Path path) throws IOException {
 		return path.getFileSystem().getFileStores().iterator().next();
 	}
-
+	
 	@Override
 	public void checkAccess(Path path, AccessMode... modes) throws IOException {
 		PFSPathImpl p = PFSPathImpl.getMyPath(path);
 		String[] strs = getPath(p);
 		PatrFolder root = p.getFileSystem().getFileSys().getRoot();
 		PatrFileSysElement element = getElement(root, strs, strs.length);
-		for (int i = 0; i < modes.length; i++) {
+		for (int i = 0; i < modes.length; i ++ ) {
 			switch (modes[i]) {
 			case EXECUTE:
-				if (!element.isExecutable()) {
+				if ( !element.isExecutable()) {
 					throw new AccessDeniedException(buildName(strs, strs.length - 1), null,
-							"the element is not marked as executable!");
+						"the element is not marked as executable!");
 				}
 			case READ:
 				element.ensureAccess(NO_LOCK, LOCK_NO_READ_ALLOWED_LOCK, false);
@@ -683,10 +650,10 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			}
 		}
 	}
-
+	
 	@Override
-	public <V extends FileAttributeView> V getFileAttributeView(Path path, Class<V> type, LinkOption... options) {
-		if (!type.isAssignableFrom(PFSBasicFileAttributeViewImpl.class)) {
+	public <V extends FileAttributeView> V getFileAttributeView(Path path, Class <V> type, LinkOption... options) {
+		if ( !type.isAssignableFrom(PFSBasicFileAttributeViewImpl.class)) {
 			return null;
 		}
 		try {
@@ -700,11 +667,11 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			throw new RuntimeException(e);
 		}
 	}
-
+	
 	@Override
-	public <A extends BasicFileAttributes> A readAttributes(Path path, Class<A> type, LinkOption... options)
-			throws IOException {
-		if (!type.isAssignableFrom(PFSBasicFileAttributesImpl.class)) {
+	public <A extends BasicFileAttributes> A readAttributes(Path path, Class <A> type, LinkOption... options)
+		throws IOException {
+		if ( !type.isAssignableFrom(PFSBasicFileAttributesImpl.class)) {
 			return null;
 		}
 		try {
@@ -719,15 +686,15 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			throw new RuntimeException(e);
 		}
 	}
-
+	
 	@Override
-	public Map<String, Object> readAttributes(Path path, String attributes, LinkOption... options) throws IOException {
+	public Map <String, Object> readAttributes(Path path, String attributes, LinkOption... options) throws IOException {
 		attributes = supportsView(attributes);
 		PFSPathImpl p = PFSPathImpl.getMyPath(path);
 		String[] strs = getPath(p);
 		PatrFolder root = p.getFileSystem().getFileSys().getRoot();
 		PatrFileSysElement element = getElement(root, strs, strs.length - 1);
-		Map<String, Object> result = new HashMap<>();
+		Map <String, Object> result = new HashMap <>();
 		for (String attr : attributes.split("\\,")) {
 			boolean skip = false;
 			switch (attr) {
@@ -735,14 +702,14 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 				skip = true;
 			case BASIC_ATTRIBUTE_LAST_MODIFIED_TIME:
 				result.put(attr, FileTime.fromMillis(element.getLastModTime()));
-				if (!skip)
+				if ( !skip)
 					break;
 			case BASIC_ATTRIBUTE_LAST_ACCESS_TIME:
-				if (!skip)
+				if ( !skip)
 					break;
 			case BASIC_ATTRIBUTE_CREATION_TIME:
 				result.put(attr, FileTime.fromMillis(element.getCreateTime()));
-				if (!skip)
+				if ( !skip)
 					break;
 			case BASIC_ATTRIBUTE_SIZE: {
 				Object val;
@@ -752,60 +719,58 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 					val = PFSBasicFileAttributeViewImpl.sizeOf(element.getFolder());
 				}
 				result.put(attr, val);
-				if (!skip)
+				if ( !skip)
 					break;
 			}
 			case BASIC_ATTRIBUTE_IS_REGULAR_FILE:
 				result.put(attr, (Boolean) element.isFile());
-				if (!skip)
+				if ( !skip)
 					break;
 			case BASIC_ATTRIBUTE_IS_DIRECTORY:
 				result.put(attr, (Boolean) element.isFolder());
-				if (!skip)
+				if ( !skip)
 					break;
 			case BASIC_ATTRIBUTE_IS_SYMBOLIC_LINK:
 				result.put(attr, (Boolean) false);
-				if (!skip)
+				if ( !skip)
 					break;
 			case BASIC_ATTRIBUTE_IS_OTHER:
 				result.put(attr, (Boolean) false);
-				if (!skip)
+				if ( !skip)
 					break;
 			case BASIC_ATTRIBUTE_FILE_KEY:
-				if (!skip)
+				if ( !skip)
 					break;
 			case PATR_VIEW_ATTR_EXECUTABLE:
 				result.put(attr, (Boolean) element.isExecutable());
-				if (!skip)
+				if ( !skip)
 					break;
 			case PATR_VIEW_ATTR_HIDDEN:
 				result.put(attr, (Boolean) element.isHidden());
-				if (!skip)
+				if ( !skip)
 					break;
 			case PATR_VIEW_ATTR_READ_ONLY:
 				result.put(attr, (Boolean) element.isReadOnly());
-				if (!skip)
+				if ( !skip)
 					break;
-			case PATR_VIEW_ATTR_OWNER:
-				result.put(attr, (Integer) element.getOwner());
 			}
 		}
 		return result;
 	}
-
+	
 	private String supportsView(String attributes) {
 		int index = attributes.indexOf(':');
 		if (index >= 0) {
 			String view = attributes.substring(0, index);
 			if (PFSFileSystemImpl.ATTR_VIEW_BASIC.equalsIgnoreCase(view)
-					|| PFSFileSystemImpl.ATTR_VIEW_PATR.equalsIgnoreCase(view)) {
+				|| PFSFileSystemImpl.ATTR_VIEW_PATR.equalsIgnoreCase(view)) {
 				throw new UnsupportedOperationException("unsupported view: " + view);
 			}
 			attributes = attributes.substring(index + 1);
 		}
 		return attributes;
 	}
-
+	
 	@Override
 	public void setAttribute(Path path, String attribute, Object value, LinkOption... options) throws IOException {
 		if (value == null) {
@@ -843,101 +808,73 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			element.setReadOnly(bval, NO_LOCK);
 			break;
 		}
-		case PATR_VIEW_ATTR_OWNER: {
-			int ival = (int) (Integer) value;
-			element.setOwner(ival, NO_LOCK);
-			break;
-		}
 		}
 	}
-
-	private PatrFolder getFolder(PatrFolder folder, String[] path, int len)
-			throws IOException, NoSuchFileException, NotDirectoryException {
-		PatrFileSysElement element = getElement(folder, path, len - 1);
-		if (element.isFolder()) {
-			return element.getFolder();
-		} else {
-			throw new NotDirectoryException(buildName(path, path.length - 1));
+	
+	private static PatrFolder getFolder(PatrFolder folder, String[] path, int len)
+		throws IOException, NoSuchFileException, NotDirectoryException {
+		for (int i = 0; i < len; i ++ ) {
+			PatrFileSysElement other = folder.getElement(path[i], NO_LOCK);
+			if (other.isFolder()) folder = other.getFolder();
+			else throw new NotDirectoryException(buildName(path, i));
 		}
+		return folder;
 	}
-
-	private PatrFile getFile(PatrFolder folder, String[] path, int len)
-			throws IOException, NoSuchFileException, NotDirectoryException {
-		PatrFileSysElement element = getElement(folder, path, len - 1);
-		if (element.isFile()) {
-			return element.getFile();
-		} else {
-			throw new NoSuchFileException(buildName(path, path.length - 1), null,
-					"the element is a folder, but a file was expected!");
-		}
+	
+	private static PatrFile getFile(PatrFolder folder, String[] path, int len) throws IOException, NoSuchFileException, NotDirectoryException {
+		PatrFolder parent = getFolder(folder, path, len - 1);
+		PatrFileSysElement e = parent.getElement(path[len - 1], NO_LOCK);
+		if (e.isFile()) return e.getFile();
+		else throw new NoSuchFileException(buildName(path, len - 1));
 	}
-
-	private static PatrFileSysElement getElement(PatrFolder folder, String[] path, int len)
-			throws IOException, NoSuchFileException, NotDirectoryException {
-		PatrFolder parent = folder;
-		for (int i = 0; i < len - 1; i++) {
-			PatrFileSysElement otherParent = findChildWithName(parent, path, i);
-			if (otherParent.isFolder()) {
-				parent = otherParent.getFolder();
-			} else {
-				throw new NotDirectoryException(buildName(path, i));
-			}
-		}
-		return findChildWithName(parent, path, path.length - 1);
+	
+	private static PatrFileSysElement getElement(PatrFolder folder, String[] path, int len) throws IOException, NoSuchFileException, NotDirectoryException {
+		PatrFolder parent = getFolder(folder, path, len - 1);
+		return parent.getElement(path[len - 1], NO_LOCK);
 	}
-
-	private static PatrFileSysElement findChildWithName(PatrFolder parent, String[] path, int i)
-			throws IOException, NoSuchFileException {
-		for (PatrFileSysElement otherParent : parent) {
-			if (path[i].equals(otherParent.getName())) {
-				return otherParent;
-			}
-		}
-		throw new NoSuchFileException(buildName(path, i));
-	}
-
+	
 	public static String buildName(PatrFileSysElement element) throws IOException {
-		List<String> strs = new ArrayList<>();
+		List <String> strs = new ArrayList <>();
 		if (element.isFolder() && element.getFolder().isRoot()) {
 			return "/";
 		}
 		strs.add(element.getName());
 		PatrFolder p = element.getParent();
-		while (!p.isRoot()) {
+		while ( !p.isRoot()) {
 			strs.add(p.getName());
 			p = p.getParent();
 		}
 		StringBuilder build = new StringBuilder();
-		for (int i = strs.size() - 1; i >= 0; i--) {
+		for (int i = strs.size() - 1; i >= 0; i -- ) {
 			build.append('/').append(strs.get(i));
 		}
 		return build.toString();
 	}
-
-	public static String buildName(String[] path, int i) {
+	
+	public static String buildName(String[] path, int imax) {
 		StringBuilder build = new StringBuilder();
-		for (int si = 0; si <= i; si++) {
+		for (int si = 0; si <= imax; si ++ ) {
 			build.append('/').append(path[si]);
 		}
 		return build.toString();
 	}
-
+	
 	private static String[] getPath(PFSPathImpl p) {
 		p = p.toAbsolutePath().normalize();
 		Name[] names = p.getNames();
 		String[] result = new String[names.length];
-		for (int i = 0; i < result.length; i++) {
+		for (int i = 0; i < result.length; i ++ ) {
 			result[i] = names[i].name;
 		}
 		return result;
 	}
-
+	
 	public static class CopyOptions {
-
+		
 		public boolean interruptable;
 		public boolean replaceExisting = false;
-		public boolean copyAttributes = false;
-
+		public boolean copyAttributes  = false;
+		
 		public static CopyOptions create(CopyOption... options) {
 			CopyOptions opts = new CopyOptions();
 			for (CopyOption option : options) {
@@ -972,7 +909,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			}
 			return opts;
 		}
-
+		
 	}
-
+	
 }

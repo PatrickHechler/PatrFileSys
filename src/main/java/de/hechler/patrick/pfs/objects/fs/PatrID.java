@@ -24,7 +24,7 @@ public class PatrID {
 		if (this == obj) return true;
 		if ( ! (obj instanceof PatrID)) return false;
 		PatrID other = (PatrID) obj;
-		if ( !fs.equals(other.fs)) return false;
+		if (fs != other.fs) return false;
 		if (id != other.id) return false;
 		if (startTime != other.startTime) return false;
 		return true;
