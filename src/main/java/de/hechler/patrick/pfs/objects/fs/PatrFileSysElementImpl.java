@@ -1808,7 +1808,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 			}
 		}
 	}
-	
+	//TODO: bug fix call withFSLock(...) methods without block 0/any block loaded
 	protected static <T extends Throwable> boolean withFSLock(PatrFileSysImpl fs, ThrowingBooleanSupplier <T> exec) throws ElementLockedException, IOException, T {
 		if (Thread.holdsLock(fs)) {
 			return exec.supply();
