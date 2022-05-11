@@ -2,7 +2,7 @@ package de.hechler.patrick.pfs.objects.fs;
 
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FILE;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FOLDER;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LINK_OFFSET_TARGET_ID;
 
@@ -21,8 +21,8 @@ public class PatrLinkImpl extends PatrFileSysElementImpl implements PatrLink {
 	
 	@Override
 	public PatrFileSysElement getTarget() throws IOException {
-		return simpleWithLock(() -> {
-			updatePosAndBlock();
+		return withLock(() -> {
+			fs.updateBlockAndPos(this);
 			return executeGetTarget();
 		});
 	}
@@ -52,16 +52,17 @@ public class PatrLinkImpl extends PatrFileSysElementImpl implements PatrLink {
 		if (nt.startTime != startTime) {
 			throw new IllegalArgumentException("the target has a diffrent initilizing time (either I or the target is outdated (or both))!");
 		}
-		withLock(() -> executeSetTarget(nt));
+		withLock(() -> executeSetTarget(nt, lock));
 	}
 	
-	private void executeSetTarget(PatrFileSysElementImpl nt) throws IOException {
+	private void executeSetTarget(PatrFileSysElementImpl nt, long lock) throws IOException {
 		if (nt.isLink()) {
 			throw new IllegalArgumentException("i will not link a link!");
 		}
-		updatePosAndBlock();
+		fs.updateBlockAndPos(this);
 		byte[] bytes = bm.getBlock(block);
 		try {
+			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			longToByteArr(bytes, pos + LINK_OFFSET_TARGET_ID, nt.id);
 			if (nt.isFolder()) {
 				flag(ELEMENT_FLAG_FILE, ELEMENT_FLAG_FOLDER);

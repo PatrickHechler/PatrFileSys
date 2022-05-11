@@ -16,7 +16,7 @@ public class PatrID {
 	
 	@Override
 	public int hashCode() {
-		return (int) (startTime ^ (startTime >>> 32));
+		return (int) (id ^ (id >>> 32));
 	}
 	
 	@Override

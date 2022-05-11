@@ -38,7 +38,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			throw new IllegalArgumentException("negative value! offset/len can not be negative! (bytesOff=" + bytesOff + ", offset=" + offset + ", length=" + length + ")");
 		}
 		withLock(() -> {
-			updatePosAndBlock();
+			fs.updateBlockAndPos(this);
 			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
 			executeRead(bytes, offset, bytesOff, length);
 		});
@@ -96,7 +96,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			throw new IllegalArgumentException("negative value! offset/len can not be negative! (offset=" + offset + ", length=" + length + ")");
 		}
 		withLock(() -> {
-			updatePosAndBlock();
+			fs.updateBlockAndPos(this);
 			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			executeRemove(offset, length);
 			executeModify(false);
@@ -238,7 +238,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			throw new IllegalArgumentException("negative value! offset/len can not be negative! (bytesOff=" + bytesOff + ", offset=" + offset + ", length=" + length + ")");
 		}
 		withLock(() -> {
-			updatePosAndBlock();
+			fs.updateBlockAndPos(this);
 			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			executeWrite(bytes, offset, bytesOff, length);
 			executeModify(false);
@@ -297,7 +297,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			throw new IllegalArgumentException("too large for the given byte array! (array-len=" + bytes.length + ", array-off=" + bytesOff + ", length=" + length + ")");
 		}
 		withLock(() -> {
-			updatePosAndBlock();
+			fs.updateBlockAndPos(this);
 			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			executeAppend(bytes, bytesOff, length, lock);
 			executeModify(false);
@@ -387,8 +387,8 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	
 	@Override
 	public byte[] getHashCode(long lock) throws IOException, ElementLockedException {
-		return simpleWithLock(() -> {
-			updatePosAndBlock();
+		return withLock(() -> {
+			fs.updateBlockAndPos(this);
 			return executeGetHashCode(lock);
 		});
 	}
@@ -436,8 +436,8 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	
 	@Override
 	public long length() throws IOException {
-		return simpleWithLockLong(() -> {
-			updatePosAndBlock();
+		return withLockLong(() -> {
+			fs.updateBlockAndPos(this);
 			return executeLength();
 		});
 	}

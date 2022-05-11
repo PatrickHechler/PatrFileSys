@@ -422,8 +422,10 @@ public class PatrFileSysImplChecker {
 	private void deleteAndCheckChild(final long rlock, final PatrFileSysElement c1) throws IOException, ElementLockedException, CheckerException {
 		long clock = c1.lock(LOCK_NO_DELETE_ALLOWED_LOCK);
 		assertThrows(ElementLockedException.class, () -> c1.delete(NO_LOCK, NO_LOCK));
-		assertThrows(ElementLockedException.class, () -> c1.delete(clock, NO_LOCK));
-		assertThrows(ElementLockedException.class, () -> c1.delete(NO_LOCK, rlock));
+		if (rlock != NO_LOCK) {
+			assertThrows(ElementLockedException.class, () -> c1.delete(clock, NO_LOCK));
+			assertThrows(ElementLockedException.class, () -> c1.delete(NO_LOCK, rlock));
+		}
 		c1.delete(clock, rlock);
 	}
 	
@@ -438,7 +440,7 @@ public class PatrFileSysImplChecker {
 		assertFalse(root.isLink());
 		assertFalse(root.isReadOnly());
 		assertTrue(root.isRoot());
-		root.addFile("file name", NO_LOCK);
+		root.addFolder("name", NO_LOCK);
 		root.setReadOnly(true, NO_LOCK);
 		assertThrows(ElementLockedException.class, () -> root.addFile("other file", NO_LOCK));
 		root.setReadOnly(false, NO_LOCK);

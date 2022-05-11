@@ -59,13 +59,13 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	@Override
 	public PatrFolder addFolder(String name, long lock) throws IOException, NullPointerException, ElementLockedException {
 		Objects.requireNonNull(name, "null names are not permitted!");
-		return simpleWithLock(() -> (PatrFolder) executeAddElement(name, true, null, lock));
+		return withLock(() -> (PatrFolder) executeAddElement(name, true, null, lock));
 	}
 	
 	@Override
 	public PatrFile addFile(String name, long lock) throws IOException, NullPointerException, ElementLockedException {
 		Objects.requireNonNull(name, "null names are not permitted!");
-		return simpleWithLock(() -> (PatrFile) executeAddElement(name, false, null, lock));
+		return withLock(() -> (PatrFile) executeAddElement(name, false, null, lock));
 	}
 	
 	@Override
@@ -76,11 +76,11 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 			throw new IllegalArgumentException("the tareget is of an unknown class: " + target.getClass().getName() + "");
 		}
 		PatrFileSysElementImpl t = (PatrFileSysElementImpl) target;
-		return simpleWithLock(() -> (PatrLink) executeAddElement(name, target.isFolder(), t, lock));
+		return withLock(() -> (PatrLink) executeAddElement(name, target.isFolder(), t, lock));
 	}
 	
 	private PatrFileSysElement executeAddElement(String name, boolean isFolder, PatrFileSysElementImpl target, long lock) throws NullPointerException, IOException, ElementLockedException {
-		updatePosAndBlock();
+		fs.updateBlockAndPos(this);
 		byte[] childNameBytes = name.getBytes(CHARSET);
 		final long oldBlock = block;
 		byte[] bytes = bm.getBlock(oldBlock);
@@ -224,7 +224,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	@Override
 	public int elementCount(long lock) throws IOException {
 		return withLockInt(() -> {
-			updatePosAndBlock();
+			fs.updateBlockAndPos(this);
 			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
 			return getElementCount();
 		});
@@ -244,8 +244,8 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 		if (index < 0) {
 			throw new IndexOutOfBoundsException("index is smaller than 0: index=" + index);
 		}
-		return simpleWithLock(() -> {
-			updatePosAndBlock();
+		return withLock(() -> {
+			fs.updateBlockAndPos(this);
 			return executeGetElement(index, lock);
 		});
 	}
@@ -267,8 +267,8 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	
 	@Override
 	public PatrFileSysElement getElement(String name, long lock) throws ElementLockedException, NoSuchFileException, IOException {
-		return simpleWithLock(() -> {
-			updatePosAndBlock();
+		return withLock(() -> {
+			fs.updateBlockAndPos(this);
 			byte[] bytes = bm.getBlock(block);
 			try {
 				ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);

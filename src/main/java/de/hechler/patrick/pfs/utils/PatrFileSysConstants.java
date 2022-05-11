@@ -16,7 +16,10 @@ public class PatrFileSysConstants {
 	public static final int FB_ROOT_POS_OFFSET         = FB_ROOT_BLOCK_OFFSET + 8;
 	public static final int FB_TABLE_FILE_BLOCK_OFFSET = FB_ROOT_POS_OFFSET + 4;
 	public static final int FB_TABLE_FILE_POS_OFFSET   = FB_TABLE_FILE_BLOCK_OFFSET + 8;
-	public static final int FB_START_ROOT_POS          = FB_TABLE_FILE_POS_OFFSET + 4;
+	public static final int FB_FILE_SYS_LOCK_VALUE     = FB_TABLE_FILE_POS_OFFSET + 4;
+	public static final int FB_FILE_SYS_LOCK_TIME      = FB_FILE_SYS_LOCK_VALUE + 8;
+	public static final int FB_FILE_SYS_STATE          = FB_FILE_SYS_LOCK_TIME + 8;
+	public static final int FB_START_ROOT_POS          = FB_FILE_SYS_STATE + 4;
 	
 	/**
 	 * flag used to indicate that the element is a folder
