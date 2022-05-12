@@ -97,8 +97,8 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 				LongInt oc = fs.getBlockAndPos(ocid);
 				byte[] ocbytes = bm.getBlock(oc.l);
 				try {
+					int ocnamepos = byteArrToInt(ocbytes, oc.i + ELEMENT_OFFSET_NAME);
 					for (int ii = 0;; ii += 2) {
-						int ocnamepos = byteArrToInt(ocbytes, oc.i + ELEMENT_OFFSET_NAME);
 						if (ii >= childNameBytes.length) {
 							if (ocbytes[ocnamepos + ii] == 0 && ocbytes[ocnamepos + ii + 1] == 0) {
 								String fullName = PFSFileSystemProviderImpl.buildName(this) + '/' + name;
@@ -151,9 +151,11 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 				intToByteArr(bytes, pos + FOLDER_OFFSET_ELEMENT_COUNT, oldElementCount + 1);
 				executeFlag(0, ELEMENT_FLAG_FOLDER_SORTED);
 				executeModify(false);
-				if (target != null) return new PatrLinkImpl(fs, startTime, bm, cid);
-				else if (isFolder) return new PatrFolderImpl(fs, startTime, bm, cid);
-				else return new PatrFileImpl(fs, startTime, bm, cid);
+				PatrFileSysElement result;
+				if (target != null) result = new PatrLinkImpl(fs, startTime, bm, cid);
+				else if (isFolder) result = new PatrFolderImpl(fs, startTime, bm, cid);
+				else result = new PatrFileImpl(fs, startTime, bm, cid);
+				return result;
 			} finally {
 				bm.setBlock(block);
 			}
@@ -186,7 +188,8 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	public static void initChild(BlockManager bm, long parentID, long childID, boolean isFolder, final int childPos, int childNamePos, long childBlock, byte[] childNameBytes, PatrFileSysElementImpl target) throws IOException {
+	public static void initChild(BlockManager bm, long parentID, long childID, boolean isFolder, final int childPos, int childNamePos, long childBlock, byte[] childNameBytes, PatrFileSysElementImpl target)
+		throws IOException {
 		byte[] bytes = bm.getBlock(childBlock);
 		try {
 			long time = System.currentTimeMillis();
@@ -223,11 +226,11 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	
 	@Override
 	public int elementCount(long lock) throws IOException {
-		return withLockInt(() -> {
+		synchronized (bm) {
 			fs.updateBlockAndPos(this);
 			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
 			return getElementCount();
-		});
+		}
 	}
 	
 	protected int getElementCount() throws ClosedChannelException, IOException {
@@ -244,10 +247,10 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 		if (index < 0) {
 			throw new IndexOutOfBoundsException("index is smaller than 0: index=" + index);
 		}
-		return withLock(() -> {
+		synchronized (bm) {
 			fs.updateBlockAndPos(this);
 			return executeGetElement(index, lock);
-		});
+		}
 	}
 	
 	private PatrFileSysElement executeGetElement(int index, long lock) throws ClosedChannelException, IOException, ElementLockedException {
@@ -267,7 +270,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	
 	@Override
 	public PatrFileSysElement getElement(String name, long lock) throws ElementLockedException, NoSuchFileException, IOException {
-		return withLock(() -> {
+		synchronized (bm) {
 			fs.updateBlockAndPos(this);
 			byte[] bytes = bm.getBlock(block);
 			try {
@@ -302,7 +305,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 			} finally {
 				bm.ungetBlock(block);
 			}
-		});
+		}
 	}
 	
 }

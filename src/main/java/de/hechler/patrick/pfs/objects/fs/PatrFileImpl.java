@@ -37,11 +37,16 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		if (bytesOff < 0 || offset < 0 || length < 0) {
 			throw new IllegalArgumentException("negative value! offset/len can not be negative! (bytesOff=" + bytesOff + ", offset=" + offset + ", length=" + length + ")");
 		}
-		withLock(() -> {
+		synchronized (bm) {
 			fs.updateBlockAndPos(this);
-			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
-			executeRead(bytes, offset, bytesOff, length);
-		});
+			bm.getBlock(block);
+			try {
+				ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
+				executeRead(bytes, offset, bytesOff, length);
+			} finally {
+				bm.ungetBlock(block);
+			}
+		}
 	}
 	
 	private void executeRead(byte[] bytes, long offset, int bytesOff, int length) throws ClosedChannelException, IOException, ElementLockedException {
@@ -195,7 +200,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 						long oldPos = pos;
 						pos = reallocate(blockSize, pos, currentOff - pos, currentOff - pos - lastBlockTableOff + startBlockTableOff, true);
 						if (pos != oldPos) {
-							PatrFileSysImpl.setBlockAndPos(PatrFileImpl.this, block, pos);
+							fs.setBlockAndPos(PatrFileImpl.this, block, pos);
 						}
 						longToByteArr(bytes, pos + FILE_OFFSET_FILE_LENGTH, myOldLen - length);
 					} finally {
@@ -387,10 +392,10 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	
 	@Override
 	public byte[] getHashCode(long lock) throws IOException, ElementLockedException {
-		return withLock(() -> {
+		synchronized (bm) {
 			fs.updateBlockAndPos(this);
 			return executeGetHashCode(lock);
-		});
+		}
 	}
 	
 	private byte[] executeGetHashCode(long lock) throws IOException, ElementLockedException {
@@ -436,10 +441,10 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	
 	@Override
 	public long length() throws IOException {
-		return withLockLong(() -> {
+		synchronized (bm) {
 			fs.updateBlockAndPos(this);
 			return executeLength();
-		});
+		}
 	}
 	
 	private long executeLength() throws ClosedChannelException, IOException {

@@ -71,11 +71,7 @@ public class PatrFolderIterator implements Iterator <PatrFileSysElement> {
 		index -- ;
 		PatrFileSysElement element;
 		element = folder.getElement(index, lockSupplier.getLock(folder));
-		if (element.isFile()) {
-			element.getFile().delete(lockSupplier.getLock(element), lockSupplier.getLock(folder));
-		} else {
-			element.getFolder().delete(lockSupplier.getLock(element), lockSupplier.getLock(folder));
-		}
+		element.delete(lockSupplier.getLock(element), lockSupplier.getLock(folder));
 	}
 	
 }

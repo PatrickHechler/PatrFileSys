@@ -21,10 +21,10 @@ public class PatrLinkImpl extends PatrFileSysElementImpl implements PatrLink {
 	
 	@Override
 	public PatrFileSysElement getTarget() throws IOException {
-		return withLock(() -> {
+		synchronized (bm) {
 			fs.updateBlockAndPos(this);
 			return executeGetTarget();
-		});
+		}
 	}
 	
 	private PatrFileSysElement executeGetTarget() throws IOException {

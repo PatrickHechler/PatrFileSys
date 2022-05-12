@@ -49,23 +49,23 @@ import de.hechler.patrick.zeugs.check.anotations.ParamCreater;
 import de.hechler.patrick.zeugs.check.anotations.Start;
 import de.hechler.patrick.zeugs.check.exceptions.CheckerException;
 
-@CheckClass(disabled = PatrFileSysImplChecker.DISABLE_OTHERS)
+@CheckClass(disabled = PatrFileSysImplChecker.DISABLE_DIFFRENT_SIZE)
 class PatrFileSysImplDiffrentBlocksChecker extends PatrFileSysImplChecker {
 	
 	@Override
 	protected int startsize() {
-		return 5131;
+		return 513761;
 	}
 	
 }
 
 
-@CheckClass(disabled = PatrFileSysImplChecker.DISABLE_OTHERS)
+@CheckClass(disabled = PatrFileSysImplChecker.DISABLE_DIFFRENT_SIZE)
 class PatrFileSysImplSmallDiffrentBlocksChecker extends PatrFileSysImplChecker {
 	
 	@Override
 	protected int startsize() {
-		return 321;
+		return 12541;
 	}
 	
 }
@@ -96,11 +96,13 @@ class PatrFileSysImplNormalBlocksChecker extends PatrFileSysImplChecker {
 @CheckClass(disabled = PatrFileSysImplChecker.DISABLE_ME)
 public class PatrFileSysImplChecker {
 	
-	public static final boolean DISABLE_OTHERS      = true;
-	public static final boolean DISABLE_NORMAL      = false;
-	public static final boolean DISABLE_ME          = true;
-	public static final boolean DISABLE_SLOW        = true;
-	public static final boolean DELETE_AFTER_CHECKS = true;
+	private static final boolean RUN_ALL               = false;
+	public static final boolean  DISABLE_DIFFRENT_SIZE = ( !RUN_ALL) & true;
+	public static final boolean  DISABLE_OTHERS        = ( !RUN_ALL) & true;
+	public static final boolean  DISABLE_NORMAL        = ( !RUN_ALL) & true;
+	public static final boolean  DISABLE_ME            = ( !RUN_ALL) & false;
+	public static final boolean  DISABLE_SLOW          = ( !RUN_ALL) & true;
+	public static final boolean  DELETE_AFTER_CHECKS   = false;
 	
 	private PatrFileSystem fs;
 	
@@ -122,7 +124,13 @@ public class PatrFileSysImplChecker {
 		FileBlockAccessor ba = new FileBlockAccessor(startSize, raf);
 		BlockManagerImpl bm = new BlockManagerImpl(ba);
 		fs = new PatrFileSysImpl(bm);
-		fs.format((long) startSize, startSize);
+		long blockCount = 1 << 15;
+		blockCount += (2487926 / startSize) + 1L;
+		blockCount += (1607082 / startSize) + 1L;
+		blockCount += (2283687 / startSize) + 1L;
+		blockCount += (384794875L / startSize) + 1L;
+		blockCount += (33 / startSize) + 1L;
+		fs.format(blockCount, startSize);
 		System.out.println("start check: " + getClass().getSimpleName() + ": " + met.getName());
 	}
 	
@@ -137,7 +145,7 @@ public class PatrFileSysImplChecker {
 	}
 	
 	protected int startsize() {
-		return 512;
+		return 1024;
 	}
 	
 	private void deepDeleteChildren(Path path) throws IOException {
@@ -442,7 +450,7 @@ public class PatrFileSysImplChecker {
 		assertTrue(root.isRoot());
 		root.addFolder("name", NO_LOCK);
 		root.setReadOnly(true, NO_LOCK);
-		assertThrows(ElementLockedException.class, () -> root.addFile("other file", NO_LOCK));
+		assertThrows(ElementLockedException.class, () -> root.addFile("other file", 87L));
 		root.setReadOnly(false, NO_LOCK);
 		root.addFile("other file", NO_LOCK);
 		assertThrows(FileAlreadyExistsException.class, () -> root.addFile("other file", NO_LOCK));

@@ -11,9 +11,8 @@ public class Test {
 	
 	public static void main(String[] args) {
 		BigCheckResult cr = BigChecker.tryCheckAll(true, Test.class.getPackage(), Test.class.getClassLoader());
-		cr.print();
+		cr.detailedPrint();
 		if (cr.wentUnexpected()) {
-			cr.detailedPrintUnexpected(System.err);
 			throw new Error("unexpected BigCheckResult: " + cr);
 		}
 	}

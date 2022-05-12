@@ -165,7 +165,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	 * the attribute key to specify if the file system should be formatted.
 	 * <p>
 	 * if no value is set, but {@link #NEW_FILE_SYS_ENV_ATTR_FILE_SYS} is set, the file system will be interpreted as already formatted.<br>
-	 * if a value is set, but {@link #NPFSFileSystemProviderImplEW_FILE_SYS_ENV_ATTR_FILE_SYS} is not set, the value will be ignored.
+	 * if a value is set, but {@link #NEW_FILE_SYS_ENV_ATTR_FILE_SYS} is not set, the value will be ignored.
 	 * <p>
 	 * the value must be of type {@link Boolean}.<br>
 	 * if the {@link Boolean#booleanValue()} is <code>true</code>, the block manager will be formatted. If the {@link Boolean#booleanValue()} is <code>false</code> the block manager will not be.

@@ -4,7 +4,6 @@ import static de.hechler.patrick.pfs.objects.fs.PatrFileSysElementImpl.executeEn
 import static de.hechler.patrick.pfs.objects.fs.PatrFileSysElementImpl.executeLock;
 import static de.hechler.patrick.pfs.objects.fs.PatrFileSysElementImpl.executeRemoveLock;
 import static de.hechler.patrick.pfs.objects.fs.PatrFileSysElementImpl.withLock;
-import static de.hechler.patrick.pfs.objects.fs.PatrFileSysElementImpl.withLockInt;
 import static de.hechler.patrick.pfs.objects.fs.PatrFileSysElementImpl.withLockLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToInt;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
@@ -214,17 +213,18 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public PatrFileSysElement fromID(Object id) throws IOException, IllegalArgumentException, NullPointerException {
-		return withLock(this, () -> executeFromID(id), 0L);
-	}
-	
-	private PatrFileSysElement executeFromID(Object id) throws IllegalAccessError {
 		if (id == null) {
 			throw new NullPointerException("id is null");
 		}
 		if ( ! (id instanceof PatrID)) {
 			throw new IllegalAccessError("the given id is invalid (class: '" + id.getClass() + "' tos: '" + id + "')");
 		}
-		PatrID pid = (PatrID) id;
+		synchronized (bm) {
+			return executeFromID((PatrID) id);
+		}
+	}
+	
+	private PatrFileSysElement executeFromID(PatrID pid) throws IllegalAccessError {
 		if (pid.startTime != startTime || pid.fs.bm != bm || pid.fs != this) {
 			throw new IllegalAccessError("the given id does not belong th this file system");
 		}
@@ -267,6 +267,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		}
 		bytes = bm.getBlock(0L);
 		try {
+			startTime = System.currentTimeMillis();
 			root = new PatrFolderImpl(this, startTime, bm, ROOT_FOLDER_ID);
 			elementTable = new PatrFileImpl(this, startTime, bm, ELEMENT_TABLE_FILE_ID);
 			assert blockSize == bytes.length;
@@ -276,7 +277,6 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			longToByteArr(bytes, FB_ROOT_BLOCK_OFFSET, 0L);
 			longToByteArr(bytes, FB_FILE_SYS_LOCK_VALUE, NO_LOCK);
 			intToByteArr(bytes, FB_ROOT_POS_OFFSET, FB_START_ROOT_POS);
-			startTime = System.currentTimeMillis();
 			PatrFolderImpl.initChild(bm, NO_ID, ROOT_FOLDER_ID, true, FB_START_ROOT_POS, -1, 0L, null, null);
 			int blockTablePos = PatrFileSysElementImpl.allocate(bm, 0L, FILE_OFFSET_FILE_DATA_TABLE);
 			PatrFolderImpl.initChild(bm, NO_ID, ELEMENT_TABLE_FILE_ID, false, blockTablePos, -1, 0L, null, null);
@@ -287,12 +287,13 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		}
 	}
 	
-	public static void setBlockAndPos(PatrID id, long block, int pos) throws IOException {
-		withLock(id.fs, () -> executeSetBlockAndPos(id, block, pos), 0L);
+	public void setBlockAndPos(PatrID id, long block, int pos) throws IOException {
+		assert this == id.fs;
+		withLock(this, () -> executeSetBlockAndPos(id, block, pos), 0L);
 	}
 	
-	private static void executeSetBlockAndPos(PatrID id, long block, int pos) throws IOException, IllegalArgumentException {
-		assert id.fs.startTime == id.startTime;
+	private void executeSetBlockAndPos(PatrID id, long block, int pos) throws IOException, IllegalArgumentException {
+		assert startTime == id.startTime;
 		if (id.id == ROOT_FOLDER_ID) {
 			byte[] bytes = id.fs.bm.getBlock(0L);
 			try {
@@ -322,7 +323,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	public void updateBlockAndPos(PatrFileSysElementImpl element) throws IOException {
 		assert element.fs == this;
-		withLock(this, () -> {
+		synchronized (bm) {
 			assert element.startTime == startTime : "mystart=" + startTime + " elementstart=" + element.startTime + " dif=" + (startTime - element.startTime);
 			if (element.id == ELEMENT_TABLE_FILE_ID) {
 				byte[] bytes = bm.getBlock(0L);
@@ -348,11 +349,11 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			} else {
 				throw new IllegalArgumentException("invalid id! id=" + element.id);
 			}
-		}, 0L);
+		}
 	}
 	
 	public LongInt getBlockAndPos(long id) throws IllegalArgumentException, IOException {
-		return withLock(this, () -> {
+		synchronized (bm) {
 			long block;
 			int pos;
 			if (id == ELEMENT_TABLE_FILE_ID) {
@@ -380,7 +381,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 				throw new IllegalArgumentException("invalid id! id=" + id);
 			}
 			return new LongInt(block, pos);
-		}, 0L);
+		}
 	}
 	
 	public static long generateID(PatrID parent, long block, int pos) throws IOException {
@@ -394,13 +395,17 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		for (int cpy; off < len; off += cpy) {
 			cpy = (int) Math.min(len - off, bytes.length);
 			parent.fs.elementTable.getContent(bytes, off, 0, cpy, NO_LOCK);
-			for (int i = ELEMENT_TABLE_OFFSET_POS; i < bytes.length; i += ELEMENT_TABLE_ELEMENT_LENGTH) {
-				if (bytes[i] == -1) {
+			for (int i = 0; i < bytes.length; i += ELEMENT_TABLE_ELEMENT_LENGTH) {
+				int entryPos = byteArrToInt(bytes, i + ELEMENT_TABLE_OFFSET_POS);
+				if (entryPos < 0) {
+					assert byteArrToLong(bytes, i + ELEMENT_TABLE_OFFSET_BLOCK) == -1L;
+					assert entryPos == -1;
 					i -= ELEMENT_TABLE_OFFSET_POS;
 					longToByteArr(bytes, i + ELEMENT_TABLE_OFFSET_BLOCK, block);
 					intToByteArr(bytes, i + ELEMENT_TABLE_OFFSET_POS, pos);
 					return (long) i;
 				}
+				assert byteArrToLong(bytes, i + ELEMENT_TABLE_OFFSET_BLOCK) >= 0L;
 			}
 		}
 		longToByteArr(bytes, ELEMENT_TABLE_OFFSET_BLOCK, block);
@@ -423,7 +428,9 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public long totalSpace() throws IOException {
-		return withLockLong(this, this::executeTotalSpace, 0L);
+		synchronized (bm) {
+			return executeTotalSpace();
+		}
 	}
 	
 	private long executeTotalSpace() throws ClosedChannelException, IOException {
@@ -446,7 +453,9 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public long freeSpace() throws IOException {
-		return withLockLong(this, this::executeFreeSpace, 0L);
+		synchronized (bm) {
+			return executeFreeSpace();
+		}
 	}
 	
 	private long executeFreeSpace() throws IOException {
@@ -461,7 +470,9 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public long usedSpace() throws IOException {
-		return withLockLong(this, this::executeUsedSpace, 0L);
+		synchronized (bm) {
+			return executeUsedSpace();
+		}
 	}
 	
 	private long executeUsedSpace() throws ClosedChannelException, IOException {
@@ -485,15 +496,13 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public int blockSize() throws IOException {
-		return withLockInt(this, this::executeBlockSize, 0L);
+		synchronized (bm) {
+			return executeBlockSize();
+		}
 	}
 	
 	public static int blockSize(byte[] bytes, int off) throws IOException {
 		return byteArrToInt(bytes, FB_BLOCK_LENGTH_OFFSET - off);
-	}
-	
-	public static long blockCount(byte[] bytes, int off) throws IOException {
-		return byteArrToLong(bytes, FB_BLOCK_COUNT_OFFSET - off);
 	}
 	
 	private int executeBlockSize() throws ClosedChannelException, IOException {
@@ -507,7 +516,13 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public long blockCount() throws IOException {
-		return withLockLong(this, this::executeBlockCount, 0L);
+		synchronized (bm) {
+			return executeBlockCount();
+		}
+	}
+	
+	public static long blockCount(byte[] bytes, int off) throws IOException {
+		return byteArrToLong(bytes, FB_BLOCK_COUNT_OFFSET - off);
 	}
 	
 	private long executeBlockCount() throws ClosedChannelException, IOException {

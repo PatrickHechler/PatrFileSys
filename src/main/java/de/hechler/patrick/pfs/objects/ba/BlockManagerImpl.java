@@ -134,6 +134,11 @@ public class BlockManagerImpl implements BlockManager {
 			this.loadCount = 1;
 			this.needSave = false;
 		}
+
+		@Override
+		public String toString() {
+			return "LoadedBlock [loadCount=" + loadCount + ", needSave=" + needSave + "]";
+		}
 		
 	}
 	
