@@ -1,4 +1,4 @@
-package de.hechler.patrick.pfs.objects;
+package de.hechler.patrick.pfs.objects.fs;
 
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_DELETE_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_META_CHANGE_ALLOWED_LOCK;
@@ -40,7 +40,6 @@ import de.hechler.patrick.pfs.interfaces.PatrFileSystem;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
 import de.hechler.patrick.pfs.objects.ba.BlockManagerImpl;
 import de.hechler.patrick.pfs.objects.ba.FileBlockAccessor;
-import de.hechler.patrick.pfs.objects.fs.PatrFileSysImpl;
 import de.hechler.patrick.zeugs.check.anotations.Check;
 import de.hechler.patrick.zeugs.check.anotations.CheckClass;
 import de.hechler.patrick.zeugs.check.anotations.End;
