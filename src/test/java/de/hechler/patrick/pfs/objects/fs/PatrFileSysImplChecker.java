@@ -95,7 +95,7 @@ class PatrFileSysImplNormalBlocksChecker extends PatrFileSysImplChecker {
 @CheckClass(disabled = PatrFileSysImplChecker.DISABLE_ME)
 public class PatrFileSysImplChecker {
 	
-	private static final boolean RUN_ALL               = false;
+	private static final boolean RUN_ALL               = false;//TODO run once again all
 	public static final boolean  DISABLE_DIFFRENT_SIZE = ( !RUN_ALL) & true;
 	public static final boolean  DISABLE_OTHERS        = ( !RUN_ALL) & true;
 	public static final boolean  DISABLE_NORMAL        = ( !RUN_ALL) & true;
@@ -147,7 +147,7 @@ public class PatrFileSysImplChecker {
 		return 1024;
 	}
 	
-	private void deepDeleteChildren(Path path) throws IOException {
+	public static void deepDeleteChildren(Path path) throws IOException {
 		try (DirectoryStream <Path> dirStr = Files.newDirectoryStream(path)) {
 			for (Path p : dirStr) {
 				if ( !Files.isWritable(path)) {
