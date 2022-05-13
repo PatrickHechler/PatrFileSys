@@ -1,7 +1,6 @@
 package de.hechler.patrick.pfs.objects.jfs;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.FileTime;
 
