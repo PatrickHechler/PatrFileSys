@@ -39,6 +39,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import com.sun.nio.file.ExtendedCopyOption;
 import com.sun.nio.file.ExtendedOpenOption;
@@ -671,7 +672,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	@Override
 	public <A extends BasicFileAttributes> A readAttributes(Path path, Class <A> type, LinkOption... options)
 		throws IOException {
-		if ( !type.isAssignableFrom(PFSBasicFileAttributesImpl.class)) {
+		if ( !type.isAssignableFrom(PFSFileAttributesImpl.class)) {
 			return null;
 		}
 		try {
@@ -680,7 +681,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			PatrFolder root = p.getFileSystem().getFileSys().getRoot();
 			PatrFileSysElement element;
 			element = getElement(root, strs, strs.length - 1);
-			PFSBasicFileAttributesImpl attributes = PFSBasicFileAttributeViewImpl.readAttributes(element);
+			PatrFileAttributeView attributes = PFSBasicFileAttributeViewImpl.readAttributes(element);
 			return type.cast(attributes);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
@@ -774,7 +775,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	@Override
 	public void setAttribute(Path path, String attribute, Object value, LinkOption... options) throws IOException {
 		if (value == null) {
-			throw new IllegalArgumentException("null values are not permitted");
+			throw new NullPointerException("null values are not permitted");
 		}
 		PFSPathImpl p = PFSPathImpl.getMyPath(path);
 		String[] strs = getPath(p);
@@ -782,9 +783,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 		PatrFileSysElement element = getElement(root, strs, strs.length - 1);
 		attribute = supportsView(attribute);
 		switch (attribute) {
-		case BASIC_ATTRIBUTE_LAST_MODIFIED_TIME:
 		case BASIC_ATTRIBUTE_LAST_ACCESS_TIME:
-		case BASIC_ATTRIBUTE_CREATION_TIME:
 		case BASIC_ATTRIBUTE_SIZE:
 		case BASIC_ATTRIBUTE_IS_REGULAR_FILE:
 		case BASIC_ATTRIBUTE_IS_DIRECTORY:
@@ -793,6 +792,18 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 		case BASIC_ATTRIBUTE_FILE_KEY:
 		default:
 			throw new IllegalArgumentException("illegal attribut to set: attribute='" + attribute + "'");
+		case BASIC_ATTRIBUTE_CREATION_TIME: {
+			FileTime ft = (FileTime) value;
+			long val = ft.toMillis();
+			element.setCreateTime(val, NO_LOCK);
+			break;
+		}
+		case BASIC_ATTRIBUTE_LAST_MODIFIED_TIME: {
+			FileTime ft = (FileTime) value;
+			long val = ft.toMillis();
+			element.setLastModTime(val, NO_LOCK);
+			break;
+		}
 		case PATR_VIEW_ATTR_EXECUTABLE: {
 			boolean bval = (boolean) (Boolean) value;
 			element.setExecutable(bval, NO_LOCK);

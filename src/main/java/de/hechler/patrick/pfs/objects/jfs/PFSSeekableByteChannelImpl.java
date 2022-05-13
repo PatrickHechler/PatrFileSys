@@ -18,8 +18,6 @@ import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
 public class PFSSeekableByteChannelImpl implements SeekableByteChannel, GatheringByteChannel, ScatteringByteChannel {
 	
-	// @SuppressWarnings("unused")
-	// private String[] path;
 	private ThrowingConsumer <? extends IOException, PatrFile> onClose;
 	private volatile int                                       mode;
 	private long                                               lock;

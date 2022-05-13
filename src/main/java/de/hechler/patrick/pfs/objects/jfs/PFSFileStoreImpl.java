@@ -101,6 +101,7 @@ public class PFSFileStoreImpl extends FileStore {
 		case BASIC_ATTRIBUTE_IS_REGULAR_FILE:
 			return Boolean.FALSE;
 		case BASIC_ATTRIBUTE_IS_SYMBOLIC_LINK:
+			return Boolean.FALSE;
 		case BASIC_ATTRIBUTE_IS_OTHER:
 			return Boolean.FALSE;
 		case BASIC_ATTRIBUTE_IS_DIRECTORY:

@@ -344,7 +344,7 @@ public class PatrFileSysImplChecker {
 		}
 	}
 	
-	private void deepCompare(Path a, Path b) throws IOException {
+	public static void deepCompare(Path a, Path b) throws IOException {
 		assertTrue(Files.exists(a));
 		assertTrue(Files.exists(b));
 		if (Files.isDirectory(a)) {

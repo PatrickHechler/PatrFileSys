@@ -1,11 +1,13 @@
 package de.hechler.patrick.pfs.objects.jfs;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.FileTime;
 
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
+import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
 public class PFSBasicFileAttributeViewImpl implements BasicFileAttributeView {
 	
@@ -28,20 +30,26 @@ public class PFSBasicFileAttributeViewImpl implements BasicFileAttributeView {
 	}
 	
 	@Override
-	public PFSBasicFileAttributesImpl readAttributes() throws IOException {
+	public PFSFileAttributesImpl readAttributes() throws IOException {
 		return readAttributes(element);
 	}
 	
-	public static PFSBasicFileAttributesImpl readAttributes(PatrFileSysElement element) throws IOException {
-		boolean isFile = element.isFile();
-		long createTime = element.getCreateTime(), lastModTime = element.getLastModTime();
-		long size;
-		if (isFile) {
-			size = element.getFile().length();
-		} else {
-			size = sizeOf(element.getFolder());
-		}
-		return new PFSBasicFileAttributesImpl(size, isFile, createTime, -1L, lastModTime);
+	public static PFSFileAttributesImpl readAttributes(PatrFileSysElement element) throws IOException {
+		return element.withLock(() -> {
+			boolean isFile = element.isFile();
+			long createTime = element.getCreateTime(), lastModTime = element.getLastModTime();
+			long size;
+			if (isFile) {
+				size = element.getFile().length();
+			} else {
+				size = sizeOf(element.getFolder());
+			}
+			boolean link = element.isLink();
+			boolean readOnly = element.isReadOnly();
+			boolean hidden = element.isHidden();
+			boolean executable = element.isExecutable();
+			return new PFSFileAttributesImpl(size, isFile, !isFile, link, readOnly, hidden, executable, false, createTime, lastModTime);
+		});
 	}
 	
 	public static long sizeOf(PatrFolder folder) throws IOException {
@@ -56,13 +64,17 @@ public class PFSBasicFileAttributeViewImpl implements BasicFileAttributeView {
 		return size;
 	}
 	
-	
 	@Override
 	public void setTimes(FileTime lastModifiedTime, FileTime lastAccessTime, FileTime createTime) throws IOException {
-		if (lastModifiedTime == null && lastAccessTime == null && createTime == null) {
-			return;
+		if (lastAccessTime != null) {
+			throw new UnsupportedOperationException("can't set access time (access time is not supported)");
 		}
-		throw new IOException("can't set times");
+		if (createTime != null) {
+			element.setCreateTime(createTime.toMillis(), PatrFileSysConstants.NO_LOCK);
+		}
+		if (lastModifiedTime != null) {
+			element.setLastModTime(lastModifiedTime.toMillis(), PatrFileSysConstants.NO_LOCK);
+		}
 	}
 	
 }
