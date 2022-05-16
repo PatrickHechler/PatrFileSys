@@ -29,6 +29,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
@@ -40,6 +41,7 @@ import de.hechler.patrick.pfs.interfaces.PatrFileSystem;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
 import de.hechler.patrick.pfs.objects.ba.BlockManagerImpl;
 import de.hechler.patrick.pfs.objects.ba.FileBlockAccessor;
+import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 import de.hechler.patrick.zeugs.check.anotations.Check;
 import de.hechler.patrick.zeugs.check.anotations.CheckClass;
 import de.hechler.patrick.zeugs.check.anotations.End;
@@ -470,6 +472,49 @@ public class PatrFileSysImplChecker {
 		assertNotEquals(NO_TIME, root.getCreateTime());
 		root.setCreateTime(NO_TIME, NO_LOCK);
 		assertEquals(NO_TIME, root.getCreateTime());
+	}
+	
+	@Check 
+	private void checkBlockChange() throws IOException {
+		PatrFolder root = fs.getRoot();
+		long start = System.currentTimeMillis();
+		PatrFolder folder = root.addFolder("", NO_LOCK);
+		long end = System.currentTimeMillis();
+		int need = fs.blockSize() - PatrFileSysConstants.FOLDER_OFFSET_FOLDER_ELEMENTS;
+		need -= 20;
+		need -= 8;
+		need -= need / 2;
+		char[] chars = new char[need];
+		Arrays.fill(chars, '-');
+		String name = new String(chars);
+		folder.setName(name, NO_LOCK);
+		assertEquals(name, folder.getName());
+		assertTrue(folder.isFolder());
+		assertFalse(folder.isFile());
+		assertFalse(folder.isLink());
+		assertFalse(folder.isExecutable());
+		assertFalse(folder.isReadOnly());
+		assertFalse(folder.isHidden());
+		assertNull(folder.getLockData());
+		assertLowerEqual(start, folder.getCreateTime());
+		assertGreatherEqual(end, folder.getCreateTime());
+		assertEquals(folder.getCreateTime(), folder.getLastModTime());
+		assertEquals(folder.getCreateTime(), folder.getLastMetaModTime());
+		assertFalse(folder.isRoot());
+		folder = folder.addFolder("", NO_LOCK);
+		assertEquals(name, folder.getName());
+		assertTrue(folder.isFolder());
+		assertFalse(folder.isFile());
+		assertFalse(folder.isLink());
+		assertFalse(folder.isExecutable());
+		assertFalse(folder.isReadOnly());
+		assertFalse(folder.isHidden());
+		assertNull(folder.getLockData());
+		assertLowerEqual(start, folder.getCreateTime());
+		assertGreatherEqual(end, folder.getCreateTime());
+		assertEquals(folder.getCreateTime(), folder.getLastModTime());
+		assertEquals(folder.getCreateTime(), folder.getLastMetaModTime());
+		assertFalse(folder.isRoot());
 	}
 	
 }
