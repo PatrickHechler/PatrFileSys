@@ -178,7 +178,18 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	private Set <PatrFile>                     delOnClose;
 	
 	public PFSFileSystemProviderImpl() {
-		this(new PatrFileSysImpl(new ByteArrayArrayBlockAccessor(1 << 10, 1 << 10)));
+		this(null);
+	}
+	
+	private PatrFileSysImpl newRamFS() {
+		ByteArrayArrayBlockAccessor ba = new ByteArrayArrayBlockAccessor(1 << 10, 1 << 10);
+		PatrFileSysImpl fs = new PatrFileSysImpl(ba);
+		try {
+			fs.format(1 << 10, 1 << 10);
+		} catch (IOException e) {
+			throw new RuntimeException(e);// should never happen
+		}
+		return fs;
 	}
 	
 	public PFSFileSystemProviderImpl(PatrFileSystem fs) {
@@ -319,6 +330,9 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	@Override
 	public Path getPath(URI uri) {
 		String str = uri.getPath();
+		if (def == null) {
+			def = new PFSFileSystemImpl(this, newRamFS());
+		}
 		Path path = def.getPath(str);
 		return path;
 	}
@@ -326,8 +340,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	public static final int MODE_READ = 1, MODE_WRITE = 2, MODE_APPEND = 4;
 	
 	@Override
-	public SeekableByteChannel newByteChannel(Path path, Set <? extends OpenOption> options, FileAttribute <?>... attrs)
-		throws IOException {
+	public SeekableByteChannel newByteChannel(Path path, Set <? extends OpenOption> options, FileAttribute <?>... attrs) throws IOException {
 		PFSPathImpl p = PFSPathImpl.getMyPath(path);
 		String[] strs = getPath(p);
 		PatrFileSystem fs = p.getFileSystem().getFileSys();

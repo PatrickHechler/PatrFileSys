@@ -97,7 +97,7 @@ class PatrFileSysImplNormalBlocksChecker extends PatrFileSysImplChecker {
 @CheckClass(disabled = PatrFileSysImplChecker.DISABLE_ME)
 public class PatrFileSysImplChecker {
 	
-	private static final boolean RUN_ALL               = false;//TODO run once again all
+	private static final boolean RUN_ALL               = false;
 	public static final boolean  DISABLE_DIFFRENT_SIZE = ( !RUN_ALL) & true;
 	public static final boolean  DISABLE_OTHERS        = ( !RUN_ALL) & true;
 	public static final boolean  DISABLE_NORMAL        = ( !RUN_ALL) & true;
@@ -474,7 +474,7 @@ public class PatrFileSysImplChecker {
 		assertEquals(NO_TIME, root.getCreateTime());
 	}
 	
-	@Check 
+	@Check
 	private void checkBlockChange() throws IOException {
 		PatrFolder root = fs.getRoot();
 		long start = System.currentTimeMillis();

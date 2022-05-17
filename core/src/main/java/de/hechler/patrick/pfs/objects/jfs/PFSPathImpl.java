@@ -269,6 +269,9 @@ public class PFSPathImpl implements Path {
 	}
 	
 	public static PFSPathImpl getMyPath(Path path) {
+		if (path == null) {
+			throw new NullPointerException("path is null");
+		}
 		if ( ! (path instanceof PFSPathImpl)) {
 			throw new IllegalArgumentException("I can not work with an unknown path impl! " + path.getClass());
 		}
