@@ -4,7 +4,7 @@
 	
 	<groupId>de.hechler.patrick.zeugs.pfs</groupId>
 	<artifactId>pfs-core</artifactId>
-	<version>1.0.4</version>
+	<version>3.0.0</version>
 	<packaging>jar</packaging>
 	
 	<properties>
@@ -16,11 +16,6 @@
 			<artifactId>checker</artifactId>
 			<version>5.11.1</version>
 			<scope>test</scope>
-		</dependency>
- 		<dependency>
-			<groupId>de.hechler.patrick.hilfen</groupId>
-			<artifactId>zeugs</artifactId>
-			<version>3.3.2</version>
 		</dependency>
 	</dependencies>
    <build>

@@ -474,7 +474,7 @@ public class PatrFileSysImplChecker {
 		assertEquals(NO_TIME, root.getCreateTime());
 	}
 	
-	@Check
+	@Check(disabled = true)
 	private void checkBlockChange() throws IOException {
 		PatrFolder root = fs.getRoot();
 		long start = System.currentTimeMillis();

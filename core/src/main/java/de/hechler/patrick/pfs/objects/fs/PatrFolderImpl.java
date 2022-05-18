@@ -36,7 +36,6 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.NoSuchFileException;
 import java.util.Arrays;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 
 import de.hechler.patrick.pfs.exception.ElementLockedException;
@@ -301,7 +300,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 					}
 					return new PatrFileSysElementImpl(fs, startTime, bm, cid);
 				}
-				throw new NoSuchElementException("I have no child element with the name: '" + name + "'");
+				throw new NoSuchFileException(name, PFSFileSystemProviderImpl.buildName(this), "I have no child element with the name: '" + name + "'");
 			} finally {
 				bm.ungetBlock(block);
 			}

@@ -42,7 +42,7 @@ public class SeekablePathBlockAccessor implements BlockAccessor {
 	public void saveBlock(byte[] value, long block) throws IOException, ClosedChannelException {
 		long pos = block * blockSize;
 		channel.position(pos);
-		channel.read(ByteBuffer.wrap(value));
+		channel.write(ByteBuffer.wrap(value));
 	}
 	
 	@Override

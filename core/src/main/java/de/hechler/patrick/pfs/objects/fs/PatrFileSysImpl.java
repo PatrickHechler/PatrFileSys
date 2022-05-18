@@ -17,7 +17,7 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_BLOCK_COUNT_O
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_BLOCK_LENGTH_OFFSET;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_FILE_SYS_LOCK_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_FILE_SYS_LOCK_VALUE;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_FILE_SYS_STATE;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_ROOT_BLOCK_OFFSET;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_ROOT_POS_OFFSET;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_START_ROOT_POS;
@@ -89,7 +89,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		this.bm = bm;
 		this.startTime = bootTime(System.currentTimeMillis());
 		this.lock = NO_LOCK;
-		this.readOnly = false;
+		this.readOnly = readOnly;
 		this.elementTable = new PatrFileImpl(this, startTime, bm, ELEMENT_TABLE_FILE_ID);
 		this.root = new PatrFolderImpl(this, startTime, bm, ROOT_FOLDER_ID);
 	}
@@ -141,6 +141,16 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	}
 	
 	/**
+	 * sets the lock used by this file system
+	 * 
+	 * @param lock
+	 *            the lock which should be used by this file system
+	 */
+	public void setLock(long lock) {
+		this.lock = lock;
+	}
+	
+	/**
 	 * locks the file system
 	 * 
 	 * @param lock
@@ -155,7 +165,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	public long lock(long lock) throws ElementLockedException, IOException {
 		synchronized (bm) {
 			byte[] bytes = bm.getBlock(0L);
-			return executeLock(() -> {
+			long result = executeLock(() -> {
 				long time = byteArrToLong(bytes, FB_FILE_SYS_LOCK_TIME);
 				if (time == NO_TIME || time < startTime) {
 					return NO_LOCK;
@@ -170,19 +180,19 @@ public class PatrFileSysImpl implements PatrFileSystem {
 					bm.setBlock(0L);
 				}
 			}, () -> "[FILE-SYSTEM]", rnd, lock);
+			this.lock = result;
+			return result;
 		}
 	}
 	
 	/**
 	 * removes the given lock from the file system
 	 * 
-	 * @param lock
-	 *            the lock to remove
 	 * @throws IOException
 	 *             if an IO error occurs
 	 * @see PatrFileSysElement#removeLock(long)
 	 */
-	public void removeLock(long lock) throws IOException {
+	public void removeLock() throws IOException {
 		synchronized (bm) {
 			byte[] bytes = bm.getBlock(0L);
 			executeRemoveLock(() -> byteArrToLong(bytes, FB_FILE_SYS_LOCK_VALUE), () -> byteArrToLong(bytes, FB_FILE_SYS_LOCK_TIME), (newLock, newTime) -> {
@@ -194,6 +204,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 					bm.setBlock(0L);
 				}
 			}, lock);
+			lock = NO_LOCK;
 			bm.ungetBlock(0L);
 		}
 	}
@@ -453,9 +464,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	@Override
 	public long freeSpace() throws IOException {
-		synchronized (bm) {
-			return executeFreeSpace();
-		}
+		return withLockLong(this, this::executeFreeSpace, 0L);
 	}
 	
 	private long executeFreeSpace() throws IOException {
@@ -564,7 +573,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	 * locks the file system, to complete an operation.<br>
 	 * after this call {@link #unlockFS(int)} should be called with the return value of this call as argument.
 	 * <p>
-	 * if this method gets called twice without {@link #unlockFS(int)} the behavior is undefined
+	 * if this method gets called twice without {@link #unlockFS(int)} most likely a deadlock occurs
 	 * 
 	 * @return the argument for {@link #unlockFS(int)}
 	 * @throws IOException
@@ -576,20 +585,25 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		while (true) {
 			byte[] bytes = bm.getBlock(0L);
 			try {
-				int state = byteArrToInt(bytes, FB_FILE_SYS_STATE);
-				if (state == 0) {
-					state = rnd.nextInt() | 1;
-					intToByteArr(bytes, FB_FILE_SYS_STATE, state);
-					bm.setBlock(0L);
-					try {
-						Thread.sleep(100L);
-					} catch (InterruptedException e) {} finally {
-						bytes = bm.getBlock(0L);
+				int state = byteArrToInt(bytes, FB_FILE_SYS_STATE_VALUE);
+				if (state != 0) {
+					long time = byteArrToLong(bytes, FB_FILE_SYS_STATE_TIME);
+					if (time != NO_TIME && time >= startTime) {
+						continue;
 					}
-					int newState = byteArrToInt(bytes, FB_FILE_SYS_STATE);
-					if (state == newState) {
-						return state;
-					}
+				}
+				state = rnd.nextInt() | 1;
+				intToByteArr(bytes, FB_FILE_SYS_STATE_VALUE, state);
+				longToByteArr(bytes, FB_FILE_SYS_STATE_TIME, System.currentTimeMillis());
+				bm.setBlock(0L);
+				try {
+					Thread.sleep(50L);
+				} catch (InterruptedException e) {} finally {
+					bytes = bm.getBlock(0L);
+				}
+				int newState = byteArrToInt(bytes, FB_FILE_SYS_STATE_VALUE);
+				if (state == newState) {
+					return state;
 				}
 			} finally {
 				bm.ungetBlock(0L);
@@ -601,11 +615,11 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	public void unlockFS(int key) throws IOException {
 		byte[] bytes = bm.getBlock(0L);
 		try {
-			int state = byteArrToInt(bytes, FB_FILE_SYS_STATE);
+			int state = byteArrToInt(bytes, FB_FILE_SYS_STATE_VALUE);
 			assert state == key;
 			bm.getBlock(0L);
 			try {// discard block if key does not match
-				intToByteArr(bytes, FB_FILE_SYS_STATE, 0);
+				intToByteArr(bytes, FB_FILE_SYS_STATE_VALUE, 0);
 			} finally {
 				bm.setBlock(0L);
 			}

@@ -1,6 +1,7 @@
 package de.hechler.patrick.pfs.interfaces;
 
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_DELETE_ALLOWED_LOCK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_WRITE_ALLOWED_LOCK;
 
 import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;

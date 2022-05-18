@@ -2,23 +2,26 @@ package de.hechler.patrick.pfs.objects.fs;
 
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LAST_META_MOD_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_DATA_TABLE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_HASH_CODE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_HASH_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_LENGTH;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_READ_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_WRITE_ALLOWED_LOCK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_TIME;
 
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.NoSuchElementException;
 
 import de.hechler.patrick.pfs.exception.ElementLockedException;
 import de.hechler.patrick.pfs.exception.OutOfSpaceException;
 import de.hechler.patrick.pfs.interfaces.BlockManager;
 import de.hechler.patrick.pfs.interfaces.PatrFile;
+import de.hechler.patrick.pfs.interfaces.ThrowingIterator;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingBooleanFunction;
 import de.hechler.patrick.pfs.objects.AllocatedBlocks;
 
@@ -96,142 +99,65 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	}
 	
 	@Override
-	public void removeContent(final long offset, final long length, long lock) throws IllegalArgumentException, IOException {
-		if (offset < 0L || length < 0L) {
-			throw new IllegalArgumentException("negative value! offset/len can not be negative! (offset=" + offset + ", length=" + length + ")");
-		}
+	public void removeContent(long lock) throws IOException, ElementLockedException {
 		withLock(() -> {
 			fs.updateBlockAndPos(this);
 			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
-			executeRemove(offset, length);
+			executeRemoveContext();
 			executeModify(false);
 		});
 	}
 	
-	private void executeRemove(final long offset, final long length) throws ClosedChannelException, IOException {
-		final long myOldLen = length();
-		if (offset + length > myOldLen) {
-			throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + myOldLen + ")");
+	private void executeRemoveContext() throws IOException {
+		for (BlockTableIter bit = new BlockTableIter(); bit.hasNext(); bit.next = null) {
+			free(bm, bit.next);
 		}
-		final int blockSize = bm.blockSize();
-		iterateBlockTable(new ThrowingBooleanFunction <AllocatedBlocks, IOException>() {
-			
-			private int       state                = 0;
-			private long      skip                 = offset / (long) blockSize;
-			private final int inStartBlockOff      = (int) (offset % (long) blockSize);
-			private int       startBlockTableOff   = -1;
-			private long      startBlockNum        = -1L;
-			private long      remove               = -1L;
-			private int       lastBlockRemove      = -1;
-			private long      lastBlockNum         = -1L;
-			private long      firstNotRemovedBlock = -1L;
-			private int       lastBlockTableOff    = -1;
-			private int       inBlockOff           = -1;
-			private int       currentOff           = pos + FILE_OFFSET_FILE_DATA_TABLE - 16;
-			private long      remainBlocks         = (myOldLen + (long) blockSize - 1L) / blockSize;
-			
-			@Override
-			public boolean calc(AllocatedBlocks p) throws IOException {
-				currentOff += 16;
-				remainBlocks -= p.count;
-				switch (state) {
-				case 0:
-					if (p.count < skip) {
-						skip -= p.count;
-					} else if (remove == -1L) {
-						state = 1;
-						startBlockTableOff = currentOff;
-						startBlockNum = p.startBlock + skip;
-						lastBlockRemove = (int) ( (length - inStartBlockOff) % bm.blockSize());
-						remove = (length - inStartBlockOff) / bm.blockSize();
-						remove -= startBlockNum - p.startBlock;
-						assert p.contains(startBlockNum);
-					}
-					break;
-				case 1:
-					if (p.count > remove) {
-						remove -= p.count;
-					} else {
-						state = 2;
-						lastBlockTableOff = currentOff;
-						firstNotRemovedBlock = p.startBlock + remove;
-						lastBlockNum = firstNotRemovedBlock;
-						assert p.contains(lastBlockNum);
-						final long sbn = startBlockNum;
-						byte[] stay = bm.getBlock(sbn);
-						try {
-							final long lbn = lastBlockNum;
-							byte[] del = bm.getBlock(lbn);
-							try {
-								int cpy;
-								if (blockSize - inStartBlockOff < blockSize - lastBlockRemove) {
-									cpy = blockSize - inStartBlockOff;
-									inBlockOff = lastBlockRemove - inStartBlockOff;
-									System.arraycopy(del, lastBlockRemove + cpy, del, 0, blockSize - lastBlockRemove - cpy);
-									lastBlockNum = startBlockNum;
-									startBlockNum = firstNotRemovedBlock;
-								} else {
-									cpy = blockSize - lastBlockRemove;
-									inBlockOff = blockSize - lastBlockRemove + inStartBlockOff;
-									firstNotRemovedBlock ++ ;
-									lastBlockNum = startBlockNum;
-									startBlockNum = firstNotRemovedBlock + 1;
-								}
-								System.arraycopy(del, lastBlockRemove, stay, inStartBlockOff, cpy);
-							} finally {
-								bm.setBlock(lbn);
-							}
-						} finally {
-							bm.setBlock(sbn);
-						}
-						lastBlockNum ++ ;
-						copy(blockSize, p.startBlock + p.count);
-					}
-					break;
-				case 2:
-					startBlockNum = p.startBlock;
-					copy(blockSize, p.startBlock + p.count);
-					if (remainBlocks > 0L) {
-						break;
-					}
-					byte[] bytes = bm.getBlock(block);
-					try {
-						System.arraycopy(bytes, lastBlockTableOff, bytes, startBlockTableOff, currentOff - lastBlockTableOff);
-						long oldPos = pos;
-						pos = reallocate(blockSize, pos, currentOff - pos, currentOff - pos - lastBlockTableOff + startBlockTableOff, true);
-						if (pos != oldPos) {
-							fs.setBlockAndPos(PatrFileImpl.this, block, pos);
-						}
-						longToByteArr(bytes, pos + FILE_OFFSET_FILE_LENGTH, myOldLen - length);
-					} finally {
-						bm.setBlock(block);
-					}
-					return false;
-				default:
-					throw new InternalError("illegal state: " + state);
-				}
-				return true;
+		int len = myLength();
+		resize(len, FILE_OFFSET_FILE_DATA_TABLE);
+		setLength(0L);
+	}
+	
+	@Override
+	public void truncate(long size, long lock) throws IllegalArgumentException, IOException, ElementLockedException {
+		if (size < 0L) {
+			throw new IllegalArgumentException("size < 0 size: " + size);
+		}
+		withLock(() -> {
+			fs.updateBlockAndPos(this);
+			if (size >= executeLength()) {
+				throw new IllegalArgumentException("size >= len size=" + size + " len=" + executeLength());
 			}
-			
-			private void copy(final int blockSize, final long end) throws ClosedChannelException, IOException {
-				for (; lastBlockNum < end; startBlockNum ++ ) {
-					byte[] sbb = bm.getBlock(startBlockNum);
-					try {
-						byte[] lbb = bm.getBlock(lastBlockNum);
-						try {
-							int cpy = blockSize - inBlockOff;
-							System.arraycopy(lbb, 0, sbb, inBlockOff, cpy);
-						} finally {
-							bm.setBlock(lastBlockNum);
-						}
-					} finally {
-						bm.setBlock(startBlockNum);
-					}
-					lastBlockNum = startBlockNum;
-				}
-			}
-			
+			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+			executeTruncate(size);
+			executeModify(false);
 		});
+	}
+	
+	private void executeTruncate(long size) throws IOException {
+		BlockTableIter bit;
+		int firstOff = -1;
+		for (bit = new BlockTableIter(); bit.hasNext(); bit.next = null) {
+			if (bit.fileoff > size) {
+				if (firstOff == -1) {
+					firstOff = bit.tableoff;
+				}
+				long startOff = bit.fileoff;
+				startOff -= bit.next.count * bm.blockSize();
+				if (startOff >= size) {
+					free(bm, bit.next);
+				} else {
+					long removeLen = bit.fileoff - startOff;
+					removeLen /= bm.blockSize();
+					long removeStart = bit.next.startBlock + bit.next.count - removeLen;
+					AllocatedBlocks freeBlocks = new AllocatedBlocks(removeStart, removeLen);
+					free(bm, freeBlocks);
+				}
+			}
+		}
+		assert firstOff != -1L;
+		int len = myLength();
+		resize(len, pos - firstOff);
+		setLength(size);
 	}
 	
 	@Override
@@ -254,46 +180,41 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		if (offset + (long) length > length()) {
 			throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + length() + ")");
 		}
-		iterateBlockTable(new ThrowingBooleanFunction <AllocatedBlocks, IOException>() {
-			
-			private long skip   = offset / bm.blockSize();
-			private int  off    = (int) (offset % (long) bm.blockSize());
-			private int  boff   = bytesOff;
-			private int  remain = length;
-			
-			@Override
-			public boolean calc(AllocatedBlocks p) throws IOException {
-				if (p.count < skip) {
-					skip -= p.count;
-					return true;
-				}
-				int blockSize = bm.blockSize();
-				long blockAdd = 0;
-				if (off > 0) {
-					blockAdd = off / blockSize;
-					off = off % blockSize;
-				}
-				for (; blockAdd < p.count && remain > 0; blockAdd ++ ) {
-					long blockNum = p.startBlock + blockAdd;
-					byte[] blockBytes = bm.getBlock(blockNum);
-					try {
-						int cpy = Math.min(remain, blockSize - off);
-						System.arraycopy(bytes, boff, blockBytes, off, cpy);
-						off = 0;
-						remain -= cpy;
-						boff += cpy;
-					} finally {
-						bm.setBlock(blockNum);
-					}
-				}
-				if (remain > 0) {
-					return true;
-				} else {
-					return false;
+		long skip = offset / bm.blockSize();
+		int off = (int) (offset % (long) bm.blockSize());
+		int boff = bytesOff;
+		int remain = length;
+		for (BlockTableIter iter = new BlockTableIter(); iter.hasNext();) {
+			AllocatedBlocks p = iter.next();
+			if (p.count < skip) {
+				skip -= p.count;
+				continue;
+			}
+			int blockSize = bm.blockSize();
+			long blockAdd = 0;
+			if (off > 0) {
+				blockAdd = off / blockSize;
+				off = off % blockSize;
+			}
+			for (; blockAdd < p.count && remain > 0; blockAdd ++ ) {
+				long blockNum = p.startBlock + blockAdd;
+				byte[] blockBytes = bm.getBlock(blockNum);
+				try {
+					int cpy = Math.min(remain, blockSize - off);
+					System.arraycopy(bytes, boff, blockBytes, off, cpy);
+					off = 0;
+					remain -= cpy;
+					boff += cpy;
+				} finally {
+					bm.setBlock(blockNum);
 				}
 			}
-			
-		});
+			if (remain > 0) {
+				continue;
+			} else {
+				break;
+			}
+		}
 	}
 	
 	@Override
@@ -313,7 +234,11 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		final long oldBlock = block;
 		byte[] myBlockBytes = bm.getBlock(oldBlock);
 		try {
-			int off = iterateBlockTable(ac -> true);
+			BlockTableIter bti = new BlockTableIter();
+			while (bti.hasNext()) {
+				bti.next = null;
+			}
+			int off = bti.tableoff;
 			final int blockSize = bm.blockSize();
 			final long myOldLen = length();
 			final long myNewLen = myOldLen + (long) length;
@@ -456,6 +381,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		}
 	}
 	
+	@Deprecated
 	private int iterateBlockTable(ThrowingBooleanFunction <AllocatedBlocks, ? extends IOException> func) throws IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
@@ -486,6 +412,50 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		} finally {
 			bm.ungetBlock(block);
 		}
+	}
+	
+	public class BlockTableIter implements ThrowingIterator <AllocatedBlocks, IOException> {
+		
+		private AllocatedBlocks next     = null;
+		private long            fileoff  = 0L;
+		private int             tableoff = pos + FILE_OFFSET_FILE_DATA_TABLE - 16;
+		
+		@Override
+		public boolean hasNext() throws IOException {
+			if (next != null) return true;
+			long oldBlock = block;
+			byte[] bytes = bm.getBlock(oldBlock);
+			try {
+				long remain = length() - fileoff;
+				if (remain <= 0L) {
+					return false;
+				}
+				tableoff += 16;
+				bytes = bm.getBlock(block);
+				long start, count;
+				try {
+					start = byteArrToLong(bytes, tableoff);
+					long end = byteArrToLong(bytes, tableoff + 8);
+					count = end - start;
+				} finally {
+					bm.ungetBlock(block);
+				}
+				next = new AllocatedBlocks(start, count);
+				fileoff += bm.blockSize() * next.count;
+				return true;
+			} finally {
+				bm.ungetBlock(oldBlock);
+			}
+		}
+		
+		@Override
+		public AllocatedBlocks next() throws IOException {
+			if ( !hasNext()) throw new NoSuchElementException("no more blocks in table");
+			AllocatedBlocks n = next;
+			next = null;
+			return n;
+		}
+		
 	}
 	
 }

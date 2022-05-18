@@ -366,11 +366,12 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			mode |= MODE_READ;
 		}
 		if (mode == 0) {
-			throw new IllegalArgumentException("no mode defined! (read,write,append)");
+			mode = MODE_READ;
 		}
 		if (mode == MODE_READ) {
 			options.remove(StandardOpenOption.CREATE);
 			options.remove(StandardOpenOption.CREATE_NEW);
+			options.remove(StandardOpenOption.TRUNCATE_EXISTING);
 		} else if (options.contains(StandardOpenOption.CREATE_NEW)) {
 			options.remove(StandardOpenOption.CREATE);
 		}
@@ -380,9 +381,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			lock = file.lock(lock);
 		}
 		if (options.contains(StandardOpenOption.TRUNCATE_EXISTING)) {
-			if ( (mode & MODE_READ) != mode) {
-				file.removeContent(0L, file.length(), lock);
-			}
+			file.removeContent(lock);
 		}
 		if (options.contains(StandardOpenOption.DELETE_ON_CLOSE)) {
 			final long finallock = lock;
@@ -692,7 +691,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			String[] strs = getPath(p);
 			PatrFolder root = p.getFileSystem().getFileSys().getRoot();
 			PatrFileSysElement element;
-			element = getElement(root, strs, strs.length - 1);
+			element = getElement(root, strs, strs.length);
 			PatrFileAttributeView attributes = PFSBasicFileAttributeViewImpl.readAttributes(element);
 			return type.cast(attributes);
 		} catch (IOException e) {

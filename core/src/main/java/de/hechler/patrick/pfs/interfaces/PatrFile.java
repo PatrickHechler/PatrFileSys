@@ -30,22 +30,42 @@ public interface PatrFile extends PatrFileSysElement {
 	void getContent(byte[] bytes, long offset, int bytesOff, int length, long lock) throws IllegalArgumentException, IOException, ElementLockedException;
 	
 	/**
-	 * removes the content from {@code offset} to {@code offset + length} from this file.
+	 * removes the content from this file.<br>
 	 * 
-	 * @param offset
-	 *            the offset of the block to be removed
-	 * @param length
-	 *            the number of bytes to be removed
+	 * after this operation the files {@link #length()} will be {@code 0}
+	 * <p>
+	 * this method is like {@link #truncate(long, long)} with {@code 0L} as {@code size} argument.
+	 * 
+	 * @param lock
+	 *            the current lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
+	 * @throws IOException
+	 *             if an IO error occurs
+	 * @throws ElementLockedException
+	 *             when this element is locked with a different lock
+	 * @see #truncate(long, long)
+	 */
+	default void removeContent(long lock) throws IOException, ElementLockedException {
+		truncate(0L, lock);
+	}
+	
+	/**
+	 * truncates the file.<br>
+	 * after this operation the {@link #length()} of the file will be {@code size}.
+	 * <p>
+	 * if {@code size} is smaller than {@code 0} or greater than or equal to {@link #length()} an {@link IllegalArgumentException} will be thrown
+	 * 
+	 * @param size
+	 *            the new {@link #length()}
 	 * @param lock
 	 *            the current lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
 	 * @throws IllegalArgumentException
-	 *             if {@code offset < 0} or {@code length < 0} or <code>offset + length > {@link #length()}</code>
+	 *             if {@code size} is below {@code 0L} or larger than {@link #length()}
 	 * @throws IOException
 	 *             if an IO error occurs
 	 * @throws ElementLockedException
 	 *             when this element is locked with a different lock
 	 */
-	void removeContent(long offset, long length, long lock) throws IllegalArgumentException, IOException, ElementLockedException;
+	void truncate(long size, long lock) throws IllegalArgumentException, IOException, ElementLockedException;
 	
 	/**
 	 * overwrites the content from {@code offset} to {@code offset + length} with the values from {@code bytes} at the area from {@code bytesOff} to {@code bytesOff + length}

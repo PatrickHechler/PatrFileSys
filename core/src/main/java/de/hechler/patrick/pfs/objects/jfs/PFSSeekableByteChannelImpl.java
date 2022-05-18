@@ -205,7 +205,11 @@ public class PFSSeekableByteChannelImpl implements SeekableByteChannel, Gatherin
 		file.withLock(() -> {
 			long length = file.length();
 			if (length > size) {
-				file.removeContent(size, length - size, lock);
+				if (size == 0) {
+					file.removeContent(lock);
+				} else {
+					file.truncate(size, lock);
+				}
 			}
 		});
 		return this;
