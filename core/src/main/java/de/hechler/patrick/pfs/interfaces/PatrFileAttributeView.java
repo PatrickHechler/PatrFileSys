@@ -1,4 +1,4 @@
-package de.hechler.patrick.pfs.objects.jfs;
+package de.hechler.patrick.pfs.interfaces;
 
 import java.nio.file.attribute.FileTime;
 

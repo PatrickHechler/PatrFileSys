@@ -22,7 +22,6 @@ import de.hechler.patrick.pfs.exception.OutOfSpaceException;
 import de.hechler.patrick.pfs.interfaces.BlockManager;
 import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.ThrowingIterator;
-import de.hechler.patrick.pfs.interfaces.functional.ThrowingBooleanFunction;
 import de.hechler.patrick.pfs.objects.AllocatedBlocks;
 
 
@@ -56,46 +55,42 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		if (offset + (long) length > length()) {
 			throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + length() + ")");
 		}
-		iterateBlockTable(new ThrowingBooleanFunction <AllocatedBlocks, IOException>() {
-			
-			private long skip   = offset / bm.blockSize();
-			private int  off    = (int) (offset % (long) bm.blockSize());
-			private int  boff   = bytesOff;
-			private int  remain = length;
-			
-			@Override
-			public boolean calc(AllocatedBlocks p) throws IOException {
-				if (p.count < skip) {
-					skip -= p.count;
-					return true;
-				}
-				int blockSize = bm.blockSize();
-				long blockAdd = 0;
-				if (off > 0) {
-					blockAdd = off / blockSize;
-					off = off % blockSize;
-				}
-				for (; blockAdd < p.count && remain > 0; blockAdd ++ ) {
-					long blockNum = p.startBlock + blockAdd;
-					byte[] blockBytes = bm.getBlock(blockNum);
-					try {
-						int cpy = Math.min(remain, blockSize - off);
-						System.arraycopy(blockBytes, off, bytes, boff, cpy);
-						off = 0;
-						remain -= cpy;
-						boff += cpy;
-					} finally {
-						bm.ungetBlock(blockNum);
-					}
-				}
-				if (remain > 0) {
-					return true;
-				} else {
-					return false;
+		BlockTableIter bti;
+		for (bti = new BlockTableIter(); bti.hasNext() && bti.fileoff < offset; bti.next = null);
+		for (; length > 0 && bti.hasNext(); bti.next = null) {
+			long startFileOff = bti.fileoff;
+			startFileOff -= bti.next.count * bm.blockSize();
+			long startBlock = bti.next.startBlock,
+				count = bti.next.count;
+			if (startFileOff < offset) {
+				long dif = offset - startFileOff;
+				int firstOff = (int) (dif % bm.blockSize());
+				long blockSkip = (dif / bm.blockSize()) + 1L;
+				count -= blockSkip;
+				startBlock += blockSkip;
+				long halfStartBlock = startBlock - 1L;
+				byte[] blockbytes = bm.getBlock(halfStartBlock);
+				try {
+					int cpy = Math.min(length, blockbytes.length - firstOff);
+					System.arraycopy(blockbytes, firstOff, bytes, bytesOff, cpy);
+					bytesOff += cpy;
+					length -= cpy;
+				} finally {
+					bm.ungetBlock(halfStartBlock);
 				}
 			}
-			
-		});
+			for (long blockAdd = 0L; blockAdd < count && length > 0; blockAdd ++ ) {
+				byte[] blockbytes = bm.getBlock(startBlock + blockAdd);
+				try {
+					int cpy = Math.min(blockbytes.length, length);
+					System.arraycopy(blockbytes, 0, bytes, bytesOff, cpy);
+					bytesOff += cpy;
+					length -= cpy;
+				} finally {
+					bm.ungetBlock(startBlock + blockAdd);
+				}
+			}
+		}
 	}
 	
 	@Override
@@ -234,13 +229,13 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		final long oldBlock = block;
 		byte[] myBlockBytes = bm.getBlock(oldBlock);
 		try {
+			final long myOldLen = executeLength();
 			BlockTableIter bti = new BlockTableIter();
 			while (bti.hasNext()) {
 				bti.next = null;
 			}
-			int off = bti.tableoff;
-			final int blockSize = bm.blockSize();
-			final long myOldLen = length();
+			int off = bti.tableoff+16;
+			final int blockSize = myBlockBytes.length;
 			final long myNewLen = myOldLen + (long) length;
 			int lastBlockPos = (int) (myOldLen % (long) blockSize);
 			if (lastBlockPos > 0) {
@@ -273,9 +268,9 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 						}
 					}
 				}
-				final int relOff = off - pos,
-					newLen;
-				boolean lastOldAndFirstNewMatches = relOff == FILE_OFFSET_FILE_DATA_TABLE ? false : newBlocks[0].startBlock == byteArrToLong(myBlockBytes, off - 8);
+				final int relOff = off - pos;
+				final boolean lastOldAndFirstNewMatches = relOff == FILE_OFFSET_FILE_DATA_TABLE ? false : newBlocks[0].startBlock == byteArrToLong(myBlockBytes, off - 8);
+				final int newLen;
 				if (lastOldAndFirstNewMatches) {
 					newLen = (relOff + (newBlocks.length * 16)) - 16;
 				} else {
@@ -381,40 +376,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		}
 	}
 	
-	@Deprecated
-	private int iterateBlockTable(ThrowingBooleanFunction <AllocatedBlocks, ? extends IOException> func) throws IOException {
-		byte[] bytes = bm.getBlock(block);
-		try {
-			int off;
-			long remain = length();
-			int blockSize = bm.blockSize();
-			if (remain % blockSize == 0) {
-				remain = remain / blockSize;
-			} else {
-				remain = (remain / blockSize) + 1;
-			}
-			for (off = pos + FILE_OFFSET_FILE_DATA_TABLE; remain > 0; off += 16) {
-				long start = byteArrToLong(bytes, off),
-					end = byteArrToLong(bytes, off + 8),
-					cnt = end - start;
-				remain -= cnt;
-				assert cnt > 0;
-				boolean cont = func.calc(new AllocatedBlocks(start, cnt));
-				if (cont) {
-					continue;
-				} else {
-					assert remain >= 0;
-					return off;
-				}
-			}
-			assert remain == 0;
-			return off;
-		} finally {
-			bm.ungetBlock(block);
-		}
-	}
-	
-	public class BlockTableIter implements ThrowingIterator <AllocatedBlocks, IOException> {
+	private class BlockTableIter implements ThrowingIterator <AllocatedBlocks, IOException> {
 		
 		private AllocatedBlocks next     = null;
 		private long            fileoff  = 0L;
@@ -426,7 +388,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			long oldBlock = block;
 			byte[] bytes = bm.getBlock(oldBlock);
 			try {
-				long remain = length() - fileoff;
+				long remain = executeLength() - fileoff;
 				if (remain <= 0L) {
 					return false;
 				}

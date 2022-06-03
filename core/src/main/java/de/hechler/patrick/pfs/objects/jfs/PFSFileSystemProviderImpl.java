@@ -1,5 +1,24 @@
 package de.hechler.patrick.pfs.objects.jfs;
 
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.ATTR_VIEW_BASIC;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.ATTR_VIEW_PATR;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_CREATION_TIME;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_FILE_KEY;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_IS_DIRECTORY;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_IS_OTHER;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_IS_REGULAR_FILE;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_IS_SYMBOLIC_LINK;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_LAST_ACCESS_TIME;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_LAST_MODIFIED_TIME;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_SIZE;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.NEW_FILE_SYS_ENV_ATTR_BLOCK_COUNT;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.NEW_FILE_SYS_ENV_ATTR_BLOCK_SIZE;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.NEW_FILE_SYS_ENV_ATTR_DO_FORMATT;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.NEW_FILE_SYS_ENV_ATTR_FILE_SYS;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.PATR_VIEW_ATTR_EXECUTABLE;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.PATR_VIEW_ATTR_HIDDEN;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.PATR_VIEW_ATTR_READ_ONLY;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.URI_SHEME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_LOCKED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_DELETE_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_READ_ALLOWED_LOCK;
@@ -47,6 +66,7 @@ import de.hechler.patrick.pfs.exception.ElementLockedException;
 import de.hechler.patrick.pfs.interfaces.BlockAccessor;
 import de.hechler.patrick.pfs.interfaces.BlockManager;
 import de.hechler.patrick.pfs.interfaces.PatrFile;
+import de.hechler.patrick.pfs.interfaces.PatrFileAttributeView;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
 import de.hechler.patrick.pfs.interfaces.PatrFileSystem;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
@@ -56,122 +76,6 @@ import de.hechler.patrick.pfs.objects.jfs.PFSPathImpl.Name;
 
 public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	
-	/**
-	 * name of the basic attribute view for the file key
-	 * <p>
-	 * the corresponding value must be of type {@link Object}
-	 */
-	public static final String BASIC_ATTRIBUTE_FILE_KEY           = "fileKey";
-	/**
-	 * name of the basic attribute view for is other (not file,dir,symbol-link)
-	 * <p>
-	 * the corresponding value must be of type {@link Boolean}
-	 */
-	public static final String BASIC_ATTRIBUTE_IS_OTHER           = "isOther";
-	/**
-	 * name of the basic attribute view for is symbol-link
-	 * <p>
-	 * the corresponding value must be of type {@link Boolean}
-	 */
-	public static final String BASIC_ATTRIBUTE_IS_SYMBOLIC_LINK   = "isSymbolicLink";
-	/**
-	 * name of the basic attribute view for is directory
-	 * <p>
-	 * the corresponding value must be of type {@link Boolean}
-	 */
-	public static final String BASIC_ATTRIBUTE_IS_DIRECTORY       = "isDirectory";
-	/**
-	 * name of the basic attribute view for is file
-	 * <p>
-	 * the corresponding value must be of type {@link Boolean}
-	 */
-	public static final String BASIC_ATTRIBUTE_IS_REGULAR_FILE    = "isRegularFile";
-	/**
-	 * name of the basic attribute view for the size
-	 * <p>
-	 * the corresponding value must be of type {@link Long}
-	 */
-	public static final String BASIC_ATTRIBUTE_SIZE               = "size";
-	/**
-	 * name of the basic attribute view for the creation time
-	 * <p>
-	 * the corresponding value must be of type {@link FileTime}
-	 */
-	public static final String BASIC_ATTRIBUTE_CREATION_TIME      = "creationTime";
-	/**
-	 * name of the basic attribute view for the last access time
-	 * <p>
-	 * the corresponding PFSFileSystemProviderImplvalue must be of type {@link FileTime}
-	 */
-	public static final String BASIC_ATTRIBUTE_LAST_ACCESS_TIME   = "lastAccessTime";
-	/**
-	 * name of the basic attribute view for the last modified time
-	 * <p>
-	 * the corresponding value must be of type {@link FileTime}
-	 */
-	public static final String BASIC_ATTRIBUTE_LAST_MODIFIED_TIME = "lastModifiedTime";
-	/**
-	 * {@link FileAttribute} name for the hidden flag.<br>
-	 * {@link FileAttribute#value()} must be of the {@link Boolean} type<br>
-	 * <code>true</code> to mark the element as executable
-	 */
-	public static final String PATR_VIEW_ATTR_HIDDEN              = "hidden";
-	/**
-	 * {@link FileAttribute} name for the executable flag.<br>
-	 * {@link FileAttribute#value()} must be of the {@link Boolean} type<br>
-	 * <code>true</code> to mark the element as executable
-	 */
-	public static final String PATR_VIEW_ATTR_EXECUTABLE          = "executable";
-	/**
-	 * {@link FileAttribute} name for the read only flag.<br>
-	 * {@link FileAttribute#value()} must be of the {@link Boolean} type<br>
-	 * <code>true</code> to mark the element as executable
-	 */
-	public static final String PATR_VIEW_ATTR_READ_ONLY           = "read_only";
-	
-	/**
-	 * the attribute key for the block size of each block.<br>
-	 * 
-	 * the value must to be of the type {@link Integer}
-	 * <p>
-	 * if a file system is specified and format is set to <code>false</code> (default value), this value must be the block size value saved by the file system.
-	 * 
-	 * @see #newFileSystem(URI, Map)
-	 */
-	public static final String NEW_FILE_SYS_ENV_ATTR_BLOCK_SIZE  = "block-size";
-	/**
-	 * the attribute key for the block count.<br>
-	 * 
-	 * the value must be of the tyPFSFileSystemProviderImplpe {@link Long}
-	 * <p>
-	 * if a block manager is specified and format is set to <code>false</code> (default value), this value must be the block count value saved from the block manager.
-	 * 
-	 * @see #newFileSystem(URI, Map)
-	 */
-	public static final String NEW_FILE_SYS_ENV_ATTR_BLOCK_COUNT = "block-count";
-	/**
-	 * the attribute key to set the underling file system.
-	 * <p>
-	 * the value must implement the interface {@link PatrFileSystem}
-	 * <p>
-	 * if no value is set a {@link PatrFileSysImpl} will be created.<br>
-	 * if no value the generated file system will use virtual block manager.<br>
-	 * This automatic generated block manager and thus the file system will not be saved.
-	 * 
-	 * @see #newFileSystem(URI, Map)
-	 */
-	public static final String NEW_FILE_SYS_ENV_ATTR_FILE_SYS    = "file-sys";
-	/**
-	 * the attribute key to specify if the file system should be formatted.
-	 * <p>
-	 * if no value is set, but {@link #NEW_FILE_SYS_ENV_ATTR_FILE_SYS} is set, the file system will be interpreted as already formatted.<br>
-	 * if a value is set, but {@link #NEW_FILE_SYS_ENV_ATTR_FILE_SYS} is not set, the value will be ignored.
-	 * <p>
-	 * the value must be of type {@link Boolean}.<br>
-	 * if the {@link Boolean#booleanValue()} is <code>true</code>, the block manager will be formatted. If the {@link Boolean#booleanValue()} is <code>false</code> the block manager will not be.
-	 * formatted
-	 */
-	public static final String NEW_FILE_SYS_ENV_ATTR_DO_FORMATT  = "do-formatt";
 	
 	private final Map <URI, PFSFileSystemImpl> created;
 	private PFSFileSystemImpl                  def;
@@ -187,7 +91,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 		try {
 			fs.format(1 << 10, 1 << 10);
 		} catch (IOException e) {
-			throw new RuntimeException(e);// should never happen
+			throw new RuntimeException(e);// should never happen, since this is all in ram
 		}
 		return fs;
 	}
@@ -226,9 +130,21 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 		}));
 	}
 	
+	public void initDefault(PatrFileSystem pfs) throws NullPointerException, IllegalStateException {
+		if (pfs == null) {
+			throw new NullPointerException("patr-file-system is null");
+		}
+		synchronized (this) {
+			if (this.def != null) {
+				throw new IllegalStateException("a default file system is already spezified!");
+			}
+			this.def = new PFSFileSystemImpl(this, pfs);
+		}
+	}
+	
 	@Override
 	public String getScheme() {
-		return PFSPathImpl.URI_SHEME;
+		return URI_SHEME;
 	}
 	
 	@Override
@@ -330,8 +246,12 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	@Override
 	public Path getPath(URI uri) {
 		String str = uri.getPath();
-		if (def == null) {
-			def = new PFSFileSystemImpl(this, newRamFS());
+		if (def != null) {
+			synchronized (this) {
+				if (def == null) {
+					def = new PFSFileSystemImpl(this, newRamFS());
+				}
+			}
 		}
 		Path path = def.getPath(str);
 		return path;
@@ -774,8 +694,8 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 		int index = attributes.indexOf(':');
 		if (index >= 0) {
 			String view = attributes.substring(0, index);
-			if (PFSFileSystemImpl.ATTR_VIEW_BASIC.equalsIgnoreCase(view)
-				|| PFSFileSystemImpl.ATTR_VIEW_PATR.equalsIgnoreCase(view)) {
+			if (ATTR_VIEW_BASIC.equalsIgnoreCase(view)
+				|| ATTR_VIEW_PATR.equalsIgnoreCase(view)) {
 				throw new UnsupportedOperationException("unsupported view: " + view);
 			}
 			attributes = attributes.substring(index + 1);

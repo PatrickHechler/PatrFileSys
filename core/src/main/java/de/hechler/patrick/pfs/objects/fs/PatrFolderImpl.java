@@ -57,25 +57,37 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	
 	@Override
 	public PatrFolder addFolder(String name, long lock) throws IOException, NullPointerException, ElementLockedException {
-		Objects.requireNonNull(name, "null names are not permitted!");
+		checkName(name);
 		return withLock(() -> (PatrFolder) executeAddElement(name, true, null, lock));
 	}
 	
 	@Override
 	public PatrFile addFile(String name, long lock) throws IOException, NullPointerException, ElementLockedException {
-		Objects.requireNonNull(name, "null names are not permitted!");
+		checkName(name);
 		return withLock(() -> (PatrFile) executeAddElement(name, false, null, lock));
 	}
 	
 	@Override
 	public PatrLink addLink(String name, PatrFileSysElement target, long lock) throws IOException, NullPointerException, ElementLockedException, IllegalArgumentException {
-		Objects.requireNonNull(name, "null names are not permitted!");
+		checkName(name);
 		Objects.requireNonNull(target, "can not create a link with a null target!");
 		if ( ! (target instanceof PatrFileSysElementImpl)) {
 			throw new IllegalArgumentException("the tareget is of an unknown class: " + target.getClass().getName() + "");
 		}
 		PatrFileSysElementImpl t = (PatrFileSysElementImpl) target;
 		return withLock(() -> (PatrLink) executeAddElement(name, target.isFolder(), t, lock));
+	}
+	
+	private void checkName(String name) {
+		if (name == null) {
+			throw new NullPointerException("null names are not permitted!");
+		}
+		if (name.isEmpty()) {
+			throw new IllegalArgumentException("names are not allowed to be empty");
+		}
+		if (name.indexOf('\0') != -1) {
+			throw new IllegalArgumentException("names are not allowed to contain '\\0' characters! (name='" + name + "')");
+		}
 	}
 	
 	private PatrFileSysElement executeAddElement(String name, boolean isFolder, PatrFileSysElementImpl target, long lock) throws NullPointerException, IOException, ElementLockedException {

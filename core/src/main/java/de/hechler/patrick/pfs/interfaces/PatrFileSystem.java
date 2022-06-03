@@ -41,16 +41,6 @@ public interface PatrFileSystem extends Closeable {
 	void format(long blockCount, int blockSize) throws IOException;
 	
 	/**
-	 * returns the total space in this file system measured in bytes <br>
-	 * the returned value may not be accurate
-	 * 
-	 * @return the total space in this file system measured in bytes
-	 * @throws IOException
-	 *             if an IO error occurs
-	 */
-	long totalSpace() throws IOException;
-	
-	/**
 	 * returns the free space in this file system measured in bytes <br>
 	 * the returned value may not be accurate
 	 * 
@@ -58,7 +48,7 @@ public interface PatrFileSystem extends Closeable {
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	long freeSpace() throws IOException;
+	long freeBlocks() throws IOException;
 	
 	/**
 	 * returns the used space in this file system measured in bytes <br>
@@ -68,7 +58,7 @@ public interface PatrFileSystem extends Closeable {
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	long usedSpace() throws IOException;
+	long usedBlocks() throws IOException;
 	
 	/**
 	 * returns the block size of this file system

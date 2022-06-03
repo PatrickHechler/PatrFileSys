@@ -474,14 +474,15 @@ public class PatrFileSysImplChecker {
 		assertEquals(NO_TIME, root.getCreateTime());
 	}
 	
-	@Check(disabled = true)
+	@Check(disabled = false)
 	private void checkBlockChange() throws IOException {
 		PatrFolder root = fs.getRoot();
 		long start = System.currentTimeMillis();
-		PatrFolder folder = root.addFolder("", NO_LOCK);
+		PatrFolder folder = root.addFolder(" ", NO_LOCK);
 		long end = System.currentTimeMillis();
 		int need = fs.blockSize() - PatrFileSysConstants.FOLDER_OFFSET_FOLDER_ELEMENTS;
 		need -= 20;
+		need -= 8;
 		need -= 8;
 		need -= need / 2;
 		char[] chars = new char[need];
@@ -499,10 +500,12 @@ public class PatrFileSysImplChecker {
 		assertLowerEqual(start, folder.getCreateTime());
 		assertGreatherEqual(end, folder.getCreateTime());
 		assertEquals(folder.getCreateTime(), folder.getLastModTime());
-		assertEquals(folder.getCreateTime(), folder.getLastMetaModTime());
+		assertLowerEqual(folder.getCreateTime(), folder.getLastMetaModTime());
 		assertFalse(folder.isRoot());
-		folder = folder.addFolder("", NO_LOCK);
-		assertEquals(name, folder.getName());
+		start = System.currentTimeMillis();
+		folder = folder.addFolder(" ", NO_LOCK);
+		end = System.currentTimeMillis();
+		assertEquals(" ", folder.getName());
 		assertTrue(folder.isFolder());
 		assertFalse(folder.isFile());
 		assertFalse(folder.isLink());

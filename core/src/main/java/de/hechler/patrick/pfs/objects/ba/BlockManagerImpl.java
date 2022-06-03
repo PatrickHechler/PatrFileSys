@@ -92,6 +92,7 @@ public class BlockManagerImpl implements BlockManager {
 				return;
 			}
 			ba.close();
+			blocks.clear();
 		}
 	}
 	

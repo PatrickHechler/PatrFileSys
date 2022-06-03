@@ -1,5 +1,7 @@
 package de.hechler.patrick.pfs.objects.jfs;
 
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.*;
+
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -20,8 +22,6 @@ import java.util.Objects;
 
 
 public class PFSPathImpl implements Path {
-	
-	public static final String URI_SHEME = "patr_file_sys_uri_sheme";
 	
 	private final PFSFileSystemImpl fs;
 	private final PFSPathImpl       relativeTo;

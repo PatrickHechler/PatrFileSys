@@ -298,36 +298,36 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		}
 	}
 	
-	public void setBlockAndPos(PatrID id, long block, int pos) throws IOException {
-		assert this == id.fs;
-		withLock(this, () -> executeSetBlockAndPos(id, block, pos), 0L);
+	public void setBlockAndPos(PatrFileSysElementImpl e) throws IOException {
+		assert this == e.fs;
+		withLock(this, () -> executeSetBlockAndPos(e), 0L);
 	}
 	
-	private void executeSetBlockAndPos(PatrID id, long block, int pos) throws IOException, IllegalArgumentException {
-		assert startTime == id.startTime;
-		if (id.id == ROOT_FOLDER_ID) {
-			byte[] bytes = id.fs.bm.getBlock(0L);
+	private void executeSetBlockAndPos(PatrFileSysElementImpl e) throws IOException, IllegalArgumentException {
+		assert startTime == e.startTime;
+		if (e.id == ROOT_FOLDER_ID) {
+			byte[] bytes = e.fs.bm.getBlock(0L);
 			try {
-				longToByteArr(bytes, FB_ROOT_BLOCK_OFFSET, block);
-				longToByteArr(bytes, FB_ROOT_POS_OFFSET, pos);
+				longToByteArr(bytes, FB_ROOT_BLOCK_OFFSET, e.block);
+				longToByteArr(bytes, FB_ROOT_POS_OFFSET, e.pos);
 			} finally {
-				id.fs.bm.setBlock(0L);
+				e.fs.bm.setBlock(0L);
 			}
-		} else if (id.id == ELEMENT_TABLE_FILE_ID) {
-			byte[] bytes = id.fs.bm.getBlock(0L);
+		} else if (e.id == ELEMENT_TABLE_FILE_ID) {
+			byte[] bytes = e.fs.bm.getBlock(0L);
 			try {
-				longToByteArr(bytes, FB_TABLE_FILE_BLOCK_OFFSET, block);
-				longToByteArr(bytes, FB_TABLE_FILE_POS_OFFSET, pos);
+				longToByteArr(bytes, FB_TABLE_FILE_BLOCK_OFFSET, e.block);
+				longToByteArr(bytes, FB_TABLE_FILE_POS_OFFSET, e.pos);
 			} finally {
-				id.fs.bm.setBlock(0L);
+				e.fs.bm.setBlock(0L);
 			}
-		} else if (id.id >= 0L) {
+		} else if (e.id >= 0L) {
 			byte[] bytes = new byte[ELEMENT_TABLE_ELEMENT_LENGTH];
-			longToByteArr(bytes, ELEMENT_TABLE_OFFSET_BLOCK, block);
-			intToByteArr(bytes, ELEMENT_TABLE_OFFSET_POS, pos);
-			id.fs.elementTable.setContent(bytes, id.id, 0, ELEMENT_TABLE_ELEMENT_LENGTH, NO_LOCK);
+			longToByteArr(bytes, ELEMENT_TABLE_OFFSET_BLOCK, e.block);
+			intToByteArr(bytes, ELEMENT_TABLE_OFFSET_POS, e.pos);
+			e.fs.elementTable.setContent(bytes, e.id, 0, ELEMENT_TABLE_ELEMENT_LENGTH, NO_LOCK);
 		} else {
-			throw new IllegalArgumentException("illegal id; id=" + id.id);
+			throw new IllegalArgumentException("illegal id; id=" + e.id);
 		}
 	}
 	
@@ -401,8 +401,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	private static long executeGenerateID(PatrID parent, long block, int pos) throws IOException {
 		long len = parent.fs.elementTable.length(), off = 0L;
-		byte[] bytes = new byte[Math.max(ELEMENT_TABLE_ELEMENT_LENGTH,
-			(int) Math.min(1 << 16 - 1 << 16 % ELEMENT_TABLE_ELEMENT_LENGTH, len))];
+		byte[] bytes = new byte[Math.max(ELEMENT_TABLE_ELEMENT_LENGTH, (int) Math.min(1 << 16 - 1 << 16 % ELEMENT_TABLE_ELEMENT_LENGTH, len))];
 		for (int cpy; off < len; off += cpy) {
 			cpy = (int) Math.min(len - off, bytes.length);
 			parent.fs.elementTable.getContent(bytes, off, 0, cpy, NO_LOCK);
@@ -438,53 +437,26 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	}
 	
 	@Override
-	public long totalSpace() throws IOException {
+	public long freeBlocks() throws IOException {
 		synchronized (bm) {
-			return executeTotalSpace();
+			return executeFreeBlocks();
 		}
 	}
 	
-	private long executeTotalSpace() throws ClosedChannelException, IOException {
-		byte[] bytes = bm.getBlock(0L);
-		try {
-			long space = byteArrToLong(bytes, FB_BLOCK_COUNT_OFFSET);
-			if (space == Long.MAX_VALUE) {
-				return Long.MAX_VALUE;
-			}
-			space *= (long) byteArrToInt(bytes, FB_BLOCK_LENGTH_OFFSET);
-			if (space < 0) {
-				return Long.MAX_VALUE;
-			} else {
-				return space;
-			}
-		} finally {
-			bm.ungetBlock(0L);
-		}
+	private long executeFreeBlocks() throws IOException {
+		long space = executeBlockCount();
+		space -= executeUsedBlocks();
+		return space;
 	}
 	
 	@Override
-	public long freeSpace() throws IOException {
-		return withLockLong(this, this::executeFreeSpace, 0L);
-	}
-	
-	private long executeFreeSpace() throws IOException {
-		long space = executeTotalSpace();
-		if (space == Long.MAX_VALUE) {
-			return Long.MAX_VALUE;
-		} else {
-			space -= executeUsedSpace();
-			return space;
-		}
-	}
-	
-	@Override
-	public long usedSpace() throws IOException {
+	public long usedBlocks() throws IOException {
 		synchronized (bm) {
-			return executeUsedSpace();
+			return executeUsedBlocks();
 		}
 	}
 	
-	private long executeUsedSpace() throws ClosedChannelException, IOException {
+	private long executeUsedBlocks() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(1L);
 		try {
 			long used = 0;
@@ -492,10 +464,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			for (int off = 0; off < end; off += 16) {
 				long startBlock = byteArrToLong(bytes, off), endBlock = byteArrToLong(bytes, off + 8),
 					count = endBlock - startBlock;
-				used += count * (long) bytes.length;
-				if (used < 0L) {
-					return Long.MAX_VALUE;
-				}
+				used += count;
 			}
 			return used;
 		} finally {

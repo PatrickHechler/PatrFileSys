@@ -1,14 +1,16 @@
 package de.hechler.patrick.pfs.objects.jfs;
 
-import static de.hechler.patrick.pfs.objects.jfs.PFSFileSystemProviderImpl.BASIC_ATTRIBUTE_CREATION_TIME;
-import static de.hechler.patrick.pfs.objects.jfs.PFSFileSystemProviderImpl.BASIC_ATTRIBUTE_FILE_KEY;
-import static de.hechler.patrick.pfs.objects.jfs.PFSFileSystemProviderImpl.BASIC_ATTRIBUTE_IS_DIRECTORY;
-import static de.hechler.patrick.pfs.objects.jfs.PFSFileSystemProviderImpl.BASIC_ATTRIBUTE_IS_OTHER;
-import static de.hechler.patrick.pfs.objects.jfs.PFSFileSystemProviderImpl.BASIC_ATTRIBUTE_IS_REGULAR_FILE;
-import static de.hechler.patrick.pfs.objects.jfs.PFSFileSystemProviderImpl.BASIC_ATTRIBUTE_IS_SYMBOLIC_LINK;
-import static de.hechler.patrick.pfs.objects.jfs.PFSFileSystemProviderImpl.BASIC_ATTRIBUTE_LAST_ACCESS_TIME;
-import static de.hechler.patrick.pfs.objects.jfs.PFSFileSystemProviderImpl.BASIC_ATTRIBUTE_LAST_MODIFIED_TIME;
-import static de.hechler.patrick.pfs.objects.jfs.PFSFileSystemProviderImpl.BASIC_ATTRIBUTE_SIZE;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.ATTR_VIEW_BASIC;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_CREATION_TIME;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_FILE_KEY;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_IS_DIRECTORY;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_IS_OTHER;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_IS_REGULAR_FILE;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_IS_SYMBOLIC_LINK;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_LAST_ACCESS_TIME;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_LAST_MODIFIED_TIME;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_SIZE;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.URI_SHEME;
 
 import java.io.IOException;
 import java.nio.file.FileStore;
@@ -31,15 +33,15 @@ public class PFSFileStoreImpl extends FileStore {
 	@Override
 	public String name() {
 		try {
-			return "patr_file_sys:store:" + fileSys.blockCount() + "*" + fileSys.blockSize();
+			return URI_SHEME + ":store:" + fileSys.blockCount() + "*" + fileSys.blockSize();
 		} catch (IOException e) {
-			return "patr_file_sys:store";
+			return URI_SHEME + ":store";
 		}
 	}
 	
 	@Override
 	public String type() {
-		return "patr_file_sys:store";
+		return URI_SHEME + ":store";
 	}
 	
 	@Override
@@ -49,17 +51,29 @@ public class PFSFileStoreImpl extends FileStore {
 	
 	@Override
 	public long getTotalSpace() throws IOException {
-		return fileSys.totalSpace();
+		try {
+			return Math.multiplyExact(fileSys.blockCount(), fileSys.blockSize());
+		} catch (ArithmeticException e) {
+			return Long.MAX_VALUE;
+		}
 	}
 	
 	@Override
 	public long getUsableSpace() throws IOException {
-		return fileSys.freeSpace();
+		try {
+			return Math.multiplyExact(fileSys.freeBlocks(), fileSys.blockSize());
+		} catch (ArithmeticException e) {
+			return Long.MAX_VALUE;
+		}
 	}
 	
 	@Override
 	public long getUnallocatedSpace() throws IOException {
-		return fileSys.freeSpace();
+		try {
+			return Math.multiplyExact(fileSys.freeBlocks(), fileSys.blockSize());
+		} catch (ArithmeticException e) {
+			return Long.MAX_VALUE;
+		}
 	}
 	
 	@Override
@@ -72,7 +86,7 @@ public class PFSFileStoreImpl extends FileStore {
 	
 	@Override
 	public boolean supportsFileAttributeView(String name) {
-		return PFSFileSystemImpl.ATTR_VIEW_BASIC.equalsIgnoreCase(name) ;
+		return ATTR_VIEW_BASIC.equalsIgnoreCase(name);
 	}
 	
 	@Override
@@ -97,7 +111,11 @@ public class PFSFileStoreImpl extends FileStore {
 		case BASIC_ATTRIBUTE_CREATION_TIME:
 			return FileTime.fromMillis(fileSys.getRoot().getCreateTime());
 		case BASIC_ATTRIBUTE_SIZE:
-			return Long.valueOf(fileSys.usedSpace());
+			try {
+				return Long.valueOf(Math.multiplyExact(fileSys.freeBlocks(), fileSys.blockSize()));
+			} catch (ArithmeticException e) {
+				return Long.valueOf(Long.MAX_VALUE);
+			}
 		case BASIC_ATTRIBUTE_IS_REGULAR_FILE:
 			return Boolean.FALSE;
 		case BASIC_ATTRIBUTE_IS_SYMBOLIC_LINK:

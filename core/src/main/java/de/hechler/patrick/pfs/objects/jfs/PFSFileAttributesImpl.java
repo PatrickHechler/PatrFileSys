@@ -4,6 +4,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.DosFileAttributes;
 import java.nio.file.attribute.FileTime;
 
+import de.hechler.patrick.pfs.interfaces.PatrFileAttributeView;
 import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
 

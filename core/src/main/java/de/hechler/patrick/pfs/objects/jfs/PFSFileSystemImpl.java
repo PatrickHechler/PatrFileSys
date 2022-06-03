@@ -1,5 +1,7 @@
 package de.hechler.patrick.pfs.objects.jfs;
 
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.*;
+
 import java.io.IOException;
 import java.nio.file.FileStore;
 import java.nio.file.FileSystem;
@@ -18,9 +20,6 @@ import de.hechler.patrick.pfs.interfaces.PatrFileSystem;
 import de.hechler.patrick.pfs.objects.jfs.PFSPathImpl.Name;
 
 public class PFSFileSystemImpl extends FileSystem {
-	
-	public static final String ATTR_VIEW_BASIC = "basic";
-	public static final String ATTR_VIEW_PATR = "patr";
 	
 	private final PFSFileSystemProviderImpl provider;
 	private final PatrFileSystem            fileSys;
@@ -89,7 +88,7 @@ public class PFSFileSystemImpl extends FileSystem {
 		for (String p : more) {
 			add(path, p);
 		}
-		return new PFSPathImpl(this, new PFSPathImpl(this), path.toArray(new Name[path.size()]));
+		return new PFSPathImpl(this, first.charAt(0) == '/' ? new PFSPathImpl(this) : new PFSPathImpl(this, new PFSPathImpl(this), new Name[0]), path.toArray(new Name[path.size()]));
 	}
 	
 	private void add(List <Name> path, String names) {

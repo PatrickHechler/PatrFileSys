@@ -1,5 +1,7 @@
 package de.hechler.patrick.pfs.objects.jfs;
 
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.*;
+
 import java.io.IOException;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.FileTime;
@@ -25,7 +27,7 @@ public class PFSBasicFileAttributeViewImpl implements BasicFileAttributeView {
 	
 	@Override
 	public String name() {
-		return PFSFileSystemImpl.ATTR_VIEW_BASIC;
+		return ATTR_VIEW_BASIC;
 	}
 	
 	@Override

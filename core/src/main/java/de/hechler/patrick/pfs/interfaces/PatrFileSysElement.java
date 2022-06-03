@@ -42,8 +42,7 @@ public interface PatrFileSysElement {
 	 * @throws ElementLockedException
 	 *             when this element or one of the parents (old/new) is locked with a different lock
 	 */
-	void setParent(PatrFolder newParent, long myLock, long oldParentLock, long newParentLock)
-		throws IllegalStateException, IllegalArgumentException, NullPointerException, IOException, ElementLockedException;
+	void setParent(PatrFolder newParent, long myLock, long oldParentLock, long newParentLock) throws IllegalStateException, IllegalArgumentException, NullPointerException, IOException, ElementLockedException;
 	
 	/**
 	 * returns the folder representing this element
