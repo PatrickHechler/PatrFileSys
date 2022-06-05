@@ -4,6 +4,8 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.io.PrintStream;
 import java.lang.ProcessBuilder.Redirect;
 import java.nio.ByteBuffer;
@@ -50,10 +52,10 @@ public class PFSShell implements Runnable {
 	private static final String CMD_CD     = "cd";
 	private static final String CMD_CP     = "cp";
 	private static final String CMD_CHANGE = "change";
-	private static final String CMD_DEBUG  = "debug";
 	private static final String CMD_ECHO   = "echo";
 	private static final String CMD_EXIT   = "exit";
 	private static final String CMD_HELP   = "help";
+	private static final String CMD_LOG    = "log";
 	private static final String CMD_PFS    = "pfs";
 	
 	private static final String GENERAL_HELP_MSG = "patr shell, version " + ShellMain.VERSION + " (" + ShellMain.ARCH + ")\n"
@@ -63,10 +65,10 @@ public class PFSShell implements Runnable {
 		+ CMD_CD + " [-L|-P [-e]]\n"
 		+ CMD_CHANGE + " [PATR_FILE_SYSTEM_PATH]\n"
 		+ CMD_CP + " [OPT... [-T] SRC DEST | OPT... SRC... DIR | OPT... -t DIR SRC...]\n"
-		+ CMD_DEBUG + " [MODE]\n"
 		+ CMD_ECHO + " ECHO_MSG..."
 		+ CMD_EXIT + " [n]\n"
 		+ CMD_HELP + " [" + CMD_CD + "|" + CMD_CHANGE + "|" + CMD_CP + "|" + CMD_ECHO + "|" + CMD_EXIT + "|" + CMD_HELP + "|" + CMD_PFS + "]\n"
+		+ CMD_LOG + " [MODE]\n"
 		+ CMD_PFS + " [--create|--format|--block-count [BLOCK_COUNT]] OPTION... [PATR_FILE_SYSTEM_PATH]\n"
 		+ "\n"
 		+ "to mix paths from the 'real' file system and the patr-file-system paths on intern commands a path can be used with a prefix.\n"
@@ -160,14 +162,6 @@ public class PFSShell implements Runnable {
 		+ "  -e, --executable             mark target(s) as executable (fails on nfs target(s))\n"
 		+ "  -h, --hidden                 mark target(s) as hidden (fails on nfs target(s))\n"
 		+ "";
-	private static final String DEBUF_HELP_MSG  = "debug: debug [MODE]\n"
-		+ "or:    debug\n"
-		+ "    sets or prints the debug mode\n"
-		+ "    modes:\n"
-		+ "      " + DebugModes.full + "              print full error message\n"
-		+ "      " + DebugModes.simple + " (default)  print simple error messages\n"
-		+ "      " + DebugModes.none + "              supress error messages\n"
-		+ "";
 	private static final String ECHO_HELP_MSG   = "echo: echo [arg ...]\n"
 		+ "    Write arguments to the standard output.\n"
 		+ "    \n"
@@ -191,6 +185,14 @@ public class PFSShell implements Runnable {
 		+ "    \n"
 		+ "    Exit Status:\n"
 		+ "    Returns success unless PATTERN is not found or an invalid option is given.\n"
+		+ "";
+	private static final String LOG_HELP_MSG    = "debug: debug [MODE]\n"
+		+ "or:    debug\n"
+		+ "    sets or prints the debug mode\n"
+		+ "    modes:\n"
+		+ "      " + LogModes.full + "              print full error message\n"
+		+ "      " + LogModes.simple + " (default)  print simple error messages\n"
+		+ "      " + LogModes.none + "              supress error messages\n"
 		+ "";
 	private static final String PFS_HELP_MSG    = "Usage: pfs [--formatt|--create] [OPTIONS...] [PATR_FILE_SYSTEM_PATH]\n"
 		+ "or:    pfs --block-count [BLOCK_COUNT] [PATR_FILE_SYSTEM_PATH]\n"
@@ -241,7 +243,8 @@ public class PFSShell implements Runnable {
 	private int                  lastExitNum;
 	private List <FileSystem>    patrFileSyss;
 	private Map <String, String> myenv;
-	private DebugModes           debugMode;
+	private LogModes             logMode;
+	private volatile int         runningJobs = 0;
 	
 	private static final Scanner in = new Scanner(System.in, StandardCharsets.UTF_8);
 	
@@ -265,48 +268,77 @@ public class PFSShell implements Runnable {
 		this.patrFileSyss = new ArrayList <>();
 		this.pathToPfs = null;
 		this.myenv = new HashMap <>(System.getenv());
-		this.debugMode = DebugModes.simple;
+		this.logMode = LogModes.simple;
 	}
 	
 	@Override
 	public void run() {
 		System.out.print("pfs-shell " + ShellMain.VERSION + " (" + ShellMain.ARCH + ")\n"
 			+ "");
-		for (printPath(); in.hasNextLine(); printPath()) {
+		for (prompt(); in.hasNextLine(); prompt()) {
 			try {
 				PatrCommand[] cmd = nextCmd();
 				if (cmd.length == 1 && cmd[0].cmd.length == 0) {
 					continue;
 				}
+				assert runningJobs == 0;
 				for (int i = 0; i < cmd.length; i ++ ) {
-					executeAny(cmd[i]);
+					final PatrCommand command = cmd[i];
+					runningJobs ++ ;
+					new Thread(() -> {
+						try {
+							executeAny(command);
+						} finally {
+							synchronized (PFSShell.this) {
+								runningJobs -- ;
+								PFSShell.this.notify();
+							}
+						}
+					});
+				}
+				while (runningJobs > 0) {
+					synchronized (this) {
+						try {
+							wait(1000L);
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						}
+					}
 				}
 			} catch (Throwable t) {
 				if (t instanceof ThreadDeath) {
 					throw t;
 				}
-				switch (debugMode) {
-				case full:
-					System.out.print(ConsoleColors.RED);
-					t.printStackTrace(System.out);
-					System.out.print(ConsoleColors.RESET);
-					break;
-				case simple:
-					System.out.print(ConsoleColors.RED + "error: " + t.getClass().getSimpleName() + ": " + t.getMessage() + "\n" + ConsoleColors.RESET);
-					break;
-				default:
-					throw new InternalError("unknown debug mode: " + debugMode.name());
-				case none:
-				}
+				logErr(t, "unknown ");
 			}
 		}
 	}
 	
-	private void printPath() {
+	private void logErr(Throwable t, String simplePrefix) throws InternalError {
+		logErr(logMode, t, simplePrefix);
+	}
+	
+	private static void logErr(LogModes logMode, Throwable t, String simplePrefix) throws InternalError {
+		switch (logMode) {
+		case full:
+			System.out.print(ConsoleColors.RED);
+			t.printStackTrace(System.out);
+			System.out.print(ConsoleColors.RESET);
+			break;
+		case simple:
+			System.out.print(ConsoleColors.RED + simplePrefix + "error: " + t.getClass().getSimpleName() + ": " + t.getMessage() + "\n" + ConsoleColors.RESET);
+			break;
+		default:
+			throw new InternalError("unknown log mode: " + logMode.name());
+		case none:
+		}
+	}
+	
+	private void prompt() {
 		if (inPfs) {
-			System.out.print(pfsPath + "> ");
+			System.out.print("[ pfs " + pfsPath.getFileName() + "] ");
 		} else {
-			System.out.print(outPath + "> ");
+			System.out.print("[ rfs " + outPath.getFileName() + "] ");
 		}
 	}
 	
@@ -321,8 +353,8 @@ public class PFSShell implements Runnable {
 		case CMD_CHANGE:
 			change(cmd);
 			break;
-		case CMD_DEBUG:
-			debug(cmd);
+		case CMD_LOG:
+			log(cmd);
 			break;
 		case CMD_ECHO:
 			echo(cmd);
@@ -340,30 +372,19 @@ public class PFSShell implements Runnable {
 			executeExtern(cmd);
 			break;
 		}
+		close(cmd.in, cmd, "stdin");
 		close(cmd.out, cmd, "stdout");
 		close(cmd.err, cmd, "stderr");
-		close(cmd.in, cmd, "stdin");
 	}
 	
 	private void close(Closeable close, PatrCommand cmd, String name) throws InternalError {
-		if (close != null) {
-			try {
-				close.close();
-			} catch (IOException e) {
-				switch (debugMode) {
-				case full:
-					System.err.print(ConsoleColors.RED);
-					e.printStackTrace(System.err);
-					System.err.print(ConsoleColors.RESET);
-					break;
-				case simple:
-					System.err.print("error on closing " + name + " of " + cmd + ": " + e.getClass().getSimpleName() + ": " + e.getMessage() + '\n');
-					break;
-				default:
-					throw new InternalError("unknown debug mode: " + debugMode.name());
-				case none:
-				}
-			}
+		if (close == null) {
+			return;
+		}
+		try {
+			close.close();
+		} catch (IOException e) {
+			logErr(e, "error on closing " + name + " of " + cmd + ": ");
 		}
 	}
 	
@@ -833,42 +854,6 @@ public class PFSShell implements Runnable {
 		lastExitNum = 0;
 	}
 	
-	public void debug(PatrCommand cmd) {
-		PrintStream out = cmd.out == null ? System.out : new PrintStream(cmd.out, true, StandardCharsets.UTF_8);
-		if (cmd.cmd.length == 1) {
-			out.print("current debug mode: " + debugMode + '\n');
-		}
-		for (int i = 1; i < cmd.cmd.length; i ++ ) {
-			switch (cmd.cmd[i]) {
-			case "--help":
-			case "--?":
-				out.print(DEBUF_HELP_MSG);
-				break;
-			default:
-				try {
-					debugMode = DebugModes.valueOf(cmd.cmd[i]);
-				} catch (RuntimeException e) {
-					switch (debugMode) {
-					case full:
-						out.print(ConsoleColors.RED);
-						e.printStackTrace(out);
-						out.print(ConsoleColors.RESET);
-						break;
-					case simple:
-						out.print(ConsoleColors.RED + "unknown debug mode! " + e.getMessage() + '\n' + ConsoleColors.RESET);
-						break;
-					default:
-						throw new InternalError("unknown debug mode: " + debugMode.name());
-					case none:
-					}
-					lastExitNum = 1;
-					return;
-				}
-			}
-		}
-		lastExitNum = 0;
-	}
-	
 	public void echo(PatrCommand cmd) {
 		PrintStream out = cmd.out == null ? System.out : new PrintStream(cmd.out, true, StandardCharsets.UTF_8);
 		if (cmd.cmd.length > 1) {
@@ -946,6 +931,29 @@ public class PFSShell implements Runnable {
 				out.print(ConsoleColors.RED + "unknown help topic: '" + cmd.cmd[1] + "'\n" + ConsoleColors.RESET);
 				lastExitNum = 1;
 				return;
+			}
+		}
+		lastExitNum = 0;
+	}
+	
+	public void log(PatrCommand cmd) {
+		PrintStream out = cmd.out == null ? System.out : new PrintStream(cmd.out, true, StandardCharsets.UTF_8);
+		if (cmd.cmd.length == 1) {
+			out.print("current debug mode: " + logMode + '\n');
+		}
+		for (int i = 1; i < cmd.cmd.length; i ++ ) {
+			switch (cmd.cmd[i]) {
+			case "--help":
+			case "--?":
+				out.print(LOG_HELP_MSG);
+				break;
+			default:
+				try {
+					logMode = LogModes.valueOf(cmd.cmd[i]);
+				} catch (Exception e) {
+					logErr(e, "something went wrong by recieving the log mode ");
+					return;
+				}
 			}
 		}
 		lastExitNum = 0;
@@ -1287,19 +1295,7 @@ public class PFSShell implements Runnable {
 				}
 			}
 		} catch (IOException e) {
-			switch (debugMode) {
-			case full:
-				out.print(ConsoleColors.RED);
-				e.printStackTrace(out);
-				out.print(ConsoleColors.RESET);
-				break;
-			case simple:
-				out.print(ConsoleColors.RED + "error: " + e.getClass().getSimpleName() + ": " + e.getMessage() + '\n' + ConsoleColors.RESET);
-				break;
-			default:
-				throw new InternalError("unknown debug mode: " + debugMode.name());
-			case none:
-			}
+			logErr(e, "");
 			lastExitNum = 1;
 			return;
 		}
@@ -1380,13 +1376,13 @@ public class PFSShell implements Runnable {
 			env.putAll(myenv);
 			Process p = builder.start();
 			if (cmd.err != null) {
-				delegate("delegate stderr for " + cmd.cmd[0], p.getErrorStream(), cmd.err, p, true, debugMode);
+				delegate("delegate stderr for " + cmd.cmd[0], p.getErrorStream(), cmd.err, p, true, logMode);
 			}
 			if (cmd.out != null) {
-				delegate("delegate stdout for " + cmd.cmd[0], p.getInputStream(), cmd.out, p, true, debugMode);
+				delegate("delegate stdout for " + cmd.cmd[0], p.getInputStream(), cmd.out, p, true, logMode);
 			}
 			if (cmd.in != null) {
-				delegate("delegate stdin for " + cmd.cmd[0], cmd.in, p.getOutputStream(), p, false, debugMode);
+				delegate("delegate stdin for " + cmd.cmd[0], cmd.in, p.getOutputStream(), p, false, logMode);
 			}
 			while (true) {
 				try {
@@ -1397,25 +1393,13 @@ public class PFSShell implements Runnable {
 				}
 			}
 		} catch (IOException e) {
-			switch (debugMode) {
-			case full:
-				out.print(ConsoleColors.RED);
-				e.printStackTrace(out);
-				out.print(ConsoleColors.RESET);
-				break;
-			case simple:
-				out.print(ConsoleColors.RED + "error on starting the commmand: '" + e.getClass().getSimpleName() + ": " + e.getMessage() + "'\n" + ConsoleColors.RESET);
-				break;
-			default:
-				throw new InternalError("unknown debug mode: " + debugMode.name());
-			case none:
-			}
+			logErr(e, "by starting of the command: ");
 			lastExitNum = 1;
 			return;
 		}
 	}
 	
-	private static void delegate(String name, InputStream in, OutputStream out, Process p, boolean always, DebugModes debugMode) {
+	private static void delegate(String name, InputStream in, OutputStream out, Process p, boolean always, LogModes logMode) {
 		Thread delegate = new Thread(() -> {
 			byte[] buffer = new byte[1 << 10];
 			while (always || p.isAlive()) {
@@ -1433,19 +1417,7 @@ public class PFSShell implements Runnable {
 					out.write(buffer, 0, len);
 				} catch (IOException e) {
 					if (p.isAlive() || !always) {
-						switch (debugMode) {
-						case full:
-							System.err.print(ConsoleColors.RED);
-							e.printStackTrace(System.err);
-							System.err.print(ConsoleColors.RESET);
-							break;
-						case simple:
-							System.err.print(ConsoleColors.RED + "[" + name + "]: error: " + e.getClass() + ": " + e.getMessage() + '\n' + ConsoleColors.RESET);
-							break;
-						default:
-							throw new InternalError("unknown debug mode: " + debugMode.name());
-						case none:
-						}
+						logErr(logMode, e, "[" + name + "]: ");
 					}
 				}
 			}
@@ -1570,7 +1542,16 @@ public class PFSShell implements Runnable {
 				}
 			case '|':
 				i = newargs.length;
-				command.pipe = nextCmd(result, line.substring(i + 1));
+				PatrCommand sub = nextCmd(result, line.substring(i + 1));
+				try {
+					PipedOutputStream pout = new PipedOutputStream();
+					PipedInputStream pin = new PipedInputStream();
+					pout.connect(pin);
+					sub.out = pout;
+					command.in = pin;
+				} catch (IOException e) {
+					throw new RuntimeException(e.getClass() + ": " + e.getMessage());
+				}
 				break;
 			case '1':
 			case '2':
@@ -1702,7 +1683,7 @@ public class PFSShell implements Runnable {
 		return i;
 	}
 	
-	public static enum DebugModes {
+	public static enum LogModes {
 		full, simple, none;
 	}
 	

@@ -63,7 +63,6 @@ import de.hechler.patrick.pfs.interfaces.functional.ThrowingLongSupplier;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingRunnable;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingSupplier;
 import de.hechler.patrick.pfs.objects.AllocatedBlocks;
-import de.hechler.patrick.pfs.objects.LongInt;
 import de.hechler.patrick.pfs.objects.jfs.PFSFileSystemProviderImpl;
 import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
@@ -129,17 +128,16 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 				oldParent.fs.updateBlockAndPos(this);
 				bm.getBlock(oldParent.block);
 				try {
-					oldParent.ensureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK, false);
-					np.ensureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK, false);
-					ensureAccess(oldParentLock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
-					deleteFromParent();
+					oldParent.executeEnsureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK, false);
+					np.executeEnsureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK, false);
+					executeEnsureAccess(oldParentLock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
+					executeDeleteFromParent(oldParent);
 					oldParent.executeModify(false);
 				} finally {
 					bm.ungetBlock(oldParent.block);
 				}
 				final int pelementcount = byteArrToInt(pbytes, np.pos + FOLDER_OFFSET_ELEMENT_COUNT),
-					oldLen = FOLDER_OFFSET_FOLDER_ELEMENTS + pelementcount * FOLDER_ELEMENT_LENGTH,
-					newLen = oldLen + FOLDER_ELEMENT_LENGTH, addPos = np.pos + oldLen;
+					oldLen = FOLDER_OFFSET_FOLDER_ELEMENTS + pelementcount * FOLDER_ELEMENT_LENGTH, newLen = oldLen + FOLDER_ELEMENT_LENGTH, addPos = np.pos + oldLen;
 				np.resize(oldLen, newLen);
 				longToByteArr(bytes, addPos, id);
 				longToByteArr(bytes, pos + ELEMENT_OFFSET_PARENT_ID, np.id);
@@ -273,8 +271,8 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	private void setFlag(boolean doSet, long lock, int flag) throws IOException {
 		withLock(() -> {
 			fs.updateBlockAndPos(this);
-			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
-			flag(flag, doSet);
+			executeEnsureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
+			executeFlag(flag, doSet);
 			executeModify(true);
 		});
 	}
@@ -313,6 +311,13 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	protected void flag(int flags, boolean doSet) throws IOException {
 		if (doSet) flag(flags, 0);
 		else flag(0, flags);
+	}
+	
+	protected void executeFlag(int flags, boolean doFlag) throws IOException {
+		int myflags = executeGetFlags();
+		if (doFlag) myflags |= flags;
+		else myflags &= ~flags;
+		executeSetFlags(myflags);
 	}
 	
 	/**
@@ -378,7 +383,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	public void setCreateTime(long createTime, long lock) throws IOException, ElementLockedException {
 		withLock(() -> {
 			fs.updateBlockAndPos(this);
-			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
+			executeEnsureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
 			byte[] bytes = bm.getBlock(block);
 			try {
 				longToByteArr(bytes, pos + ELEMENT_OFFSET_CREATE_TIME, createTime);
@@ -405,7 +410,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	public void setLastModTime(long lastModTime, long lock) throws IOException, ElementLockedException {
 		withLock(() -> {
 			fs.updateBlockAndPos(this);
-			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
+			executeEnsureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
 			byte[] bytes = bm.getBlock(block);
 			try {
 				longToByteArr(bytes, pos + ELEMENT_OFFSET_LAST_MOD_TIME, lastModTime);
@@ -432,7 +437,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	public void setLastMetaModTime(long lastMetaModTime, long lock) throws IOException, ElementLockedException {
 		synchronized (bm) {
 			fs.updateBlockAndPos(this);
-			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
+			executeEnsureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
 			byte[] bytes = bm.getBlock(block);
 			try {
 				longToByteArr(bytes, pos + ELEMENT_OFFSET_LAST_META_MOD_TIME, lastMetaModTime);
@@ -504,15 +509,15 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		}, lock);
 	}
 	
-	public static void executeRemoveLock(ThrowingLongSupplier <IOException> getLock, ThrowingLongSupplier <IOException> getTime, ThrowingLongBiConsumer <IOException> setLockAndTime, long lock)
-		throws ClosedChannelException, IOException {
+	public static void executeRemoveLock(ThrowingLongSupplier <IOException> getLock, ThrowingLongSupplier <IOException> getTime,
+		ThrowingLongBiConsumer <IOException> setLockAndTime, long lock) throws ClosedChannelException, IOException {
 		long newLock = NO_LOCK, newTime = NO_TIME;
 		if (lock != NO_LOCK) {
 			long currentLock = getLock.supply();
 			if ( (currentLock & LOCK_SHARED_LOCK) != 0) {
 				if ( (currentLock & ~LOCK_SHARED_COUNTER_AND) != lock) {
-					throw new IllegalStateException("the locks are diffrent! I am locked with: " + Long.toHexString(currentLock & LOCK_DATA)
-						+ " (data only) but the lock: " + Long.toHexString(lock) + " should be removed (data only: " + Long.toHexString(lock & LOCK_DATA) + ")");
+					throw new IllegalStateException("the locks are diffrent! I am locked with: " + Long.toHexString(currentLock & LOCK_DATA) + " (data only) but the lock: "
+						+ Long.toHexString(lock) + " should be removed (data only: " + Long.toHexString(lock & LOCK_DATA) + ")");
 				}
 				long cnt = (currentLock & LOCK_SHARED_COUNTER_AND) >>> LOCK_SHARED_COUNTER_SHIFT;
 				cnt -- ;
@@ -522,8 +527,8 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 					newTime = getTime.supply();
 				}
 			} else if (currentLock != lock) {
-				throw new IllegalStateException("the locks are diffrent! I am locked with: " + Long.toHexString(currentLock & LOCK_DATA)
-					+ " (data only) but the lock: " + Long.toHexString(lock) + " should be removed (data only: " + Long.toHexString(lock & LOCK_DATA) + ")");
+				throw new IllegalStateException("the locks are diffrent! I am locked with: " + Long.toHexString(currentLock & LOCK_DATA) + " (data only) but the lock: "
+					+ Long.toHexString(lock) + " should be removed (data only: " + Long.toHexString(lock & LOCK_DATA) + ")");
 			}
 		}
 		setLockAndTime.accept(newLock, newTime);
@@ -572,10 +577,9 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		});
 	}
 	
-	public static long executeLock(ThrowingLongSupplier <IOException> getLock, ThrowingLongConsumer <IOException> setLock, ThrowingSupplier <IOException, String> toString, Random rnd, long newLockBits)
-		throws ClosedChannelException, IOException, ElementLockedException {
-		long myLock = getLock.supply(),
-			result = newLockBits;
+	protected static long executeLock(ThrowingLongSupplier <IOException> getLock, ThrowingLongConsumer <IOException> setLock, ThrowingSupplier <IOException, String> toString,
+		Random rnd, long newLockBits) throws ClosedChannelException, IOException, ElementLockedException {
+		long myLock = getLock.supply(), result = newLockBits | newLockBits;
 		if (myLock != NO_LOCK) {
 			if ( (myLock & LOCK_SHARED_LOCK) != 0) {
 				throw new ElementLockedException(toString.supply(), "this element is locked with a non shared lock!");
@@ -599,24 +603,32 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		} else {
 			myLock = rnd.nextLong();
 			myLock &= LOCK_NO_DATA;
-			result = myLock = (myLock | result);
+			myLock = (myLock | result);
+			if ( (myLock & LOCK_SHARED_LOCK) != 0) {
+				result = myLock & ~LOCK_SHARED_COUNTER_AND;
+			} else {
+				result = myLock;
+			}
 		}
 		setLock.accept(myLock);
 		return result;
 	}
 	
 	@Override
-	public void ensureAccess(long lock, long forbiddenBits, boolean readOnlyForbidden)
-		throws IOException, ElementLockedException, IllegalArgumentException {
+	public void ensureAccess(long lock, long forbiddenBits, boolean readOnlyForbidden) throws IOException, ElementLockedException, IllegalArgumentException {
 		long check = forbiddenBits & LOCK_DATA;
 		if (check != forbiddenBits) {
 			throw new IllegalArgumentException("the forbidden bits are not allowed to contain non data bits!");
 		}
 		synchronized (bm) {
 			fs.updateBlockAndPos(this);
-			fs.ensureAccess(forbiddenBits, readOnlyForbidden);
-			executeEnsureAccess(() -> (executeGetFlags() & ELEMENT_FLAG_READ_ONLY) != 0, () -> executeGetLock(), () -> PFSFileSystemProviderImpl.buildName(this), lock, forbiddenBits, readOnlyForbidden);
+			executeEnsureAccess(lock, forbiddenBits, readOnlyForbidden);
 		}
+	}
+	
+	protected void executeEnsureAccess(long lock, long forbiddenBits, boolean readOnlyForbidden) throws ElementReadOnlyException, ElementLockedException, IOException {
+		fs.ensureAccess(forbiddenBits, readOnlyForbidden);
+		executeEnsureAccess(() -> (executeGetFlags() & ELEMENT_FLAG_READ_ONLY) != 0, () -> executeGetLock(), () -> PFSFileSystemProviderImpl.buildName(this), lock, forbiddenBits, readOnlyForbidden);
 	}
 	
 	public static void executeEnsureAccess(ThrowingBooleanSupplier <IOException> readOnly, ThrowingLongSupplier <IOException> getLock, ThrowingSupplier <IOException, String> toString, long lock, long forbiddenBits,
@@ -628,12 +640,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		}
 		long myLock = getLock.supply();
 		if (lock != NO_LOCK) {
-			if (myLock != lock) {
-				throw new ElementLockedException(toString.supply(), "the lock is not LOCK_NO_LOCK, but also not my lock!");
-			} else if ( (myLock & LOCK_SHARED_LOCK) != 0) {
+			if ( (myLock & LOCK_SHARED_LOCK) != 0) {
 				if ( (myLock & forbiddenBits) != 0) {
 					throw new ElementLockedException(toString.supply(), "the lock is a shared lock and I have at least one of the forbidden bits set in my lock!");
 				}
+			} else if (myLock != lock) {
+				throw new ElementLockedException(toString.supply(), "the lock is not LOCK_NO_LOCK, but also not my lock!");
 			}
 		} else if ( (myLock & forbiddenBits) != 0) {
 			throw new ElementLockedException(toString.supply(), "the lock is LOCK_NO_LOCK, but I have at least one of the forbidden bits set in my lock!");
@@ -676,7 +688,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		long oldblock = block;
 		byte[] bytes = bm.getBlock(oldblock);
 		try {
-			ensureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
+			executeEnsureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
 			int oldnamelen = getNameByteCount();
 			int np = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
 			byte[] namebytes = name.getBytes(CHARSET);
@@ -784,10 +796,10 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 				throw new IllegalStateException("this element is a non empty folder!");
 			}
 		}
-		ensureAccess(myLock, LOCK_NO_DELETE_ALLOWED_LOCK, true);
+		executeEnsureAccess(myLock, LOCK_NO_DELETE_ALLOWED_LOCK, true);
 		PatrFolderImpl parent = getParent();
 		parent.ensureAccess(parentLock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
-		deleteFromParent();
+		executeDeleteFromParent(parent);
 		int myLen = myLength();
 		reallocate(block, pos, myLen, 0, false);
 		parent.executeModify(false);
@@ -798,26 +810,28 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * removes this element from the parent element
 	 * <p>
 	 * this method should only be called when the entire element gets deleted
+	 * <p>
+	 * (the parents block and pos need to be updated before this call)
 	 * 
+	 * @param parent
+	 *            the parent of this element
+	 * 			
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	protected void deleteFromParent() throws IOException {
+	protected void executeDeleteFromParent(PatrFolderImpl parent) throws IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
-			long pid = byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_ID);
-			LongInt parent = fs.getBlockAndPos(pid);
-			bytes = bm.getBlock(parent.l);
+			assert parent.id == byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_ID);
+			bytes = bm.getBlock(parent.block);
 			try {
-				int index = indexInParentList(parent.l, parent.i), imel = index * FOLDER_ELEMENT_LENGTH,
-					off = parent.i + FOLDER_OFFSET_FOLDER_ELEMENTS + imel,
-					oldElementCount = byteArrToInt(bytes, parent.i + FOLDER_OFFSET_ELEMENT_COUNT),
-					oldElementSize = oldElementCount * FOLDER_ELEMENT_LENGTH,
+				int index = indexInParentList(parent.block, parent.pos), imel = index * FOLDER_ELEMENT_LENGTH, off = parent.pos + FOLDER_OFFSET_FOLDER_ELEMENTS + imel,
+					oldElementCount = byteArrToInt(bytes, parent.pos + FOLDER_OFFSET_ELEMENT_COUNT), oldElementSize = oldElementCount * FOLDER_ELEMENT_LENGTH,
 					copySize = oldElementSize - imel - FOLDER_ELEMENT_LENGTH;
 				System.arraycopy(bytes, off + FOLDER_ELEMENT_LENGTH, bytes, off, copySize);
-				intToByteArr(bytes, parent.i + FOLDER_OFFSET_ELEMENT_COUNT, oldElementCount - 1);
+				intToByteArr(bytes, parent.pos + FOLDER_OFFSET_ELEMENT_COUNT, oldElementCount - 1);
 			} finally {
-				bm.setBlock(parent.l);
+				bm.setBlock(parent.block);
 			}
 		} finally {
 			bm.ungetBlock(block);
@@ -838,8 +852,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	protected int indexInParentList(long pblock, int ppos) throws IOException {
 		byte[] bytes = bm.getBlock(pblock);
 		try {
-			final int len = byteArrToInt(bytes, ppos + FOLDER_OFFSET_ELEMENT_COUNT),
-				off = ppos + FOLDER_OFFSET_FOLDER_ELEMENTS;
+			final int len = byteArrToInt(bytes, ppos + FOLDER_OFFSET_ELEMENT_COUNT), off = ppos + FOLDER_OFFSET_FOLDER_ELEMENTS;
 			for (int i = 0; i < len; i ++ ) {
 				final int imfel = i * FOLDER_ELEMENT_LENGTH;
 				long cid = byteArrToLong(bytes, off + imfel);
@@ -872,8 +885,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 				mylen *= FOLDER_ELEMENT_LENGTH;
 				mylen += FOLDER_OFFSET_FOLDER_ELEMENTS;
 			} else {
-				long byteLen = byteArrToLong(bytes, pos + FILE_OFFSET_FILE_LENGTH),
-					blocks = (byteLen + ((long) bytes.length) - 1L) / bytes.length;
+				long byteLen = byteArrToLong(bytes, pos + FILE_OFFSET_FILE_LENGTH), blocks = (byteLen + ((long) bytes.length) - 1L) / bytes.length;
 				for (mylen = FILE_OFFSET_FILE_DATA_TABLE; blocks > 0; mylen += 16) {
 					long start = byteArrToLong(bytes, pos + mylen);
 					long end = byteArrToLong(bytes, pos + mylen + 8);
@@ -932,8 +944,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 *             if there is not enough memory
 	 */
 	protected void relocate(int myoldlen, int mynewlen, int newNameLen) throws IOException, OutOfSpaceException {
-		final long myNewBlockNum = allocateOneBlock(),
-			myOldBlockNum = block;
+		final long myNewBlockNum = allocateOneBlock(), myOldBlockNum = block;
 		final int myOldPos = pos;
 		int oldnamepos;
 		int oldnamelen;
@@ -945,8 +956,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 			byte[] newBlock = bm.getBlock(myNewBlockNum);
 			try {
 				PatrFileSysImpl.initBlock(newBlock, mynewlen + realNewNameLen);
-				final int myNewPos = realNewNameLen,
-					nameNewPos = realNewNameLen == 0 ? -1 : 0;
+				final int myNewPos = realNewNameLen, nameNewPos = realNewNameLen == 0 ? -1 : 0;
 				try {
 					reallocate(myOldBlockNum, myOldPos, myoldlen, 0, false);
 					if (oldnamelen > 0) {
@@ -1047,7 +1057,8 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 						AllocatedBlocks ab = result.get(i);
 						free(bm, ab);
 					}
-					throw new OutOfSpaceException("not enugh blocks (blockCount=" + blockCount + "=0x" + Long.toHexString(blockCount) + " endBlock=" + endBlock + "=0x" + Long.toHexString(endBlock) + ")");
+					throw new OutOfSpaceException("not enugh blocks (blockCount=" + blockCount + "=0x" + Long.toHexString(blockCount) + " endBlock=" + endBlock + "=0x"
+						+ Long.toHexString(endBlock) + ")");
 				}
 				longToByteArr(bytes, end - 8, endBlock);
 			}
@@ -1104,8 +1115,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 				break;
 			case 2:
 				if (end + 12 > bytes.length) {
-					throw new OutOfSpaceException(
-						"there is not enough memory in this block to free/remove the given block sequence!");
+					throw new OutOfSpaceException("there is not enough memory in this block to free/remove the given block sequence!");
 				}
 				System.arraycopy(bytes, mid + 16, bytes, mid + 32, end - mid - 16);
 				end += 16;
@@ -1162,8 +1172,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 				return 0;
 			}
 			for (int i = 0; i < entrycount - 1; i ++ ) {
-				int off = tablestart + i * 8, thisend = byteArrToInt(bytes, off + 4),
-					nextstart = byteArrToInt(bytes, off + 8), free = nextstart - thisend;
+				int off = tablestart + i * 8, thisend = byteArrToInt(bytes, off + 4), nextstart = byteArrToInt(bytes, off + 8), free = nextstart - thisend;
 				if (free >= len) {
 					int space = (free - len) >>> 1, mystart = thisend + space, myend = mystart + len;
 					if (free == len) {
@@ -1213,9 +1222,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 			throw new IllegalArgumentException("{newLen=" + newLen + ", odLen=" + oldLen + " pos=" + pos + "}!");
 		}
 		try {
-			int tablestart = byteArrToInt(bytes, bytes.length - 4),
-				entrycount = (bytes.length - 4 - tablestart) / 8,
-				min = 0, max = entrycount - 1, mid, midoff;
+			int tablestart = byteArrToInt(bytes, bytes.length - 4), entrycount = (bytes.length - 4 - tablestart) / 8, min = 0, max = entrycount - 1, mid, midoff;
 			while (true) {
 				mid = (min + max) >>> 1;
 				midoff = tablestart + (mid * 8);
@@ -1288,12 +1295,10 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * @throws OutOfSpaceException
 	 *             if the entry gets separated and there is not enough memory for the table to grow
 	 */
-	private int remove(long block, int remFrom, int remTo, int index, boolean allowFreeBlock)
-		throws IOException, OutOfSpaceException {
+	private int remove(long block, int remFrom, int remTo, int index, boolean allowFreeBlock) throws IOException, OutOfSpaceException {
 		byte[] bytes = bm.getBlock(block);
 		try {
-			int tablestart = byteArrToInt(bytes, bytes.length - 4), offset = tablestart + index * 8,
-				start = byteArrToInt(bytes, offset), end = byteArrToInt(bytes, offset + 4);
+			int tablestart = byteArrToInt(bytes, bytes.length - 4), offset = tablestart + index * 8, start = byteArrToInt(bytes, offset), end = byteArrToInt(bytes, offset + 4);
 			AllocatedBlocks[] stay = new AllocatedBlocks(start, end - start).remove(remFrom, remTo);
 			switch (stay.length) {
 			case 0:
@@ -1321,8 +1326,8 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 				intToByteArr(bytes, offset + 4, end);
 				break;
 			case 2:
-				int start0 = (int) stay[0].startBlock, count0 = (int) stay[0].count, end0 = start0 + count0,
-					start1 = (int) stay[1].startBlock, count1 = (int) stay[1].count, end1 = start1 + count1;
+				int start0 = (int) stay[0].startBlock, count0 = (int) stay[0].count, end0 = start0 + count0, start1 = (int) stay[1].startBlock, count1 = (int) stay[1].count,
+					end1 = start1 + count1;
 				assert start0 == stay[0].startBlock;
 				assert start1 == stay[1].startBlock;
 				assert count0 == stay[0].count;
@@ -1364,8 +1369,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	protected static boolean tableShrink(BlockManager bm, long block, int remindex, boolean allowFreeBlock) throws IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
-			final int tablestart = byteArrToInt(bytes, bytes.length - 4),
-				lastStart = byteArrToInt(bytes, bytes.length - 12), rim8 = remindex * 8, remoff = tablestart + rim8;
+			final int tablestart = byteArrToInt(bytes, bytes.length - 4), lastStart = byteArrToInt(bytes, bytes.length - 12), rim8 = remindex * 8, remoff = tablestart + rim8;
 			assert remoff >= tablestart;
 			assert remoff <= bytes.length - 12;
 			if (remoff == bytes.length - 12) {
@@ -1426,8 +1430,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	protected static void tableGrow(BlockManager bm, long block, int addindex, int start, int end) throws OutOfSpaceException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
-			int tablestart = byteArrToInt(bytes, bytes.length - 4), lastStart = byteArrToInt(bytes, bytes.length - 12),
-				addoff = tablestart + addindex * 8;
+			int tablestart = byteArrToInt(bytes, bytes.length - 4), lastStart = byteArrToInt(bytes, bytes.length - 12), addoff = tablestart + addindex * 8;
 			if (tablestart == lastStart) {
 				int prevLastEnd = byteArrToInt(bytes, bytes.length - 16);
 				if (addoff == bytes.length - 12) {
@@ -1460,7 +1463,6 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * <p>
 	 * in addition to {@link #withLock(BlockManager, ThrowingRunnable)} this method also loads the blocks from the arrays.<br>
 	 * So this is the better method, when the blocks are often loaded and unloaded
-	 * 
 	 * 
 	 * @param <T>
 	 *            the exception type which can be thrown from {@code exec}

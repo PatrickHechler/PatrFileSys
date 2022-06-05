@@ -63,12 +63,12 @@ public class PatrLinkImpl extends PatrFileSysElementImpl implements PatrLink {
 		fs.updateBlockAndPos(this);
 		byte[] bytes = bm.getBlock(block);
 		try {
-			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+			executeEnsureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			longToByteArr(bytes, pos + LINK_OFFSET_TARGET_ID, nt.id);
 			if (nt.isFolder()) {
-				flag(ELEMENT_FLAG_FILE, ELEMENT_FLAG_FOLDER);
+				executeFlag(ELEMENT_FLAG_FILE, ELEMENT_FLAG_FOLDER);
 			} else {
-				flag(ELEMENT_FLAG_FOLDER, ELEMENT_FLAG_FILE);
+				executeFlag(ELEMENT_FLAG_FOLDER, ELEMENT_FLAG_FILE);
 			}
 		} finally {
 			bm.setBlock(block);

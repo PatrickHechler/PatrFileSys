@@ -16,7 +16,7 @@ import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingConsumer;
 import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
-public class PFSSeekableByteChannelImpl implements SeekableByteChannel, GatheringByteChannel, ScatteringByteChannel {
+public class PFSByteChannelImpl implements SeekableByteChannel, GatheringByteChannel, ScatteringByteChannel {
 	
 	private ThrowingConsumer <? extends IOException, PatrFile> onClose;
 	private volatile int                                       mode;
@@ -25,11 +25,11 @@ public class PFSSeekableByteChannelImpl implements SeekableByteChannel, Gatherin
 	private long                                               pos;
 	private byte[]                                             buffer;
 	
-	public PFSSeekableByteChannelImpl(long lock, String[] path, PatrFile file, ThrowingConsumer <? extends IOException, PatrFile> onClose, int mode) {
+	public PFSByteChannelImpl(long lock, String[] path, PatrFile file, ThrowingConsumer <? extends IOException, PatrFile> onClose, int mode) {
 		this(lock, path, file, onClose, mode, 1 << 16/* ca. 32k */);
 	}
 	
-	public PFSSeekableByteChannelImpl(long lock, String[] path, PatrFile file, ThrowingConsumer <? extends IOException, PatrFile> onClose, int mode, int bufferSize) {
+	public PFSByteChannelImpl(long lock, String[] path, PatrFile file, ThrowingConsumer <? extends IOException, PatrFile> onClose, int mode, int bufferSize) {
 		this.onClose = onClose;
 		this.mode = mode;
 		this.lock = lock;
@@ -189,7 +189,7 @@ public class PFSSeekableByteChannelImpl implements SeekableByteChannel, Gatherin
 	}
 	
 	@Override
-	public PFSSeekableByteChannelImpl position(long newPosition) throws IOException {
+	public PFSByteChannelImpl position(long newPosition) throws IOException {
 		pos = newPosition;
 		return this;
 	}
@@ -200,7 +200,7 @@ public class PFSSeekableByteChannelImpl implements SeekableByteChannel, Gatherin
 	}
 	
 	@Override
-	public PFSSeekableByteChannelImpl truncate(long size) throws IOException {
+	public PFSByteChannelImpl truncate(long size) throws IOException {
 		checkWrite();
 		file.withLock(() -> {
 			long length = file.length();

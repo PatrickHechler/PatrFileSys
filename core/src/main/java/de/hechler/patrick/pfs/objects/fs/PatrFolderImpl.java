@@ -99,7 +99,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 			if (target != null && target.isLink()) {
 				throw new IllegalArgumentException("i will not create a link to a link!");
 			}
-			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+			executeEnsureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			final int oldElementCount = getElementCount(),
 				oldSize = oldElementCount * FOLDER_ELEMENT_LENGTH + FOLDER_OFFSET_FOLDER_ELEMENTS,
 				newSize = oldSize + FOLDER_ELEMENT_LENGTH;
@@ -239,7 +239,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	public int elementCount(long lock) throws IOException {
 		synchronized (bm) {
 			fs.updateBlockAndPos(this);
-			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
+			executeEnsureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
 			return getElementCount();
 		}
 	}
@@ -267,7 +267,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	private PatrFileSysElement executeGetElement(int index, long lock) throws ClosedChannelException, IOException, ElementLockedException {
 		byte[] bytes = bm.getBlock(block);
 		try {
-			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
+			executeEnsureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
 			if (index >= getElementCount()) {
 				throw new IndexOutOfBoundsException("the index is greather (or equal) than my element count: index=" + index + " elementCount=" + getElementCount());
 			}
@@ -285,7 +285,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 			fs.updateBlockAndPos(this);
 			byte[] bytes = bm.getBlock(block);
 			try {
-				ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
+				executeEnsureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
 				byte[] nameBytes = name.getBytes(CHARSET);
 				int off = pos + FOLDER_OFFSET_FOLDER_ELEMENTS;
 				int ec = getElementCount();
@@ -300,7 +300,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 								continue;
 							}
 						} else if (cno + nameBytes.length + 2 <= cbytes.length) {
-							if ( !Arrays.equals(nameBytes, 0, nameBytes.length - 1, bytes, cno, cno + nameBytes.length - 1)) {
+							if ( !Arrays.equals(nameBytes, 0, nameBytes.length - 1, cbytes, cno, cno + nameBytes.length - 1)) {
 								continue;
 							}
 							if (cbytes[cno + nameBytes.length] != 0 || cbytes[cno + nameBytes.length + 1] != 0) {

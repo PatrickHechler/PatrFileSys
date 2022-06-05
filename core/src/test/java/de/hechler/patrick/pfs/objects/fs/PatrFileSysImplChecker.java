@@ -35,6 +35,7 @@ import java.util.Random;
 import java.util.Set;
 
 import de.hechler.patrick.pfs.exception.ElementLockedException;
+import de.hechler.patrick.pfs.exception.ElementReadOnlyException;
 import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
 import de.hechler.patrick.pfs.interfaces.PatrFileSystem;
@@ -468,7 +469,14 @@ public class PatrFileSysImplChecker {
 		assertEquals(NO_TIME, inner.getCreateTime());
 		assertThrows(IllegalStateException.class, () -> root.deepDelete(NO_LOCK, NO_LOCK));
 		assertThrows(IllegalStateException.class, () -> folder.delete(NO_LOCK, NO_LOCK));
-		folder.deepDelete(NO_LOCK, NO_LOCK);
+		root.setReadOnly(true, NO_LOCK);
+		assertThrows(ElementReadOnlyException.class, () -> folder.deepDelete(e -> NO_LOCK));
+		folder.setReadOnly(true, NO_LOCK);
+		assertThrows(ElementReadOnlyException.class, () -> folder.deepDelete(e -> NO_LOCK));
+		root.setReadOnly(false, NO_LOCK);
+		assertThrows(ElementReadOnlyException.class, () -> folder.deepDelete(e -> NO_LOCK));
+		folder.setReadOnly(false, NO_LOCK);
+		folder.deepDelete(e -> NO_LOCK);
 		assertNotEquals(NO_TIME, root.getCreateTime());
 		root.setCreateTime(NO_TIME, NO_LOCK);
 		assertEquals(NO_TIME, root.getCreateTime());

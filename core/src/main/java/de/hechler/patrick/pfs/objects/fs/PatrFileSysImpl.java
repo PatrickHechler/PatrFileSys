@@ -17,7 +17,8 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_BLOCK_COUNT_O
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_BLOCK_LENGTH_OFFSET;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_FILE_SYS_LOCK_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_FILE_SYS_LOCK_VALUE;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_FILE_SYS_STATE_TIME;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_FILE_SYS_STATE_VALUE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_ROOT_BLOCK_OFFSET;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_ROOT_POS_OFFSET;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_START_ROOT_POS;
@@ -51,7 +52,6 @@ import de.hechler.patrick.pfs.exception.ElementReadOnlyException;
 import de.hechler.patrick.pfs.exception.OutOfSpaceException;
 import de.hechler.patrick.pfs.interfaces.BlockAccessor;
 import de.hechler.patrick.pfs.interfaces.BlockManager;
-import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
 import de.hechler.patrick.pfs.interfaces.PatrFileSystem;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
@@ -65,7 +65,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	private volatile long     startTime;
 	private volatile long     lock;
 	public final boolean      readOnly;
-	private PatrFile          elementTable;
+	private PatrFileImpl      elementTable;
 	private PatrFolder        root;
 	
 	public PatrFileSysImpl(BlockAccessor ba) {
@@ -344,6 +344,23 @@ public class PatrFileSysImpl implements PatrFileSystem {
 				} finally {
 					bm.ungetBlock(0L);
 				}
+			} else if (element.id >= 0L) {
+				byte[] bytes = bm.getBlock(0L);
+				try {
+					elementTable.block = byteArrToLong(bytes, FB_TABLE_FILE_BLOCK_OFFSET);
+					elementTable.pos = byteArrToInt(bytes, FB_TABLE_FILE_POS_OFFSET);
+					bytes = new byte[ELEMENT_TABLE_ELEMENT_LENGTH];
+					bm.getBlock(elementTable.block);
+					try {
+						elementTable.executeRead(bytes, element.id, 0, 12);
+						element.block = byteArrToLong(bytes, ELEMENT_TABLE_OFFSET_BLOCK);
+						element.pos = byteArrToInt(bytes, ELEMENT_TABLE_OFFSET_POS);
+					} finally {
+						bm.ungetBlock(elementTable.block);
+					}
+				} finally {
+					bm.ungetBlock(0L);
+				}
 			} else if (element.id == ROOT_FOLDER_ID) {
 				byte[] bytes = bm.getBlock(0L);
 				try {
@@ -352,11 +369,6 @@ public class PatrFileSysImpl implements PatrFileSystem {
 				} finally {
 					bm.ungetBlock(0L);
 				}
-			} else if (element.id >= 0L) {
-				byte[] bytes = new byte[ELEMENT_TABLE_ELEMENT_LENGTH];
-				elementTable.getContent(bytes, element.id, 0, ELEMENT_TABLE_ELEMENT_LENGTH, NO_LOCK);
-				element.block = byteArrToLong(bytes, ELEMENT_TABLE_OFFSET_BLOCK);
-				element.pos = byteArrToInt(bytes, ELEMENT_TABLE_OFFSET_POS);
 			} else {
 				throw new IllegalArgumentException("invalid id! id=" + element.id);
 			}

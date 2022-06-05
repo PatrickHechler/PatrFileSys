@@ -16,7 +16,7 @@ public class SeekablePathBlockAccessor implements BlockAccessor {
 	private final int                 blockSize;
 	
 	public SeekablePathBlockAccessor(Path path, int blockSize) throws IOException {
-		this(Files.newByteChannel(path, StandardOpenOption.READ, StandardOpenOption.WRITE), blockSize);
+		this(Files.newByteChannel(path, StandardOpenOption.READ, StandardOpenOption.WRITE, StandardOpenOption.CREATE), blockSize);
 	}
 	
 	public SeekablePathBlockAccessor(SeekableByteChannel channel, int blockSize) {

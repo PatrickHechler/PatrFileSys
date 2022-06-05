@@ -12,6 +12,8 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_WRITE_AL
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_TIME;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.channels.ClosedChannelException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -27,6 +29,8 @@ import de.hechler.patrick.pfs.objects.AllocatedBlocks;
 
 public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	
+	
+	
 	public PatrFileImpl(PatrFileSysImpl fs, long startTime, BlockManager bm, long id) {
 		super(fs, startTime, bm, id);
 	}
@@ -39,11 +43,14 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		if (bytesOff < 0 || offset < 0 || length < 0) {
 			throw new IllegalArgumentException("negative value! offset/len can not be negative! (bytesOff=" + bytesOff + ", offset=" + offset + ", length=" + length + ")");
 		}
+		if ((long) length + offset < 0L) {
+			throw new IllegalArgumentException("owerflow detected: off=" + offset + " len=" + length + " off+len=" + (offset + (long) length));
+		}
 		synchronized (bm) {
 			fs.updateBlockAndPos(this);
 			bm.getBlock(block);
 			try {
-				ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
+				executeEnsureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
 				executeRead(bytes, offset, bytesOff, length);
 			} finally {
 				bm.ungetBlock(block);
@@ -51,8 +58,8 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		}
 	}
 	
-	private void executeRead(byte[] bytes, long offset, int bytesOff, int length) throws ClosedChannelException, IOException, ElementLockedException {
-		if (offset + (long) length > length()) {
+	protected void executeRead(byte[] bytes, long offset, int bytesOff, int length) throws ClosedChannelException, IOException, ElementLockedException {
+		if (offset + (long) length > executeLength()) {
 			throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + length() + ")");
 		}
 		BlockTableIter bti;
@@ -97,7 +104,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	public void removeContent(long lock) throws IOException, ElementLockedException {
 		withLock(() -> {
 			fs.updateBlockAndPos(this);
-			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+			executeEnsureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			executeRemoveContext();
 			executeModify(false);
 		});
@@ -122,7 +129,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			if (size >= executeLength()) {
 				throw new IllegalArgumentException("size >= len size=" + size + " len=" + executeLength());
 			}
-			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+			executeEnsureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			executeTruncate(size);
 			executeModify(false);
 		});
@@ -165,7 +172,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		}
 		withLock(() -> {
 			fs.updateBlockAndPos(this);
-			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+			executeEnsureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			executeWrite(bytes, offset, bytesOff, length);
 			executeModify(false);
 		});
@@ -219,7 +226,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		}
 		withLock(() -> {
 			fs.updateBlockAndPos(this);
-			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+			executeEnsureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 			executeAppend(bytes, bytesOff, length, lock);
 			executeModify(false);
 		});
@@ -234,7 +241,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			while (bti.hasNext()) {
 				bti.next = null;
 			}
-			int off = bti.tableoff+16;
+			int off = bti.tableoff + 16;
 			final int blockSize = myBlockBytes.length;
 			final long myNewLen = myOldLen + (long) length;
 			int lastBlockPos = (int) (myOldLen % (long) blockSize);
@@ -269,9 +276,9 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 					}
 				}
 				final int relOff = off - pos;
-				final boolean lastOldAndFirstNewMatches = relOff == FILE_OFFSET_FILE_DATA_TABLE ? false : newBlocks[0].startBlock == byteArrToLong(myBlockBytes, off - 8);
+				final boolean oldLastAndFirstNewMatches = relOff == FILE_OFFSET_FILE_DATA_TABLE ? false : newBlocks[0].startBlock == byteArrToLong(myBlockBytes, off - 8);
 				final int newLen;
-				if (lastOldAndFirstNewMatches) {
+				if (oldLastAndFirstNewMatches) {
 					newLen = (relOff + (newBlocks.length * 16)) - 16;
 				} else {
 					newLen = relOff + (newBlocks.length * 16);
@@ -281,7 +288,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 				myBlockBytes = bm.getBlock(block);
 				try {
 					int i = 0;
-					if (lastOldAndFirstNewMatches) {
+					if (oldLastAndFirstNewMatches) {
 						longToByteArr(myBlockBytes, off - 8, newBlocks[0].startBlock + newBlocks[0].count);
 						i = 1;
 					}
@@ -321,7 +328,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	private byte[] executeGetHashCode(long lock) throws IOException, ElementLockedException {
 		byte[] bytes = bm.getBlock(block);
 		try {
-			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
+			executeEnsureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
 			byte[] result = new byte[32];
 			long lastMod = byteArrToLong(bytes, pos + ELEMENT_OFFSET_LAST_META_MOD_TIME);
 			long hashTIme = byteArrToLong(bytes, pos + FILE_OFFSET_FILE_HASH_TIME);
@@ -386,14 +393,14 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		public boolean hasNext() throws IOException {
 			if (next != null) return true;
 			long oldBlock = block;
-			byte[] bytes = bm.getBlock(oldBlock);
+			bm.getBlock(oldBlock);
 			try {
 				long remain = executeLength() - fileoff;
 				if (remain <= 0L) {
 					return false;
 				}
 				tableoff += 16;
-				bytes = bm.getBlock(block);
+				byte[] bytes = bm.getBlock(block);
 				long start, count;
 				try {
 					start = byteArrToLong(bytes, tableoff);
@@ -416,6 +423,103 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 			AllocatedBlocks n = next;
 			next = null;
 			return n;
+		}
+		
+	}
+	
+	@Override
+	public InputStream openInput(long lock) throws IOException, ElementLockedException {
+		return new PatrFileImplInputStream(lock);
+	}
+	
+	@Override
+	public OutputStream openOutput(boolean append, long lock) throws IOException, ElementLockedException {
+		return new PatrFileImplOutputStream(append, lock);
+	}
+	
+	public class PatrFileImplInputStream extends PatrFileInputStream {
+		
+		public PatrFileImplInputStream(long lock) {
+			super(PatrFileImpl.this, lock);
+		}
+		
+		@Override
+		public synchronized int read(byte[] b, int off, int len) throws IOException {
+			if (off < 0 || len < 0 || off + len < 0 || off + len > b.length) {
+				throw new IllegalArgumentException("bytes.length=" + b.length + " off=" + off + " len=" + len + " off+len=" + (off + len));
+			}
+			synchronized (bm) {
+				ensureOpen();
+				fs.updateBlockAndPos(PatrFileImpl.this);
+				long oldBlock = block;
+				bm.getBlock(oldBlock);
+				try {
+					PatrFileImpl.this.executeEnsureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
+					long remain = executeLength() - pos;
+					if (remain <= 0L) {
+						assert remain == 0L;
+						return -1;
+					}
+					int r = (int) Math.min(remain, len);
+					PatrFileImpl.this.executeRead(b, pos, off, r);
+					pos += r;
+					return r;
+				} finally {
+					bm.ungetBlock(oldBlock);
+				}
+			}
+		}
+		
+		@Override
+		public synchronized int read() throws IOException {
+			synchronized (bm) {
+				ensureOpen();
+				fs.updateBlockAndPos(PatrFileImpl.this);
+				long oldBlock = block;
+				bm.getBlock(oldBlock);
+				try {
+					PatrFileImpl.this.executeEnsureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
+					long remain = executeLength() - pos;
+					if (remain < 1L) {
+						assert remain == 0L;
+						return -1;
+					}
+					PatrFileImpl.this.executeRead(singleByte, pos, 0, 1);
+					pos ++ ;
+					return singleByte[0] & 0xFF;
+				} finally {
+					bm.ungetBlock(oldBlock);
+				}
+			}
+		}
+		
+	}
+	
+	public class PatrFileImplOutputStream extends PatrFileOutputStream {
+		
+		public PatrFileImplOutputStream(boolean append, long lock) {
+			super(PatrFileImpl.this, append, lock);
+		}
+		
+		@Override
+		public synchronized void write(byte[] b, int off, int len) throws IOException {
+			if (off < 0 || len < 0 || off > b.length || b.length - off < len) {
+				throw new IllegalArgumentException("bytes.length=" + b.length + " off=" + off + " len=" + len);
+			}
+			synchronized (bm) {
+				ensureOpen();
+				fs.updateBlockAndPos(PatrFileImpl.this);
+				if (pos < len && !append) {
+					long remain = file.length() - pos;
+					int cpy = (int) Math.min(remain, len);
+					executeWrite(b, pos, cpy, len);
+					len -= cpy;
+					off += cpy;
+					pos += cpy;
+				}
+				executeAppend(b, off, len, lock);
+				pos += len;
+			}
 		}
 		
 	}

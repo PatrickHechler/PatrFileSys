@@ -10,7 +10,6 @@ public class PatrCommand {
 	public OutputStream out  = null;
 	public OutputStream err  = null;
 	public InputStream  in   = null;
-	public PatrCommand  pipe = null;
 	
 	public PatrCommand() {}
 
@@ -30,10 +29,6 @@ public class PatrCommand {
 		}
 		if (in != null) {
 			builder.append(", delegate in");
-		}
-		if (pipe != null) {
-			builder.append("pipe=");
-			builder.append(pipe);
 		}
 		builder.append("]");
 		return builder.toString();

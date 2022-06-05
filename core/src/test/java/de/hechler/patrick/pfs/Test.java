@@ -9,7 +9,8 @@ public class Test {
 		main(new String[0]);
 	}
 	
-	public static void main(String[] args) {
+	public static void main(String[] args) throws InterruptedException {
+		Thread.sleep(10000L);
 		BigCheckResult cr = BigChecker.tryCheckAll(true, Test.class.getPackage(), Test.class.getClassLoader());
 		cr.detailedPrint();
 		if (cr.wentUnexpected()) {

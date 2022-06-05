@@ -1,9 +1,19 @@
 package de.hechler.patrick.pfs.objects.jfs;
 
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.ATTR_VIEW_BASIC;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.ATTR_VIEW_PATR;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_IS_DIRECTORY;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_IS_OTHER;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_IS_REGULAR_FILE;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_IS_SYMBOLIC_LINK;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_SIZE;
 import static de.hechler.patrick.pfs.utils.JavaPFSConsants.NEW_FILE_SYS_ENV_ATTR_BLOCK_COUNT;
-import static de.hechler.patrick.pfs.utils.JavaPFSConsants.*;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.NEW_FILE_SYS_ENV_ATTR_BLOCK_SIZE;
 import static de.hechler.patrick.pfs.utils.JavaPFSConsants.NEW_FILE_SYS_ENV_ATTR_DO_FORMATT;
 import static de.hechler.patrick.pfs.utils.JavaPFSConsants.NEW_FILE_SYS_ENV_ATTR_FILE_SYS;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.PATR_VIEW_ATTR_EXECUTABLE;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.PATR_VIEW_ATTR_HIDDEN;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.PATR_VIEW_ATTR_READ_ONLY;
 import static de.hechler.patrick.pfs.utils.JavaPFSConsants.URI_SHEME;
 import static de.hechler.patrick.zeugs.check.Assert.assertArrayEquals;
 import static de.hechler.patrick.zeugs.check.Assert.assertEquals;
@@ -13,7 +23,7 @@ import static de.hechler.patrick.zeugs.check.Assert.fail;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.RandomAccessFile;
+import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -25,7 +35,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.FileAttribute;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.Collections;
 import java.util.HashSet;
@@ -34,7 +43,6 @@ import java.util.Set;
 
 import de.hechler.patrick.pfs.interfaces.BlockAccessor;
 import de.hechler.patrick.pfs.interfaces.PatrFileSystem;
-import de.hechler.patrick.pfs.objects.ba.FileBlockAccessor;
 import de.hechler.patrick.pfs.objects.ba.SeekablePathBlockAccessor;
 import de.hechler.patrick.pfs.objects.fs.PatrFileSysImpl;
 import de.hechler.patrick.pfs.objects.fs.PatrFileSysImplChecker;
@@ -43,36 +51,35 @@ import de.hechler.patrick.zeugs.check.anotations.CheckClass;
 import de.hechler.patrick.zeugs.check.anotations.End;
 import de.hechler.patrick.zeugs.check.anotations.MethodParam;
 import de.hechler.patrick.zeugs.check.anotations.Start;
+import de.hechler.patrick.zeugs.check.objects.CheckResult;
+import de.hechler.patrick.zeugs.check.objects.Checker;
 
 @CheckClass
 public class PatrJavaFileSysImplChecker {
 	
-	FileSystemProvider provider;
+	private static final long BLOCK_COUNT = 414777L;
+	private static final int  BLOCK_SIZE  = 1024;
+	FileSystemProvider        provider;
 	
 	@Start(onlyOnce = true)
 	private void init() throws IOException {
 		Path path = Paths.get("testout", getClass().getSimpleName());
-		if (Files.exists(path)) {
-			PatrFileSysImplChecker.deepDeleteChildren(path);
-		} else {
-			Files.createDirectories(path);
+			if (Files.exists(path)) {
+				PatrFileSysImplChecker.deepDeleteChildren(path);
+			} else {
+				Files.createDirectories(path);
 		}
 	}
 	
 	@Start
 	private void start(@MethodParam Method met) throws IOException {
-		Path metpath = Paths.get("testout", getClass().getSimpleName());
-		if (Files.exists(metpath)) {
-			PatrFileSysImplChecker.deepDeleteChildren(metpath);
-		} else {
-			Files.createDirectories(metpath);
-		}
-		Path path = metpath.resolve(met.getName() + ".pfs");
-		RandomAccessFile raf = new RandomAccessFile(path.toFile(), "rw");
-		BlockAccessor ba = new FileBlockAccessor(1 << 14, raf);
-		PatrFileSystem fs = new PatrFileSysImpl(ba);
-		fs.format(1 << 10, 1 << 14);
-		provider = new PFSFileSystemProviderImpl(fs);
+		Path path = Paths.get("testout", getClass().getSimpleName(), met.getName() + ".pfs");
+		BlockAccessor ba = new SeekablePathBlockAccessor(path, BLOCK_SIZE);
+		PatrFileSystem pfs = new PatrFileSysImpl(ba);
+		pfs.format(BLOCK_COUNT, BLOCK_SIZE);
+		PFSFileSystemProviderImpl prov = new PFSFileSystemProviderImpl();
+		prov.initDefault(pfs);
+		provider = prov;
 		System.out.println("start check: " + getClass().getSimpleName() + ": " + met.getName());
 	}
 	
@@ -108,11 +115,10 @@ public class PatrJavaFileSysImplChecker {
 		fs.close();
 		uri = new URI(URI_SHEME + "://res2");
 		fs = FileSystems.newFileSystem(uri,
-				Map.of(NEW_FILE_SYS_ENV_ATTR_BLOCK_COUNT, Long.valueOf(1L << 9), NEW_FILE_SYS_ENV_ATTR_BLOCK_SIZE, Integer.valueOf(1 << 11), NEW_FILE_SYS_ENV_ATTR_DO_FORMATT,
-						Boolean.TRUE, NEW_FILE_SYS_ENV_ATTR_FILE_SYS,
-						new PatrFileSysImpl(new SeekablePathBlockAccessor(Paths.get(getClass().getSimpleName(), "checkInstalledProvider", "test-fs.pfs"), 1 << 11))));
+			Map.of(NEW_FILE_SYS_ENV_ATTR_BLOCK_COUNT, Long.valueOf(BLOCK_COUNT), NEW_FILE_SYS_ENV_ATTR_BLOCK_SIZE, Integer.valueOf(BLOCK_SIZE), NEW_FILE_SYS_ENV_ATTR_DO_FORMATT, Boolean.TRUE,
+				NEW_FILE_SYS_ENV_ATTR_FILE_SYS, new PatrFileSysImpl(new SeekablePathBlockAccessor(Paths.get("testout", getClass().getSimpleName(), "checkInstalledProvider-second.pfs"), BLOCK_SIZE))));
 		FileStore store = fs.getFileStores().iterator().next();
-		assertEquals( (1 << 11) * (1L << 9), store.getTotalSpace());
+		assertEquals(BLOCK_COUNT * BLOCK_SIZE, store.getTotalSpace());
 		fs2 = FileSystems.getFileSystem(uri);
 		assertSame(fs2, fs);
 		fs.close();
@@ -122,23 +128,29 @@ public class PatrJavaFileSysImplChecker {
 	private void checkMeta() throws URISyntaxException, IOException {
 		Path root = provider.getPath(new URI(URI_SHEME, null, "/", null));
 		Path bin = Files.createDirectories(root.resolve("bin"));
-		Path cat = Files.createFile(bin.resolve("cat"), new FileAttribute <Boolean>() {
-			
-			@Override
-			public String name() {
-				return ATTR_VIEW_PATR + ':' + PATR_VIEW_ATTR_EXECUTABLE;
-			}
-			
-			@Override
-			public Boolean value() {
-				return Boolean.TRUE;
-			}
-			
-		});
+		Path cat = Files.createFile(bin.resolve("cat"), new PFSFileAttributeImpl <Boolean>(ATTR_VIEW_PATR + ':' + PATR_VIEW_ATTR_EXECUTABLE, Boolean.TRUE));
 		assertEquals(Boolean.TRUE, Files.getAttribute(cat, ATTR_VIEW_PATR + ':' + PATR_VIEW_ATTR_EXECUTABLE));
+		assertEquals(Boolean.FALSE, Files.getAttribute(cat, ATTR_VIEW_PATR + ':' + PATR_VIEW_ATTR_HIDDEN));
+		assertEquals(Boolean.FALSE, Files.getAttribute(cat, ATTR_VIEW_PATR + ':' + PATR_VIEW_ATTR_READ_ONLY));
+		assertEquals(Boolean.TRUE, Files.getAttribute(cat, ATTR_VIEW_BASIC + ':' + BASIC_ATTRIBUTE_IS_REGULAR_FILE));
+		assertEquals(Boolean.TRUE, Files.getAttribute(cat, BASIC_ATTRIBUTE_IS_REGULAR_FILE));
+		assertEquals(Boolean.FALSE, Files.getAttribute(cat, ATTR_VIEW_BASIC + ':' + BASIC_ATTRIBUTE_IS_SYMBOLIC_LINK));
+		assertEquals(Boolean.FALSE, Files.getAttribute(cat, BASIC_ATTRIBUTE_IS_SYMBOLIC_LINK));
+		assertEquals(Boolean.FALSE, Files.getAttribute(cat, ATTR_VIEW_BASIC + ':' + BASIC_ATTRIBUTE_IS_DIRECTORY));
+		assertEquals(Boolean.FALSE, Files.getAttribute(cat, BASIC_ATTRIBUTE_IS_DIRECTORY));
+		assertEquals(Boolean.FALSE, Files.getAttribute(cat, ATTR_VIEW_BASIC + ':' + BASIC_ATTRIBUTE_IS_OTHER));
+		assertEquals(Boolean.FALSE, Files.getAttribute(cat, BASIC_ATTRIBUTE_IS_OTHER));
+		assertEquals(Long.valueOf(0L), Files.getAttribute(cat, ATTR_VIEW_BASIC + ':' + BASIC_ATTRIBUTE_SIZE));
+		assertEquals(Long.valueOf(0L), Files.getAttribute(cat, BASIC_ATTRIBUTE_SIZE));
 		// TODO more
 	}
-	//TODO check changes
+	
+	@Check
+	private void checkChanges() {
+		// TODO Auto-generated method stub
+		
+	}
+	
 	@Check
 	private void checkFromRealFS() throws IOException, URISyntaxException {
 		final Path testOut = Paths.get("testout", getClass().getSimpleName(), "checkFromRealFS");
@@ -157,14 +169,25 @@ public class PatrJavaFileSysImplChecker {
 	
 	private void deepCopy(Path from, Path to) throws IOException {
 		try (DirectoryStream <Path> dirStr = Files.newDirectoryStream(from)) {
-			for (Path path : dirStr) {
-				Path p = to.resolve(path.getFileName().toString());
-				if (Files.isDirectory(path)) {
-					Files.createDirectory(p);
-					deepCopy(path, p);
+			for (Path copySource : dirStr) {
+				Path copyTarget = to.resolve(copySource.getFileName().toString());
+				if (Files.isDirectory(copySource)) {
+					Files.createDirectory(copyTarget);
+					deepCopy(copySource, copyTarget);
 				} else {
-					Files.copy(path, p);
-					assertEquals(Files.size(path), Files.size(p));
+					long sourceSize = Files.size(copySource);
+					try (InputStream in = Files.newInputStream(copySource)) {
+						try (OutputStream out = Files.newOutputStream(copyTarget, StandardOpenOption.CREATE_NEW, StandardOpenOption.APPEND)) {
+							byte[] bytes = new byte[ (Integer.MAX_VALUE > sourceSize) ? (1 << 30) : ((int) sourceSize)];
+							long cnt = 0L;
+							for (int cpy = in.read(bytes, 0, bytes.length); cpy != -1; cpy = in.read(bytes, 0, bytes.length)) {
+								out.write(bytes, 0, cpy);
+								cnt += cpy;
+							}
+							assertEquals(sourceSize, cnt);
+						}
+					}
+					assertEquals(sourceSize, Files.size(copyTarget));
 				}
 			}
 		}
@@ -206,6 +229,12 @@ public class PatrJavaFileSysImplChecker {
 				}
 			}
 		}
+	}
+	
+	public static void main(String[] args) {
+		CheckResult res = Checker.check(PatrJavaFileSysImplChecker.class);
+		res.detailedPrint(System.out, 4);
+		if (res.wentUnexpected()) throw new Error(res.toString());
 	}
 	
 }
