@@ -5,6 +5,7 @@ import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FILE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FOLDER;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LINK_OFFSET_TARGET_ID;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_READ_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_WRITE_ALLOWED_LOCK;
 
 import java.io.IOException;
@@ -21,9 +22,10 @@ public class PatrLinkImpl extends PatrFileSysElementImpl implements PatrLink {
 	}
 	
 	@Override
-	public PatrFileSysElement getTarget() throws IOException {
+	public PatrFileSysElement getTarget(long lock) throws IOException {
 		synchronized (bm) {
 			fs.updateBlockAndPos(this);
+			executeEnsureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
 			return executeGetTarget();
 		}
 	}

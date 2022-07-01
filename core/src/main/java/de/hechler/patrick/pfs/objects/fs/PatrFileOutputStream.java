@@ -37,7 +37,7 @@ public class PatrFileOutputStream extends OutputStream {
 	}
 	
 	private void executeSingleWrite() throws IOException {
-		long len = file.length();
+		long len = file.length(lock);
 		if (pos >= len || append) {
 			file.appendContent(singleByte, 0, 1, lock);
 		} else {
@@ -57,7 +57,7 @@ public class PatrFileOutputStream extends OutputStream {
 	
 	private void executeWrite(byte[] bytes, int off, int len) throws IOException {
 		if (pos < len && !append) {
-			long remain = file.length() - pos;
+			long remain = file.length(lock) - pos;
 			int cpy = (int) Math.min(remain, len);
 			file.setContent(bytes, pos, off, cpy, lock);
 			len -= cpy;

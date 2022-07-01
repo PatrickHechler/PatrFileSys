@@ -29,8 +29,6 @@ import de.hechler.patrick.pfs.objects.AllocatedBlocks;
 
 public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	
-	
-	
 	public PatrFileImpl(PatrFileSysImpl fs, long startTime, BlockManager bm, long id) {
 		super(fs, startTime, bm, id);
 	}
@@ -60,7 +58,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	
 	protected void executeRead(byte[] bytes, long offset, int bytesOff, int length) throws ClosedChannelException, IOException, ElementLockedException {
 		if (offset + (long) length > executeLength()) {
-			throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + length() + ")");
+			throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + executeLength() + ")");
 		}
 		BlockTableIter bti;
 		for (bti = new BlockTableIter(); bti.hasNext() && bti.fileoff < offset; bti.next = null);
@@ -179,8 +177,8 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	}
 	
 	private void executeWrite(final byte[] bytes, final long offset, final int bytesOff, final int length) throws ClosedChannelException, IOException {
-		if (offset + (long) length > length()) {
-			throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + length() + ")");
+		if (offset + (long) length > executeLength()) {
+			throw new IllegalArgumentException("too large for me! (offset=" + offset + ", length=" + length + ", offset+length=" + (offset + length) + ", my-length=" + executeLength() + ")");
 		}
 		long skip = offset / bm.blockSize();
 		int off = (int) (offset % (long) bm.blockSize());
@@ -351,7 +349,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		try {
 			byte[] buffer = new byte[1 << 16];
 			MessageDigest digest = MessageDigest.getInstance("SHA-256");
-			long length = length(), read;
+			long length = executeLength(), read;
 			for (read = 0L; length - read > buffer.length; read += buffer.length) {
 				executeRead(buffer, read, 0, buffer.length);
 				digest.update(buffer, 0, 1 << 16);
@@ -367,14 +365,15 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 	}
 	
 	@Override
-	public long length() throws IOException {
+	public long length(long lock) throws IOException {
 		synchronized (bm) {
 			fs.updateBlockAndPos(this);
+			executeEnsureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
 			return executeLength();
 		}
 	}
 	
-	private long executeLength() throws ClosedChannelException, IOException {
+	protected long executeLength() throws ClosedChannelException, IOException {
 		byte[] bytes = bm.getBlock(block);
 		try {
 			return byteArrToLong(bytes, pos + FILE_OFFSET_FILE_LENGTH);
@@ -510,7 +509,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 				ensureOpen();
 				fs.updateBlockAndPos(PatrFileImpl.this);
 				if (pos < len && !append) {
-					long remain = file.length() - pos;
+					long remain = executeLength() - pos;
 					int cpy = (int) Math.min(remain, len);
 					executeWrite(b, pos, cpy, len);
 					len -= cpy;

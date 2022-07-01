@@ -36,7 +36,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.spi.FileSystemProvider;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -46,6 +46,7 @@ import de.hechler.patrick.pfs.interfaces.PatrFileSystem;
 import de.hechler.patrick.pfs.objects.ba.SeekablePathBlockAccessor;
 import de.hechler.patrick.pfs.objects.fs.PatrFileSysImpl;
 import de.hechler.patrick.pfs.objects.fs.PatrFileSysImplChecker;
+import de.hechler.patrick.pfs.utils.JavaPFSConsants;
 import de.hechler.patrick.zeugs.check.anotations.Check;
 import de.hechler.patrick.zeugs.check.anotations.CheckClass;
 import de.hechler.patrick.zeugs.check.anotations.End;
@@ -64,10 +65,10 @@ public class PatrJavaFileSysImplChecker {
 	@Start(onlyOnce = true)
 	private void init() throws IOException {
 		Path path = Paths.get("testout", getClass().getSimpleName());
-			if (Files.exists(path)) {
-				PatrFileSysImplChecker.deepDeleteChildren(path);
-			} else {
-				Files.createDirectories(path);
+		if (Files.exists(path)) {
+			PatrFileSysImplChecker.deepDeleteChildren(path);
+		} else {
+			Files.createDirectories(path);
 		}
 	}
 	
@@ -109,14 +110,19 @@ public class PatrJavaFileSysImplChecker {
 			fail("provider not found");
 		}
 		URI uri = URI.create(URI_SHEME + "://res");
-		FileSystem fs = FileSystems.newFileSystem(uri, Collections.emptyMap(), PatrJavaFileSysImplChecker.class.getClassLoader());
+		Map <String, Object> map = new HashMap <>();
+		map.put(JavaPFSConsants.NEW_FILE_SYS_ENV_ATTR_RAM_FS, Boolean.TRUE);
+		FileSystem fs = FileSystems.newFileSystem(uri, map, PatrJavaFileSysImplChecker.class.getClassLoader());
 		FileSystem fs2 = FileSystems.getFileSystem(uri);
 		assertSame(fs, fs2);
 		fs.close();
 		uri = new URI(URI_SHEME + "://res2");
-		fs = FileSystems.newFileSystem(uri,
-			Map.of(NEW_FILE_SYS_ENV_ATTR_BLOCK_COUNT, Long.valueOf(BLOCK_COUNT), NEW_FILE_SYS_ENV_ATTR_BLOCK_SIZE, Integer.valueOf(BLOCK_SIZE), NEW_FILE_SYS_ENV_ATTR_DO_FORMATT, Boolean.TRUE,
-				NEW_FILE_SYS_ENV_ATTR_FILE_SYS, new PatrFileSysImpl(new SeekablePathBlockAccessor(Paths.get("testout", getClass().getSimpleName(), "checkInstalledProvider-second.pfs"), BLOCK_SIZE))));
+		map.clear();
+		map.put(NEW_FILE_SYS_ENV_ATTR_BLOCK_COUNT, Long.valueOf(BLOCK_COUNT));
+		map.put(NEW_FILE_SYS_ENV_ATTR_BLOCK_SIZE, Integer.valueOf(BLOCK_SIZE));
+		map.put(NEW_FILE_SYS_ENV_ATTR_DO_FORMATT, Boolean.TRUE);
+		map.put(NEW_FILE_SYS_ENV_ATTR_FILE_SYS, new PatrFileSysImpl(new SeekablePathBlockAccessor(Paths.get("testout", getClass().getSimpleName(), "checkInstalledProvider-second.pfs"), BLOCK_SIZE)));
+		fs = FileSystems.newFileSystem(uri, map);
 		FileStore store = fs.getFileStores().iterator().next();
 		assertEquals(BLOCK_COUNT * BLOCK_SIZE, store.getTotalSpace());
 		fs2 = FileSystems.getFileSystem(uri);

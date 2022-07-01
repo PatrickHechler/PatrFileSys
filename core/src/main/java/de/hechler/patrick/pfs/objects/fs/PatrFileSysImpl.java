@@ -37,7 +37,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.channels.ClosedChannelException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.ParseException;
@@ -76,6 +75,14 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		this(new Random(), bm, false);
 	}
 	
+	public PatrFileSysImpl(BlockAccessor ba, boolean readOnly) {
+		this(new Random(), new BlockManagerImpl(ba), readOnly);
+	}
+	
+	public PatrFileSysImpl(BlockManager bm, boolean readOnly) {
+		this(new Random(), bm, readOnly);
+	}
+	
 	public PatrFileSysImpl(Random rnd, BlockAccessor ba) {
 		this(rnd, new BlockManagerImpl(ba), false);
 	}
@@ -102,7 +109,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	 */
 	public final static long bootTime(long fallback) {
 		long current = System.currentTimeMillis();
-		try (Scanner sc = new Scanner(Files.newInputStream(Paths.get("/proc/uptime")), StandardCharsets.UTF_8)) {
+		try (Scanner sc = new Scanner(Files.newInputStream(Paths.get("/proc/uptime")), "UTF-8")) {
 			String str = sc.next();
 			int i = str.indexOf('.');
 			if (i != -1) {
@@ -144,7 +151,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	 * sets the lock used by this file system
 	 * 
 	 * @param lock
-	 *            the lock which should be used by this file system
+	 *             the lock which should be used by this file system
 	 */
 	public void setLock(long lock) {
 		this.lock = lock;
@@ -154,12 +161,12 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	 * locks the file system
 	 * 
 	 * @param lock
-	 *            the lock data for the new lock
+	 *             the lock data for the new lock
 	 * @return the new lock
 	 * @throws ElementLockedException
-	 *             if the file system is already locked
+	 *                                if the file system is already locked
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                                if an IO error occurs
 	 * @see PatrFileSysElement#lock(long)
 	 */
 	public long lock(long lock) throws ElementLockedException, IOException {
@@ -189,7 +196,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	 * removes the given lock from the file system
 	 * 
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                     if an IO error occurs
 	 * @see PatrFileSysElement#removeLock(long)
 	 */
 	public void removeLock() throws IOException {
@@ -227,11 +234,16 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		if (id == null) {
 			throw new NullPointerException("id is null");
 		}
-		if ( ! (id instanceof PatrID)) {
+		if (id instanceof PatrID) {
+			synchronized (bm) {
+				return executeFromID((PatrID) id);
+			}
+		} else if (id instanceof Long) {
+			synchronized (bm) {
+				return executeFromID(new PatrID(this, (long) (Long) id, startTime));
+			}
+		} else {
 			throw new IllegalAccessError("the given id is invalid (class: '" + id.getClass() + "' tos: '" + id + "')");
-		}
-		synchronized (bm) {
-			return executeFromID((PatrID) id);
 		}
 	}
 	
@@ -408,15 +420,16 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	}
 	
 	public static long generateID(PatrID parent, long block, int pos) throws IOException {
-		return withLockLong(parent.fs, () -> executeGenerateID(parent, block, pos), 0L);
+		return withLockLong(parent.fs, () -> parent.fs.executeGenerateID(block, pos), 0L);
 	}
 	
-	private static long executeGenerateID(PatrID parent, long block, int pos) throws IOException {
-		long len = parent.fs.elementTable.length(), off = 0L;
+	private long executeGenerateID(long block, int pos) throws IOException {
+		updateBlockAndPos(elementTable);
+		long len = elementTable.executeLength(), off = 0L;
 		byte[] bytes = new byte[Math.max(ELEMENT_TABLE_ELEMENT_LENGTH, (int) Math.min(1 << 16 - 1 << 16 % ELEMENT_TABLE_ELEMENT_LENGTH, len))];
 		for (int cpy; off < len; off += cpy) {
 			cpy = (int) Math.min(len - off, bytes.length);
-			parent.fs.elementTable.getContent(bytes, off, 0, cpy, NO_LOCK);
+			elementTable.getContent(bytes, off, 0, cpy, NO_LOCK);
 			for (int i = 0; i < bytes.length; i += ELEMENT_TABLE_ELEMENT_LENGTH) {
 				int entryPos = byteArrToInt(bytes, i + ELEMENT_TABLE_OFFSET_POS);
 				if (entryPos < 0) {
@@ -432,14 +445,15 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		}
 		longToByteArr(bytes, ELEMENT_TABLE_OFFSET_BLOCK, block);
 		intToByteArr(bytes, ELEMENT_TABLE_OFFSET_POS, pos);
-		parent.fs.elementTable.appendContent(bytes, 0, ELEMENT_TABLE_ELEMENT_LENGTH, NO_LOCK);
+		elementTable.appendContent(bytes, 0, ELEMENT_TABLE_ELEMENT_LENGTH, NO_LOCK);
 		return len;
 	}
 	
 	public void remove(PatrID id) throws IOException {
 		assert this == id.fs;
 		assert startTime == id.startTime;
-		long len = elementTable.length();
+		updateBlockAndPos(elementTable);
+		long len = elementTable.executeLength();
 		assert len > id.id : "invalid element ID: maxID=" + (len - ELEMENT_TABLE_ELEMENT_LENGTH) + " id=" + id.id;
 		assert id.id >= 0L : "can not remove negative IDs id=" + id.id;
 		assert (id.id % ELEMENT_TABLE_ELEMENT_LENGTH) == 0L : "invalid id (not aligned) id=" + id.id + " miss alignment: " + (id.id % ELEMENT_TABLE_ELEMENT_LENGTH);
@@ -550,6 +564,27 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		}
 	}
 	
+	private static final String BLOCK_FS_WAIT_PROP = "pfs.blockfs.wait";
+	
+	/**
+	 * block file system wait time
+	 * <p>
+	 * can be set with the system property {@link #BLOCK_FS_WAIT_PROP}<br>
+	 * the default value is 50
+	 */
+	private static final long BFSW;
+	
+	static {
+		long w = 50L;
+		try {
+			String prop = System.getProperty(BLOCK_FS_WAIT_PROP);
+			if (prop != null) {
+				w = Long.parseLong(prop);
+			}
+		} catch (SecurityException | NumberFormatException ignore) {}
+		BFSW = w;
+	}
+	
 	/**
 	 * locks the file system, to complete an operation.<br>
 	 * after this call {@link #unlockFS(int)} should be called with the return value of this call as argument.
@@ -558,9 +593,9 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	 * 
 	 * @return the argument for {@link #unlockFS(int)}
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                                if an IO error occurs
 	 * @throws ElementLockedException
-	 *             if the file system is locked
+	 *                                if the file system is locked
 	 */
 	public int lockFS() throws IOException, ElementLockedException {
 		while (true) {
@@ -578,8 +613,10 @@ public class PatrFileSysImpl implements PatrFileSystem {
 				longToByteArr(bytes, FB_FILE_SYS_STATE_TIME, System.currentTimeMillis());
 				bm.setBlock(0L);
 				try {
-					Thread.sleep(50L);
-				} catch (InterruptedException e) {} finally {
+					Thread.sleep(BFSW);
+				} catch (InterruptedException e) {
+					// ignore
+				} finally {
 					bytes = bm.getBlock(0L);
 				}
 				int newState = byteArrToInt(bytes, FB_FILE_SYS_STATE_VALUE);

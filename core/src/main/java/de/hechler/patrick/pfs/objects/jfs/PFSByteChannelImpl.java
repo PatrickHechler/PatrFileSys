@@ -43,7 +43,7 @@ public class PFSByteChannelImpl implements SeekableByteChannel, GatheringByteCha
 	public int read(ByteBuffer dst) throws IOException {
 		checkRead();
 		return file.withLockInt(() -> {
-			final long myLen = file.length();
+			final long myLen = file.length(lock);
 			long myRemain = myLen - pos;
 			if (myRemain <= 0L) {
 				return -1;
@@ -77,7 +77,7 @@ public class PFSByteChannelImpl implements SeekableByteChannel, GatheringByteCha
 	public long read(ByteBuffer[] dsts, int offset, int length) throws IOException {
 		checkRead();
 		return file.withLockLong(() -> {
-			final long myLen = file.length(),
+			final long myLen = file.length(lock),
 				startPos = pos;
 			long myRemain = myLen - startPos;
 			if (myRemain <= 0L) {
@@ -112,9 +112,9 @@ public class PFSByteChannelImpl implements SeekableByteChannel, GatheringByteCha
 		checkWrite();
 		return file.withLockInt(() -> {
 			if ( (mode & MODE_APPEND) != 0) {
-				pos = file.length();
+				pos = file.length(lock);
 			}
-			final long myLen = file.length();
+			final long myLen = file.length(lock);
 			long myRemain = myLen - pos;
 			int remain = src.remaining();
 			int wrote = 0;
@@ -142,7 +142,7 @@ public class PFSByteChannelImpl implements SeekableByteChannel, GatheringByteCha
 	public long write(ByteBuffer[] srcs, int offset, int length) throws IOException {
 		checkWrite();
 		return file.withLockLong(() -> {
-			final long myLen = file.length(),
+			final long myLen = file.length(lock),
 				startPos = pos,
 				end = offset + length;
 			long myRemain = myLen - startPos;
@@ -196,14 +196,14 @@ public class PFSByteChannelImpl implements SeekableByteChannel, GatheringByteCha
 	
 	@Override
 	public long size() throws IOException {
-		return file.length();
+		return file.length(lock);
 	}
 	
 	@Override
 	public PFSByteChannelImpl truncate(long size) throws IOException {
 		checkWrite();
 		file.withLock(() -> {
-			long length = file.length();
+			long length = file.length(lock);
 			if (length > size) {
 				if (size == 0) {
 					file.removeContent(lock);
@@ -219,7 +219,7 @@ public class PFSByteChannelImpl implements SeekableByteChannel, GatheringByteCha
 		checkRead();
 		return file.withLockLong(() -> {
 			long pos = position,
-				remain = Math.min(file.length() - position, count);
+				remain = Math.min(file.length(lock) - position, count);
 			ByteBuffer buf = ByteBuffer.wrap(buffer);
 			while (remain > 0L) {
 				int cpy = (int) Math.min(remain, buffer.length);
@@ -228,14 +228,14 @@ public class PFSByteChannelImpl implements SeekableByteChannel, GatheringByteCha
 				pos += cpy;
 				remain -= cpy;
 			}
-			return Math.min(file.length() - position, count);
+			return Math.min(file.length(lock) - position, count);
 		});
 	}
 	
 	public long transferFrom(ReadableByteChannel src, long position, long count) throws IOException {
 		checkWrite();
 		file.withLock(() -> {
-			long len = file.length(),
+			long len = file.length(lock),
 				pos = position,
 				remain = count,
 				myremain = len - position;
@@ -265,7 +265,7 @@ public class PFSByteChannelImpl implements SeekableByteChannel, GatheringByteCha
 		checkRead();
 		return file.withLockInt(() -> {
 			long pos = position;
-			final long myLen = file.length();
+			final long myLen = file.length(lock);
 			long myRemain = myLen - pos;
 			if (myRemain <= 0L) {
 				return -1;
@@ -300,9 +300,9 @@ public class PFSByteChannelImpl implements SeekableByteChannel, GatheringByteCha
 		checkWrite();
 		return file.withLockInt(() -> {
 			if ( (mode & MODE_APPEND) != 0) {
-				pos = file.length();
+				pos = file.length(lock);
 			}
-			final long myLen = file.length();
+			final long myLen = file.length(lock);
 			long myRemain = myLen - pos;
 			int remain = src.remaining();
 			int wrote = 0;

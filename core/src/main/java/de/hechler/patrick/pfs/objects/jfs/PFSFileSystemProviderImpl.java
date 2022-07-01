@@ -1,6 +1,6 @@
 package de.hechler.patrick.pfs.objects.jfs;
 
-import static de.hechler.patrick.pfs.utils.JavaPFSConsants.ATTR_VIEW_BASIC;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.*;
 import static de.hechler.patrick.pfs.utils.JavaPFSConsants.ATTR_VIEW_PATR;
 import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_CREATION_TIME;
 import static de.hechler.patrick.pfs.utils.JavaPFSConsants.BASIC_ATTRIBUTE_FILE_KEY;
@@ -42,11 +42,13 @@ import java.nio.file.FileStore;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystemAlreadyExistsException;
 import java.nio.file.FileSystemNotFoundException;
+import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.NotDirectoryException;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -74,17 +76,19 @@ import de.hechler.patrick.pfs.interfaces.PatrFileSystem;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingConsumer;
 import de.hechler.patrick.pfs.objects.ba.ByteArrayArrayBlockAccessor;
+import de.hechler.patrick.pfs.objects.ba.SeekablePathBlockAccessor;
 import de.hechler.patrick.pfs.objects.fs.PatrFileSysImpl;
 import de.hechler.patrick.pfs.objects.jfs.PFSPathImpl.Name;
 
+@SuppressWarnings("restriction")
 public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	
 	
 	private final Map <URI, PFSFileSystemImpl> created;
-	private PFSFileSystemImpl def;
-	private Set <PatrFile> delOnClose;
-	private final boolean allowAutoDefault;
-	private final boolean firstIsDefault;
+	private PFSFileSystemImpl                  def;
+	private Set <PatrFile>                     delOnClose;
+	private final boolean                      allowAutoDefault;
+	private final boolean                      firstIsDefault;
 	
 	public PFSFileSystemProviderImpl() {
 		this(null);
@@ -156,7 +160,9 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	}
 	
 	@Override
-	public String getScheme() { return URI_SHEME; }
+	public String getScheme() {
+		return URI_SHEME;
+	}
 	
 	@Override
 	@SuppressWarnings("resource")
@@ -172,7 +178,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			if (fileSystem != null) {
 				if ( ! (fileSystem instanceof PatrFileSystem)) {
 					throw new IllegalArgumentException(
-							"the file system is not of type PatrFileSystem! cls: " + fileSystem.getClass().getName() + " fileSystem: '" + fileSystem + "'");
+						"the file system is not of type PatrFileSystem! cls: " + fileSystem.getClass().getName() + " fileSystem: '" + fileSystem + "'");
 				}
 				Object doFormatt = env.get(NEW_FILE_SYS_ENV_ATTR_DO_FORMATT);
 				boolean formatt = false;
@@ -212,6 +218,14 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 				}
 				fileSys = new PFSFileSystemImpl(this, fs);
 			} else {
+				Object ramfs = env.get(NEW_FILE_SYS_ENV_ATTR_RAM_FS);
+				boolean rfs = false;
+				if (ramfs != null) {
+					if ( ! (ramfs instanceof Boolean)) {
+						throw new IllegalArgumentException("ram-fs is not of type Boolean! cls: " + ramfs.getClass().getName() + " ramfs: '" + ramfs + "'");
+					}
+					rfs = (boolean) ((Boolean) ramfs);
+				}
 				int bs;
 				if (blockSize != null) {
 					if ( ! (blockSize instanceof Integer)) {
@@ -228,9 +242,37 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 					}
 					bc = (int) blockCount;
 				} else {
-					bc = 1 << 8;
+					bc = 1 << 16;
 				}
-				BlockAccessor ba = new ByteArrayArrayBlockAccessor(bc, bs);
+				BlockAccessor ba;
+				boolean formatt;
+				if (rfs) {
+					ba = new ByteArrayArrayBlockAccessor(bc, bs);
+					formatt = true;
+				} else {
+					formatt = false;
+					Object doFormatt = env.get(NEW_FILE_SYS_ENV_ATTR_DO_FORMATT);
+					if (doFormatt != null) {
+						if ( ! (doFormatt instanceof Boolean)) {
+							throw new IllegalArgumentException("do formatt is not of type Boolean! cls: " + doFormatt.getClass().getName() + " doFormatt: '" + doFormatt + "'");
+						}
+						formatt = (boolean) (Boolean) doFormatt;
+					}
+					String up = uri.getPath();
+					Path path;
+					if (up.indexOf(':') == -1) {
+						path = Paths.get(up);
+					} else {
+						path = Paths.get(URI.create(up));
+					}
+					SeekableByteChannel channel;
+					if (formatt) {
+						channel = Files.newByteChannel(path, StandardOpenOption.READ, StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+					} else {
+						channel = Files.newByteChannel(path, StandardOpenOption.READ, StandardOpenOption.WRITE);
+					}
+					ba = new SeekablePathBlockAccessor(channel, bs);
+				}
 				PatrFileSystem fs = new PatrFileSysImpl(ba);
 				fileSys = new PFSFileSystemImpl(this, fs);
 			}
@@ -282,7 +324,6 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 		String[] strs = getPath(p);
 		PatrFileSystem fs = p.getFileSystem().getFileSys();
 		PatrFolder directParent = getFolder(fs.getRoot(), strs, strs.length - 1);
-		long lock = extractLock(options);
 		int mode = 0;
 		if (options.contains(StandardOpenOption.WRITE)) {
 			mode = MODE_WRITE;
@@ -304,6 +345,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			options.remove(StandardOpenOption.CREATE);
 		}
 		PatrFile file = extractFile(options, strs, directParent, attrs);
+		long lock = extractLock(options);
 		if (lock != NO_LOCK) {
 			lock = file.lock(lock);
 		}
@@ -343,12 +385,15 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	}
 	
 	private PatrFile extractFile(Set <? extends OpenOption> options, String[] strs, PatrFolder directParent, FileAttribute <?>... attrs)
-			throws IOException, ElementLockedException, FileAlreadyExistsException, NoSuchFileException {
+		throws IOException, ElementLockedException, FileAlreadyExistsException, NoSuchFileException {
 		PatrFile file;
 		try {
 			file = directParent.getElement(strs[strs.length - 1], NO_LOCK).getFile();
 			if (options.contains(StandardOpenOption.CREATE_NEW)) {
 				throw new FileAlreadyExistsException(buildName(strs, strs.length - 1));
+			}
+			if (options.contains(StandardOpenOption.TRUNCATE_EXISTING)) {
+				file.removeContent(NO_LOCK);
 			}
 		} catch (NoSuchFileException e) {
 			if (options.contains(StandardOpenOption.CREATE) || options.contains(StandardOpenOption.CREATE_NEW)) {
@@ -420,12 +465,8 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 		String[] strs = getPath(p);
 		PatrFileSystem fs = p.getFileSystem().getFileSys();
 		PatrFolder directParent = getFolder(fs.getRoot(), strs, strs.length - 1);
-		long lock = extractLock(opts);
-		boolean append = false;
 		if (opts.contains(StandardOpenOption.WRITE)) {}
-		if (opts.contains(StandardOpenOption.APPEND)) {
-			append = true;
-		}
+		boolean append = opts.contains(StandardOpenOption.APPEND);
 		if (opts.contains(StandardOpenOption.READ)) {
 			throw new IllegalArgumentException("READ not allowed");
 		}
@@ -433,6 +474,57 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			opts.remove(StandardOpenOption.CREATE);
 		}
 		PatrFile file = extractFile(opts, strs, directParent);
+		long _lock = extractLock(opts);
+		final long lock;
+		if (_lock == NO_LOCK) lock = NO_LOCK;
+		else lock = file.lock(_lock);
+		if (opts.contains(StandardOpenOption.DELETE_ON_CLOSE)) {
+			synchronized (delOnClose) {
+				delOnClose.add(file);
+			}
+			return new OutputStream() {
+				
+				final OutputStream f = file.openOutput(append, lock);
+				boolean            c;
+				
+				@Override
+				public void write(int b) throws IOException {
+					f.write(b);
+				}
+				
+				@Override
+				public void write(byte[] b) throws IOException {
+					f.write(b);
+				}
+				
+				@Override
+				public void write(byte[] b, int off, int len) throws IOException {
+					f.write(b, off, len);
+				}
+				
+				@Override
+				public void flush() throws IOException {
+					f.flush();
+				}
+				
+				@Override
+				public void close() throws IOException {
+					if (c) return;
+					c = true;
+					try {
+						f.close();
+					} catch (IOException e) {
+						c = false;
+						throw e;
+					}
+					synchronized (delOnClose) {
+						file.delete(lock, NO_LOCK);
+						delOnClose.remove(file);
+					}
+				}
+				
+			};
+		}
 		return file.openOutput(append, lock);
 	}
 	
@@ -443,7 +535,6 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 		String[] strs = getPath(p);
 		PatrFileSystem fs = p.getFileSystem().getFileSys();
 		PatrFolder directParent = getFolder(fs.getRoot(), strs, strs.length - 1);
-		long lock = extractLock(opts);
 		if (opts.contains(StandardOpenOption.WRITE)) {
 			throw new UnsupportedOperationException("WRITE not allowed");
 		}
@@ -455,6 +546,77 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			opts.remove(StandardOpenOption.CREATE);
 		}
 		PatrFile file = extractFile(opts, strs, directParent);
+		long _lock = extractLock(opts);
+		final long lock;
+		if (_lock == NO_LOCK) lock = NO_LOCK;
+		else lock = file.lock(_lock);
+		if (opts.contains(StandardOpenOption.DELETE_ON_CLOSE)) {
+			synchronized (delOnClose) {
+				delOnClose.add(file);
+			}
+			return new InputStream() {
+				
+				final InputStream f = file.openInput(lock);
+				boolean           c;
+				
+				@Override
+				public int read() throws IOException {
+					return f.read();
+				}
+				
+				@Override
+				public int read(byte[] b) throws IOException {
+					return f.read(b);
+				}
+				
+				@Override
+				public int read(byte[] b, int off, int len) throws IOException {
+					return f.read(b, off, len);
+				}
+				
+				@Override
+				public int available() throws IOException {
+					return f.available();
+				}
+				
+				@Override
+				public synchronized void mark(int readlimit) {
+					f.mark(readlimit);
+				}
+				
+				@Override
+				public synchronized void reset() throws IOException {
+					f.reset();
+				}
+				
+				@Override
+				public long skip(long n) throws IOException {
+					return f.skip(n);
+				}
+				
+				@Override
+				public boolean markSupported() {
+					return f.markSupported();
+				}
+				
+				@Override
+				public void close() throws IOException {
+					if (c) return;
+					c = true;
+					try {
+						f.close();
+					} catch (IOException e) {
+						c = false;
+						throw e;
+					}
+					synchronized (delOnClose) {
+						file.delete(lock, NO_LOCK);
+						delOnClose.remove(file);
+					}
+				}
+				
+			};
+		}
 		return file.openInput(lock);
 	}
 	
@@ -573,7 +735,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	}
 	
 	private void executeCreateLink(PatrFolder folder, String linkname, PatrFileSysElement target)
-			throws ElementLockedException, FileAlreadyExistsException, NullPointerException, IOException {
+		throws ElementLockedException, FileAlreadyExistsException, NullPointerException, IOException {
 		folder.addLink(linkname, target, NO_LOCK);
 	}
 	
@@ -618,7 +780,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 	}
 	
 	private void executeCopy(PatrFile copyTarget, PatrFile src, String[] targetstrs, PatrFolder newParent, CopyOption[] options, CopyOptions opts)
-			throws IOException, ElementLockedException {
+		throws IOException, ElementLockedException {
 		long sourceLock;
 		try {
 			sourceLock = src.lock(LOCK_LOCKED_LOCK | LOCK_SHARED_LOCK | LOCK_NO_WRITE_ALLOWED_LOCK | LOCK_NO_DELETE_ALLOWED_LOCK);
@@ -633,7 +795,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 				targetLock = NO_LOCK;
 			}
 			try {
-				long length = src.length(), copied = 0L;
+				long length = src.length(sourceLock), copied = 0L;
 				byte[] buffer = new byte[(int) Math.min(1 << 16, length)];
 				for (int cpy; length > copied; length -= cpy) {
 					checkInterrupted(opts, copied);
@@ -695,7 +857,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 				}
 			} else {
 				throw new FileAlreadyExistsException(buildName(targetstrs, targetstrs.length - 1), buildName(sourcestrs, sourcestrs.length - 1),
-						"the target of the move operation exists already!");
+					"the target of the move operation exists already!");
 			}
 		} catch (IOException ignore) {}
 	}
@@ -801,7 +963,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 			case BASIC_ATTRIBUTE_SIZE: {
 				Object val;
 				if (element.isFile()) {
-					val = element.getFile().length();
+					val = element.getFile().length(NO_LOCK);
 				} else {
 					val = PFSBasicFileAttributeViewImpl.sizeOf(element.getFolder());
 				}
@@ -967,7 +1129,7 @@ public class PFSFileSystemProviderImpl extends FileSystemProvider {
 		
 		public boolean interruptable;
 		public boolean replaceExisting = false;
-		public boolean copyAttributes = false;
+		public boolean copyAttributes  = false;
 		
 		public static CopyOptions create(CopyOption... options) {
 			CopyOptions opts = new CopyOptions();

@@ -1,14 +1,19 @@
 package de.hechler.patrick.pfs.objects.ba;
 
+import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToInt;
+
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
+import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
 import de.hechler.patrick.pfs.interfaces.BlockAccessor;
+import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
 public class SeekablePathBlockAccessor implements BlockAccessor {
 	
@@ -22,6 +27,55 @@ public class SeekablePathBlockAccessor implements BlockAccessor {
 	public SeekablePathBlockAccessor(SeekableByteChannel channel, int blockSize) {
 		this.channel = channel;
 		this.blockSize = blockSize;
+	}
+	
+	private static final OpenOption[] OPEN_EXISTING_READ_ONLY = new OpenOption[] {StandardOpenOption.READ};
+	private static final OpenOption[] OPEN_EXISTING_READ_WRITE = new OpenOption[] {StandardOpenOption.READ, StandardOpenOption.WRITE};
+	private static final OpenOption[] OPEN_NEW_READ_ONLY = new OpenOption[] {StandardOpenOption.CREATE_NEW, StandardOpenOption.READ};
+	private static final OpenOption[] OPEN_NEW_READ_WRITE = new OpenOption[] {StandardOpenOption.CREATE_NEW, StandardOpenOption.READ, StandardOpenOption.WRITE};
+	
+	/**
+	 * creates a new {@link SeekablePathBlockAccessor}.
+	 * <p>
+	 * this method tries at first to open a byte channel to a existing file.<br>
+	 * if the file already exists it tries to read the block size from the existing file system.<br>
+	 * else it tries to create a new file with the <code>defaultBlockSize</code><br>
+	 * if the {@code defaultBlockSize} is {@code -1} the creation of the new file will fail.
+	 * 
+	 * @param path
+	 *                         the path of the patr-file-system {@link BlockAccessor}
+	 * @param defaultBlockSize
+	 *                         the default block size if the file does not already exist or {@code -1}
+	 * @return the new created {@link SeekablePathBlockAccessor}
+	 * @throws IOException
+	 *                     if an IO-error occurs
+	 */
+	public static SeekablePathBlockAccessor create(Path path, int defaultBlockSize, boolean readOnly) throws IOException {
+		try {
+			SeekableByteChannel channel = Files.newByteChannel(path, readOnly ? OPEN_EXISTING_READ_ONLY : OPEN_EXISTING_READ_WRITE);
+			channel.position(PatrFileSysConstants.FB_BLOCK_LENGTH_OFFSET);
+			byte[] bytes = new byte[8];
+			ByteBuffer buf = ByteBuffer.wrap(bytes);
+			int r = channel.read(buf);
+			if (r != 8) {
+				throw new IOException("could not read the block size");
+			}
+			int bs = byteArrToInt(bytes, 0);
+			return new SeekablePathBlockAccessor(channel, bs);
+		} catch (IOException e) {
+			if (defaultBlockSize == -1) {
+				throw e;
+			}
+			try {
+				SeekableByteChannel channel = Files.newByteChannel(path, readOnly ? OPEN_NEW_READ_ONLY : OPEN_NEW_READ_WRITE);
+				return new SeekablePathBlockAccessor(channel, defaultBlockSize);
+			} catch (IOException e1) {
+				if (e instanceof FileNotFoundException) {
+					e1.addSuppressed(e);
+				}
+				throw e1;
+			}
+		}
 	}
 	
 	@Override

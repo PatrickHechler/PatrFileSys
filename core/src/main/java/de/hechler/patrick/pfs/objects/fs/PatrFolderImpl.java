@@ -35,7 +35,6 @@ import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.NoSuchFileException;
-import java.util.Arrays;
 import java.util.Objects;
 
 import de.hechler.patrick.pfs.exception.ElementLockedException;
@@ -289,7 +288,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 				byte[] nameBytes = name.getBytes(CHARSET);
 				int off = pos + FOLDER_OFFSET_FOLDER_ELEMENTS;
 				int ec = getElementCount();
-				for (int i = 0; i < ec; i ++ , off += FOLDER_ELEMENT_LENGTH) {
+				childCheckLoop: for (int i = 0; i < ec; i ++ , off += FOLDER_ELEMENT_LENGTH) {
 					long cid = byteArrToLong(bytes, off);
 					LongInt cbp = fs.getBlockAndPos(cid);
 					byte[] cbytes = bm.getBlock(cbp.l);
@@ -300,12 +299,14 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 								continue;
 							}
 						} else if (cno + nameBytes.length + 2 <= cbytes.length) {
-							if ( !Arrays.equals(nameBytes, 0, nameBytes.length - 1, cbytes, cno, cno + nameBytes.length - 1)) {
-								continue;
+							for (int ii = 0; ii < nameBytes.length; ii ++) {
+								if (nameBytes[ii] != cbytes[cno + ii]) continue childCheckLoop;
 							}
 							if (cbytes[cno + nameBytes.length] != 0 || cbytes[cno + nameBytes.length + 1] != 0) {
 								continue;
 							}
+						} else {
+							continue;
 						}
 					} finally {
 						bm.ungetBlock(cbp.l);

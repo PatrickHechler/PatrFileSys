@@ -188,8 +188,8 @@ public class PatrFileSysImplChecker {
 		byte[] bytes2 = new byte[rnd.nextInt(1000) + 200];
 		rnd.nextBytes(bytes2);
 		file2.appendContent(bytes2, 0, bytes2.length, NO_LOCK);
-		assertEquals(bytes1.length, file1.length());
-		assertEquals(bytes2.length, file2.length());
+		assertEquals(bytes1.length, file1.length(NO_LOCK));
+		assertEquals(bytes2.length, file2.length(NO_LOCK));
 		byte[] r1 = new byte[bytes1.length];
 		byte[] r2 = new byte[bytes2.length];
 		file1.getContent(r1, 0, 0, r1.length, NO_LOCK);
@@ -225,7 +225,7 @@ public class PatrFileSysImplChecker {
 		assertEquals(e.getLastMetaModTime(), e.getCreateTime());
 		assertEquals("myName", e.getName());
 		assertEquals(root, e.getParent());
-		assertNull(e.getFile().length());
+		assertNull(e.getFile().length(NO_LOCK));
 		startCreate = System.currentTimeMillis();
 		PatrFolder f = root.addFolder("myFolder", NO_LOCK);
 		endCreate = System.currentTimeMillis();
@@ -280,7 +280,7 @@ public class PatrFileSysImplChecker {
 		assertEquals(sf.getLastMetaModTime(), sf.getCreateTime());
 		assertEquals("subFile", sf.getName());
 		assertEquals(f, sf.getParent());
-		assertNull(sf.getFile().length());
+		assertNull(sf.getFile().length(NO_LOCK));
 	}
 	
 	@Check
@@ -319,7 +319,7 @@ public class PatrFileSysImplChecker {
 							f.appendContent(buff, 0, r, NO_LOCK);
 						}
 					}
-					assertEquals(Files.size(path), f.length());
+					assertEquals(Files.size(path), f.length(NO_LOCK));
 				}
 			}
 		}
@@ -335,7 +335,7 @@ public class PatrFileSysImplChecker {
 				try (OutputStream out = Files.newOutputStream(path, StandardOpenOption.CREATE_NEW, StandardOpenOption.APPEND)) {
 					byte[] buffer = new byte[1 << 30];
 					PatrFile file = child.getFile();
-					long len = file.length();
+					long len = file.length(NO_LOCK);
 					int cpy;
 					for (long copied = 0L; copied < len; copied += cpy) {
 						cpy = (int) Math.min(buffer.length, len - copied);

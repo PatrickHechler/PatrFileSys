@@ -10,11 +10,15 @@ public interface PatrLink extends PatrFileSysElement {
 	/**
 	 * returns the target element of this link
 	 * 
+	 * @param myLock
+	 *            the current lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
 	 * @return the target element of this link
 	 * @throws IOException
 	 *             if an IO error occurs
+	 * @throws ElementLockedException
+	 *             when this element is locked with a different lock
 	 */
-	PatrFileSysElement getTarget() throws IOException;
+	PatrFileSysElement getTarget(long lock) throws IOException, ElementLockedException;
 	
 	/**
 	 * returns the target file of this link
@@ -64,7 +68,7 @@ public interface PatrLink extends PatrFileSysElement {
 	 * 
 	 * @param myLock
 	 *            the current lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
-	 * @param myLock
+	 * @param parentLock
 	 *            the current of the parent element lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
 	 * @throws IOException
 	 *             if an IO error occurs

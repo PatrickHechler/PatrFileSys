@@ -52,7 +52,7 @@ public class PFSFileStoreImpl extends FileStore {
 	@Override
 	public long getTotalSpace() throws IOException {
 		try {
-			return Math.multiplyExact(fileSys.blockCount(), fileSys.blockSize());
+			return multiplyExact(fileSys.blockCount(), fileSys.blockSize());
 		} catch (ArithmeticException e) {
 			return Long.MAX_VALUE;
 		}
@@ -61,7 +61,7 @@ public class PFSFileStoreImpl extends FileStore {
 	@Override
 	public long getUsableSpace() throws IOException {
 		try {
-			return Math.multiplyExact(fileSys.freeBlocks(), fileSys.blockSize());
+			return multiplyExact(fileSys.freeBlocks(), fileSys.blockSize());
 		} catch (ArithmeticException e) {
 			return Long.MAX_VALUE;
 		}
@@ -70,10 +70,34 @@ public class PFSFileStoreImpl extends FileStore {
 	@Override
 	public long getUnallocatedSpace() throws IOException {
 		try {
-			return Math.multiplyExact(fileSys.freeBlocks(), fileSys.blockSize());
+			return multiplyExact(fileSys.freeBlocks(), fileSys.blockSize());
 		} catch (ArithmeticException e) {
 			return Long.MAX_VALUE;
 		}
+	}
+	
+	private long multiplyExact(long a, int b) {
+		long x, y;
+		if (a > b) {
+			x = b;
+			y = a;
+		} else {
+			x = a;
+			y = b;
+		}
+		long r = x * y;
+		long ax = Math.abs(x);
+		long ay = Math.abs(y);
+		if ( ( (ax | ay) >>> 31 != 0)) {
+			// Some bits greater than 2^31 that might cause overflow
+			// Check the result using the divide operator
+			// and check for the special case of Long.MIN_VALUE * -1
+			if ( ( (y != 0) && (r / y != x)) ||
+				(x == Long.MIN_VALUE && y == -1)) {
+				throw new ArithmeticException("long overflow");
+			}
+		}
+		return r;
 	}
 	
 	@Override

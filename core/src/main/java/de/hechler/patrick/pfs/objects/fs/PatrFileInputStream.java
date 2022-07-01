@@ -43,7 +43,7 @@ public class PatrFileInputStream extends InputStream {
 		try {
 			file.getContent(singleByte, pos, 0, 1, lock);
 		} catch (IllegalArgumentException e) {
-			if (file.length() <= pos) {
+			if (file.length(lock) <= pos) {
 				return -1;
 			} else {
 				throw e;
@@ -64,7 +64,7 @@ public class PatrFileInputStream extends InputStream {
 	}
 	
 	private int executeRead(byte[] b, int off, int len) throws IOException, ElementLockedException {
-		int r = (int) Math.min(file.length() - pos, len);
+		int r = (int) Math.min(file.length(lock) - pos, len);
 		file.getContent(b, pos, off, r, lock);
 		return r;
 	}
@@ -72,7 +72,7 @@ public class PatrFileInputStream extends InputStream {
 	@Override
 	public int available() throws IOException {
 		ensureOpen();
-		return (int) Math.min(Integer.MAX_VALUE, file.length() - pos);
+		return (int) Math.min(Integer.MAX_VALUE, file.length(lock) - pos);
 	}
 	
 	@Override
@@ -132,7 +132,7 @@ public class PatrFileInputStream extends InputStream {
 	}
 	
 	private long executeSkip(long n) throws IOException {
-		long remain = file.length() - this.pos;
+		long remain = file.length(lock) - this.pos;
 		long skip = Math.min(n, remain);
 		this.pos += skip;
 		return skip;

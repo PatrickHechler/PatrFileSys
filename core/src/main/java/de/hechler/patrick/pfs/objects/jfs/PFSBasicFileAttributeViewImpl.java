@@ -1,11 +1,13 @@
 package de.hechler.patrick.pfs.objects.jfs;
 
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
 import static de.hechler.patrick.pfs.utils.JavaPFSConsants.*;
 
 import java.io.IOException;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.FileTime;
 
+import de.hechler.patrick.pfs.exception.ElementLockedException;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
 import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
@@ -40,10 +42,14 @@ public class PFSBasicFileAttributeViewImpl implements BasicFileAttributeView {
 			boolean isFile = element.isFile();
 			long createTime = element.getCreateTime(), lastModTime = element.getLastModTime();
 			long size;
-			if (isFile) {
-				size = element.getFile().length();
-			} else {
-				size = sizeOf(element.getFolder());
+			try {
+				if (isFile) {
+					size = element.getFile().length(NO_LOCK);
+				} else {
+					size = sizeOf(element.getFolder());
+				}
+			} catch (ElementLockedException e) {
+				size = -1;
 			}
 			boolean link = element.isLink();
 			boolean readOnly = element.isReadOnly();
@@ -53,11 +59,11 @@ public class PFSBasicFileAttributeViewImpl implements BasicFileAttributeView {
 		});
 	}
 	
-	public static long sizeOf(PatrFolder folder) throws IOException {
+	public static long sizeOf(PatrFolder folder) throws IOException, ElementLockedException {
 		long size = 0L;
 		for (PatrFileSysElement child : folder) {
 			if (child.isFile()) {
-				size += child.getFile().length();
+				size += child.getFile().length(NO_LOCK);
 			} else {
 				size += sizeOf(child.getFolder());
 			}

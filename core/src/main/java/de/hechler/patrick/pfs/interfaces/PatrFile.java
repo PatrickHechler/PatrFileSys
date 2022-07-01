@@ -144,7 +144,7 @@ public interface PatrFile extends PatrFileSysElement {
 	 * @throws IOException
 	 *             if an IO error occurs
 	 */
-	long length() throws IOException;
+	long length(long lock) throws IOException;
 	
 	/**
 	 * deletes this file from the file system.<br>

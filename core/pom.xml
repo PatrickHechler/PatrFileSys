@@ -4,7 +4,7 @@
 	
 	<groupId>de.hechler.patrick.zeugs.pfs</groupId>
 	<artifactId>pfs-core</artifactId>
-	<version>3.0.1</version>
+	<version>4.3.0</version>
 	<packaging>jar</packaging>
 	
 	<properties>
@@ -25,8 +25,8 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.8.1</version>
                 <configuration>
-					<source>11</source>
-					<target>11</target>
+					<source>1.8</source>
+					<target>1.8</target>
                     <encoding>UTF-8</encoding>
                 </configuration>
             </plugin>

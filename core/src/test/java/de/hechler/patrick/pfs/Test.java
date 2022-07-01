@@ -10,11 +10,10 @@ public class Test {
 	}
 	
 	public static void main(String[] args) throws InterruptedException {
-		Thread.sleep(10000L);
 		BigCheckResult cr = BigChecker.tryCheckAll(true, Test.class.getPackage(), Test.class.getClassLoader());
 		cr.detailedPrint();
 		if (cr.wentUnexpected()) {
-			throw new Error("unexpected BigCheckResult: " + cr);
+			throw new Error("unexpected BigCheckResult:\n" + cr);
 		}
 	}
 	

@@ -94,7 +94,6 @@ public class JavaPFSConsants {
 	
 	/**
 	 * the attribute key for the block size of each block.<br>
-	 * 
 	 * the value must to be of the type {@link Integer}
 	 * <p>
 	 * if a file system is specified and format is set to <code>false</code> (default value), this value must be the block size value saved by the file system.
@@ -104,7 +103,6 @@ public class JavaPFSConsants {
 	public static final String NEW_FILE_SYS_ENV_ATTR_BLOCK_SIZE  = "block-size";
 	/**
 	 * the attribute key for the block count.<br>
-	 * 
 	 * the value must be of the tyPFSFileSystemProviderImplpe {@link Long}
 	 * <p>
 	 * if a block manager is specified and format is set to <code>false</code> (default value), this value must be the block count value saved from the block manager.
@@ -135,6 +133,16 @@ public class JavaPFSConsants {
 	 * formatted
 	 */
 	public static final String NEW_FILE_SYS_ENV_ATTR_DO_FORMATT  = "do-formatt";
+	/**
+	 * the attribute key to specify if a ram-fs should be created.
+	 * <p>
+	 * if no value is set, it will be defaulted to <code>false</code> if a value is set and the {@link #NEW_FILE_SYS_ENV_ATTR_FILE_SYS} is also set this ({@value #NEW_FILE_SYS_ENV_ATTR_RAM_FS}) value
+	 * will be ignored.
+	 * <p>
+	 * the value must be of type {@link Boolean}.<br>
+	 * if the {@link Boolean#booleanValue()} is <code>true</code>, a ram-fs will be created. If the {@link Boolean#booleanValue()} is <code>false</code> a the fs will be saved on the disk. formatted
+	 */
+	public static final String NEW_FILE_SYS_ENV_ATTR_RAM_FS      = "ram-fs";
 	
 	/**
 	 * the URI scheme of the patr-file-system

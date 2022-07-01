@@ -4,7 +4,7 @@ import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToInt;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.intToByteArr;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.CHARSET;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_EXECUTABLE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FILE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FOLDER;
@@ -69,14 +69,13 @@ import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement {
 	
 	public final BlockManager bm;
+	protected long            block;
+	protected int             pos;
 	
 	public PatrFileSysElementImpl(PatrFileSysImpl fs, long startTime, BlockManager bm, long id) {
 		super(fs, id, startTime);
 		this.bm = bm;
 	}
-	
-	protected long block;
-	protected int  pos;
 	
 	@Override
 	public PatrFolderImpl getParent() throws IllegalStateException, IOException {
@@ -122,25 +121,26 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		try {
 			np.fs.updateBlockAndPos(this);
 			long npblock = np.block;
-			byte[] pbytes = bm.getBlock(npblock);
+			byte[] npbytes = bm.getBlock(npblock);
 			try {
 				PatrFolderImpl oldParent = getParent();
 				oldParent.fs.updateBlockAndPos(this);
 				bm.getBlock(oldParent.block);
 				try {
-					oldParent.executeEnsureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK, false);
-					np.executeEnsureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK, false);
+					oldParent.executeEnsureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+					np.executeEnsureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 					executeEnsureAccess(oldParentLock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
 					executeDeleteFromParent(oldParent);
 					oldParent.executeModify(false);
 				} finally {
 					bm.ungetBlock(oldParent.block);
 				}
-				final int pelementcount = byteArrToInt(pbytes, np.pos + FOLDER_OFFSET_ELEMENT_COUNT),
+				final int pelementcount = byteArrToInt(npbytes, np.pos + FOLDER_OFFSET_ELEMENT_COUNT),
 					oldLen = FOLDER_OFFSET_FOLDER_ELEMENTS + pelementcount * FOLDER_ELEMENT_LENGTH, newLen = oldLen + FOLDER_ELEMENT_LENGTH, addPos = np.pos + oldLen;
 				np.resize(oldLen, newLen);
 				longToByteArr(bytes, addPos, id);
 				longToByteArr(bytes, pos + ELEMENT_OFFSET_PARENT_ID, np.id);
+				np.executeFlag(0, ELEMENT_FLAG_FOLDER_SORTED);
 				np.executeModify(false);
 				executeModify(true);
 			} finally {
@@ -302,17 +302,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * sets or removes the given flags
 	 * 
 	 * @param flags
-	 *            the flags to modify
+	 *              the flags to modify
 	 * @param doSet
-	 *            if the flags should be set or cleared
+	 *              if the flags should be set or cleared
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                     if an IO error occurs
 	 */
-	protected void flag(int flags, boolean doSet) throws IOException {
-		if (doSet) flag(flags, 0);
-		else flag(0, flags);
-	}
-	
 	protected void executeFlag(int flags, boolean doFlag) throws IOException {
 		int myflags = executeGetFlags();
 		if (doFlag) myflags |= flags;
@@ -321,24 +316,40 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	}
 	
 	/**
+	 * modifies the flags of the element.
+	 * <p>
+	 * the flags {@link PatrFileSysConstants#ELEMENT_FLAG_FILE}, {@link PatrFileSysConstants#ELEMENT_FLAG_FOLDER} and {@link PatrFileSysConstants#ELEMENT_FLAG_LINK} are not allowed to be modified.<br>
+	 * also the {@code addFlags} and {@code remFlags} are not allowed to contain common bits
+	 * 
+	 * @param addFlags
+	 * @param remFlags
+	 * @throws IOException
+	 */
+	public void flag(long lock, int addFlags, int remFlags) throws IOException {
+		if ( (addFlags & remFlags) != 0) {
+			throw new IllegalArgumentException("(addFlags & remFlags) != 0 addFlags=0x" + Integer.toHexString(addFlags) + " remFlags=0x" + Integer.highestOneBit(remFlags));
+		}
+		if ( ( (addFlags | remFlags) & (ELEMENT_FLAG_FILE | ELEMENT_FLAG_FOLDER | ELEMENT_FLAG_LINK)) != 0) {
+			throw new IllegalArgumentException("(addFlags | remFlags) & (LINK | FOLDER | FILE) != 0 addFlags=0x" + Integer.toHexString(addFlags) + " remFlags=0x" + Integer.highestOneBit(remFlags));
+		}
+		withLock(() -> {
+			executeEnsureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
+			executeFlag(addFlags, remFlags);
+		});
+	}
+	
+	/**
 	 * sets and removes the given flags
 	 * <p>
 	 * if ({@code addFlags & remFlags}) is not zero the behavior is undefined
 	 * 
 	 * @param addFlags
-	 *            the flags to add/set
+	 *                 the flags to add/set
 	 * @param remFlags
-	 *            the flags to remove
+	 *                 the flags to remove
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                     if an IO error occurs
 	 */
-	protected void flag(int addFlags, int remFlags) throws IOException {
-		withLock(() -> {
-			fs.updateBlockAndPos(this);
-			executeFlag(addFlags, remFlags);
-		});
-	}
-	
 	protected void executeFlag(int addFlags, int remFlags) throws IOException {
 		int flags = executeGetFlags();
 		flags |= addFlags;
@@ -350,12 +361,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * sets the flags of this element
 	 * <p>
 	 * this method should only be used with great care, since the flags also decide, which element is a file, folder and link!<br>
-	 * the preferred method to modify to modify the flags is {@link #flag(int, boolean)} and {@link #flag(int, int)}.
+	 * the preferred method to modify to modify the flags is {@link #executeFlag(int, boolean)} and {@link #executeFlag(int, int)}.
 	 * 
 	 * @param flags
-	 *            the new flags of this element
+	 *              the new flags of this element
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                     if an IO error occurs
 	 */
 	protected void executeSetFlags(int flags) throws IOException {
 		byte[] bytes = bm.getBlock(block);
@@ -390,6 +401,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 			} finally {
 				bm.setBlock(block);
 			}
+			executeModify(true);
 		});
 	}
 	
@@ -417,6 +429,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 			} finally {
 				bm.setBlock(block);
 			}
+			executeModify(true);
 		});
 	}
 	
@@ -539,7 +552,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * 
 	 * @return the current lock of this element or {@link PatrFileSysConstants#NO_LOCK} if no lock is set
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                     if an IO error occurs
 	 */
 	protected long executeGetLock() throws IOException {
 		byte[] bytes = bm.getBlock(block);
@@ -627,7 +640,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	}
 	
 	protected void executeEnsureAccess(long lock, long forbiddenBits, boolean readOnlyForbidden) throws ElementReadOnlyException, ElementLockedException, IOException {
-		fs.ensureAccess(forbiddenBits, readOnlyForbidden);
+		fs.ensureAccess(forbiddenBits, readOnlyForbidden || ( (forbiddenBits & LOCK_NO_META_CHANGE_ALLOWED_LOCK) != 0));
 		executeEnsureAccess(() -> (executeGetFlags() & ELEMENT_FLAG_READ_ONLY) != 0, () -> executeGetLock(), () -> PFSFileSystemProviderImpl.buildName(this), lock, forbiddenBits, readOnlyForbidden);
 	}
 	
@@ -767,7 +780,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * this method will not be called from non public methods declared in this class, even if they modify this element
 	 * 
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                     if an IO error occurs
 	 */
 	protected void executeModify(boolean onlyMetadata) throws IOException {
 		long time = System.currentTimeMillis();
@@ -814,10 +827,9 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * (the parents block and pos need to be updated before this call)
 	 * 
 	 * @param parent
-	 *            the parent of this element
-	 * 			
+	 *               the parent of this element
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                     if an IO error occurs
 	 */
 	protected void executeDeleteFromParent(PatrFolderImpl parent) throws IOException {
 		byte[] bytes = bm.getBlock(block);
@@ -842,12 +854,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * helper method, which should not directly be called
 	 * 
 	 * @param pblock
-	 *            the block from the parent
+	 *               the block from the parent
 	 * @param ppos
-	 *            the position of the parent
+	 *               the position of the parent
 	 * @return the index in the parents child list
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                     if an IO error occurs
 	 */
 	protected int indexInParentList(long pblock, int ppos) throws IOException {
 		byte[] bytes = bm.getBlock(pblock);
@@ -872,7 +884,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * 
 	 * @return the length of this element
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                     if an IO error occurs
 	 */
 	protected int myLength() throws IOException {
 		byte[] bytes = bm.getBlock(block);
@@ -903,11 +915,11 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * resizes this element.
 	 * 
 	 * @param oldSize
-	 *            the old size of this element
+	 *                the old size of this element
 	 * @param newSize
-	 *            the new size of this element
+	 *                the new size of this element
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                     if an IO error occurs
 	 */
 	protected void resize(int oldSize, int newSize) throws IOException {
 		try {
@@ -933,15 +945,15 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * if {@code newNameLen} is not {@code -1} the memory for the name will be allocated, but not be touched.
 	 * 
 	 * @param myoldlen
-	 *            the old length of this element wich should be freed in the old block
+	 *                   the old length of this element wich should be freed in the old block
 	 * @param mynewlen
-	 *            the new length of this element wich should be allocated in the new block
+	 *                   the new length of this element wich should be allocated in the new block
 	 * @param newNameLen
-	 *            the new length (inclusive the zero ending character) of the new name or -1 if the name remains unchanged.
+	 *                   the new length (inclusive the zero ending character) of the new name or -1 if the name remains unchanged.
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                             if an IO error occurs
 	 * @throws OutOfSpaceException
-	 *             if there is not enough memory
+	 *                             if there is not enough memory
 	 */
 	protected void relocate(int myoldlen, int mynewlen, int newNameLen) throws IOException, OutOfSpaceException {
 		final long myNewBlockNum = allocateOneBlock(), myOldBlockNum = block;
@@ -995,9 +1007,9 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * 
 	 * @return the allocated block
 	 * @throws OutOfSpaceException
-	 *             if there is not enough memory to allocate one block
+	 *                             if there is not enough memory to allocate one block
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                             if an IO error occurs
 	 */
 	protected long allocateOneBlock() throws OutOfSpaceException, IOException {
 		long newBlockNum;
@@ -1015,9 +1027,9 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 *            the number of blocks to be allocated
 	 * @return the array containing the allocated blocks
 	 * @throws OutOfSpaceException
-	 *             if there is not enough memory
+	 *                             if there is not enough memory
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                             if an IO error occurs
 	 */
 	protected AllocatedBlocks[] allocate(long len) throws OutOfSpaceException, IOException {
 		byte[] bytes = bm.getBlock(1L);
@@ -1076,11 +1088,11 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * removes the given blocks from the block allocation table
 	 * 
 	 * @param remove
-	 *            the blocks to remove
+	 *               the blocks to remove
 	 * @throws OutOfSpaceException
-	 *             if there is not enough memory
+	 *                             if there is not enough memory
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                             if an IO error occurs
 	 */
 	protected static void free(BlockManager bm, AllocatedBlocks remove) throws OutOfSpaceException, IOException {
 		byte[] bytes = bm.getBlock(1L);
@@ -1142,16 +1154,16 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * allocate a sequence of bytes in this block
 	 * 
 	 * @param bm
-	 *            the block manager
+	 *              the block manager
 	 * @param block
-	 *            the given block
+	 *              the given block
 	 * @param len
-	 *            the number of bytes in the new block
+	 *              the number of bytes in the new block
 	 * @return the pos of the new allocated bytes
 	 * @throws OutOfSpaceException
-	 *             if there is not enough memory
+	 *                             if there is not enough memory
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                             if an IO error occurs
 	 */
 	protected static int allocate(BlockManager bm, long block, int len) throws OutOfSpaceException, IOException {
 		byte[] bytes = bm.getBlock(block);
@@ -1201,20 +1213,20 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * if {@code copy} is <code>true</code> and the new position of the bytes is not the old position this operation will copy the bytes from the old to the new position.
 	 * 
 	 * @param block
-	 *            the given block
+	 *               the given block
 	 * @param pos
-	 *            the old position of the allocated bytes
+	 *               the old position of the allocated bytes
 	 * @param oldLen
-	 *            the old number of bytes
+	 *               the old number of bytes
 	 * @param newLen
-	 *            the new number of bytes
+	 *               the new number of bytes
 	 * @param copy
-	 *            <code>true</code> if the bytes should be copied to the new position if the relocation was not in place
+	 *               <code>true</code> if the bytes should be copied to the new position if the relocation was not in place
 	 * @return the new position of the relocated bytes or {@code -1} if the bytes have been freed and {@code -2} if the block has been removed from the block allocation table
 	 * @throws OutOfSpaceException
-	 *             if there is not enough memory
+	 *                             if there is not enough memory
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                             if an IO error occurs
 	 */
 	protected int reallocate(long block, int pos, int oldLen, int newLen, boolean copy) throws OutOfSpaceException, IOException {
 		byte[] bytes = bm.getBlock(block);
@@ -1280,20 +1292,20 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * this method should only be called indirectly by using the methods {@link #allocate(long, int)} and {@link #reallocate(long, int, int, int, boolean)}
 	 * 
 	 * @param block
-	 *            the block on which should be operated
+	 *                       the block on which should be operated
 	 * @param remFrom
-	 *            the start of the part to remove
+	 *                       the start of the part to remove
 	 * @param remTo
-	 *            the end of the part to remove
+	 *                       the end of the part to remove
 	 * @param index
-	 *            the index of the entry which should be partly/completely removed
+	 *                       the index of the entry which should be partly/completely removed
 	 * @param allowFreeBlock
-	 *            if the block should be freed, when the last effective entry gets removed
+	 *                       if the block should be freed, when the last effective entry gets removed
 	 * @return {@code 0} if the entry has been partly removed, {@code -1} if the entry has been completely removed and {@code -2} if the block has/would have been freed
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                             if an IO error occurs
 	 * @throws OutOfSpaceException
-	 *             if the entry gets separated and there is not enough memory for the table to grow
+	 *                             if the entry gets separated and there is not enough memory for the table to grow
 	 */
 	private int remove(long block, int remFrom, int remTo, int index, boolean allowFreeBlock) throws IOException, OutOfSpaceException {
 		byte[] bytes = bm.getBlock(block);
@@ -1357,13 +1369,13 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * this method should only be called indirectly by using the methods {@link #allocate(long, int)} and {@link #reallocate(long, int, int, int, boolean)}
 	 * 
 	 * @param block
-	 *            the block on which should be worked
+	 *                       the block on which should be worked
 	 * @param remindex
-	 *            the index of the entry to remove
+	 *                       the index of the entry to remove
 	 * @param allowFreeBlock
-	 *            if <code>true</code> the block will be removed from the block allocation table, when the effective last entry is removed from the intern table.
+	 *                       if <code>true</code> the block will be removed from the block allocation table, when the effective last entry is removed from the intern table.
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                     if an IO error occurs
 	 * @return <code>false</code> if the block was removed from the block allocation table and <code>true</code> if not.
 	 */
 	protected static boolean tableShrink(BlockManager bm, long block, int remindex, boolean allowFreeBlock) throws IOException {
@@ -1415,17 +1427,17 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * this method should only be called indirectly by using the methods {@link #allocate(long, int)} and {@link #reallocate(long, int, int, int, boolean)}
 	 * 
 	 * @param block
-	 *            the block on which should be worked
+	 *                 the block on which should be worked
 	 * @param addindex
-	 *            the index of the higher element of the element to be inserted
+	 *                 the index of the higher element of the element to be inserted
 	 * @param start
-	 *            the start pointer of the element
+	 *                 the start pointer of the element
 	 * @param end
-	 *            the end pointer of the element
+	 *                 the end pointer of the element
 	 * @throws OutOfSpaceException
-	 *             if there is not enough memory for the table to grow
+	 *                             if there is not enough memory for the table to grow
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                             if an IO error occurs
 	 */
 	protected static void tableGrow(BlockManager bm, long block, int addindex, int start, int end) throws OutOfSpaceException, IOException {
 		byte[] bytes = bm.getBlock(block);
@@ -1465,18 +1477,18 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * So this is the better method, when the blocks are often loaded and unloaded
 	 * 
 	 * @param <T>
-	 *            the exception type which can be thrown from {@code exec}
+	 *              the exception type which can be thrown from {@code exec}
 	 * @param fs
-	 *            the file system
+	 *              the file system
 	 * @param exec
-	 *            the runnable to be executed
+	 *              the runnable to be executed
 	 * @param block
-	 *            the block to be loaded
+	 *              the block to be loaded
 	 * @return the value returned from {@code Patrick exec}
 	 * @throws T
-	 *             the exception type possibly thrown by runnable
+	 *                     the exception type possibly thrown by runnable
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                     if an IO error occurs
 	 */
 	protected static <T extends Throwable> void withLock(PatrFileSysImpl fs, ThrowingRunnable <T> exec, long block) throws T, IOException {
 		synchronized (fs.bm) {
@@ -1503,20 +1515,20 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * in addition to {@link #withLock(BlockManager, ThrowingRunnable)} this method returns the value returned by {@code exec}
 	 * 
 	 * @param <T>
-	 *            the exception type which can be thrown from {@code exec}
+	 *              the exception type which can be thrown from {@code exec}
 	 * @param <R>
-	 *            the return type from {@code exec}
+	 *              the return type from {@code exec}
 	 * @param fs
-	 *            the file system
+	 *              the file system
 	 * @param exec
-	 *            the runnable to be executed
+	 *              the runnable to be executed
 	 * @param block
-	 *            the block to be loaded
+	 *              the block to be loaded
 	 * @return the value returned from {@code Patrick exec}
 	 * @throws T
-	 *             the exception type possibly thrown by runnable
+	 *                     the exception type possibly thrown by runnable
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                     if an IO error occurs
 	 */
 	protected static <T extends Throwable, R> R withLock(PatrFileSysImpl fs, ThrowingSupplier <T, R> exec, long block) throws T, IOException {
 		synchronized (fs.bm) {
@@ -1544,20 +1556,20 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * in addition to {@link #withLock(BlockManager, ThrowingRunnable)} this method returns the value returned by {@code exec}
 	 * 
 	 * @param <T>
-	 *            the exception type which can be thrown from {@code exec}
+	 *              the exception type which can be thrown from {@code exec}
 	 * @param <R>
-	 *            the return type from {@code exec}
+	 *              the return type from {@code exec}
 	 * @param fs
-	 *            the file syste,
+	 *              the file syste,
 	 * @param exec
-	 *            the runnable to be executed
+	 *              the runnable to be executed
 	 * @param block
-	 *            the block to be loaded
+	 *              the block to be loaded
 	 * @return the value returned from {@code Patrick exec}
 	 * @throws T
-	 *             the exception type possibly thrown by runnable
+	 *                     the exception type possibly thrown by runnable
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                     if an IO error occurs
 	 */
 	protected static <T extends Throwable> int withLockInt(PatrFileSysImpl fs, ThrowingIntSupplier <T> exec, long block) throws T, IOException {
 		synchronized (fs.bm) {
@@ -1585,20 +1597,20 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * in addition to {@link #withLock(BlockManager, ThrowingRunnable)} this method returns the value returned by {@code exec}
 	 * 
 	 * @param <T>
-	 *            the exception type which can be thrown from {@code exec}
+	 *              the exception type which can be thrown from {@code exec}
 	 * @param <R>
-	 *            the return type from {@code exec}
+	 *              the return type from {@code exec}
 	 * @param fs
-	 *            the file system
+	 *              the file system
 	 * @param exec
-	 *            the runnable to be executed
+	 *              the runnable to be executed
 	 * @param block
-	 *            the block to be loaded
+	 *              the block to be loaded
 	 * @return the value returned from {@code Patrick exec}
 	 * @throws T
-	 *             the exception type possibly thrown by runnable
+	 *                     the exception type possibly thrown by runnable
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                     if an IO error occurs
 	 */
 	protected static <T extends Throwable> long withLockLong(PatrFileSysImpl fs, ThrowingLongSupplier <T> exec, long block) throws T, IOException {
 		synchronized (fs.bm) {
@@ -1626,20 +1638,20 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * in addition to {@link #withLock(BlockManager, ThrowingRunnable)} this method returns the value returned by {@code exec}
 	 * 
 	 * @param <T>
-	 *            the exception type which can be thrown from {@code exec}
+	 *              the exception type which can be thrown from {@code exec}
 	 * @param <R>
-	 *            the return type from {@code exec}
+	 *              the return type from {@code exec}
 	 * @param fs
-	 *            the file system
+	 *              the file system
 	 * @param exec
-	 *            the runnable to be executed
+	 *              the runnable to be executed
 	 * @param block
-	 *            the block to be loaded
+	 *              the block to be loaded
 	 * @return the value returned from {@code Patrick exec}
 	 * @throws T
-	 *             the exception type possibly thrown by runnable
+	 *                     the exception type possibly thrown by runnable
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                     if an IO error occurs
 	 */
 	protected static <T extends Throwable> boolean withLockBoolean(PatrFileSysImpl fs, ThrowingBooleanSupplier <T> exec, long block) throws T, IOException {
 		synchronized (fs.bm) {
