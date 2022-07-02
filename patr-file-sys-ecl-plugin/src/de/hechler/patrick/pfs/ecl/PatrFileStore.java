@@ -1,6 +1,7 @@
-package patrick.hechler.de.pfs.ecl;
+package de.hechler.patrick.pfs.ecl;
 
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_LOCK;
+import static de.hechler.patrick.pfs.ecl.PatrECLFileSystem.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,7 +47,7 @@ public class PatrFileStore extends FileStore {
 	@Override
 	public String[] childNames(int opts, IProgressMonitor mon) throws CoreException {
 		if (opts != EFS.NONE) {
-			throw throwCoreExep("unknown options: " + opts + " [0x" + Integer.toHexString(opts).toUpperCase() + "]");
+			throw throwCoreUnknownOpts(opts);
 		}
 		try {
 			PatrFileSysElement e = element();
@@ -65,7 +66,7 @@ public class PatrFileStore extends FileStore {
 				return res;
 			});
 			if (result == null) {
-				throw throwCoreExep("canceled");
+				throw throwCoreCancel();
 			}
 			return result;
 		} catch (IOException e) {
@@ -144,7 +145,7 @@ public class PatrFileStore extends FileStore {
 	@Override
 	public InputStream openInputStream(int opts, IProgressMonitor mon) throws CoreException {
 		if (opts != EFS.NONE) {
-			throw throwCoreExep("unknown options: " + opts + " [0x" + Integer.toHexString(opts).toUpperCase() + "]");
+			throw throwCoreUnknownOpts(opts);
 		}
 		try {
 			PatrFileSysElement e = element();
@@ -159,7 +160,7 @@ public class PatrFileStore extends FileStore {
 	@Override
 	public URI toURI() {
 		try {
-			return new URI("pfs", null, pfs + "://" + path, null);
+			return new URI("pfs", null, pfs + PFS_PATH_SEPERATOR + path, null);
 		} catch (URISyntaxException e) {
 			throw new AssertionError(e);
 		}
@@ -229,7 +230,7 @@ public class PatrFileStore extends FileStore {
 	@Override
 	public OutputStream openOutputStream(int options, IProgressMonitor monitor) throws CoreException {
 		if ( (options & EFS.APPEND) != options) {
-			throw throwCoreExep("unknown options: " + options + " [0x" + Integer.toHexString(options).toUpperCase() + "]");
+			throw throwCoreUnknownOpts(options);
 		}
 		try {
 			PatrFileSystem patrFS = pfs();
@@ -294,14 +295,22 @@ public class PatrFileStore extends FileStore {
 		return parent;
 	}
 	
+	private static boolean isCanceled(IProgressMonitor mon) {
+		return mon != null && mon.isCanceled();
+	}
+	
 	private static void checkCanceled(IProgressMonitor mon) throws CoreException {
 		if (isCanceled(mon)) {
-			throw throwCoreExep("canceled");
+			throw throwCoreCancel();
 		}
 	}
 	
-	private static boolean isCanceled(IProgressMonitor mon) {
-		return mon != null && mon.isCanceled();
+	private CoreException throwCoreUnknownOpts(int opts) throws CoreException {
+		return throwCoreExep("unknown options: " + opts + " [0x" + Integer.toHexString(opts).toUpperCase() + "]");
+	}
+	
+	private static CoreException throwCoreCancel() throws CoreException {
+		throw new CoreException(new Status(IStatus.CANCEL, PatrFileStore.class, "canceled"));
 	}
 	
 	private static CoreException throwCoreExep(Throwable t) throws CoreException {

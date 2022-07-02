@@ -1,4 +1,4 @@
-package patrick.hechler.de.pfs.ecl;
+package de.hechler.patrick.pfs.ecl;
 
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;

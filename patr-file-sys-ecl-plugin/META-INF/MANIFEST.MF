@@ -3,7 +3,7 @@ Bundle-ManifestVersion: 2
 Bundle-Name: Patr-File-Sys-plugin
 Bundle-SymbolicName: patr-file-sys-ecl-plugin;singleton:=true
 Bundle-Version: 1.0.0
-Bundle-Activator: patrick.hechler.de.pfs.ecl.Activator
+Bundle-Activator: de.hechler.patrick.pfs.ecl.Activator
 Require-Bundle: org.eclipse.core.runtime,
  org.eclipse.core.filesystem;bundle-version="1.9.300"
 Bundle-RequiredExecutionEnvironment: JavaSE-11
@@ -11,12 +11,12 @@ Automatic-Module-Name: patr.file.sys.ecl.plugin
 Bundle-ActivationPolicy: lazy
 Bundle-ClassPath: lib/pfs-core-4.3.0.jar,
  .
-Export-Package: de.hechler.patrick.pfs.exception,
+Export-Package: de.hechler.patrick.pfs.ecl,
+ de.hechler.patrick.pfs.exception,
  de.hechler.patrick.pfs.interfaces,
  de.hechler.patrick.pfs.interfaces.functional,
  de.hechler.patrick.pfs.objects,
  de.hechler.patrick.pfs.objects.ba,
  de.hechler.patrick.pfs.objects.fs,
  de.hechler.patrick.pfs.objects.jfs,
- de.hechler.patrick.pfs.utils,
- patrick.hechler.de.pfs.ecl
+ de.hechler.patrick.pfs.utils
