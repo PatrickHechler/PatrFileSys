@@ -36,10 +36,10 @@ import de.hechler.patrick.pfs.objects.fs.PatrFileSysImpl;
 
 public class PatrFileStore extends FileStore {
 	
-	private final String   pfs;
+	public final URI       pfs;
 	private final String[] path;
 	
-	public PatrFileStore(String pfs, String[] path) {
+	public PatrFileStore(URI pfs, String[] path) {
 		this.pfs = pfs;
 		this.path = path;
 	}
@@ -160,7 +160,11 @@ public class PatrFileStore extends FileStore {
 	@Override
 	public URI toURI() {
 		try {
-			return new URI("pfs", null, pfs + PFS_PATH_SEPERATOR + path, null);
+			StringBuilder build = new StringBuilder();
+			for (String seg : path) {
+				build.append(PATH_SEPARATOR).append(seg);
+			}
+			return new URI("pfs", null, pfs.toString() + DEVICE_SEPARATOR + build, null);
 		} catch (URISyntaxException e) {
 			throw new AssertionError(e);
 		}
@@ -287,7 +291,7 @@ public class PatrFileStore extends FileStore {
 		});
 	}
 	
-	private PatrFolder parent(PatrFolder root) throws IOException, ElementLockedException, NoSuchFileException {
+	public PatrFolder parent(PatrFolder root) throws IOException, ElementLockedException, NoSuchFileException {
 		PatrFolder parent = root;
 		for (int i = 0; i < path.length - 1; i ++ ) {
 			parent = parent.getElement(path[i], NO_LOCK).getFolder();
@@ -295,30 +299,52 @@ public class PatrFileStore extends FileStore {
 		return parent;
 	}
 	
-	private static boolean isCanceled(IProgressMonitor mon) {
+	public static boolean isCanceled(IProgressMonitor mon) {
 		return mon != null && mon.isCanceled();
 	}
 	
-	private static void checkCanceled(IProgressMonitor mon) throws CoreException {
+	private void checkCanceled(IProgressMonitor mon) throws CoreException {
 		if (isCanceled(mon)) {
-			throw throwCoreCancel();
+			throw throwCoreCancel(getClass());
+		}
+	}
+	
+	public static void checkCanceled(IProgressMonitor mon, Class <?> cls) throws CoreException {
+		if (isCanceled(mon)) {
+			throw throwCoreCancel(cls);
 		}
 	}
 	
 	private CoreException throwCoreUnknownOpts(int opts) throws CoreException {
-		return throwCoreExep("unknown options: " + opts + " [0x" + Integer.toHexString(opts).toUpperCase() + "]");
+		return throwCoreUnknownOpts(opts, getClass());
 	}
 	
-	private static CoreException throwCoreCancel() throws CoreException {
-		throw new CoreException(new Status(IStatus.CANCEL, PatrFileStore.class, "canceled"));
+	private CoreException throwCoreCancel() throws CoreException {
+		throw throwCoreCancel(getClass());
 	}
 	
-	private static CoreException throwCoreExep(Throwable t) throws CoreException {
-		throw new CoreException(new Status(IStatus.ERROR, PatrFileStore.class, t.toString(), t));
+	public CoreException throwCoreExep(Throwable t) throws CoreException {
+		throw throwCoreExep(t, getClass());
 	}
 	
-	private static CoreException throwCoreExep(String msg) throws CoreException {
-		throw new CoreException(new Status(IStatus.ERROR, PatrFileStore.class, msg));
+	private CoreException throwCoreExep(String msg) throws CoreException {
+		throw throwCoreExep(msg, getClass());
+	}
+	
+	public static CoreException throwCoreUnknownOpts(int opts, Class <?> cls) throws CoreException {
+		return throwCoreExep("unknown options: " + opts + " [0x" + Integer.toHexString(opts).toUpperCase() + "]", cls);
+	}
+	
+	public static CoreException throwCoreCancel(Class <?> cls) throws CoreException {
+		throw new CoreException(new Status(IStatus.CANCEL, cls, "canceled"));
+	}
+	
+	public static CoreException throwCoreExep(Throwable t, Class <?> cls) throws CoreException {
+		throw new CoreException(new Status(IStatus.ERROR, cls, t.toString(), t));
+	}
+	
+	public static CoreException throwCoreExep(String msg, Class <?> cls) throws CoreException {
+		throw new CoreException(new Status(IStatus.ERROR, cls, msg));
 	}
 	
 }
