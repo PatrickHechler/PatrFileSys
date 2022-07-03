@@ -33,7 +33,6 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ROOT_FOLDER_ID;
 
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
-import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.NoSuchFileException;
 import java.util.Objects;
 
@@ -102,30 +101,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 			final int oldElementCount = getElementCount(),
 				oldSize = oldElementCount * FOLDER_ELEMENT_LENGTH + FOLDER_OFFSET_FOLDER_ELEMENTS,
 				newSize = oldSize + FOLDER_ELEMENT_LENGTH;
-			for (int i = 0, off = pos + FOLDER_OFFSET_FOLDER_ELEMENTS; i < oldElementCount; i ++ , off += FOLDER_ELEMENT_LENGTH) {
-				long ocid = byteArrToLong(bytes, off);
-				LongInt oc = fs.getBlockAndPos(ocid);
-				byte[] ocbytes = bm.getBlock(oc.l);
-				try {
-					int ocnamepos = byteArrToInt(ocbytes, oc.i + ELEMENT_OFFSET_NAME);
-					for (int ii = 0;; ii += 2) {
-						if (ii >= childNameBytes.length) {
-							if (ocbytes[ocnamepos + ii] == 0 && ocbytes[ocnamepos + ii + 1] == 0) {
-								String fullName = PFSFileSystemProviderImpl.buildName(this) + '/' + name;
-								throw new FileAlreadyExistsException(fullName, null, "there is already an element with the given name (name='" + name + "', fullName='" + fullName + "')!");
-							}
-						}
-						if (ocbytes[ocnamepos + ii] != childNameBytes[ii]) {
-							break;
-						}
-						if (ocbytes[ocnamepos + ii + 1] != childNameBytes[ii + 1]) {
-							break;
-						}
-					}
-				} finally {
-					bm.ungetBlock(oc.l);
-				}
-			}
+			checkHasNoElementWithName(block, pos, name, childNameBytes);
 			resize(oldSize, newSize);
 			bytes = bm.getBlock(block);
 			try {
@@ -178,25 +154,25 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	 * Initializes a new element.
 	 * 
 	 * @param bm
-	 *            the block manager to be used
+	 *                       the block manager to be used
 	 * @param parentID
-	 *            the id of the parent element
+	 *                       the id of the parent element
 	 * @param owner
-	 *            the owner of the new element
+	 *                       the owner of the new element
 	 * @param isFolder
-	 *            if the new element is a folder
+	 *                       if the new element is a folder
 	 * @param childPos
-	 *            the pos of the new element
+	 *                       the pos of the new element
 	 * @param childNamePos
-	 *            the pos of the name of the new element
+	 *                       the pos of the name of the new element
 	 * @param childBlock
-	 *            the block number of the new element
+	 *                       the block number of the new element
 	 * @param childNameBytes
-	 *            the name of the new element without the null terminating character
+	 *                       the name of the new element without the null terminating character
 	 * @param target
-	 *            the target of the new link or <code>null</code> if the element to init is no link
+	 *                       the target of the new link or <code>null</code> if the element to init is no link
 	 * @throws IOException
-	 *             if an IO error occurs
+	 *                     if an IO error occurs
 	 */
 	public static void initChild(BlockManager bm, long parentID, long childID, boolean isFolder, final int childPos, int childNamePos, long childBlock, byte[] childNameBytes, PatrFileSysElementImpl target)
 		throws IOException {
@@ -299,7 +275,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 								continue;
 							}
 						} else if (cno + nameBytes.length + 2 <= cbytes.length) {
-							for (int ii = 0; ii < nameBytes.length; ii ++) {
+							for (int ii = 0; ii < nameBytes.length; ii ++ ) {
 								if (nameBytes[ii] != cbytes[cno + ii]) continue childCheckLoop;
 							}
 							if (cbytes[cno + nameBytes.length] != 0 || cbytes[cno + nameBytes.length + 1] != 0) {

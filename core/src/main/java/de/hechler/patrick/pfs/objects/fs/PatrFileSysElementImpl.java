@@ -43,6 +43,7 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ROOT_FOLDER_ID;
 
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
+import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -63,6 +64,7 @@ import de.hechler.patrick.pfs.interfaces.functional.ThrowingLongSupplier;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingRunnable;
 import de.hechler.patrick.pfs.interfaces.functional.ThrowingSupplier;
 import de.hechler.patrick.pfs.objects.AllocatedBlocks;
+import de.hechler.patrick.pfs.objects.LongInt;
 import de.hechler.patrick.pfs.objects.jfs.PFSFileSystemProviderImpl;
 import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
@@ -120,12 +122,15 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		byte[] bytes = bm.getBlock(block);
 		try {
 			np.fs.updateBlockAndPos(this);
-			long npblock = np.block;
-			byte[] npbytes = bm.getBlock(npblock);
+			final long oldnpblock = np.block;
+			byte[] npbytes = bm.getBlock(oldnpblock);
 			try {
+				String myname = executeGetName();
+				checkHasNoElementWithName(oldnpblock, np.pos, myname, myname.getBytes(CHARSET));
 				PatrFolderImpl oldParent = getParent();
 				oldParent.fs.updateBlockAndPos(this);
-				bm.getBlock(oldParent.block);
+				final long oldopblock = oldParent.block;
+				bm.getBlock(oldopblock);
 				try {
 					oldParent.executeEnsureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
 					np.executeEnsureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
@@ -133,10 +138,12 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 					executeDeleteFromParent(oldParent);
 					oldParent.executeModify(false);
 				} finally {
-					bm.ungetBlock(oldParent.block);
+					bm.ungetBlock(oldopblock);
 				}
 				final int pelementcount = byteArrToInt(npbytes, np.pos + FOLDER_OFFSET_ELEMENT_COUNT),
-					oldLen = FOLDER_OFFSET_FOLDER_ELEMENTS + pelementcount * FOLDER_ELEMENT_LENGTH, newLen = oldLen + FOLDER_ELEMENT_LENGTH, addPos = np.pos + oldLen;
+					oldLen = FOLDER_OFFSET_FOLDER_ELEMENTS + pelementcount * FOLDER_ELEMENT_LENGTH,
+					newLen = oldLen + FOLDER_ELEMENT_LENGTH,
+					addPos = np.pos + oldLen;
 				np.resize(oldLen, newLen);
 				longToByteArr(bytes, addPos, id);
 				longToByteArr(bytes, pos + ELEMENT_OFFSET_PARENT_ID, np.id);
@@ -144,7 +151,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 				np.executeModify(false);
 				executeModify(true);
 			} finally {
-				bm.setBlock(npblock);
+				bm.setBlock(oldnpblock);
 			}
 		} finally {
 			bm.ungetBlock(block);
@@ -327,10 +334,10 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 */
 	public void flag(long lock, int addFlags, int remFlags) throws IOException {
 		if ( (addFlags & remFlags) != 0) {
-			throw new IllegalArgumentException("(addFlags & remFlags) != 0 addFlags=0x" + Integer.toHexString(addFlags) + " remFlags=0x" + Integer.highestOneBit(remFlags));
+			throw new IllegalArgumentException("(addFlags & remFlags) != 0 addFlags=0x" + Integer.toHexString(addFlags) + " remFlags=0x" + Integer.toHexString(remFlags));
 		}
 		if ( ( (addFlags | remFlags) & (ELEMENT_FLAG_FILE | ELEMENT_FLAG_FOLDER | ELEMENT_FLAG_LINK)) != 0) {
-			throw new IllegalArgumentException("(addFlags | remFlags) & (LINK | FOLDER | FILE) != 0 addFlags=0x" + Integer.toHexString(addFlags) + " remFlags=0x" + Integer.highestOneBit(remFlags));
+			throw new IllegalArgumentException("(addFlags | remFlags) & (LINK | FOLDER | FILE) != 0 addFlags=0x" + Integer.toHexString(addFlags) + " remFlags=0x" + Integer.toHexString(remFlags));
 		}
 		withLock(() -> {
 			executeEnsureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
@@ -705,6 +712,8 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 			int oldnamelen = getNameByteCount();
 			int np = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
 			byte[] namebytes = name.getBytes(CHARSET);
+			LongInt parent = fs.getBlockAndPos(byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_ID));
+			checkHasNoElementWithName(parent.l, parent.i, name, namebytes);
 			int nameLen = namebytes.length == 0 ? 0 : (namebytes.length + 2);
 			try {
 				if (np == -1) {
@@ -837,11 +846,16 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 			assert parent.id == byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_ID);
 			bytes = bm.getBlock(parent.block);
 			try {
-				int index = indexInParentList(parent.block, parent.pos), imel = index * FOLDER_ELEMENT_LENGTH, off = parent.pos + FOLDER_OFFSET_FOLDER_ELEMENTS + imel,
-					oldElementCount = byteArrToInt(bytes, parent.pos + FOLDER_OFFSET_ELEMENT_COUNT), oldElementSize = oldElementCount * FOLDER_ELEMENT_LENGTH,
+				int oldParentLen = parent.myLength();
+				int index = indexInParentList(parent.block, parent.pos),
+					imel = index * FOLDER_ELEMENT_LENGTH,
+					off = parent.pos + FOLDER_OFFSET_FOLDER_ELEMENTS + imel,
+					oldElementCount = byteArrToInt(bytes, parent.pos + FOLDER_OFFSET_ELEMENT_COUNT),
+					oldElementSize = oldElementCount * FOLDER_ELEMENT_LENGTH,
 					copySize = oldElementSize - imel - FOLDER_ELEMENT_LENGTH;
 				System.arraycopy(bytes, off + FOLDER_ELEMENT_LENGTH, bytes, off, copySize);
 				intToByteArr(bytes, parent.pos + FOLDER_OFFSET_ELEMENT_COUNT, oldElementCount - 1);
+				parent.resize(oldParentLen, oldParentLen - 8);
 			} finally {
 				bm.setBlock(parent.block);
 			}
@@ -851,7 +865,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	}
 	
 	/**
-	 * helper method, which should not directly be called
+	 * helper method to find the index from the parent element
 	 * 
 	 * @param pblock
 	 *               the block from the parent
@@ -861,7 +875,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * @throws IOException
 	 *                     if an IO error occurs
 	 */
-	protected int indexInParentList(long pblock, int ppos) throws IOException {
+	private int indexInParentList(long pblock, int ppos) throws IOException {
 		byte[] bytes = bm.getBlock(pblock);
 		try {
 			final int len = byteArrToInt(bytes, ppos + FOLDER_OFFSET_ELEMENT_COUNT), off = ppos + FOLDER_OFFSET_FOLDER_ELEMENTS;
@@ -876,6 +890,61 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 			throw new InternalError("could not find me in my parent");
 		} finally {
 			bm.ungetBlock(pblock);
+		}
+	}
+	
+	/**
+	 * checks that this folder element has no child element with the given name
+	 * <p>
+	 * this method is only allowed to be called when this element is known to be a folder element<br>
+	 * this element is also not allowed to be a link element witch links a folder element!
+	 * <p>
+	 * if there is no child with the given name this method will return normally.<br>
+	 * if this folder element has a child element with the given name this method will throw a {@link FileAlreadyExistsException}. (even if the existing element is a folder)
+	 * 
+	 * @param name
+	 *                       the {@link String} name which is not allowed as a child name
+	 * @param childNameBytes
+	 *                       the byte representation of the {@code name} with the {@link PatrFileSysConstants#CHARSET} and without the null terminating character ({@code '\0'})
+	 * @throws IOException
+	 *                                    if an IO error occurs
+	 * @throws FileAlreadyExistsException
+	 *                                    if there is already a child element with the given name
+	 */
+	protected void checkHasNoElementWithName(long block, int pos, String name, byte[] childNameBytes) throws IOException, FileAlreadyExistsException {
+		byte[] bytes = bm.getBlock(block);
+		try {
+			if ( (executeGetFlags() & (ELEMENT_FLAG_FILE | ELEMENT_FLAG_LINK)) != 0) {
+				throw new AssertionError("folder only method called, but I am no direct folder! (flags=0x" + Integer.toHexString(executeGetFlags()) + ")");
+			}
+			int elementCount = byteArrToInt(bytes, pos + FOLDER_OFFSET_ELEMENT_COUNT);
+			for (int i = 0, off = pos + FOLDER_OFFSET_FOLDER_ELEMENTS; i < elementCount; i ++ , off += FOLDER_ELEMENT_LENGTH) {
+				long ocid = byteArrToLong(bytes, off);
+				LongInt oc = fs.getBlockAndPos(ocid);
+				byte[] ocbytes = bm.getBlock(oc.l);
+				try {
+					int ocnamepos = byteArrToInt(ocbytes, oc.i + ELEMENT_OFFSET_NAME);
+					for (int ii = 0;; ii += 2) {
+						if (ii >= childNameBytes.length) {
+							if (ocbytes[ocnamepos + ii] == 0 && ocbytes[ocnamepos + ii + 1] == 0) {
+								String me = PFSFileSystemProviderImpl.buildName(this);
+								String fullName = me + '/' + name;
+								throw new FileAlreadyExistsException(fullName, me, "there is already an element with the given name (name='" + name + "', fullName='" + fullName + "')!");
+							}
+						}
+						if (ocbytes[ocnamepos + ii] != childNameBytes[ii]) {
+							break;
+						}
+						if (ocbytes[ocnamepos + ii + 1] != childNameBytes[ii + 1]) {
+							break;
+						}
+					}
+				} finally {
+					bm.ungetBlock(oc.l);
+				}
+			}
+		} finally {
+			bm.ungetBlock(block);
 		}
 	}
 	
