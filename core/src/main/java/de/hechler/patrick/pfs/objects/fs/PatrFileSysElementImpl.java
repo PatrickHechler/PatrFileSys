@@ -712,8 +712,10 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 			int oldnamelen = getNameByteCount();
 			int np = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
 			byte[] namebytes = name.getBytes(CHARSET);
-			LongInt parent = fs.getBlockAndPos(byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_ID));
-			checkHasNoElementWithName(parent.l, parent.i, name, namebytes);
+			if (id != ROOT_FOLDER_ID) {
+				LongInt parent = fs.getBlockAndPos(byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_ID));
+				checkHasNoElementWithName(parent.l, parent.i, name, namebytes);
+			}
 			int nameLen = namebytes.length == 0 ? 0 : (namebytes.length + 2);
 			try {
 				if (np == -1) {
