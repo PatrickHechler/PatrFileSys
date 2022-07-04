@@ -4,7 +4,7 @@
 	
 	<groupId>de.hechler.patrick.zeugs.pfs</groupId>
 	<artifactId>pfs-core</artifactId>
-	<version>4.3.1</version>
+	<version>4.4.0</version>
 	<packaging>jar</packaging>
 	
 	<properties>
