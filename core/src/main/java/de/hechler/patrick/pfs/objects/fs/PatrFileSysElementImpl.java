@@ -123,18 +123,39 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 		try {
 			np.fs.updateBlockAndPos(this);
 			final long oldnpblock = np.block;
-			byte[] npbytes = bm.getBlock(oldnpblock);
+			bm.getBlock(oldnpblock);
 			try {
-				String myname = executeGetName();
-				checkHasNoElementWithName(oldnpblock, np.pos, myname, myname.getBytes(CHARSET));
-				PatrFolderImpl oldParent = getParent();
+				PatrFolderImpl oldParent = new PatrFolderImpl(fs, startTime, bm, byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_ID));
 				oldParent.fs.updateBlockAndPos(this);
+				final long oldopblock = np.block;
+				bm.getBlock(oldopblock);
+				try {
+					executeEnsureAccess(lock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
+					oldParent.executeEnsureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+					np.executeEnsureAccess(newParentLock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+					String myname = executeGetName();
+					checkHasNoElementWithName(oldnpblock, np.pos, myname, myname.getBytes(CHARSET));
+					exeSetParent(np, oldParent);
+				} finally {
+					bm.ungetBlock(oldopblock);
+				}
+			} finally {
+				bm.ungetBlock(oldnpblock);
+			}
+		} finally {
+			bm.ungetBlock(block);
+		}
+	}
+	
+	private void exeSetParent(PatrFolderImpl np, PatrFolderImpl oldParent) throws IOException, ElementLockedException {
+		byte[] bytes = bm.getBlock(block);
+		try {
+			long newparentoldblock = np.block;
+			byte[] npbytes = bm.getBlock(newparentoldblock);
+			try {
 				final long oldopblock = oldParent.block;
 				bm.getBlock(oldopblock);
 				try {
-					oldParent.executeEnsureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
-					np.executeEnsureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
-					executeEnsureAccess(oldParentLock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
 					executeDeleteFromParent(oldParent);
 					oldParent.executeModify(false);
 				} finally {
@@ -142,20 +163,75 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 				}
 				final int pelementcount = byteArrToInt(npbytes, np.pos + FOLDER_OFFSET_ELEMENT_COUNT),
 					oldLen = FOLDER_OFFSET_FOLDER_ELEMENTS + pelementcount * FOLDER_ELEMENT_LENGTH,
-					newLen = oldLen + FOLDER_ELEMENT_LENGTH,
-					addPos = np.pos + oldLen;
+					newLen = oldLen + FOLDER_ELEMENT_LENGTH;
 				np.resize(oldLen, newLen);
-				longToByteArr(bytes, addPos, id);
+				npbytes = bm.getBlock(np.block);
+				try {
+					np.executeModify(false);
+					np.executeFlag(0, ELEMENT_FLAG_FOLDER_SORTED);
+				} finally {
+					bm.setBlock(np.block);
+				}
+				longToByteArr(bytes, np.pos + newLen, id);
 				longToByteArr(bytes, pos + ELEMENT_OFFSET_PARENT_ID, np.id);
-				np.executeFlag(0, ELEMENT_FLAG_FOLDER_SORTED);
-				np.executeModify(false);
 				executeModify(true);
 			} finally {
-				bm.setBlock(oldnpblock);
+				bm.setBlock(newparentoldblock);
 			}
 		} finally {
-			bm.ungetBlock(block);
+			bm.setBlock(block);
 		}
+	}
+	
+	@Override
+	public void move(PatrFolder newParent, String newName, long myLock, long oldParentLock, long newParentLock)
+		throws IllegalStateException, IllegalArgumentException, NullPointerException, IOException, ElementLockedException, FileAlreadyExistsException {
+		if (newName == null || newParent == null) {
+			throw new NullPointerException("newParent=" + newParent + " newName=" + newName);
+		} else if ( ! (newParent instanceof PatrFileSysImpl)) {
+			throw new IllegalArgumentException("unknown folder implementation: " + newParent.getClass().getName() + " toString='" + newParent + "'");
+		} else if ( ((PatrFileSysElementImpl) newParent).fs != fs) {
+			throw new IllegalArgumentException("newParent does not belong to this file system");
+		} else if (id == ROOT_FOLDER_ID) {
+			throw new IllegalStateException("the root folder is not allowed to be moved!");
+		}
+		withLock(() -> {
+			fs.updateBlockAndPos(this);
+			executeMove((PatrFolderImpl) newParent, newName, myLock, oldParentLock, newParentLock);
+		});
+	}
+	
+	private void executeMove(PatrFolderImpl newParent, String newName, long myLock, long oldParentLock, long newParentLock) throws IllegalStateException, IOException, ElementLockedException, FileAlreadyExistsException {
+		final long oldblock = block;
+		byte[] bytes = bm.getBlock(oldblock);
+		try {
+			fs.updateBlockAndPos(newParent);
+			final long newparentoldblock = newParent.block;
+			bm.getBlock(newparentoldblock);
+			try {
+				PatrFolderImpl oldParent = new PatrFolderImpl(fs, startTime, bm, byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_ID));
+				fs.updateBlockAndPos(oldParent);
+				final long oldparentoldblock = oldParent.block;
+				bm.getBlock(oldparentoldblock);
+				try {
+					byte[] newnamebytes = newName.getBytes(CHARSET);
+					ensureAccess(myLock, LOCK_NO_META_CHANGE_ALLOWED_LOCK, false);
+					oldParent.ensureAccess(oldParentLock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+					newParent.ensureAccess(newParentLock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+					checkHasNoElementWithName(newparentoldblock, newParent.pos, newName, newnamebytes);
+					uncheckedSetName(oldblock, getNameByteCount(), byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME), newnamebytes);
+					exeSetParent(newParent, oldParent);
+				} finally {
+					bm.ungetBlock(oldparentoldblock);
+				}
+			} finally {
+				bm.ungetBlock(newparentoldblock);
+			}
+		} finally {
+			bm.ungetBlock(oldblock);
+		}
+		// checkHasNoElementWithName(oldnpblock, np.pos, myname, myname.getBytes(CHARSET));
+		
 	}
 	
 	@Override
@@ -716,27 +792,36 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 				LongInt parent = fs.getBlockAndPos(byteArrToLong(bytes, pos + ELEMENT_OFFSET_PARENT_ID));
 				checkHasNoElementWithName(parent.l, parent.i, name, namebytes);
 			}
-			int nameLen = namebytes.length == 0 ? 0 : (namebytes.length + 2);
+			uncheckedSetName(oldblock, oldnamelen, np, namebytes);
+		} finally {
+			bm.setBlock(oldblock);
+		}
+	}
+	
+	private void uncheckedSetName(long oldblock, int oldnamebytecount, int oldNamePointer, byte[] newnamebytes) throws IOException, OutOfSpaceException, ClosedChannelException {
+		byte[] bytes = bm.getBlock(oldblock);
+		try {
+			int nameLen = newnamebytes.length == 0 ? 0 : (newnamebytes.length + 2);
 			try {
-				if (np == -1) {
-					np = allocate(bm, oldblock, nameLen);
+				if (oldNamePointer == -1) {
+					oldNamePointer = allocate(bm, oldblock, nameLen);
 				} else {
-					np = reallocate(oldblock, np, oldnamelen, nameLen, false);
+					oldNamePointer = reallocate(oldblock, oldNamePointer, oldnamebytecount, nameLen, false);
 				}
-				intToByteArr(bytes, pos + ELEMENT_OFFSET_NAME, np);
+				intToByteArr(bytes, pos + ELEMENT_OFFSET_NAME, oldNamePointer);
 			} catch (OutOfSpaceException e) {
 				int myLen = myLength();
 				relocate(myLen, myLen, nameLen);
 			}
 			bytes = bm.getBlock(block);
 			try {
-				np = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
+				oldNamePointer = byteArrToInt(bytes, pos + ELEMENT_OFFSET_NAME);
 				if (nameLen != 0) {
-					System.arraycopy(namebytes, 0, bytes, np, namebytes.length);
-					bytes[np + namebytes.length] = 0;
-					bytes[np + namebytes.length + 1] = 0;
+					System.arraycopy(newnamebytes, 0, bytes, oldNamePointer, newnamebytes.length);
+					bytes[oldNamePointer + newnamebytes.length] = 0;
+					bytes[oldNamePointer + newnamebytes.length + 1] = 0;
 				}
-				intToByteArr(bytes, pos + ELEMENT_OFFSET_NAME, np);
+				intToByteArr(bytes, pos + ELEMENT_OFFSET_NAME, oldNamePointer);
 				executeModify(true);
 			} finally {
 				bm.setBlock(block);

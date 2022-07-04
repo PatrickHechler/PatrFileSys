@@ -49,6 +49,35 @@ public interface PatrFileSysElement {
 		throws IllegalStateException, IllegalArgumentException, NullPointerException, IOException, ElementLockedException, FileAlreadyExistsException;
 	
 	/**
+	 * changes the parent and the name of this element
+	 * 
+	 * @param newParent
+	 *                      the new parent folder of this element
+	 * @param newName
+	 *                      the new name of this element
+	 * @param myLock
+	 *                      the current lock of this element or {@link PatrFileSysConstants#NO_LOCK}
+	 * @param oldParentLock
+	 *                      the current lock of the old parent folder or {@link PatrFileSysConstants#NO_LOCK}
+	 * @param newParentLock
+	 *                      the current lock of the new parent folder or {@link PatrFileSysConstants#NO_LOCK}
+	 * @throws IllegalStateException
+	 *                                    if this element is the root folder
+	 * @throws IllegalArgumentException
+	 *                                    if {@code newParent} is from a different file system
+	 * @throws NullPointerException
+	 *                                    if {@code newParent} or {@code newName} is <code>null</code>
+	 * @throws IOException
+	 *                                    if an IO error occurs
+	 * @throws ElementLockedException
+	 *                                    if this element, its parent or the (not) new parent is locked with a different lock
+	 * @throws FileAlreadyExistsException
+	 *                                    if the new parent already has a child element with the given name
+	 */
+	void move(PatrFolder newParent, String newName, long myLock, long oldParentLock, long newParentLock)
+		throws IllegalStateException, IllegalArgumentException, NullPointerException, IOException, ElementLockedException, FileAlreadyExistsException;
+	
+	/**
 	 * returns the folder representing this element
 	 * <p>
 	 * if this element is a link and the target represents a folder the target folder will be returned
