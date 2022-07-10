@@ -17,8 +17,8 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_L
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LOCK_VALUE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_NAME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_PARENT_ID;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_START_ROOT_POS;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_DATA_TABLE;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_HASH_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_LENGTH;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_ELEMENT_LENGTH;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_ELEMENT_COUNT;
@@ -27,6 +27,7 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LINK_LENGTH;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LINK_OFFSET_TARGET_ID;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_READ_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_WRITE_ALLOWED_LOCK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_ID;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ROOT_FOLDER_ID;
@@ -160,7 +161,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	 * @param owner
 	 *                       the owner of the new element
 	 * @param isFolder
-	 *                       if the new element is a folder
+	 *                       if the new element is a folder (or if its target is a folder)
 	 * @param childPos
 	 *                       the pos of the new element
 	 * @param childNamePos
@@ -180,7 +181,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 		try {
 			long time = System.currentTimeMillis();
 			longToByteArr(bytes, childPos + ELEMENT_OFFSET_CREATE_TIME, time);
-			intToByteArr(bytes, childPos + ELEMENT_OFFSET_FLAGS, target == null ? (isFolder ? ELEMENT_FLAG_FOLDER : ELEMENT_FLAG_FILE) : ELEMENT_FLAG_LINK);
+			intToByteArr(bytes, childPos + ELEMENT_OFFSET_FLAGS, (isFolder ? ELEMENT_FLAG_FOLDER : ELEMENT_FLAG_FILE) | (target == null ? ELEMENT_FLAG_LINK : 0));
 			longToByteArr(bytes, childPos + ELEMENT_OFFSET_LAST_META_MOD_TIME, time);
 			longToByteArr(bytes, childPos + ELEMENT_OFFSET_LAST_MOD_TIME, time);
 			longToByteArr(bytes, childPos + ELEMENT_OFFSET_LOCK_TIME, NO_TIME);
@@ -198,7 +199,6 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 				intToByteArr(bytes, childPos + FOLDER_OFFSET_ELEMENT_COUNT, 0);
 			} else {
 				longToByteArr(bytes, childPos + FILE_OFFSET_FILE_LENGTH, 0);
-				longToByteArr(bytes, childPos + FILE_OFFSET_FILE_HASH_TIME, NO_TIME);
 			}
 		} finally {
 			bm.setBlock(childBlock);

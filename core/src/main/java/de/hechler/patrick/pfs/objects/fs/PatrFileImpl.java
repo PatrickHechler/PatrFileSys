@@ -2,14 +2,10 @@ package de.hechler.patrick.pfs.objects.fs;
 
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LAST_META_MOD_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_DATA_TABLE;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_HASH_CODE;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_HASH_TIME;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_LENGTH;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_READ_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_WRITE_ALLOWED_LOCK;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_TIME;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -315,37 +311,37 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 		}
 	}
 	
-	@Override
 	public byte[] getHashCode(long lock) throws IOException, ElementLockedException {
 		synchronized (bm) {
 			fs.updateBlockAndPos(this);
-			return executeGetHashCode(lock);
+			executeEnsureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
+			return executeCalcHashCode();
 		}
 	}
 	
-	private byte[] executeGetHashCode(long lock) throws IOException, ElementLockedException {
-		byte[] bytes = bm.getBlock(block);
-		try {
-			executeEnsureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
-			byte[] result = new byte[32];
-			long lastMod = byteArrToLong(bytes, pos + ELEMENT_OFFSET_LAST_META_MOD_TIME);
-			long hashTIme = byteArrToLong(bytes, pos + FILE_OFFSET_FILE_HASH_TIME);
-			if (hashTIme == NO_TIME || hashTIme <= lastMod) {
-				longToByteArr(bytes, pos + FILE_OFFSET_FILE_HASH_TIME, System.currentTimeMillis());
-				result = executeCalcHAshCode();
-				assert result.length == 32;
-				System.arraycopy(result, 0, bytes, pos + FILE_OFFSET_FILE_HASH_CODE, 32);
-			} else {
-				System.arraycopy(bytes, pos + FILE_OFFSET_FILE_HASH_CODE, result, 0, 32);
-			}
-			return result;
-		} finally {
-			bm.ungetBlock(block);
-		}
-	}
+//	private byte[] executeGetHashCode(long lock) throws IOException, ElementLockedException {
+//		byte[] bytes = bm.getBlock(block);
+//		try {
+//			executeEnsureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
+//			byte[] result = new byte[32];
+//			long lastMod = byteArrToLong(bytes, pos + ELEMENT_OFFSET_LAST_META_MOD_TIME);
+//			long hashTIme = byteArrToLong(bytes, pos + FILE_OFFSET_FILE_HASH_TIME);
+//			if (hashTIme == NO_TIME || hashTIme <= lastMod) {
+//				longToByteArr(bytes, pos + FILE_OFFSET_FILE_HASH_TIME, System.currentTimeMillis());
+//				result = executeCalcHashCode();
+//				assert result.length == 32;
+//				System.arraycopy(result, 0, bytes, pos + FILE_OFFSET_FILE_HASH_CODE, 32);
+//			} else {
+//				System.arraycopy(bytes, pos + FILE_OFFSET_FILE_HASH_CODE, result, 0, 32);
+//			}
+//			return result;
+//		} finally {
+//			bm.ungetBlock(block);
+//		}
+//	}
 	
 	// http://www.java2s.com/example/java-utility-method/sha256/sha256-final-inputstream-inputstream-82aa9.html
-	private byte[] executeCalcHAshCode() throws IOException {
+	private byte[] executeCalcHashCode() throws IOException {
 		try {
 			byte[] buffer = new byte[1 << 16];
 			MessageDigest digest = MessageDigest.getInstance("SHA-256");

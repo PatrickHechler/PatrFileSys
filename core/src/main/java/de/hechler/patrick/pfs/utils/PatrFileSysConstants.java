@@ -8,19 +8,19 @@ public class PatrFileSysConstants {
 	/**
 	 * the charset used by this file system
 	 */
-	public static final Charset CHARSET = StandardCharsets.UTF_16LE;
+	public static final Charset CHARSET = Charset.forName("UTF-16LE");// StandardCharsets.UTF_16LE;
 	
 	public static final int FB_BLOCK_COUNT_OFFSET      = 0;
 	public static final int FB_BLOCK_LENGTH_OFFSET     = FB_BLOCK_COUNT_OFFSET + 8;
-	public static final int FB_ROOT_BLOCK_OFFSET       = FB_BLOCK_LENGTH_OFFSET + 4;
-	public static final int FB_ROOT_POS_OFFSET         = FB_ROOT_BLOCK_OFFSET + 8;
-	public static final int FB_TABLE_FILE_BLOCK_OFFSET = FB_ROOT_POS_OFFSET + 4;
+	public static final int FB_ROOT_POS_OFFSET         = FB_BLOCK_LENGTH_OFFSET + 4;
+	public static final int FB_ROOT_BLOCK_OFFSET       = FB_ROOT_POS_OFFSET + 4;
+	public static final int FB_TABLE_FILE_BLOCK_OFFSET = FB_ROOT_BLOCK_OFFSET + 8;
 	public static final int FB_TABLE_FILE_POS_OFFSET   = FB_TABLE_FILE_BLOCK_OFFSET + 8;
-	public static final int FB_FILE_SYS_LOCK_VALUE     = FB_TABLE_FILE_POS_OFFSET + 4;
-	public static final int FB_FILE_SYS_LOCK_TIME      = FB_FILE_SYS_LOCK_VALUE + 8;
-	public static final int FB_FILE_SYS_STATE_VALUE    = FB_FILE_SYS_LOCK_TIME + 8;
+	public static final int FB_FILE_SYS_STATE_VALUE    = FB_TABLE_FILE_POS_OFFSET + 4;
 	public static final int FB_FILE_SYS_STATE_TIME     = FB_FILE_SYS_STATE_VALUE + 4;
-	public static final int FB_START_ROOT_POS          = FB_FILE_SYS_STATE_TIME + 8;
+	public static final int FB_FILE_SYS_LOCK_VALUE     = FB_FILE_SYS_STATE_TIME + 8;
+	public static final int FB_FILE_SYS_LOCK_TIME      = FB_FILE_SYS_LOCK_VALUE + 8;
+	public static final int FB_START_ROOT_POS          = FB_FILE_SYS_LOCK_TIME + 8;
 	
 	/**
 	 * flag used to indicate that the element is a folder
@@ -71,9 +71,18 @@ public class PatrFileSysConstants {
 	 */
 	public static final int ELEMENT_OFFSET_FLAGS              = 0;
 	/**
+	 * the offset of the name position relative from the position of a file system element
+	 * <p>
+	 * the name is saved in UTF-16-LE ({@link StandardCharsets#UTF_16LE}) and ends with a zero terminating character ({@code '\0'})<br>
+	 * the zero terminating character will be converted in two bytes with the value {@code 0}.
+	 * <p>
+	 * if this element has an empty name, the pointer may be {@code -1} (the root element often has an empty name)
+	 */
+	public static final int ELEMENT_OFFSET_NAME               = ELEMENT_OFFSET_FLAGS + 4;
+	/**
 	 * the offset of the parent ID relative from the position of a file system element
 	 */
-	public static final int ELEMENT_OFFSET_PARENT_ID          = ELEMENT_OFFSET_FLAGS + 4;
+	public static final int ELEMENT_OFFSET_PARENT_ID          = ELEMENT_OFFSET_NAME + 4;
 	/**
 	 * the offset of the lock value relative from the position of a file system element
 	 */
@@ -94,25 +103,14 @@ public class PatrFileSysConstants {
 	 * the offset of the last modification inclusive metadata modification time relative from the position of a file system element
 	 */
 	public static final int ELEMENT_OFFSET_LAST_META_MOD_TIME = ELEMENT_OFFSET_LAST_MOD_TIME + 8;
-	/**
-	 * the offset of the name position relative from the position of a file system element
-	 * <p>
-	 * the name is saved in UTF-16-LE ({@link StandardCharsets#UTF_16LE}) and ends with a zero terminating character ({@code '\0'})<br>
-	 * the zero terminating character will be converted in two bytes with the value {@code 0}.
-	 * <p>
-	 * if this element has an empty name, the pointer may be {@code -1} (the root element often has an empty name)
-	 */
-	public static final int ELEMENT_OFFSET_NAME               = ELEMENT_OFFSET_LAST_META_MOD_TIME + 8;
 	
-	public static final int FOLDER_OFFSET_ELEMENT_COUNT   = ELEMENT_OFFSET_NAME + 4;
+	public static final int FOLDER_OFFSET_ELEMENT_COUNT   = ELEMENT_OFFSET_LAST_META_MOD_TIME + 8;
 	public static final int FOLDER_OFFSET_FOLDER_ELEMENTS = FOLDER_OFFSET_ELEMENT_COUNT + 4;
 	
-	public static final int FILE_OFFSET_FILE_LENGTH     = ELEMENT_OFFSET_NAME + 4;
-	public static final int FILE_OFFSET_FILE_HASH_TIME  = FILE_OFFSET_FILE_LENGTH + 8;
-	public static final int FILE_OFFSET_FILE_HASH_CODE  = FILE_OFFSET_FILE_HASH_TIME + 8;
-	public static final int FILE_OFFSET_FILE_DATA_TABLE = FILE_OFFSET_FILE_HASH_CODE + 32;
+	public static final int FILE_OFFSET_FILE_LENGTH     = ELEMENT_OFFSET_LAST_META_MOD_TIME + 8;
+	public static final int FILE_OFFSET_FILE_DATA_TABLE = FILE_OFFSET_FILE_LENGTH + 8;
 	
-	public static final int LINK_OFFSET_TARGET_ID = ELEMENT_OFFSET_NAME + 4;
+	public static final int LINK_OFFSET_TARGET_ID = ELEMENT_OFFSET_LAST_META_MOD_TIME + 8;
 	public static final int LINK_LENGTH           = LINK_OFFSET_TARGET_ID + 8;
 	
 	public static final int FOLDER_ELEMENT_LENGTH = 8;

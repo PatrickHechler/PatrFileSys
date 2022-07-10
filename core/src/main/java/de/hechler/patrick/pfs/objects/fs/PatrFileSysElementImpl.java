@@ -1335,6 +1335,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 					} catch (OutOfSpaceException e) {
 						start -= len;
 						intToByteArr(bytes, tablestart, start);
+						return start;
 					}
 				}
 				return 0;

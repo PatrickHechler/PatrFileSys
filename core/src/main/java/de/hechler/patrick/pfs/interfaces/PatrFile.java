@@ -125,19 +125,6 @@ public interface PatrFile extends PatrFileSysElement {
 	void appendContent(byte[] bytes, int bytesOff, int length, long lock) throws IllegalArgumentException, IOException, ElementLockedException;
 	
 	/**
-	 * returns the SHA-256 hash code of this element
-	 * 
-	 * @return the SHA-256 hash code of this element
-	 * @param lock
-	 *            the current lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
-	 * @throws IOException
-	 *             if an IO error occurs
-	 * @throws ElementLockedException
-	 *             when this element is locked with a different lock
-	 */
-	byte[] getHashCode(long lock) throws IOException, ElementLockedException;
-	
-	/**
 	 * returns the length of this file in bytes
 	 * 
 	 * @return the length of this file in bytes
@@ -166,11 +153,19 @@ public interface PatrFile extends PatrFileSysElement {
 	default boolean isFolder() throws IOException { return false; }
 	
 	@Override
+	default boolean isLink() throws IOException { return false; }
+	
+	@Override
 	default PatrFile getFile() throws IllegalStateException, IOException { return this; }
 	
 	@Override
 	default PatrFolder getFolder() throws IllegalStateException, IOException {
 		throw new IllegalStateException("this is no folder!");
+	}
+	
+	@Override
+	default PatrLink getLink() throws IllegalStateException, IOException {
+		throw new IllegalStateException("this is no link!");
 	}
 	
 	/**

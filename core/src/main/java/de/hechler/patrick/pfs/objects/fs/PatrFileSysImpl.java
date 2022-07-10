@@ -113,18 +113,16 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			String str = sc.next();
 			int i = str.indexOf('.');
 			if (i != -1) {
-				StringBuilder time = new StringBuilder(str.substring(0, i));
+				StringBuilder build = new StringBuilder(str.substring(0, i));
 				String end = str.substring(i + 1);
-				time.append(end);
 				int ii;
-				for (ii = end.length(); ii < 3; ii ++ ) {
-					time.append('0');
+				for (ii = 0; ii < 3 && ii < end.length(); ii ++ ) {
+					build.append(end.charAt(ii));
 				}
-				if (ii > 3) {
-					str = null;
-				} else {
-					str = time.toString();
+				for (; ii < 3; ii ++ ) {
+					build.append('0');
 				}
+				str = build.toString();
 			}
 			if (str != null) {
 				long on = Long.parseLong(str);
@@ -295,16 +293,20 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			elementTable = new PatrFileImpl(this, startTime, bm, ELEMENT_TABLE_FILE_ID);
 			assert blockSize == bytes.length;
 			initBlock(bytes, FB_START_ROOT_POS + FOLDER_OFFSET_FOLDER_ELEMENTS + FOLDER_ELEMENT_LENGTH);
+			int blockTablePos = PatrFileSysElementImpl.allocate(bm, 0L, FILE_OFFSET_FILE_DATA_TABLE);
 			longToByteArr(bytes, FB_BLOCK_COUNT_OFFSET, blockCount);
 			intToByteArr(bytes, FB_BLOCK_LENGTH_OFFSET, blockSize);
-			longToByteArr(bytes, FB_ROOT_BLOCK_OFFSET, 0L);
-			longToByteArr(bytes, FB_FILE_SYS_LOCK_VALUE, NO_LOCK);
 			intToByteArr(bytes, FB_ROOT_POS_OFFSET, FB_START_ROOT_POS);
-			PatrFolderImpl.initChild(bm, NO_ID, ROOT_FOLDER_ID, true, FB_START_ROOT_POS, -1, 0L, null, null);
-			int blockTablePos = PatrFileSysElementImpl.allocate(bm, 0L, FILE_OFFSET_FILE_DATA_TABLE);
-			PatrFolderImpl.initChild(bm, NO_ID, ELEMENT_TABLE_FILE_ID, false, blockTablePos, -1, 0L, null, null);
+			longToByteArr(bytes, FB_ROOT_BLOCK_OFFSET, 0L);
 			longToByteArr(bytes, FB_TABLE_FILE_BLOCK_OFFSET, 0L);
 			intToByteArr(bytes, FB_TABLE_FILE_POS_OFFSET, blockTablePos);
+			// public static final int FB_FILE_SYS_STATE_VALUE // doing this with state lock
+			// public static final int FB_FILE_SYS_STATE_TIME
+			longToByteArr(bytes, FB_FILE_SYS_LOCK_VALUE, NO_LOCK);
+			longToByteArr(bytes, FB_FILE_SYS_LOCK_TIME, NO_TIME);
+			PatrFolderImpl.initChild(bm, NO_ID, ROOT_FOLDER_ID, true, FB_START_ROOT_POS, -1, 0L, null, null);
+			PatrFolderImpl.initChild(bm, NO_ID, ELEMENT_TABLE_FILE_ID, false, blockTablePos, -1, 0L, null, null);
+			lock = NO_LOCK;
 		} finally {
 			bm.setBlock(0L);
 		}
