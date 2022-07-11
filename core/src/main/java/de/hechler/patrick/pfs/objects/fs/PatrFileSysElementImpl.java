@@ -1400,7 +1400,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 					max = mid - 1;
 				} else if (end < pos) {
 					min = mid + 1;
-				} else if (oldLen > newLen) {
+				} else if (newLen < oldLen) {
 					int ret = remove(block, pos + newLen, oldLen - newLen, mid, true);
 					if (ret == -2) {
 						return -2;
@@ -1446,7 +1446,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 * {@code -2} will be returned when the entry would have been removed, but it was the last effective entry and so the block has been freed or nothing has been done (depends on the value of
 	 * {@code allowFreeBlock}.
 	 * <p>
-	 * this method should only be called indirectly by using the methods {@link #allocate(long, int)} and {@link #reallocate(long, int, int, int, boolean)}
+	 * this method should only be called indirectly by using the method {@link #reallocate(long, int, int, int, boolean)}
 	 * 
 	 * @param block
 	 *                       the block on which should be operated

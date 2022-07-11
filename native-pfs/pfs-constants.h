@@ -8,10 +8,16 @@
 #ifndef PFS_CONSTANTS_H_
 #define PFS_CONSTANTS_H_
 
+#ifdef INTERN_PFS
+#include <assert.h>
+#endif /* INTERN_PFS */
+
 #define PFS_ROOT_FOLDER_ID -2
 #define PFS_INVALID_ID -1
 
 #ifdef INTERN_PFS
+
+#define offsetoff(T, m) __builtin_offsetof(T, m)
 
 #define PFS_MIN_NORMAL_ID 0
 
@@ -24,19 +30,39 @@
 #define PFS_ELEMENT_TABLE_OFFSET_POS      8
 #define PFS_ELEMENT_TABLE_ELEMENT_LENGTH  12
 
-#endif // INTERN_PFS
+struct pfs_access {
+	i64 lock_lock;
+	i64 lock_time;
+}__attribute__((packed));
 
-#define PFS_FB_BLOCK_COUNT_OFF 0
-#define PFS_FB_BLOCK_SIZE_OFF 8
-#define PFS_FB_ROOT_POS_OFF 12
-#define PFS_FB_ROOT_BLOCK_OFF 16
-#define PFS_FB_ELEMENT_TABLE_BLOCK_OFF 24
-#define PFS_FB_ELEMENT_TABLE_POS_OFF 32
-#define PFS_FB_FILE_SYS_STATE_VAL_OFF 36
-#define PFS_FB_FILE_SYS_STATE_TIME_OFF 40
-#define PFS_FB_FILE_SYS_LOCK_VAL_OFF 48  /* lock directly before lock time */
-#define PFS_FB_FILE_SYS_LOCK_TIME_OFF 56 /* important because of struct pfs__access { i64 lock_lock; i64 lock_time; } */
-#define PFS_FB_INIT_ROOT 64
+static_assert(offsetoff(struct pfs_access, lock_lock) == 0, "err");
+static_assert(offsetoff(struct pfs_access, lock_time) == 8, "err");
+static_assert(sizeof(struct pfs_access) == 16, "err");
+
+struct pfs_first_block_start {
+	i64               block_count;
+	i32               block_size;
+	i32               root_pos;
+	i64               root_block;
+	i64               element_table_block;
+	i32               element_table_pos;
+	i32               file_sys_state_val;
+	i64               file_sys_state_time;
+	struct pfs_access access;
+}__attribute__((packed));
+
+static_assert(offsetoff(struct pfs_first_block_start, block_count) == 0, "err");
+static_assert(offsetoff(struct pfs_first_block_start, block_size) == 8, "err");
+static_assert(offsetoff(struct pfs_first_block_start, root_pos) == 12, "err");
+static_assert(offsetoff(struct pfs_first_block_start, root_block) == 16, "err");
+static_assert(offsetoff(struct pfs_first_block_start, element_table_block) == 24, "err");
+static_assert(offsetoff(struct pfs_first_block_start, element_table_pos) == 32, "err");
+static_assert(offsetoff(struct pfs_first_block_start, file_sys_state_val) == 36, "err");
+static_assert(offsetoff(struct pfs_first_block_start, file_sys_state_time) == 40, "err");
+static_assert(offsetoff(struct pfs_first_block_start, access) == 48, "err");
+static_assert(sizeof(struct pfs_first_block_start) == 64, "err");
+
+#endif /* INTERN_PFS */
 
 /**
  * flag used to indicate that the element is a folder
@@ -82,23 +108,76 @@
  */
 #define PFS_ELEMENT_FLAG_FILE_ENCRYPTED 0x00000080
 
-#define PFS_ELEMENT_OFFSET_FLAGS              0
-#define PFS_ELEMENT_OFFSET_NAME               4
-#define PFS_ELEMENT_OFFSET_PARENT_ID          8
-#define PFS_ELEMENT_OFFSET_LOCK_VALUE         16 /* lock directly before lock time */
-#define PFS_ELEMENT_OFFSET_LOCK_TIME          24 /* important because of struct pfs__access { i64 lock_lock; i64 lock_time; } */
-#define PFS_ELEMENT_OFFSET_CREATE_TIME        32
-#define PFS_ELEMENT_OFFSET_LAST_MOD_TIME      40
-#define PFS_ELEMENT_OFFSET_LAST_META_MOD_TIME 48
+#ifdef INTERN_PFS
 
-#define PFS_FOLDER_OFFSET_ELEMENT_COUNT       56
-#define PFS_FOLDER_OFFSET_FOLDER_ELEMENTS     60
+struct pfs_table_entry {
+	i32 start;
+	i32 end;
+}__attribute__((packed));
 
-#define PFS_FILE_OFFSET_FILE_LENGTH           56
-#define PFS_FILE_OFFSET_FILE_DATA_TABLE       64
+static_assert(offsetoff(struct pfs_table_entry, start) == 0, "err");
+static_assert(offsetoff(struct pfs_table_entry, end) == 4, "err");
+static_assert(sizeof(struct pfs_table_entry) == 8, "err");
 
-#define PFS_LINK_OFFSET_TARGET_ID             56
-#define PFS_LINK_LINK_LENGTH                  64
+struct pfs_file_sys_element {
+	i32 flags;
+	i32 name_pos;
+	i64 parentID;
+	struct pfs_access access;
+	i64 create_time;
+	i64 last_mod_time;
+	i64 last_meta_mod_time;
+}__attribute__((packed));
+
+static_assert(offsetoff(struct pfs_file_sys_element, flags) == 0, "err");
+static_assert(offsetoff(struct pfs_file_sys_element, name_pos) == 4, "err");
+static_assert(offsetoff(struct pfs_file_sys_element, parentID) == 8, "err");
+static_assert(offsetoff(struct pfs_file_sys_element, access) == 16, "err");
+static_assert(offsetoff(struct pfs_file_sys_element, create_time) == 32, "err");
+static_assert(offsetoff(struct pfs_file_sys_element, last_mod_time) == 40, "err");
+static_assert(offsetoff(struct pfs_file_sys_element, last_meta_mod_time) == 48, "err");
+
+struct pfs_file_sys_folder {
+	struct pfs_file_sys_element element;
+	i32 element_count;
+	i64 childIDs[];
+}__attribute__((packed));
+
+static_assert(offsetoff(struct pfs_file_sys_folder, element) == 0, "err");
+static_assert(offsetoff(struct pfs_file_sys_folder, element_count) == 56, "err");
+static_assert(offsetoff(struct pfs_file_sys_folder, childIDs) == 60, "err");
+static_assert(sizeof(struct pfs_file_sys_folder) == 60, "err");
+
+struct pfs_allocated_blocks {
+	i64 start;
+	i64 end;
+}__attribute__((packed));
+
+static_assert(offsetoff(struct pfs_allocated_blocks, start) == 0, "err");
+static_assert(offsetoff(struct pfs_allocated_blocks, end) == 8, "err");
+static_assert(sizeof(struct pfs_allocated_blocks) == 16, "err");
+
+struct pfs_file_sys_file {
+	struct pfs_file_sys_element element;
+	i64 length;
+	struct pfs_allocated_blocks data_table[];
+}__attribute__((packed));
+
+static_assert(offsetoff(struct pfs_file_sys_file, element) == 0, "err");
+static_assert(offsetoff(struct pfs_file_sys_file, length) == 56, "err");
+static_assert(offsetoff(struct pfs_file_sys_file, data_table) == 64, "err");
+static_assert(sizeof(struct pfs_file_sys_file) == 64, "err");
+
+struct pfs_file_sys_link {
+	struct pfs_file_sys_element element;
+	i64 targetID;
+}__attribute__((packed));
+
+static_assert(offsetoff(struct pfs_file_sys_link, element) == 0, "err");
+static_assert(offsetoff(struct pfs_file_sys_link, targetID) == 56, "err");
+static_assert(sizeof(struct pfs_file_sys_link) == 64, "err");
+
+#endif /* INTERN_PFS */
 
 #define PFS_NO_LOCK                          0L
 #define PFS_LOCK_START_MAX_VALUE             0x00000000FFFFFFFFL

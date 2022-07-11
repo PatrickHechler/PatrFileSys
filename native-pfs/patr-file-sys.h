@@ -14,11 +14,14 @@
 
 #include <stdint.h>
 #include <time.h>
+#include  <assert.h>
 
 typedef int64_t i64;
 typedef int32_t i32;
 typedef uint64_t ui64;
 typedef uint32_t ui32;
 typedef uint16_t u16;
+
+static_assert(sizeof(__time_t) == 8, "Error!");
 
 #endif /* PATR_FILE_SYS_H_ */

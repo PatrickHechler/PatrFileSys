@@ -15,13 +15,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
-#include <assert.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/errno.h>
-
-static_assert(sizeof(__time_t) == 8, "Error!");
 
 static i64 start_time;
 
@@ -69,25 +66,19 @@ void pfs_init() {
 	free(dat1);
 }
 
-struct pfs__access {
-	i64 lock_lock;
-	i64 lock_time;
-};
-
 static void pfs__block(struct pfs_file_sys *pfs);
 static void pfs__unblock(struct pfs_file_sys *pfs);
 static int pfs__init_block(struct pfs_file_sys *pfs, i64 block,
 		i32 start_alloc_len);
 static i32 pfs__alloc(struct pfs_file_sys *pfs, i64 block, i32 len);
-static i32 pfs__realloc(struct pfs_file_sys *pfs, i64 block, i32 oldpntr, i32 oldlen, i32 newlen);
+static i32 pfs__realloc(struct pfs_file_sys *pfs, i64 block, i32 oldpos,
+		i32 oldlen, i32 newlen, int do_copy);
 static int pfs__native_ensure_access(struct pfs_file_sys *pfs,
-		struct pfs__access *lock, int is_read_only, i64 forbidden_data);
-static inline int pfs__ensure_access(struct pfs_file_sys *pfs, void *element,
-		i64 forbidden_data) {
-	return pfs__native_ensure_access(pfs,
-			element + PFS_ELEMENT_OFFSET_LOCK_VALUE,
-			((*(i32*) (element + PFS_ELEMENT_OFFSET_FLAGS))
-					& PFS_ELEMENT_FLAG_READ_ONLY) != 0, forbidden_data);
+		struct pfs_access *lock, int is_read_only, i64 forbidden_data);
+static inline int pfs__ensure_access(struct pfs_file_sys *pfs,
+		struct pfs_file_sys_element *element, i64 forbidden_data) {
+	return pfs__native_ensure_access(pfs, &element->access,
+			(element->flags & PFS_ELEMENT_FLAG_READ_ONLY) != 0, forbidden_data);
 }
 static void pfs__init_child(struct pfs_file_sys *pfs, i64 parentID, i64 childID,
 		int is_folder, i32 child_name_pos, i32 child_pos, i64 child_block,
@@ -96,46 +87,75 @@ static size_t pfs__name_bytes(u16 *name);
 
 int pfs_fs_format(struct pfs_file_sys *pfs, i64 block_count) {
 	if (block_count < 2) {
+		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	pfs__block(pfs);
 	const i32 block_size = pfs->bm->block_size;
 	void *b0 = pfs->bm->get(pfs->bm, 0);
-	if (!pfs__native_ensure_access(pfs, b0 + PFS_FB_FILE_SYS_LOCK_VAL_OFF, 0,
-			PFS_LOCK_NO_DELETE_ALLOWED_LOCK | PFS_LOCK_NO_WRITE_ALLOWED_LOCK)) {
+	struct pfs_first_block_start *b0s = b0;
+	if (!pfs__native_ensure_access(pfs, &b0s->access, 0,
+	PFS_LOCK_NO_DELETE_ALLOWED_LOCK | PFS_LOCK_NO_WRITE_ALLOWED_LOCK)) {
 		return 0;
 	}
 	if (!pfs__init_block(pfs, 0,
-	PFS_FB_INIT_ROOT + PFS_FOLDER_OFFSET_FOLDER_ELEMENTS + 8)) {
+			sizeof(struct pfs_first_block_start)
+					+ sizeof(struct pfs_file_sys_folder) + 8)) {
 		return 0;
 	}
 	start_time = time(NULL);
-	void *b1 = pfs->bm->get(pfs->bm, 1);
-	*(i64*) b1 = 0;
-	*(i64*) (b1 + 8) = 2;
-	*(i64*) (b1 + block_size - 4) = 16;
-	pfs->bm->set(pfs->bm, 1);
-	i32 element_table_pos = pfs__alloc(pfs, 0, PFS_FILE_OFFSET_FILE_DATA_TABLE);
-	*(i64*) (b0 + PFS_FB_BLOCK_COUNT_OFF) = block_count;
-	*(i32*) (b0 + PFS_FB_BLOCK_SIZE_OFF) = block_size;
-	*(i32*) (b0 + PFS_FB_ROOT_POS_OFF) = PFS_FB_INIT_ROOT;
-	*(i64*) (b0 + PFS_FB_ROOT_BLOCK_OFF) = 0;
-	*(i64*) (b0 + PFS_FB_ELEMENT_TABLE_BLOCK_OFF) = 0;
-	*(i32*) (b0 + PFS_FB_ELEMENT_TABLE_POS_OFF) = element_table_pos;
+	i32 element_table_pos = pfs__alloc(pfs, 0,
+			sizeof(struct pfs_file_sys_file));
+	if (element_table_pos == -1) {
+		pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+		pfs->bm->unget(pfs->bm, 0);
+		return 0;
+	}
+	b0s->block_count = block_count;
+	b0s->block_size = block_size;
+	b0s->root_pos = sizeof(struct pfs_first_block_start);
+	b0s->root_block = 0;
+	b0s->element_table_block = 0;
+	b0s->element_table_pos = element_table_pos;
 //	FB_FILE_SYS_STATE_VALUE // doing this with state lock
 //	FB_FILE_SYS_STATE_TIME
-	*(i64*) (b0 + PFS_FB_FILE_SYS_LOCK_VAL_OFF) = PFS_NO_LOCK;
-	*(i64*) (b0 + PFS_FB_FILE_SYS_LOCK_TIME_OFF) = PFS_NO_TIME;
+	b0s->access.lock_lock = PFS_NO_LOCK;
+	b0s->access.lock_time = PFS_NO_TIME;
 	pfs__init_child(pfs, PFS_INVALID_ID, PFS_ROOT_FOLDER_ID, 1, -1,
-	PFS_FB_INIT_ROOT, 0, NULL, PFS_INVALID_ID);
+			sizeof(struct pfs_first_block_start), 0, NULL, PFS_INVALID_ID);
 	pfs__init_child(pfs, PFS_INVALID_ID, PFS_ELEMENT_TABLE_FILE_ID, 1, -1,
 			element_table_pos, 0, NULL, PFS_INVALID_ID);
 	pfs->lock = PFS_NO_LOCK;
 	pfs->bm->set(pfs->bm, 0);
+	void *b1 = pfs->bm->get(pfs->bm, 1);
+	*(i64*) b1 = 0;
+	*(i64*) (b1 + 8) = 2;
+	*(i32*) (b1 + block_size - 4) = 16;
+	b1 = NULL; // just to make sure
+	pfs->bm->set(pfs->bm, 1);
 	pfs__unblock(pfs);
 	return 1;
 }
-//int pfs_fs_set_block_count(struct pfs_file_sys *pfs, i64 block_count);
+int pfs_fs_set_block_count(struct pfs_file_sys *pfs, i64 block_count) {
+	if (block_count < 2) {
+		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+		return 0;
+	}
+	void *data = pfs->bm->get(pfs->bm, 1);
+	i32 end = *(ui32*) (data + pfs->bm->block_size - 4);
+	for (i32 off = 0; off < end; off++) {
+		struct pfs_allocated_blocks *current = data + off;
+		if (current->end > block_count) {
+			pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+			pfs->bm->unget(pfs->bm, 1);
+			return 0;
+		}
+	}
+	pfs->bm->unget(pfs->bm, 1);
+	data = pfs->bm->get(pfs->bm, 0);
+	((struct pfs_first_block_start*) data)->block_count = block_count;
+	return 1;
+}
 //void pfs_fs_lock_fs(struct pfs_file_sys *pfs, i64 lock_data);
 //i64 pfs_fs_block_count(struct pfs_file_sys *pfs);
 //i32 pfs_fs_block_size(struct pfs_file_sys *pfs);
@@ -171,13 +191,15 @@ int pfs_fs_format(struct pfs_file_sys *pfs, i64 block_count) {
 const static struct timespec waittime = { 0L, 50000000L, };
 
 enum pfs___ts_res {
-	pfs___ts_res_err = -1,
-	pfs___ts_res_alive = 1,
-	pfs___ts_res_block_free = 2,
+	pfs___ts_res_err = -1, pfs___ts_res_alive = 1, pfs___ts_res_block_free = 2,
 };
 
-static int pfs___table_grow(struct pfs_file_sys *pfs, i64 block, i32 add_index, i32 start, i32 end);
-static enum pfs___ts_res pfs___table_shrink(struct pfs_file_sys *pfs, i64 block, i32 rem_index, int allow_free_block);
+static int pfs___table_grow(struct pfs_file_sys *pfs, i64 block, i32 add_index,
+		i32 start, i32 end);
+static enum pfs___ts_res pfs___table_shrink(struct pfs_file_sys *pfs, i64 block,
+		i32 rem_index, int allow_free_block);
+static int pfs___remove(struct pfs_file_sys *pfs, i64 block, i32 rem_from,
+		i32 rem_to, i32 remindex, int allow_free_block);
 
 static void pfs__block(struct pfs_file_sys *pfs) {
 	if (pfs->block != 0) {
@@ -189,23 +211,22 @@ static void pfs__block(struct pfs_file_sys *pfs) {
 	}
 	while (1) {
 		pfs->bm->sync(pfs->bm);
-		void *b0 = pfs->bm->get(pfs->bm, 0L);
-		i32 oldblock = *(i32*) (b0 + PFS_FB_FILE_SYS_STATE_VAL_OFF);
+		struct pfs_first_block_start *b0 = pfs->bm->get(pfs->bm, 0L);
+		i32 oldblock = (b0->file_sys_state_val);
 		if (oldblock != 0) {
-			i64 oldtime = *(i64*) (b0 + PFS_FB_FILE_SYS_STATE_TIME_OFF);
-			if (oldtime > start_time) {
+			if (b0->file_sys_state_time > start_time || b0->file_sys_state_time == PFS_NO_TIME) {
 				pfs->bm->unget(pfs->bm, 0L);
 				continue;
 			}
 		}
 		i32 block_key = rand() | 1;
-		*(i32*) (b0 + PFS_FB_FILE_SYS_STATE_VAL_OFF) = block_key;
-		*(i64*) (b0 + PFS_FB_FILE_SYS_STATE_VAL_OFF) = time(NULL);
+		b0->file_sys_state_val = block_key;
+		b0->file_sys_state_time = time(NULL);
 		pfs->bm->set(pfs->bm, 0L);
 		nanosleep(&waittime, NULL);
 		pfs->bm->sync(pfs->bm);
 		b0 = pfs->bm->get(pfs->bm, 0L);
-		if (block_key == *(i32*) (b0 + PFS_FB_FILE_SYS_STATE_VAL_OFF)) {
+		if (block_key == (b0->file_sys_state_val)) {
 			pfs->bm->unget(pfs->bm, 0L);
 			pfs->block = block_key;
 			return;
@@ -221,8 +242,8 @@ static void pfs__unblock(struct pfs_file_sys *pfs) {
 	if (hashset_get(&pfs->bm->loaded, 0, &zero) != NULL) {
 		abort();
 	}
-	void *b0 = pfs->bm->get(pfs->bm, 0L);
-	if (pfs->block != *(i32*) (b0 + PFS_FB_FILE_SYS_STATE_VAL_OFF)) {
+	struct pfs_first_block_start *b0 = pfs->bm->get(pfs->bm, 0L);
+	if (pfs->block != b0->file_sys_state_val) {
 		const char *msg =
 				/*PATR*/"[ERROR/WARN]: unblock called, but I do not block the file system\n"
 						"              (the block is set internally, but not in the file system)\n";
@@ -230,8 +251,8 @@ static void pfs__unblock(struct pfs_file_sys *pfs) {
 		pfs->block = 0;
 		return;
 	}
-	*(i32*) (b0 + PFS_FB_FILE_SYS_STATE_VAL_OFF) = 0;
-	*(i64*) (b0 + PFS_FB_FILE_SYS_STATE_TIME_OFF) = PFS_NO_TIME;
+	b0->file_sys_state_val = 0;
+	b0->file_sys_state_time = PFS_NO_TIME;
 	pfs->bm->set(pfs->bm, 0L);
 	pfs->block = 0;
 	return;
@@ -263,7 +284,7 @@ static i32 pfs__alloc(struct pfs_file_sys *pfs, i64 block, i32 len) {
 		if (start == len) {
 			*(i32*) table = 0;
 		} else {
-			if (!pfs___table_grow(pfs, block, 0, 0, len))  {
+			if (!pfs___table_grow(pfs, block, 0, 0, len)) {
 				start -= len;
 				*(i32*) table = start;
 				pfs->bm->set(pfs->bm, block);
@@ -273,7 +294,7 @@ static i32 pfs__alloc(struct pfs_file_sys *pfs, i64 block, i32 len) {
 		pfs->bm->set(pfs->bm, block);
 		return 0;
 	}
-	for (i32 i = 0; i < entrycount - 1; i ++) {
+	for (i32 i = 0; i < entrycount - 1; i++) {
 		i32 off = (i << 3);
 		i32 this_end = *(i32*) (table + off + 4);
 		i32 next_start = *(i32*) (table + off + 8);
@@ -311,12 +332,61 @@ static i32 pfs__alloc(struct pfs_file_sys *pfs, i64 block, i32 len) {
 	pfs->bm->set(pfs->bm, block);
 	return -1;
 }
-static i32 pfs__realloc(struct pfs_file_sys *pfs, i64 block, i32 oldpntr, i32 oldlen, i32 newlen) {
+static i32 pfs__realloc(struct pfs_file_sys *pfs, i64 block, i32 oldpos,
+		i32 oldlen, i32 newlen, int do_copy) {
 	void *data = pfs->bm->get(pfs->bm, block);
-
+	ui32 table_start = *(ui32*) (data + pfs->bm->block_size - 4);
+	i32 entrycount = (pfs->bm->block_size - 4 - table_start) >> 3;
+	ui32 min = 0;
+	ui32 max = entrycount - 1;
+	ui32 mid;
+	struct pfs_table_entry *table = data + table_start;
+	while (max >= min) {
+		mid = (min + max) >> 1;
+		if (oldpos < table[mid].start) {
+			max = mid - 1;
+		} else if (table[mid].end < oldpos) {
+			min = mid + 1;
+		} else if (newlen < oldlen) {
+			int ret = pfs___remove(pfs, block, oldpos + newlen, oldlen - newlen,
+					mid, 1);
+			pfs->bm->set(pfs->bm, block);
+			if (ret == -3) {
+				return -3;
+			} else if (ret == -2) {
+				return -2;
+			} else if (newlen == 0) {
+				return -1;
+			} else {
+				return oldpos;
+			}
+		} else {
+			int need_new_place = 1;
+			if (mid < entrycount - 1 && table[mid].end == oldpos + oldlen) {
+				ui32 free = table[mid + 1].start - table[mid].end;
+				if (free >= newlen - oldlen) {
+					need_new_place = 0;
+				}
+			}
+			if (need_new_place) {
+				i32 new_pos = pfs__alloc(pfs, block, newlen);
+				pfs___remove(pfs, block, oldpos, oldpos + oldlen, mid, 0);
+				if (do_copy) {
+					memcpy(data + new_pos, data + oldpos, oldlen);
+				}
+				pfs->bm->set(pfs->bm, block);
+				return new_pos;
+			} else {
+				table[mid].end = oldpos + newlen;
+				pfs->bm->set(pfs->bm, block);
+				return oldpos;
+			}
+		}
+	}
+	abort();
 }
 static int pfs__native_ensure_access(struct pfs_file_sys *pfs,
-		struct pfs__access *access_data, int is_read_only, i64 forbidden_data) {
+		struct pfs_access *access_data, int is_read_only, i64 forbidden_data) {
 	if (forbidden_data & (PFS_LOCK_NO_DATA)) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
@@ -339,28 +409,27 @@ static void pfs__init_child(struct pfs_file_sys *pfs, i64 parentID, i64 childID,
 		int is_folder, i32 child_name_pos, i32 child_pos, i64 child_block,
 		u16 *child_name_bytes, i64 targetID) {
 	void *data = pfs->bm->get(pfs->bm, child_block);
-	void *child = data + child_pos;
+	struct pfs_file_sys_element *child = data + child_pos;
 	i64 current_time = time(NULL);
-	*(i32*) (child + PFS_ELEMENT_OFFSET_FLAGS) = (
-			is_folder ? PFS_ELEMENT_FLAG_FOLDER : PFS_ELEMENT_FLAG_FILE)
+	child->flags = (is_folder ? PFS_ELEMENT_FLAG_FOLDER : PFS_ELEMENT_FLAG_FILE)
 			| (targetID == PFS_INVALID_ID ? 0 : PFS_ELEMENT_FLAG_LINK);
-	*(i64*) (child + PFS_ELEMENT_OFFSET_NAME) = child_name_pos;
+	child->name_pos = child_name_pos;
 	if (child_name_pos != -1) {
 		memcpy(data + child_name_pos, child_name_bytes,
 				pfs__name_bytes(child_name_bytes));
 	}
-	*(i64*) (child + PFS_ELEMENT_OFFSET_NAME) = parentID;
-	*(i64*) (child + PFS_ELEMENT_OFFSET_LOCK_VALUE) = PFS_NO_LOCK;
-	*(i64*) (child + PFS_ELEMENT_OFFSET_LOCK_TIME) = PFS_NO_TIME;
-	*(i64*) (child + PFS_ELEMENT_OFFSET_CREATE_TIME) = current_time;
-	*(i64*) (child + PFS_ELEMENT_OFFSET_LAST_MOD_TIME) = current_time;
-	*(i64*) (child + PFS_ELEMENT_OFFSET_LAST_META_MOD_TIME) = current_time;
+	child->parentID = parentID;
+	child->access.lock_lock = PFS_NO_LOCK;
+	child->access.lock_time = PFS_NO_TIME;
+	child->create_time = current_time;
+	child->last_mod_time = current_time;
+	child->last_meta_mod_time = current_time;
 	if (targetID != PFS_INVALID_ID) {
-		*(i64*) (child + PFS_LINK_OFFSET_TARGET_ID) = targetID;
+		((struct pfs_file_sys_link*) child)->targetID = targetID;
 	} else if (is_folder) {
-		*(i32*) (child + PFS_FOLDER_OFFSET_ELEMENT_COUNT) = 0;
+		((struct pfs_file_sys_folder*) child)->element_count = 0;
 	} else {
-		*(i64*) (child + PFS_FILE_OFFSET_FILE_LENGTH) = 0;
+		((struct pfs_file_sys_file*) child)->length = 0;
 	}
 	pfs->bm->set(pfs->bm, child_block);
 }

@@ -38,7 +38,7 @@ struct bm_block_manager {
 	/**
 	 * the size of a block
 	 */
-	const i32 block_size;
+	const ui32 block_size;
 };
 
 /**

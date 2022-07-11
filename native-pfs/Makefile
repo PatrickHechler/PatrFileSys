@@ -6,6 +6,8 @@ LDFLAGS =
 
 CC = gcc
 
+CFLAGS = -fPIC
+
 ifeq ($(BUILD_MODE),debug)
 	CFLAGS += -g -Og
 else ifeq ($(BUILD_MODE),run)
