@@ -1400,7 +1400,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 					max = mid - 1;
 				} else if (end < pos) {
 					min = mid + 1;
-				} else if (newLen < oldLen) {
+				} else if (oldLen < oldLen) {
 					int ret = remove(block, pos + newLen, oldLen - newLen, mid, true);
 					if (ret == -2) {
 						return -2;
