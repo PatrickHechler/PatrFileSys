@@ -13,10 +13,22 @@
 #include "bm.h"
 #include <stddef.h>
 
-extern void pfs_init();
+#ifdef INTERN_PFS
+static __attribute__ ((constructor)) void pfs_init();
+#endif /* INTERN_PFS */
+
+/**
+ * this variable saves the currently used patr-file-system.
+ *
+ * this variable has to be first initialized
+ * (either with one of the two macros pfs_new_ram_fs/pfs_new_file_fs or manually)
+ *
+ * please note, that this variable is not initialized automatically
+ */
+extern struct pfs_file_sys *pfs;
 
 #define pfs_new_ram_fs(block_count, block_size) \
-	struct pfs_file_sys *pfs = malloc(sizeof(struct pfs_file_sys));\
+	pfs = malloc(sizeof(struct pfs_file_sys));\
 	if (pfs == NULL) {\
 		abort();\
 	}\
@@ -25,7 +37,7 @@ extern void pfs_init();
 	pfs->block = 0;
 
 #define pfs_new_file_fs(file, block_size) \
-	struct pfs_file_sys *pfs = malloc(sizeof(struct pfs_file_sys));\
+	pfs = malloc(sizeof(struct pfs_file_sys));\
 	if (pfs == NULL) {\
 		abort();\
 	}\
@@ -74,29 +86,40 @@ struct pfs_element {
  *
  * returns 1 on success and zero if it fails
  */
-extern int pfs_fs_format(struct pfs_file_sys *pfs, i64 block_count);
+extern int pfs_fs_format(i64 block_count);
+
+/**
+ * creates a new patr-file system.
+ *
+ * the block size will be read from the block manager
+ *
+ * returns 1 on success and zero if it fails
+ *
+ * in difference to pfs_fs_format this function will not treat the current patr-file-system as a valid patr-file-system
+ */
+extern int pfs_fs_create(i64 block_count);
 
 /**
  * changes the block count
  *
  * returns 1 on success and zero if there are blocks in use which would be outside of the new boundary
  */
-extern int pfs_fs_set_block_count(struct pfs_file_sys *pfs, i64 block_count);
+extern int pfs_fs_set_block_count(i64 block_count);
 
 /**
  * locks the patr-file-system with the given lock data
  */
-extern void pfs_fs_lock_fs(struct pfs_file_sys *pfs, i64 lock_data);
+extern int pfs_fs_lock_fs(i64 lock_data);
 
 /**
  * reads the block count from the patr-file-system
  */
-extern i64 pfs_fs_block_count(struct pfs_file_sys *pfs);
+extern i64 pfs_fs_block_count();
 
 /**
  * reads the block size from the patr-file-system
  */
-extern i32 pfs_fs_block_size(struct pfs_file_sys *pfs);
+extern i32 pfs_fs_block_size();
 
 /**
  * sets the pfs-element to its parent folder
@@ -110,13 +133,16 @@ extern int pfs_element_get_parent(struct pfs_element *element);
  *
  * if new_name is NULL the name is not changed
  *
- * if new_parent_ID is INVALID_ID the parent is not changed
+ * if new_parent is NULL the parent is not changed and old_parent_lock is ignored
+ *
+ * if new_name is NULL and new_parent is NULL nothing will be changed
+ * (the operation may still fail, if the element is invalid)
  *
  * returns 1 on success
  * returns 0 on error
  */
-extern int pfs_element_move(struct pfs_element *element, wchar_t *new_name,
-		i64 new_parent_ID);
+extern int pfs_element_move(struct pfs_element *element, u16 *new_name,
+		struct pfs_element *new_parent, i64 old_parent_lock);
 
 /**
  * returns the flags of this element
@@ -158,7 +184,8 @@ extern int pfs_element_get_las_mod(struct pfs_element *element, i64 *time);
  * returns 1 on success
  * returns 0 on error
  */
-extern int pfs_element_get_last_meta_mod(struct pfs_element *element, i64 *time);
+extern int pfs_element_get_last_meta_mod(struct pfs_element *element,
+		i64 *time);
 
 /**
  * sets the create time of the given element
@@ -235,7 +262,8 @@ extern int pfs_element_delete(struct pfs_element *element);
  * returns 1 on success
  * returns 0 on error
  */
-extern int pfs_element_get_name(struct pfs_element *element, i32 size, wchar_t **name);
+extern int pfs_element_get_name(struct pfs_element *element, i32 size,
+		wchar_t **name);
 
 /**
  * reads the files content from off len bytes
@@ -243,7 +271,8 @@ extern int pfs_element_get_name(struct pfs_element *element, i32 size, wchar_t *
  * returns the number of bytes actually read on success
  * returns -1 on error and 0 on EOF (except len is also 0)
  */
-extern i64 pfs_file_read(struct pfs_element *file, i64 off, void *data, i64 len);
+extern i64 pfs_file_read(struct pfs_element *file, i64 off, void *data,
+		i64 len);
 
 /**
  * writes the files content from off len bytes
@@ -251,7 +280,8 @@ extern i64 pfs_file_read(struct pfs_element *file, i64 off, void *data, i64 len)
  * returns 1 on success
  * returns 0 on error
  */
-extern int pfs_file_write(struct pfs_element *file, i64 off, void *data, i64 len);
+extern int pfs_file_write(struct pfs_element *file, i64 off, void *data,
+		i64 len);
 
 /**
  * appends len bytes to the file
@@ -298,7 +328,8 @@ extern int pfs_folder_add_file(struct pfs_element *folder, wchar_t *name);
  * returns 1 on success
  * returns 0 on error
  */
-extern int pfs_folder_add_link(struct pfs_element *folder, wchar_t *name, i64 targetID);
+extern int pfs_folder_add_link(struct pfs_element *folder, wchar_t *name,
+		i64 targetID);
 
 /**
  * returns the child count of this folder

@@ -33,7 +33,7 @@
 struct pfs_access {
 	i64 lock_lock;
 	i64 lock_time;
-}__attribute__((packed));
+};
 
 static_assert(offsetoff(struct pfs_access, lock_lock) == 0, "err");
 static_assert(offsetoff(struct pfs_access, lock_time) == 8, "err");
@@ -49,7 +49,7 @@ struct pfs_first_block_start {
 	i32               file_sys_state_val;
 	i64               file_sys_state_time;
 	struct pfs_access access;
-}__attribute__((packed));
+};
 
 static_assert(offsetoff(struct pfs_first_block_start, block_count) == 0, "err");
 static_assert(offsetoff(struct pfs_first_block_start, block_size) == 8, "err");
@@ -113,7 +113,7 @@ static_assert(sizeof(struct pfs_first_block_start) == 64, "err");
 struct pfs_table_entry {
 	i32 start;
 	i32 end;
-}__attribute__((packed));
+};
 
 static_assert(offsetoff(struct pfs_table_entry, start) == 0, "err");
 static_assert(offsetoff(struct pfs_table_entry, end) == 4, "err");
@@ -127,7 +127,7 @@ struct pfs_file_sys_element {
 	i64 create_time;
 	i64 last_mod_time;
 	i64 last_meta_mod_time;
-}__attribute__((packed));
+};
 
 static_assert(offsetoff(struct pfs_file_sys_element, flags) == 0, "err");
 static_assert(offsetoff(struct pfs_file_sys_element, name_pos) == 4, "err");
@@ -137,21 +137,32 @@ static_assert(offsetoff(struct pfs_file_sys_element, create_time) == 32, "err");
 static_assert(offsetoff(struct pfs_file_sys_element, last_mod_time) == 40, "err");
 static_assert(offsetoff(struct pfs_file_sys_element, last_meta_mod_time) == 48, "err");
 
+struct pfs_folder_childID {
+	i32 low_bits;
+	i32 high_bits;
+};
+
+static_assert(offsetoff(struct pfs_folder_childID, low_bits) == 0, "err");
+static_assert(offsetoff(struct pfs_folder_childID, high_bits) == 4, "err");
+static_assert(sizeof(struct pfs_folder_childID) == 8, "err");
+
 struct pfs_file_sys_folder {
 	struct pfs_file_sys_element element;
 	i32 element_count;
 	i64 childIDs[];
-}__attribute__((packed));
+} __attribute__((packed)); //needed because of padding at the end, which corrupts the sizeof
 
 static_assert(offsetoff(struct pfs_file_sys_folder, element) == 0, "err");
 static_assert(offsetoff(struct pfs_file_sys_folder, element_count) == 56, "err");
 static_assert(offsetoff(struct pfs_file_sys_folder, childIDs) == 60, "err");
+static_assert(offsetoff(struct pfs_file_sys_folder, childIDs[0]) == 60, "err");
+static_assert(offsetoff(struct pfs_file_sys_folder, childIDs[1]) == 68, "err");
 static_assert(sizeof(struct pfs_file_sys_folder) == 60, "err");
 
 struct pfs_allocated_blocks {
 	i64 start;
 	i64 end;
-}__attribute__((packed));
+};
 
 static_assert(offsetoff(struct pfs_allocated_blocks, start) == 0, "err");
 static_assert(offsetoff(struct pfs_allocated_blocks, end) == 8, "err");
@@ -161,7 +172,7 @@ struct pfs_file_sys_file {
 	struct pfs_file_sys_element element;
 	i64 length;
 	struct pfs_allocated_blocks data_table[];
-}__attribute__((packed));
+};
 
 static_assert(offsetoff(struct pfs_file_sys_file, element) == 0, "err");
 static_assert(offsetoff(struct pfs_file_sys_file, length) == 56, "err");
@@ -171,7 +182,7 @@ static_assert(sizeof(struct pfs_file_sys_file) == 64, "err");
 struct pfs_file_sys_link {
 	struct pfs_file_sys_element element;
 	i64 targetID;
-}__attribute__((packed));
+};
 
 static_assert(offsetoff(struct pfs_file_sys_link, element) == 0, "err");
 static_assert(offsetoff(struct pfs_file_sys_link, targetID) == 56, "err");

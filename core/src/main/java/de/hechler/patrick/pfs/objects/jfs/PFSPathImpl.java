@@ -24,8 +24,8 @@ import java.util.Objects;
 public class PFSPathImpl implements Path {
 	
 	private final PFSFileSystemImpl fs;
-	private final PFSPathImpl       relativeTo;
-	private final Name[]            path;
+	private final PFSPathImpl relativeTo;
+	private final Name[] path;
 	
 	/**
 	 * creates an root path
@@ -46,19 +46,13 @@ public class PFSPathImpl implements Path {
 	}
 	
 	
-	public Name[] getNames() {
-		return this.path.clone();
-	}
+	public Name[] getNames() { return this.path.clone(); }
 	
 	@Override
-	public PFSFileSystemImpl getFileSystem() {
-		return this.fs;
-	}
+	public PFSFileSystemImpl getFileSystem() { return this.fs; }
 	
 	@Override
-	public boolean isAbsolute() {
-		return this.path[0] == null;
-	}
+	public boolean isAbsolute() { return this.path[0] == null; }
 	
 	@Override
 	public PFSPathImpl getRoot() {
@@ -81,9 +75,7 @@ public class PFSPathImpl implements Path {
 	}
 	
 	@Override
-	public int getNameCount() {
-		return this.path.length;
-	}
+	public int getNameCount() { return this.path.length; }
 	
 	@Override
 	public Path getName(int index) {
@@ -144,7 +136,7 @@ public class PFSPathImpl implements Path {
 		boolean changed;
 		do {
 			changed = false;
-			for (int i = 0, s = names.size(); i < s; i ++ ) {
+			for (int i = 0; i < names.size(); i ++ ) {
 				Name n = names.get(i);
 				if (n.name != null) {
 					continue;
@@ -152,6 +144,9 @@ public class PFSPathImpl implements Path {
 					names.remove(i);
 					i -- ;
 				} else if (n == Name.BACK) {
+					if (i - 1 < 0) {
+						throw new IllegalStateException("this path is invalid! (" + toString() + ")");
+					}
 					names.remove(i);
 					names.remove(i - 1);
 					i -= 2;
@@ -318,7 +313,7 @@ public class PFSPathImpl implements Path {
 	
 	public static final class Name implements Comparable <Name> {
 		
-		public static final Name BACK    = new Name(null);
+		public static final Name BACK = new Name(null);
 		public static final Name NOTHING = new Name(null);
 		
 		public final String name;

@@ -27,7 +27,6 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_TABLE_FILE_PO
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_DATA_TABLE;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_ELEMENT_LENGTH;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_FOLDER_ELEMENTS;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_DELETE_ALLOWED_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_ID;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_LOCK;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_TIME;
@@ -59,13 +58,13 @@ import de.hechler.patrick.pfs.objects.ba.BlockManagerImpl;
 
 public class PatrFileSysImpl implements PatrFileSystem {
 	
-	public final Random       rnd;
+	public final Random rnd;
 	public final BlockManager bm;
-	private volatile long     startTime;
-	private volatile long     lock;
-	public final boolean      readOnly;
-	private PatrFileImpl      elementTable;
-	private PatrFolder        root;
+	private volatile long startTime;
+	private volatile long lock;
+	public final boolean readOnly;
+	private PatrFileImpl elementTable;
+	private PatrFolder root;
 	
 	public PatrFileSysImpl(BlockAccessor ba) {
 		this(new Random(), new BlockManagerImpl(ba), false);
@@ -149,22 +148,20 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	 * sets the lock used by this file system
 	 * 
 	 * @param lock
-	 *             the lock which should be used by this file system
+	 *            the lock which should be used by this file system
 	 */
-	public void setLock(long lock) {
-		this.lock = lock;
-	}
+	public void setLock(long lock) { this.lock = lock; }
 	
 	/**
 	 * locks the file system
 	 * 
 	 * @param lock
-	 *             the lock data for the new lock
+	 *            the lock data for the new lock
 	 * @return the new lock
 	 * @throws ElementLockedException
-	 *                                if the file system is already locked
+	 *             if the file system is already locked
 	 * @throws IOException
-	 *                                if an IO error occurs
+	 *             if an IO error occurs
 	 * @see PatrFileSysElement#lock(long)
 	 */
 	public long lock(long lock) throws ElementLockedException, IOException {
@@ -194,7 +191,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	 * removes the given lock from the file system
 	 * 
 	 * @throws IOException
-	 *                     if an IO error occurs
+	 *             if an IO error occurs
 	 * @see PatrFileSysElement#removeLock(long)
 	 */
 	public void removeLock() throws IOException {
@@ -214,18 +211,12 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		}
 	}
 	
-	public boolean isReadOnly() {
-		return readOnly;
-	}
+	public boolean isReadOnly() { return readOnly; }
 	
-	public long getStartTime() {
-		return startTime;
-	}
+	public long getStartTime() { return startTime; }
 	
 	@Override
-	public PatrFolder getRoot() throws IOException {
-		return root;
-	}
+	public PatrFolder getRoot() throws IOException { return root; }
 	
 	@Override
 	public PatrFileSysElement fromID(Object id) throws IOException, IllegalArgumentException, NullPointerException {
@@ -264,13 +255,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	@Override
 	public void format(long blockCount, int blockSize) throws IOException {
 		synchronized (bm) {
-			int key = lockFS();
-			ensureAccess(LOCK_NO_DELETE_ALLOWED_LOCK, true);
-			try {
-				executeFormat(blockCount, blockSize);
-			} finally {
-				unlockFS(key);
-			}
+			executeFormat(blockCount, blockSize);
 		}
 	}
 	
@@ -300,8 +285,8 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			longToByteArr(bytes, FB_ROOT_BLOCK_OFFSET, 0L);
 			longToByteArr(bytes, FB_TABLE_FILE_BLOCK_OFFSET, 0L);
 			intToByteArr(bytes, FB_TABLE_FILE_POS_OFFSET, blockTablePos);
-			// public static final int FB_FILE_SYS_STATE_VALUE // doing this with state lock
-			// public static final int FB_FILE_SYS_STATE_TIME
+			intToByteArr(bytes, FB_FILE_SYS_STATE_VALUE, 0);
+			longToByteArr(bytes, FB_FILE_SYS_STATE_TIME, NO_TIME);
 			longToByteArr(bytes, FB_FILE_SYS_LOCK_VALUE, NO_LOCK);
 			longToByteArr(bytes, FB_FILE_SYS_LOCK_TIME, NO_TIME);
 			PatrFolderImpl.initChild(bm, NO_ID, ROOT_FOLDER_ID, true, FB_START_ROOT_POS, -1, 0L, null, null);
@@ -490,8 +475,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			long used = 0;
 			int end = byteArrToInt(bytes, bytes.length - 4);
 			for (int off = 0; off < end; off += 16) {
-				long startBlock = byteArrToLong(bytes, off), endBlock = byteArrToLong(bytes, off + 8),
-					count = endBlock - startBlock;
+				long startBlock = byteArrToLong(bytes, off), endBlock = byteArrToLong(bytes, off + 8), count = endBlock - startBlock;
 				used += count;
 			}
 			return used;
@@ -543,8 +527,8 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	public static void initBlock(byte[] bytes, int startLen) throws OutOfSpaceException {
 		final int blockSize = bytes.length, tableStart = blockSize - 20;
 		if (tableStart < startLen) {
-			throw new OutOfSpaceException("the block is not big enugh! blockSize=" + blockSize + " startLen=" + startLen
-				+ " (note, that the table also needs " + (blockSize - tableStart) + " bytes)");
+			throw new OutOfSpaceException(
+					"the block is not big enugh! blockSize=" + blockSize + " startLen=" + startLen + " (note, that the table also needs " + (blockSize - tableStart) + " bytes)");
 		}
 		intToByteArr(bytes, blockSize - 4, tableStart);
 		intToByteArr(bytes, tableStart + 12, blockSize);
@@ -589,15 +573,16 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	/**
 	 * locks the file system, to complete an operation.<br>
-	 * after this call {@link #unlockFS(int)} should be called with the return value of this call as argument.
+	 * after this call {@link #unlockFS(int)} should be called with the return value of this call as
+	 * argument.
 	 * <p>
 	 * if this method gets called twice without {@link #unlockFS(int)} most likely a deadlock occurs
 	 * 
 	 * @return the argument for {@link #unlockFS(int)}
 	 * @throws IOException
-	 *                                if an IO error occurs
+	 *             if an IO error occurs
 	 * @throws ElementLockedException
-	 *                                if the file system is locked
+	 *             if the file system is locked
 	 */
 	public int lockFS() throws IOException, ElementLockedException {
 		while (true) {

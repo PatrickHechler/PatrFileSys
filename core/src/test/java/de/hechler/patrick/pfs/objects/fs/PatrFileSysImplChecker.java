@@ -20,7 +20,6 @@ import static de.hechler.patrick.zeugs.check.Assert.fail;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.RandomAccessFile;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
@@ -31,17 +30,19 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Random;
 import java.util.Set;
 
 import de.hechler.patrick.pfs.exception.ElementLockedException;
 import de.hechler.patrick.pfs.exception.ElementReadOnlyException;
+import de.hechler.patrick.pfs.interfaces.BlockAccessor;
 import de.hechler.patrick.pfs.interfaces.PatrFile;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
 import de.hechler.patrick.pfs.interfaces.PatrFileSystem;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
 import de.hechler.patrick.pfs.objects.ba.BlockManagerImpl;
-import de.hechler.patrick.pfs.objects.ba.FileBlockAccessor;
+import de.hechler.patrick.pfs.objects.ba.SeekablePathBlockAccessor;
 import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 import de.hechler.patrick.zeugs.check.anotations.Check;
 import de.hechler.patrick.zeugs.check.anotations.CheckClass;
@@ -122,8 +123,7 @@ public class PatrFileSysImplChecker {
 	private void start(@MethodParam Method met, @ParamCreater(method = "startsize") int startSize) throws IOException {
 		Path path = Paths.get("./testout/" + getClass().getSimpleName() + "/" + met.getName() + "/");
 		Files.createDirectory(path);
-		RandomAccessFile raf = new RandomAccessFile(path.resolve("./myFileSys.pfs").toFile(), "rw");
-		FileBlockAccessor ba = new FileBlockAccessor(startSize, raf);
+		BlockAccessor ba = new SeekablePathBlockAccessor(path.resolve("./myFileSys.pfs"), startSize);
 		BlockManagerImpl bm = new BlockManagerImpl(ba);
 		fs = new PatrFileSysImpl(bm);
 		long blockCount = 1 << 15;
@@ -178,7 +178,7 @@ public class PatrFileSysImplChecker {
 		PatrFile file1 = root.addFile("myName", NO_LOCK);
 		PatrFile file2 = root.addFile("mySecondName", NO_LOCK);
 		byte[] bytes1 = ("hello world!\n"
-			+ "this is some texxt file.\n"
+			+ "this is some text file.\n"
 			+ "\n"
 			+ "here comes some text.\n"
 			+ "this is some more text.\n"
@@ -326,7 +326,8 @@ public class PatrFileSysImplChecker {
 	}
 	
 	private void deepWrite(Path realFSFolder, PatrFolder patrFSFolder) throws IOException {
-		for (PatrFileSysElement child : patrFSFolder) {
+		for (Iterator <PatrFileSysElement> iter = patrFSFolder.iterator(); iter.hasNext();) {
+			PatrFileSysElement child = iter.next();
 			Path path = realFSFolder.resolve(child.getName());
 			if (child.isFolder()) {
 				Files.createDirectory(path);
