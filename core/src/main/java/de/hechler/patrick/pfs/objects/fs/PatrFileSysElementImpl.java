@@ -1113,28 +1113,28 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 	 */
 	protected void relocate(int myoldlen, int mynewlen, int newNameLen) throws IOException, OutOfSpaceException {
 		final long myNewBlockNum = allocateOneBlock(), myOldBlockNum = block;
-		System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: myOldBlockNum=" + myOldBlockNum);
+		// System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: myOldBlockNum=" + myOldBlockNum);
 		final int myOldPos = pos;
-		System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: myOldPos=" + myOldPos);
+		// System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: myOldPos=" + myOldPos);
 		int oldnamepos;
 		int oldnamelen;
 		byte[] oldBlock = bm.getBlock(myOldBlockNum);
 		try {
-			System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: ec=" + byteArrToInt(oldBlock, myOldPos + FOLDER_OFFSET_ELEMENT_COUNT));
+			// System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: ec=" + byteArrToInt(oldBlock, myOldPos + FOLDER_OFFSET_ELEMENT_COUNT));
 			oldnamepos = byteArrToInt(oldBlock, myOldPos + ELEMENT_OFFSET_NAME);
-			System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: ec=" + byteArrToInt(oldBlock, myOldPos + FOLDER_OFFSET_ELEMENT_COUNT));
-			System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: oldnamepos=" + oldnamepos);
+			// System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: ec=" + byteArrToInt(oldBlock, myOldPos + FOLDER_OFFSET_ELEMENT_COUNT));
+			// System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: oldnamepos=" + oldnamepos);
 			oldnamelen = getNameByteCount();
-			System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: oldnamelen=" + oldnamelen);
+			// System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: oldnamelen=" + oldnamelen);
 			final int realNewNameLen = (newNameLen == -1 ? oldnamelen : newNameLen);
-			System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: realNewNameLen=" + realNewNameLen);
+			// System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: realNewNameLen=" + realNewNameLen);
 			byte[] newBlock = bm.getBlock(myNewBlockNum);
 			try {
 				PatrFileSysImpl.initBlock(newBlock, mynewlen + realNewNameLen);
 				final int myNewPos = realNewNameLen,
 					nameNewPos = realNewNameLen == 0 ? -1 : 0;
-				System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: myNewPos=" + myNewPos);
-				System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: nameNewPos=" + nameNewPos);
+				// System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: myNewPos=" + myNewPos);
+				// System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: nameNewPos=" + nameNewPos);
 				try {
 					reallocate(myOldBlockNum, myOldPos, myoldlen, 0, false);
 					if (oldnamelen > 0) {
@@ -1142,7 +1142,7 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 							reallocate(myOldBlockNum, oldnamepos, oldnamelen, 0, false);
 						} catch (OutOfSpaceException e) {
 							pos = allocate(bm, myOldBlockNum, myoldlen);
-							System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: pos=" + pos);
+							// System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: pos=" + pos);
 							System.arraycopy(oldBlock, myOldPos, oldBlock, pos, myoldlen);
 							fs.setBlockAndPos(this);
 							throw e;
@@ -1158,9 +1158,9 @@ public class PatrFileSysElementImpl extends PatrID implements PatrFileSysElement
 				}
 				intToByteArr(newBlock, myNewPos + ELEMENT_OFFSET_NAME, nameNewPos);
 				pos = myNewPos;
-				System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: pos=" + pos);
+				// System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: pos=" + pos);
 				block = myNewBlockNum;
-				System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: block=" + block);
+				// System.out.println("[" + Thread.currentThread().getName() + " ||| ID=" + id + "]: relocate: block=" + block);
 				fs.setBlockAndPos(this);
 			} finally {
 				bm.setBlock(myNewBlockNum);

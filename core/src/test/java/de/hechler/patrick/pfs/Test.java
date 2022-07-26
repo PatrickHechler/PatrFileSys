@@ -10,6 +10,7 @@ public class Test {
 	}
 	
 	public static void main(String[] args) throws InterruptedException {
+		System.out.println(System.getProperty("java.version"));
 		BigCheckResult cr = BigChecker.tryCheckAll(true, Test.class.getPackage(), Test.class.getClassLoader());
 		cr.detailedPrint();
 		if (cr.wentUnexpected()) {
