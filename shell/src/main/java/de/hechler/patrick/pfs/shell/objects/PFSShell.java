@@ -1,5 +1,10 @@
 package de.hechler.patrick.pfs.shell.objects;
 
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.ATTR_VIEW_PATR;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.PATR_VIEW_ATTR_EXECUTABLE;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.PATR_VIEW_ATTR_HIDDEN;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.PATR_VIEW_ATTR_READ_ONLY;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -749,19 +754,19 @@ public class PFSShell implements Runnable {
 					}
 				}
 				if (executable) {
-					Files.setAttribute(target, PFSFileSystemImpl.ATTR_VIEW_PATR + ':' + PFSFileSystemProviderImpl.PATR_VIEW_ATTR_EXECUTABLE, true);
+					Files.setAttribute(target, ATTR_VIEW_PATR + ':' + PATR_VIEW_ATTR_EXECUTABLE, true);
 					if (verbose) {
 						out.print("marked " + target + " as executable\n");
 					}
 				}
 				if (hidden) {
-					Files.setAttribute(target, PFSFileSystemImpl.ATTR_VIEW_PATR + ':' + PFSFileSystemProviderImpl.PATR_VIEW_ATTR_HIDDEN, true);
+					Files.setAttribute(target, ATTR_VIEW_PATR + ':' + PATR_VIEW_ATTR_HIDDEN, true);
 					if (verbose) {
 						out.print("marked " + target + " as hidden\n");
 					}
 				}
 				if (read_only) {
-					Files.setAttribute(target, PFSFileSystemImpl.ATTR_VIEW_PATR + ':' + PFSFileSystemProviderImpl.PATR_VIEW_ATTR_READ_ONLY, true);
+					Files.setAttribute(target, ATTR_VIEW_PATR + ':' + PATR_VIEW_ATTR_READ_ONLY, true);
 					if (verbose) {
 						out.print("marked " + target + " as read-only\n");
 					}

@@ -29,10 +29,10 @@ public class SeekablePathBlockAccessor implements BlockAccessor {
 		this.blockSize = blockSize;
 	}
 	
-	private static final OpenOption[] OPEN_EXISTING_READ_ONLY = new OpenOption[] {StandardOpenOption.READ};
-	private static final OpenOption[] OPEN_EXISTING_READ_WRITE = new OpenOption[] {StandardOpenOption.READ, StandardOpenOption.WRITE};
-	private static final OpenOption[] OPEN_NEW_READ_ONLY = new OpenOption[] {StandardOpenOption.CREATE_NEW, StandardOpenOption.READ};
-	private static final OpenOption[] OPEN_NEW_READ_WRITE = new OpenOption[] {StandardOpenOption.CREATE_NEW, StandardOpenOption.READ, StandardOpenOption.WRITE};
+	private static final OpenOption[] OPEN_EXISTING_READ_ONLY  = new OpenOption[] {StandardOpenOption.READ };
+	private static final OpenOption[] OPEN_EXISTING_READ_WRITE = new OpenOption[] {StandardOpenOption.READ, StandardOpenOption.WRITE };
+	private static final OpenOption[] OPEN_NEW_READ_ONLY       = new OpenOption[] {StandardOpenOption.CREATE_NEW, StandardOpenOption.READ };
+	private static final OpenOption[] OPEN_NEW_READ_WRITE      = new OpenOption[] {StandardOpenOption.CREATE_NEW, StandardOpenOption.READ, StandardOpenOption.WRITE };
 	
 	/**
 	 * creates a new {@link SeekablePathBlockAccessor}.
@@ -43,14 +43,14 @@ public class SeekablePathBlockAccessor implements BlockAccessor {
 	 * if the {@code defaultBlockSize} is {@code -1} the creation of the new file will fail.
 	 * 
 	 * @param path
-	 *                         the path of the patr-file-system {@link BlockAccessor}
+	 *            the path of the patr-file-system {@link BlockAccessor}
 	 * @param defaultBlockSize
-	 *                         the default block size if the file does not already exist or {@code -1}
+	 *            the default block size if the file does not already exist or {@code -1}
 	 * @return the new created {@link SeekablePathBlockAccessor}
 	 * @throws IOException
-	 *                     if an IO-error occurs
+	 *             if an IO-error occurs
 	 */
-	public static SeekablePathBlockAccessor create(Path path, int defaultBlockSize, boolean readOnly) throws IOException {
+	public static SeekablePathBlockAccessor create(Path path, int defaultBlockSize, boolean readOnly, Bool created) throws IOException {
 		try {
 			SeekableByteChannel channel = Files.newByteChannel(path, readOnly ? OPEN_EXISTING_READ_ONLY : OPEN_EXISTING_READ_WRITE);
 			channel.position(PatrFileSysConstants.FB_BLOCK_LENGTH_OFFSET);
@@ -61,6 +61,9 @@ public class SeekablePathBlockAccessor implements BlockAccessor {
 				throw new IOException("could not read the block size");
 			}
 			int bs = byteArrToInt(bytes, 0);
+			if (created != null) {
+				created.value = false;
+			}
 			return new SeekablePathBlockAccessor(channel, bs);
 		} catch (IOException e) {
 			if (defaultBlockSize == -1) {
@@ -68,6 +71,9 @@ public class SeekablePathBlockAccessor implements BlockAccessor {
 			}
 			try {
 				SeekableByteChannel channel = Files.newByteChannel(path, readOnly ? OPEN_NEW_READ_ONLY : OPEN_NEW_READ_WRITE);
+				if (created != null) {
+					created.value = true;
+				}
 				return new SeekablePathBlockAccessor(channel, defaultBlockSize);
 			} catch (IOException e1) {
 				if (e instanceof FileNotFoundException) {
@@ -76,6 +82,12 @@ public class SeekablePathBlockAccessor implements BlockAccessor {
 				throw e1;
 			}
 		}
+	}
+	
+	public static class Bool {
+		
+		public boolean value;
+		
 	}
 	
 	@Override

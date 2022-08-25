@@ -1,7 +1,7 @@
 package de.hechler.patrick.pfs.objects.jfs;
 
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
-import static de.hechler.patrick.pfs.utils.JavaPFSConsants.*;
+import static de.hechler.patrick.pfs.utils.JavaPFSConsants.ATTR_VIEW_BASIC;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_LOCK;
 
 import java.io.IOException;
 import java.nio.file.attribute.BasicFileAttributeView;
@@ -10,7 +10,6 @@ import java.nio.file.attribute.FileTime;
 import de.hechler.patrick.pfs.exception.ElementLockedException;
 import de.hechler.patrick.pfs.interfaces.PatrFileSysElement;
 import de.hechler.patrick.pfs.interfaces.PatrFolder;
-import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 
 public class PFSBasicFileAttributeViewImpl implements BasicFileAttributeView {
 	
@@ -77,10 +76,10 @@ public class PFSBasicFileAttributeViewImpl implements BasicFileAttributeView {
 			throw new UnsupportedOperationException("can't set access time (access time is not supported)");
 		}
 		if (createTime != null) {
-			element.setCreateTime(createTime.toMillis(), PatrFileSysConstants.NO_LOCK);
+			element.setCreateTime(createTime.toMillis(), NO_LOCK);
 		}
 		if (lastModifiedTime != null) {
-			element.setLastModTime(lastModifiedTime.toMillis(), PatrFileSysConstants.NO_LOCK);
+			element.setLastModTime(lastModifiedTime.toMillis(), NO_LOCK);
 		}
 	}
 	
