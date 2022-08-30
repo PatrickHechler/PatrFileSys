@@ -4,7 +4,7 @@
 	
 	<groupId>de.hechler.patrick.zeugs.pfs</groupId>
 	<artifactId>pfs-shell</artifactId>
-	<version>2.5.0</version>
+	<version>2.6.0</version>
 	<packaging>jar</packaging>
 	
 	<properties>

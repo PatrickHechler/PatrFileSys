@@ -5,6 +5,8 @@ import static de.hechler.patrick.pfs.utils.JavaPFSConsants.PATR_VIEW_ATTR_EXECUT
 import static de.hechler.patrick.pfs.utils.JavaPFSConsants.PATR_VIEW_ATTR_HIDDEN;
 import static de.hechler.patrick.pfs.utils.JavaPFSConsants.PATR_VIEW_ATTR_READ_ONLY;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -107,7 +109,7 @@ public class PFSShell implements Runnable {
 		+ "    changes the shell mode.\n"
 		+ "    \n"
 		+ "    the shell can be in two modes:\n"
-		+ "      'normal'-file-system mode (nfs)\n"
+		+ "      'real'-file-system mode (rfs)\n"
 		+ "      patr-file-system mode (pfs)\n"
 		+ "    \n"
 		+ "    if no argument is set the shell toggles the mode\n"
@@ -299,7 +301,7 @@ public class PFSShell implements Runnable {
 								PFSShell.this.notify();
 							}
 						}
-					});
+					}).start();
 				}
 				while (runningJobs > 0) {
 					synchronized (this) {
@@ -340,11 +342,17 @@ public class PFSShell implements Runnable {
 	}
 	
 	private void prompt() {
+		String start;
+		Path path;
 		if (inPfs) {
-			System.out.print("[ pfs " + pfsPath.getFileName() + "] ");
+			start = "[ pfs ";
+			path = pfsPath;
 		} else {
-			System.out.print("[ rfs " + outPath.getFileName() + "] ");
+			start = "[ rfs ";
+			path = outPath;
 		}
+		Path name = path.getFileName();
+		System.out.print(start + (name == null ? "/" : name) + "] ");
 	}
 	
 	private void executeAny(PatrCommand cmd) {
@@ -1349,7 +1357,7 @@ public class PFSShell implements Runnable {
 	
 	public void executeExtern(PatrCommand cmd) {
 		PrintStream out = cmd.out == null ? System.out : new PrintStream(cmd.out, true, StandardCharsets.UTF_8);
-		Path commandPath = getPath(true, true, cmd.cmd[0]);
+		Path commandPath = getPath(inPfs, true, cmd.cmd[0]);
 		cmd.cmd[0] = commandPath.normalize().toString();
 		if (patrFileSyss.size() > 0 && commandPath.getFileSystem() == patrFileSyss.get(patrFileSyss.size() - 1)) {
 			if (patrFileSyss.size() != 1) {
@@ -1379,15 +1387,124 @@ public class PFSShell implements Runnable {
 			Map <String, String> env = builder.environment();
 			env.clear();
 			env.putAll(myenv);
-			Process p = builder.start();
+			Process p;
+			InputStream stderr;
+			InputStream stdout;
+			OutputStream stdin;
+			try {
+				p = builder.start();
+				stderr = p.getErrorStream();
+				stdout = p.getInputStream();
+				stdin = p.getOutputStream();
+			} catch (Exception e) {
+				if ( !cmd.cmd[0].equals("ls")) {
+					throw e;
+				}
+				p = null;
+				stdin = new ByteArrayOutputStream();
+				stderr = new ByteArrayInputStream(new byte[0]);
+				StringBuilder b = new StringBuilder();
+				b.append("simple intern fallback ls command\n\n");
+				boolean all = false, list = false;
+				int i;
+				lastExitNum = 0;
+				for (i = 1; i < cmd.cmd.length; i ++ ) {
+					if (cmd.cmd[i].charAt(0) == '-') {
+						if (cmd.cmd[i].charAt(1) == '-') {
+							switch (cmd.cmd[i]) {
+							case "--all":
+								all = true;
+								break;
+							default:
+								lastExitNum = 3;
+								return;
+							}
+						} else if (cmd.cmd[i].matches("^\\-[la]+$")) {
+							int index = cmd.cmd[i].indexOf('a');
+							if (index != -1) {
+								if (all || cmd.cmd[i].lastIndexOf('a') != index) {
+									lastExitNum = 3;
+									return;
+								}
+								all = true;
+							}
+							index = cmd.cmd[i].indexOf('l');
+							if (index != -1) {
+								if (list || cmd.cmd[i].lastIndexOf('l') != index) {
+									lastExitNum = 3;
+									return;
+								}
+								list = true;
+							}
+						} else {
+							lastExitNum = 3;
+							return;
+						}
+					} else {
+						Path path = getPath(inPfs, false, cmd.cmd[i]);
+						try (DirectoryStream <Path> dirstr = Files.newDirectoryStream(path)) {
+							int cnt = -1;
+							final int maxCnt = 25;
+							if (all) {
+								if (list) {
+									b.append("folder:  .\nfolder:  ..");
+								} else {
+									b.append(". ..");
+									cnt = 4;
+								}
+							}
+							if (list) {
+								b.append(path.toAbsolutePath()).append(":\n");
+							}
+							for (Path sub : dirstr) {
+								if (list) {
+									if (Files.isSymbolicLink(sub)) {
+										b.append("symlink: ");
+									} else if (Files.isRegularFile(sub)) {
+										b.append("file:    ");
+									} else if (Files.isDirectory(sub)) {
+										b.append("folder:  ");
+									} else {
+										b.append("unknown: ");
+									}
+									cnt = maxCnt;
+								} else if (cnt == -1) {
+									cnt = 0;
+								}
+								String name = sub.getFileName().toString();
+								cnt += name.length() + 1;
+								if (cnt > maxCnt) {
+									b.append('\n');
+								} else {
+									b.append(' ');
+								}
+								b.append(name);
+								if (list) {
+									if (Files.isSymbolicLink(sub)) {
+										b.append(" --> ");
+										b.append(Files.readSymbolicLink(sub).toAbsolutePath());
+									}
+								}
+							}
+							b.append('\n');
+						}
+					}
+				}
+				stdout = new ByteArrayInputStream(b.toString().getBytes(StandardCharsets.UTF_8));
+			}
 			if (cmd.err != null) {
-				delegate("delegate stderr for " + cmd.cmd[0], p.getErrorStream(), cmd.err, p, true, logMode);
+				delegate("delegate stderr for " + cmd.cmd[0], stderr, cmd.err, p, true, logMode);
 			}
 			if (cmd.out != null) {
-				delegate("delegate stdout for " + cmd.cmd[0], p.getInputStream(), cmd.out, p, true, logMode);
+				delegate("delegate stdout for " + cmd.cmd[0], stdout, cmd.out, p, true, logMode);
+			} else if (p == null) {
+				byte[] bytes = new byte[stdout.available()];
+				stdout.read(bytes, 0, bytes.length);
+				String msg = new String(bytes, StandardCharsets.UTF_8);
+				System.out.print(msg);
 			}
-			if (cmd.in != null) {
-				delegate("delegate stdin for " + cmd.cmd[0], cmd.in, p.getOutputStream(), p, false, logMode);
+			if (cmd.in != null && p != null) {
+				delegate("delegate stdin for " + cmd.cmd[0], cmd.in, stdin, p, false, logMode);
 			}
 			while (true) {
 				try {
@@ -1407,7 +1524,7 @@ public class PFSShell implements Runnable {
 	private static void delegate(String name, InputStream in, OutputStream out, Process p, boolean always, LogModes logMode) {
 		Thread delegate = new Thread(() -> {
 			byte[] buffer = new byte[1 << 10];
-			while (always || p.isAlive()) {
+			while (always || p == null || p.isAlive()) {
 				try {
 					int len = in.available();
 					if (len == 0) {

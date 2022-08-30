@@ -277,7 +277,7 @@ public class PatrFileImpl extends PatrFileSysElementImpl implements PatrFile {
 				} else {
 					newLen = relOff + (newBlocks.length * 16);
 				}
-				resize(off - pos, newLen);
+				resize(relOff, newLen);
 				off = pos + relOff;
 				myBlockBytes = bm.getBlock(block);
 				try {
