@@ -5,6 +5,30 @@ import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.byteArrToLong;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.intToByteArr;
 import static de.hechler.patrick.pfs.utils.ConvertNumByteArr.longToByteArr;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.*;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FILE;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FOLDER;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_FOLDER_SORTED;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_FLAG_LINK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_CREATE_TIME;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_FLAGS;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LAST_META_MOD_TIME;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LAST_MOD_TIME;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LOCK_TIME;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_LOCK_VALUE;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_NAME;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ELEMENT_OFFSET_PARENT_ID;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_LENGTH;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_LENGTH;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_ELEMENT_LENGTH;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_ELEMENT_COUNT;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_FOLDER_ELEMENTS;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LINK_LENGTH;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LINK_OFFSET_TARGET_ID;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_READ_ALLOWED_LOCK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.LOCK_NO_WRITE_ALLOWED_LOCK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_LOCK;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_TIME;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.ROOT_FOLDER_ID;
 
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
@@ -72,7 +96,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 			if (target != null && target.isLink()) {
 				throw new IllegalArgumentException("i will not create a link to a link!");
 			}
-			executeEnsureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+			executeEnsureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK);
 			final int oldElementCount = getElementCount(),
 				oldSize = oldElementCount * FOLDER_ELEMENT_LENGTH + FOLDER_OFFSET_FOLDER_ELEMENTS,
 				newSize = oldSize + FOLDER_ELEMENT_LENGTH;
@@ -81,7 +105,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 			bytes = bm.getBlock(block);
 			try {
 				int childPos = -1, childNamePos,
-					childLen = target != null ? LINK_LENGTH : (isFolder ? FOLDER_OFFSET_FOLDER_ELEMENTS : FILE_OFFSET_FILE_DATA_TABLE);
+					childLen = target != null ? LINK_LENGTH : (isFolder ? FOLDER_OFFSET_FOLDER_ELEMENTS : FILE_LENGTH);
 				long childBlock = block;
 				try {
 					childPos = allocate(bm, childBlock, childLen);
@@ -129,25 +153,25 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	 * Initializes a new element.
 	 * 
 	 * @param bm
-	 *                       the block manager to be used
+	 *            the block manager to be used
 	 * @param parentID
-	 *                       the id of the parent element
+	 *            the id of the parent element
 	 * @param owner
-	 *                       the owner of the new element
+	 *            the owner of the new element
 	 * @param isFolder
-	 *                       if the new element is a folder (or if its target is a folder)
+	 *            if the new element is a folder (or if its target is a folder)
 	 * @param childPos
-	 *                       the pos of the new element
+	 *            the pos of the new element
 	 * @param childNamePos
-	 *                       the pos of the name of the new element
+	 *            the pos of the name of the new element
 	 * @param childBlock
-	 *                       the block number of the new element
+	 *            the block number of the new element
 	 * @param childNameBytes
-	 *                       the name of the new element without the null terminating character
+	 *            the name of the new element without the null terminating character
 	 * @param target
-	 *                       the target of the new link or <code>null</code> if the element to init is no link
+	 *            the target of the new link or <code>null</code> if the element to init is no link
 	 * @throws IOException
-	 *                     if an IO error occurs
+	 *             if an IO error occurs
 	 */
 	public static void initChild(BlockManager bm, long parentID, long childID, boolean isFolder, final int childPos, int childNamePos, long childBlock, byte[] childNameBytes, PatrFileSysElementImpl target)
 		throws IOException {
@@ -172,7 +196,8 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 			} else if (isFolder) {
 				intToByteArr(bytes, childPos + FOLDER_OFFSET_ELEMENT_COUNT, 0);
 			} else {
-				longToByteArr(bytes, childPos + FILE_OFFSET_FILE_LENGTH, 0);
+				longToByteArr(bytes, childPos + FILE_OFFSET_FILE_LENGTH, 0L);
+				longToByteArr(bytes, childPos + FILE_OFFSET_FIRST_BLOCK, -1L);
 			}
 		} finally {
 			bm.setBlock(childBlock);
@@ -188,7 +213,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	public int elementCount(long lock) throws IOException {
 		synchronized (bm) {
 			fs.updateBlockAndPos(this);
-			executeEnsureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
+			executeEnsureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK);
 			return getElementCount();
 		}
 	}
@@ -216,7 +241,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 	private PatrFileSysElement executeGetElement(int index, long lock) throws ClosedChannelException, IOException, ElementLockedException {
 		byte[] bytes = bm.getBlock(block);
 		try {
-			executeEnsureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
+			executeEnsureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK);
 			if (index >= getElementCount()) {
 				throw new IndexOutOfBoundsException("the index is greather (or equal) than my element count: index=" + index + " elementCount=" + getElementCount());
 			}
@@ -234,7 +259,7 @@ public class PatrFolderImpl extends PatrFileSysElementImpl implements PatrFolder
 			fs.updateBlockAndPos(this);
 			byte[] bytes = bm.getBlock(block);
 			try {
-				executeEnsureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
+				executeEnsureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK);
 				byte[] nameBytes = name.getBytes(CHARSET);
 				int off = pos + FOLDER_OFFSET_FOLDER_ELEMENTS;
 				int ec = getElementCount();

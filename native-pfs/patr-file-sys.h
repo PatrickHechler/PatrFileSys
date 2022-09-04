@@ -12,6 +12,7 @@
 #define _FILE_OFFSET_BITS 64
 //#define __USE_TIME_BITS64
 
+#include <stdlib.h>
 #include <stdint.h>
 #include <time.h>
 #include  <assert.h>
@@ -20,13 +21,12 @@ typedef int64_t i64;
 typedef int32_t i32;
 typedef uint64_t ui64;
 typedef uint32_t ui32;
-typedef uint16_t u16;
 
 static_assert(sizeof(__time_t) == 8, "Error!");
 static_assert(sizeof(i64) == 8, "Error!");
 static_assert(sizeof(i32) == 4, "Error!");
 static_assert(sizeof(ui64) == 8, "Error!");
 static_assert(sizeof(ui32) == 4, "Error!");
-static_assert(sizeof(u16) == 2, "Error!");
+static_assert(sizeof(char) == 1, "Error!");
 
 #endif /* PATR_FILE_SYS_H_ */

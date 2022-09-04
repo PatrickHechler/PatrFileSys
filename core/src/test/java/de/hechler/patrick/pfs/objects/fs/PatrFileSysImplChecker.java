@@ -127,11 +127,9 @@ public class PatrFileSysImplChecker {
 		BlockManagerImpl bm = new BlockManagerImpl(ba);
 		fs = new PatrFileSysImpl(bm);
 		long blockCount = 1 << 15;
-		blockCount += (2487926 / startSize) + 1L;
-		blockCount += (1607082 / startSize) + 1L;
-		blockCount += (2283687 / startSize) + 1L;
-		blockCount += (384794875L / startSize) + 1L;
-		blockCount += (33 / startSize) + 1L;
+		blockCount += 6;
+		blockCount += (1064 + ba.blockSize() - 9) / (ba.blockSize() - 8);
+		blockCount += (10 + ba.blockSize() - 9) / (ba.blockSize() - 8);
 		fs.format(blockCount, startSize);
 		System.out.println("start check: " + getClass().getSimpleName() + ": " + met.getName());
 	}
@@ -394,7 +392,7 @@ public class PatrFileSysImplChecker {
 		PatrFile legal = root.addFile("legal", lock);
 		assertEquals(legal, root.getElement("legal", lock));
 		assertEquals(legal, root.getElement("legal", NO_LOCK));
-		assertThrows(ElementLockedException.class, () -> root.ensureAccess(NO_LOCK, LOCK_NO_WRITE_ALLOWED_LOCK, false));
+		assertThrows(ElementLockedException.class, () -> root.ensureAccess(NO_LOCK, LOCK_NO_WRITE_ALLOWED_LOCK));
 		root.removeLock(lock);
 		lock = root.lock(LOCK_NO_READ_ALLOWED_LOCK);
 		root.addFolder("2", lock);

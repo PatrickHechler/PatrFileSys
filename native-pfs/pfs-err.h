@@ -10,7 +10,11 @@
 
 #include "patr-file-sys.h"
 
+#ifdef I_AM_PFS
+ui64 pfs_errno;
+#else
 extern ui64 pfs_errno;
+#endif
 
 #define PFS_ERRNO_NONE                  0x0000000000000000 /* if no error occurred */
 #define PFS_ERRNO_ELEMENT_WRONG_TYPE    0x0040000000000000 /* if an IO operation failed because the element is not of the correct type (file expected, but folder or reverse) */
@@ -21,6 +25,7 @@ extern ui64 pfs_errno;
 #define PFS_ERRNO_ELEMENT_LOCKED        0x0800000000000000 /* if an IO operation was denied because of lock */
 #define PFS_ERRNO_IO_ERR                0x1000000000000000 /* if an unspecified IO error occurred */
 #define PFS_ERRNO_ILLEGAL_ARG           0x2000000000000000 /* if there was at least one invalid argument */
-#define PFS_ERRNO_OTHER                 0xC0000000000001FF /* some never used pfs_errno bits */
+#define PFS_ERRNO_OUT_OF_MEMORY         0x4000000000000000 /* if an IO operation failed because there was not enough space in the file system */
+#define PFS_ERRNO_UNKNOWN_ERROR         0x4000000000000000 /* if an IO operation failed because there was not enough space in the file system */
 
 #endif /* PFS_ERR_H_ */

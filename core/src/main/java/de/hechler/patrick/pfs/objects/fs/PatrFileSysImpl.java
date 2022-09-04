@@ -24,7 +24,7 @@ import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_ROOT_POS_OFFS
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_START_ROOT_POS;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_TABLE_FILE_BLOCK_OFFSET;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FB_TABLE_FILE_POS_OFFSET;
-import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_OFFSET_FILE_DATA_TABLE;
+import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FILE_LENGTH;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_ELEMENT_LENGTH;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.FOLDER_OFFSET_FOLDER_ELEMENTS;
 import static de.hechler.patrick.pfs.utils.PatrFileSysConstants.NO_ID;
@@ -58,13 +58,13 @@ import de.hechler.patrick.pfs.objects.ba.BlockManagerImpl;
 
 public class PatrFileSysImpl implements PatrFileSystem {
 	
-	public final Random rnd;
+	public final Random       rnd;
 	public final BlockManager bm;
-	private volatile long startTime;
-	private volatile long lock;
-	public final boolean readOnly;
-	private PatrFileImpl elementTable;
-	private PatrFolder root;
+	private volatile long     startTime;
+	private volatile long     lock;
+	public final boolean      readOnly;
+	private PatrFileImpl      elementTable;
+	private PatrFolder        root;
 	
 	public PatrFileSysImpl(BlockAccessor ba) {
 		this(new Random(), new BlockManagerImpl(ba), false);
@@ -150,7 +150,9 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	 * @param lock
 	 *            the lock which should be used by this file system
 	 */
-	public void setLock(long lock) { this.lock = lock; }
+	public void setLock(long lock) {
+		this.lock = lock;
+	}
 	
 	/**
 	 * locks the file system
@@ -211,12 +213,18 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		}
 	}
 	
-	public boolean isReadOnly() { return readOnly; }
+	public boolean isReadOnly() {
+		return readOnly;
+	}
 	
-	public long getStartTime() { return startTime; }
+	public long getStartTime() {
+		return startTime;
+	}
 	
 	@Override
-	public PatrFolder getRoot() throws IOException { return root; }
+	public PatrFolder getRoot() throws IOException {
+		return root;
+	}
 	
 	@Override
 	public PatrFileSysElement fromID(Object id) throws IOException, IllegalArgumentException, NullPointerException {
@@ -278,7 +286,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 			elementTable = new PatrFileImpl(this, startTime, bm, ELEMENT_TABLE_FILE_ID);
 			assert blockSize == bytes.length;
 			initBlock(bytes, FB_START_ROOT_POS + FOLDER_OFFSET_FOLDER_ELEMENTS + FOLDER_ELEMENT_LENGTH);
-			int blockTablePos = PatrFileSysElementImpl.allocate(bm, 0L, FILE_OFFSET_FILE_DATA_TABLE);
+			int blockTablePos = PatrFileSysElementImpl.allocate(bm, 0L, FILE_LENGTH);
 			longToByteArr(bytes, FB_BLOCK_COUNT_OFFSET, blockCount);
 			intToByteArr(bytes, FB_BLOCK_LENGTH_OFFSET, blockSize);
 			intToByteArr(bytes, FB_ROOT_POS_OFFSET, FB_START_ROOT_POS);
@@ -344,6 +352,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 					bm.ungetBlock(0L);
 				}
 			} else if (element.id >= 0L) {
+				assert (element.id % 12) == 0;
 				byte[] bytes = bm.getBlock(0L);
 				try {
 					elementTable.block = byteArrToLong(bytes, FB_TABLE_FILE_BLOCK_OFFSET);
@@ -351,7 +360,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 					bytes = new byte[ELEMENT_TABLE_ELEMENT_LENGTH];
 					bm.getBlock(elementTable.block);
 					try {
-						elementTable.executeRead(bytes, element.id, 0, 12);
+						elementTable.executeReadWrite(bytes, element.id, 0, 12, false);
 						element.block = byteArrToLong(bytes, ELEMENT_TABLE_OFFSET_BLOCK);
 						element.pos = byteArrToInt(bytes, ELEMENT_TABLE_OFFSET_POS);
 					} finally {
@@ -528,7 +537,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 		final int blockSize = bytes.length, tableStart = blockSize - 20;
 		if (tableStart < startLen) {
 			throw new OutOfSpaceException(
-					"the block is not big enugh! blockSize=" + blockSize + " startLen=" + startLen + " (note, that the table also needs " + (blockSize - tableStart) + " bytes)");
+				"the block is not big enugh! blockSize=" + blockSize + " startLen=" + startLen + " (note, that the table also needs " + (blockSize - tableStart) + " bytes)");
 		}
 		intToByteArr(bytes, blockSize - 4, tableStart);
 		intToByteArr(bytes, tableStart + 12, blockSize);
@@ -573,8 +582,7 @@ public class PatrFileSysImpl implements PatrFileSystem {
 	
 	/**
 	 * locks the file system, to complete an operation.<br>
-	 * after this call {@link #unlockFS(int)} should be called with the return value of this call as
-	 * argument.
+	 * after this call {@link #unlockFS(int)} should be called with the return value of this call as argument.
 	 * <p>
 	 * if this method gets called twice without {@link #unlockFS(int)} most likely a deadlock occurs
 	 * 

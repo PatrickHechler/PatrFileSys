@@ -15,8 +15,7 @@ import de.hechler.patrick.pfs.utils.PatrFileSysConstants;
 public interface PatrFile extends PatrFileSysElement {
 	
 	/**
-	 * fills the {@code bytes} from {@code bytesOff} to {@code bytesOff + length} with the content of
-	 * this file from {@code offset} to {@code offset + length}.
+	 * fills the {@code bytes} from {@code bytesOff} to {@code bytesOff + length} with the content of this file from {@code offset} to {@code offset + length}.
 	 * 
 	 * @param bytes
 	 *            the bytes to be filled with the content
@@ -29,9 +28,7 @@ public interface PatrFile extends PatrFileSysElement {
 	 * @param lock
 	 *            the current lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
 	 * @throws IllegalArgumentException
-	 *             if {@code offset < 0} or {@code length < 0} or
-	 *             <code>offset + length > {@link #length()}</code> or
-	 *             {@code bytesOff + length > bytes.length}
+	 *             if {@code offset < 0} or {@code length < 0} or <code>offset + length > {@link #length()}</code> or {@code bytesOff + length > bytes.length}
 	 * @throws IOException
 	 *             if an IO error occurs
 	 * @throws ElementLockedException
@@ -61,8 +58,7 @@ public interface PatrFile extends PatrFileSysElement {
 	 * truncates the file.<br>
 	 * after this operation the {@link #length()} of the file will be {@code size}.
 	 * <p>
-	 * if {@code size} is smaller than {@code 0} or greater than or equal to {@link #length()} an
-	 * {@link IllegalArgumentException} will be thrown
+	 * if {@code size} is smaller than {@code 0} or greater than or equal to {@link #length()} an {@link IllegalArgumentException} will be thrown
 	 * 
 	 * @param size
 	 *            the new {@link #length()}
@@ -78,8 +74,7 @@ public interface PatrFile extends PatrFileSysElement {
 	void truncate(long size, long lock) throws IllegalArgumentException, IOException, ElementLockedException;
 	
 	/**
-	 * overwrites the content from {@code offset} to {@code offset + length} with the values from
-	 * {@code bytes} at the area from {@code bytesOff} to {@code bytesOff + length}
+	 * overwrites the content from {@code offset} to {@code offset + length} with the values from {@code bytes} at the area from {@code bytesOff} to {@code bytesOff + length}
 	 * 
 	 * @param bytes
 	 *            the byte array with the new content
@@ -92,9 +87,7 @@ public interface PatrFile extends PatrFileSysElement {
 	 * @param lock
 	 *            the current lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
 	 * @throws IllegalArgumentException
-	 *             if {@code offset < 0} or {@code length < 0} or
-	 *             <code>offset + length > {@link #length()}</code> or
-	 *             {@code bytesOff + length > bytes.length}
+	 *             if {@code offset < 0} or {@code length < 0} or <code>offset + length > {@link #length()}</code> or {@code bytesOff + length > bytes.length}
 	 * @throws IOException
 	 *             if an IO error occurs
 	 * @throws ElementLockedException
@@ -103,8 +96,7 @@ public interface PatrFile extends PatrFileSysElement {
 	void setContent(byte[] bytes, long offset, int bytesOff, int length, long lock) throws IllegalArgumentException, IOException, ElementLockedException;
 	
 	/**
-	 * appends the given content in the {@code bytes} from {@code bytesOff} to {@code bytesOff + length}
-	 * to this file
+	 * appends the given content in the {@code bytes} from {@code bytesOff} to {@code bytesOff + length} to this file
 	 * 
 	 * @param bytes
 	 *            the byte array containing the bytes to be appended to this file
@@ -115,8 +107,7 @@ public interface PatrFile extends PatrFileSysElement {
 	 * @param lock
 	 *            the current lock or {@link PatrFileSysConstants#LOCK_LOCKED_LOCK}
 	 * @throws IllegalArgumentException
-	 *             if {@code bytesOff < 0} or {@code length < 0} or
-	 *             {@code bytesOff + length > bytes.length}
+	 *             if {@code bytesOff < 0} or {@code length < 0} or {@code bytesOff + length > bytes.length}
 	 * @throws IOException
 	 *             if an IO error occurs
 	 * @throws ElementLockedException
@@ -147,16 +138,24 @@ public interface PatrFile extends PatrFileSysElement {
 	void delete(long myLock, long parentLocks) throws IOException, ElementLockedException;
 	
 	@Override
-	default boolean isFile() throws IOException { return true; }
+	default boolean isFile() throws IOException {
+		return true;
+	}
 	
 	@Override
-	default boolean isFolder() throws IOException { return false; }
+	default boolean isFolder() throws IOException {
+		return false;
+	}
 	
 	@Override
-	default boolean isLink() throws IOException { return false; }
+	default boolean isLink() throws IOException {
+		return false;
+	}
 	
 	@Override
-	default PatrFile getFile() throws IllegalStateException, IOException { return this; }
+	default PatrFile getFile() throws IllegalStateException, IOException {
+		return this;
+	}
 	
 	@Override
 	default PatrFolder getFolder() throws IllegalStateException, IOException {
@@ -181,14 +180,14 @@ public interface PatrFile extends PatrFileSysElement {
 	 */
 	default InputStream openInput(long lock) throws IOException, ElementLockedException {
 		return withLock(() -> {
-			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
+			ensureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK);
 			return new PatrFileInputStream(this, lock);
 		});
 	}
 	
 	default OutputStream openOutput(boolean append, long lock) throws IOException, ElementLockedException {
 		return withLock(() -> {
-			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+			ensureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK);
 			return new PatrFileOutputStream(this, append, lock);
 		});
 	}

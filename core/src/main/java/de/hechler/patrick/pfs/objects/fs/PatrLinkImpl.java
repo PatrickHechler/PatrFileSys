@@ -25,7 +25,7 @@ public class PatrLinkImpl extends PatrFileSysElementImpl implements PatrLink {
 	public PatrFileSysElement getTarget(long lock) throws IOException {
 		synchronized (bm) {
 			fs.updateBlockAndPos(this);
-			executeEnsureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK, false);
+			executeEnsureAccess(lock, LOCK_NO_READ_ALLOWED_LOCK);
 			return executeGetTarget();
 		}
 	}
@@ -65,7 +65,7 @@ public class PatrLinkImpl extends PatrFileSysElementImpl implements PatrLink {
 		fs.updateBlockAndPos(this);
 		byte[] bytes = bm.getBlock(block);
 		try {
-			executeEnsureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+			executeEnsureAccess(lock, LOCK_NO_WRITE_ALLOWED_LOCK);
 			longToByteArr(bytes, pos + LINK_OFFSET_TARGET_ID, nt.id);
 			if (nt.isFolder()) {
 				executeFlag(ELEMENT_FLAG_FILE, ELEMENT_FLAG_FOLDER);

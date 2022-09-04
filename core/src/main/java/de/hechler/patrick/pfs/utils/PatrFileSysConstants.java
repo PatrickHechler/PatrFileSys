@@ -107,8 +107,9 @@ public class PatrFileSysConstants {
 	public static final int FOLDER_OFFSET_ELEMENT_COUNT   = ELEMENT_OFFSET_LAST_META_MOD_TIME + 8;
 	public static final int FOLDER_OFFSET_FOLDER_ELEMENTS = FOLDER_OFFSET_ELEMENT_COUNT + 4;
 	
-	public static final int FILE_OFFSET_FILE_LENGTH     = ELEMENT_OFFSET_LAST_META_MOD_TIME + 8;
-	public static final int FILE_OFFSET_FILE_DATA_TABLE = FILE_OFFSET_FILE_LENGTH + 8;
+	public static final int FILE_OFFSET_FILE_LENGTH = ELEMENT_OFFSET_LAST_META_MOD_TIME + 8;
+	public static final int FILE_OFFSET_FIRST_BLOCK = FILE_OFFSET_FILE_LENGTH + 8;
+	public static final int FILE_LENGTH             = FILE_OFFSET_FIRST_BLOCK + 8;
 	
 	public static final int LINK_OFFSET_TARGET_ID = ELEMENT_OFFSET_LAST_META_MOD_TIME + 8;
 	public static final int LINK_LENGTH           = LINK_OFFSET_TARGET_ID + 8;

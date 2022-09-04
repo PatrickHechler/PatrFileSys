@@ -58,7 +58,7 @@ import de.hechler.patrick.zeugs.check.objects.Checker;
 @CheckClass
 public class PatrJavaFileSysImplChecker {
 	
-	private static final long BLOCK_COUNT = 414777L;
+	private static final long BLOCK_COUNT = 1L << 21;
 	private static final int  BLOCK_SIZE  = 1024;
 	FileSystemProvider        provider;
 	

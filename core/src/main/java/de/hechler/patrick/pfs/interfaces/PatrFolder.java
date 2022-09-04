@@ -195,8 +195,8 @@ public interface PatrFolder extends Iterable <PatrFileSysElement>, PatrFileSysEl
 			PatrFolder parent = getParent();
 			long delLock = lockSupplieer.getLock(this);
 			long parentLock = lockSupplieer.getLock(parent);
-			ensureAccess(delLock, LOCK_NO_DELETE_ALLOWED_LOCK, true);
-			parent.ensureAccess(parentLock, LOCK_NO_WRITE_ALLOWED_LOCK, true);
+			ensureAccess(delLock, LOCK_NO_DELETE_ALLOWED_LOCK);
+			parent.ensureAccess(parentLock, LOCK_NO_WRITE_ALLOWED_LOCK);
 			int ec = elementCount(delLock);
 			while (ec > 0) {
 				PatrFileSysElement pfe = this.getElement(ec - 1, delLock);

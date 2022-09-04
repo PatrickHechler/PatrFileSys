@@ -190,7 +190,7 @@ public class PFSPathImpl implements Path {
 		for (int i = 0; i < commonStart; i ++ ) {
 			names[i] = Name.BACK;
 		}
-		System.arraycopy(p, commonStart, names, commonStart, names.length - commonStart);
+		System.arraycopy(p.path, commonStart, names, commonStart, names.length - commonStart);
 		return new PFSPathImpl(this.fs, this, names);
 	}
 	

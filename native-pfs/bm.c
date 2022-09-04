@@ -29,10 +29,6 @@ struct bm_file {
 
 #define offsetof(type, member)  __builtin_offsetof (type, member)
 
-static_assert( offsetof(struct bm_file, bm)
-== 0, "err");
-static_assert( offsetof(struct bm_ram, bm) == 0, "err");
-
 static void* bm_ram_get(struct bm_block_manager *bm, i64 block);
 static void bm_ram_unget(struct bm_block_manager *bm, i64 block);
 static void bm_ram_set(struct bm_block_manager *bm, i64 block);
@@ -49,7 +45,7 @@ struct bm_block_manager* bm_new_ram_block_manager(i64 block_count,
 	if (bm == NULL) {
 		return NULL;
 	}
-	bm->blocks = malloc(sizeof(void*) * block_count * (i64) block_size);
+	bm->blocks = malloc(block_count * (i64) block_size);
 	if (bm->blocks == NULL) {
 		free(bm);
 		return NULL;
@@ -89,7 +85,7 @@ static int bm_equal(const void *a, const void *b) {
 }
 
 static int bm_hash(const void *a) {
-	return *(i64*) a;
+	return *(int*) a;
 }
 
 struct bm_loaded {
@@ -120,7 +116,7 @@ static void* bm_ram_get(struct bm_block_manager *bm, i64 block) {
 		return NULL;
 	}
 	memcpy(loaded->data,
-			(void*) ((i64) br->blocks + (block * (i64) br->bm.block_size)),
+			br->blocks + (block * (i64) br->bm.block_size),
 			br->bm.block_size);
 	hashset_put(&br->bm.loaded, (unsigned int) block, loaded);
 	return loaded->data;
