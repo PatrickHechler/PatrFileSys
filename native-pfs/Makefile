@@ -49,4 +49,4 @@ $(BINARY)%.o:	$(PROJECT_ROOT)%.c
 	$(CC) -x c -c $(CFLAGS) -o $@ $<
 
 clean:
-	rm -fr $(BINARY)
+	rm -fr $(BINARY) ./testout/

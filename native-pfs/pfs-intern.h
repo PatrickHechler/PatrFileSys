@@ -84,12 +84,11 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos,
 		abort(); \
 	}
 
-int grow_folder_entry(struct pfs_place *place, i32 new_size,
-		int allow_block_change);
+int grow_folder_entry(struct pfs_place *place, i32 new_size);
 
 #define remove_table_entry(block, pos) reallocate_in_block_table(block, pos, 0, 0)
 
-i32 add_name(struct pfs_place *etry, char *name);
+i32 add_name(i64 block_num, char *name);
 
 i64 allocate_block(ui64 block_flags);
 

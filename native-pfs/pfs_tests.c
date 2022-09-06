@@ -13,14 +13,13 @@
 #include <sys/types.h>
 #include <errno.h>
 
-static int simple_check();
-
-static int file_check();
-
 static int checks();
+static int simple_check();
+static int file_check();
+static int read_write_file_check();
 
 int main(int argc, char **argv) {
-	const char *start = "[main]:                              ";
+	const char *start = "[main]:                                               ";
 	printf("%sstart checks with a ram block manager [0]\n", start);
 	pfs = bm_new_ram_block_manager(512L, 1024);
 	int res = checks();
@@ -36,7 +35,8 @@ int main(int argc, char **argv) {
 		return res;
 	}
 	pfs->close(pfs);
-	printf("%sstart checks with block-flaggable ram block manager [2]\n", start);
+	printf("%sstart checks with block-flaggable ram block manager [2]\n",
+			start);
 	pfs = bm_new_ram_block_manager(512L, 1024);
 	res = checks();
 	if (res != EXIT_SUCCESS) {
@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
 }
 
 static int checks() {
-	const char *start = "[main.checks]:                       ";
+	const char *start = "[main.checks]:                                        ";
 	if (!pfs_format(512L)) {
 		printf("%scould not format the file system! [0]\n", start);
 		return EXIT_FAILURE;
@@ -58,17 +58,22 @@ static int checks() {
 	if (res != EXIT_SUCCESS) {
 		return res;
 	}
-	printf("%sstart simple_file_check [2]\n", start);
+	printf("%sstart file_check [2]\n", start);
 	res = file_check();
 	if (res != EXIT_SUCCESS) {
 		return res;
 	}
-	printf("%sall checks executed [3]\n", start);
+	printf("%sstart read_write_file_check [3]\n", start);
+	res = read_write_file_check();
+	if (res != EXIT_SUCCESS) {
+		return res;
+	}
+	printf("%sall checks executed [4]\n", start);
 	return EXIT_SUCCESS;
 }
 
 static int simple_check() {
-	const char *start = "[main.checks.simple_check]:          ";
+	const char *start = "[main.checks.simple_check]:                           ";
 	element root = pfs_root();
 	i64 child_count = pfs_folder_child_count(&root);
 	if (child_count != 0) {
@@ -78,8 +83,44 @@ static int simple_check() {
 	return EXIT_SUCCESS;
 }
 
+static void* random_data(const char *start, i64 size) {
+	void *data = malloc(size);
+	if (data == NULL) {
+		printf("%could not allocate enough memory (size=%ld) [0]\n", start,
+				size);
+		fflush(NULL);
+		exit(EXIT_FAILURE);
+	}
+	int urnd = open("/dev/urandom", O_RDONLY);
+	if (urnd == -1) {
+		printf("%could not open a read stream of file /dev/urandom [1]\n",
+				start);
+		fflush(NULL);
+		exit(EXIT_FAILURE);
+	}
+	for (i64 remain = size, reat; remain > 0;) {
+		i64 reat = read(urnd, data, remain);
+		if (reat == -1) {
+			if (errno == EAGAIN) {
+				continue;
+			}
+			printf("%serror at reading from /dev/urandom errno=%d [2]\n", start,
+			errno);
+			abort();
+		} else if (reat == 0) {
+			printf("%swarning: reached EOF at file /dev/urandom [3]\n", start);
+			break;
+		}
+		remain -= reat;
+	}
+	close(urnd);
+	return data;
+}
+
 static int file_check() {
-	const char *start = "[main.checks.file_check]:            ";
+	const char *start = "[main.checks.file_check]:                             ";
+	const char *rd_start =
+			"[main.checks.file_check.random_data]:                 ";
 	element e = pfs_root();
 	i64 child_count = pfs_folder_child_count(&e);
 	if (child_count != 0) {
@@ -96,31 +137,7 @@ static int file_check() {
 		printf("%sfile length != 0 (%ld) [2]\n", start, length);
 		return EXIT_FAILURE;
 	}
-	void *data = malloc(1016);
-	if (data == NULL) {
-		printf("%scould not allocate the needed buffer [3]\n", start);
-		return EXIT_FAILURE;
-	}
-	int urnd = open("/dev/urandom", O_RDONLY);
-	if (urnd == -1) {
-		printf("%could not open a read stream of file /dev/urandom [4]\n", start);
-		return EXIT_FAILURE;
-	}
-	for (i64 remain = 1016, reat; remain > 0;) {
-		i64 reat = read(urnd, data, remain);
-		if (reat == -1) {
-			if (errno == EAGAIN) {
-				continue;
-			}
-			printf("%serror at reading from /dev/urandom errno=%d [5]\n", start,
-			errno);
-			abort();
-		} else if (reat == 0) {
-			printf("%swarning: reached EOF at file /dev/urandom [6]\n", start);
-			break;
-		}
-		remain -= reat;
-	}
+	void *data = random_data(rd_start, 1016);
 	res = pfs_file_append(&e, data, 1016);
 	if (res != 1016) {
 		printf("%scould not append to the file (appended: %ld) [7]\n", start,
@@ -193,5 +210,18 @@ static int file_check() {
 		printf("%sfile length != 0 (%ld) [14]\n", start, length);
 		return EXIT_FAILURE;
 	}
+	return EXIT_SUCCESS;
+}
+
+static int read_write_file_check() {
+	const char *start = "[main.checks.read_write_file_check]:                  ";
+	const char *rd_start =
+			"[main.checks.read_write_file_check.random_data]:      ";
+	element file = pfs_root();
+	if (!pfs_folder_create_file(&file, "read_write_file")) {
+		printf("%scould not create the file [0]\n", start);
+		return EXIT_FAILURE;
+	}
+	void *rnd = random_data(rd_start, 1016);
 	return EXIT_SUCCESS;
 }

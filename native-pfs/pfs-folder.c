@@ -107,7 +107,7 @@ static inline int has_child_with_name(element *f, char *name) {
 	struct pfs_folder *folder = block_data + f->pos;
 	for (int i = 0; i < folder->direct_child_count; i++) {
 		if (folder->entries[i].name_pos == -1) {
-			if (!has_child_with_name(&folder->entries[i].child_place, name)) {
+			if (has_child_with_name(&folder->entries[i].child_place, name)) {
 				return 1;
 			}
 		}
@@ -125,7 +125,8 @@ static inline int create_folder_or_file(element *f, char *name,
 	ensure_block_is_entry(f->block);
 	struct pfs_place parent = *f;
 	const i64 old_parent_block = parent.block;
-	struct pfs_folder *p = pfs->get(pfs, old_parent_block) + parent.pos;
+	void *old_parent_block_data = pfs->get(pfs, old_parent_block);
+	struct pfs_folder *p = old_parent_block_data + parent.pos;
 	if (has_child_with_name(f, name)) {
 		pfs->unget(pfs, parent.block);
 		pfs_errno = PFS_ERRNO_ELEMENT_ALREADY_EXIST;
@@ -133,7 +134,7 @@ static inline int create_folder_or_file(element *f, char *name,
 	}
 	size_t new_parent_size = sizeof(struct pfs_folder)
 			+ (p->direct_child_count + 1) * sizeof(struct pfs_folder_entry);
-	if (!grow_folder_entry(&parent, new_parent_size, p->helper_index == -1)) {
+	if (!grow_folder_entry(&parent, new_parent_size)) {
 		if (p->helper_index != -1) {
 			if (p->helper_index >= p->direct_child_count) {
 				abort();
@@ -141,12 +142,74 @@ static inline int create_folder_or_file(element *f, char *name,
 			*f = p->entries[p->helper_index].child_place;
 			pfs->unget(pfs, old_parent_block);
 			return create_folder_or_file(f, name, create_folder);
+		} else if (p->direct_child_count > 1) {
+			i64 new_block_num = allocate_block(
+			BLOCK_FLAG_USED | BLOCK_FLAG_ENTRIES);
+			if (new_block_num != -1L) {
+				void *new_block = pfs->get(pfs, new_block_num);
+				init_block(new_block_num,
+						sizeof(struct pfs_folder)
+								+ (sizeof(struct pfs_folder_entry) * 2));
+				i32 old_name_pos =
+						p->entries[p->direct_child_count - 1].name_pos;
+				i32 first_pos = add_name(new_block_num,
+						old_parent_block_data + old_name_pos);
+				i32 second_pos = add_name(new_block_num, name);
+				struct pfs_folder *helper = new_block;
+				init_element(&helper->element, parent,
+						PFS_FLAGS_FOLDER | PFS_FLAGS_HELPER_FOLDER);
+				helper->direct_child_count = 2;
+				helper->helper_index = -1;
+				helper->entries[0].child_place =
+						p->entries[p->direct_child_count - 1].child_place;
+				helper->entries[0].name_pos = first_pos;
+				if (!allocate_new_entry(&helper->entries[1].child_place,
+						new_block_num,
+						create_folder ?
+								sizeof(struct pfs_folder) :
+								sizeof(struct pfs_file))) {
+					free_block(new_block_num);
+					pfs->set(pfs, new_block_num);
+					pfs->set(pfs, helper->entries[1].child_place.block);
+					return 0;
+				}
+				helper->entries[1].name_pos = second_pos;
+				void *child = pfs->get(pfs,
+						helper->entries[1].child_place.block)
+						+ helper->entries[1].child_place.pos;
+				if (child == NULL) {
+					free_block(new_block_num);
+					pfs->set(pfs, new_block_num);
+					pfs->set(pfs, helper->entries[1].child_place.block);
+					return 0;
+				}
+				p->helper_index = p->direct_child_count - 1;
+				p->entries[p->helper_index].name_pos = -1;
+				p->entries[p->helper_index].child_place.block = new_block_num;
+				p->entries[p->helper_index].child_place.pos = 0;
+				if (create_folder) {
+					init_element(child, p->entries[p->helper_index].child_place,
+							PFS_FLAGS_FOLDER);
+					struct pfs_folder *folder_child = child;
+					folder_child->direct_child_count = 0;
+					folder_child->helper_index = -1;
+				} else {
+					init_element(child, p->entries[p->helper_index].child_place,
+							PFS_FLAGS_FILE);
+					struct pfs_file *file_child = child;
+					file_child->file_length = 0L;
+					file_child->first_block = -1L;
+				}
+				pfs->set(pfs, new_block_num);
+				pfs->set(pfs, helper->entries[1].child_place.block);
+				return 1;
+			}
 		}
 		pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
 		pfs->unget(pfs, old_parent_block);
 		return 0;
 	}
-	i32 name_pos = add_name(&parent, name);
+	const i32 name_pos = add_name(parent.block, name);
 	if (name_pos == -1) {
 		i64 new_block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_ENTRIES);
 		if (new_block == -1) {
@@ -192,7 +255,9 @@ static inline int create_folder_or_file(element *f, char *name,
 		}
 		return res;
 	}
-	if (!allocate_new_entry(f, old_parent_block, sizeof(struct pfs_folder))) {
+	if (!allocate_new_entry(f, old_parent_block,
+			create_folder ?
+					sizeof(struct pfs_folder) : sizeof(struct pfs_file))) {
 		shrink_folder_entry(parent, new_parent_size);
 		remove_table_entry(parent.block, name_pos);
 		pfs->unget(pfs, old_parent_block);
@@ -219,7 +284,7 @@ static inline int create_folder_or_file(element *f, char *name,
 		file->first_block = -1L;
 	}
 	p = pfs->get(pfs, parent.block) + parent.pos;
-	p->entries[p->direct_child_count].name_pos = -1;
+	p->entries[p->direct_child_count].name_pos = name_pos;
 	p->entries[p->direct_child_count].child_place.block = f->block;
 	p->entries[p->direct_child_count].child_place.pos = f->pos;
 	p->direct_child_count++;

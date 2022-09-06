@@ -37,6 +37,7 @@ extern int pfs_format(i64 block_count) {
 	super_data->block_size = pfs->block_size;
 	if (pfs->block_flag_bits > 0) {
 		super_data->block_table_first_block = -1L;
+		pfs->delete_all_flags(pfs);
 		pfs->set_flags(pfs, 0L, BLOCK_FLAG_USED | BLOCK_FLAG_ENTRIES);
 	} else {
 		super_data->block_table_first_block = 1L;
@@ -349,8 +350,7 @@ static void change_place_in_parent_and_struct(i64 new_block, i32 new_pos,
 	abort();
 }
 
-int grow_folder_entry(struct pfs_place *place, i32 new_size,
-		int allow_block_change) {
+int grow_folder_entry(struct pfs_place *place, i32 new_size) {
 	i32 new_pos = reallocate_in_block_table(place->block, place->pos, new_size,
 			1);
 	if (new_pos != -1) {
@@ -360,52 +360,52 @@ int grow_folder_entry(struct pfs_place *place, i32 new_size,
 		change_place_in_parent_and_struct(place->block, new_pos, place);
 		return 1;
 	}
-	if (!allow_block_change) {
-		return 0;
-	}
-	i64 new_block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_ENTRIES);
-	if (new_block == -1) {
-		return 0;
-	}
-	void *new_block_data = pfs->get(pfs, new_block);
-	init_block(new_block, new_size);
-	void *old_block_data = pfs->get(pfs, place->block);
-	memcpy(new_block_data, old_block_data + place->pos,
-			new_size - sizeof(struct pfs_folder_entry));
-	struct pfs_folder *new_entry = new_block_data;
-	if ((new_entry->element.flags & PFS_FLAGS_FOLDER) == 0) {
-		free_block(new_block);
-		pfs->unget(pfs, new_block);
-		pfs->unget(pfs, place->block);
-		abort();
-	}
-	for (int i = 0; i < new_entry->direct_child_count; i++) {
-		char *name_addr = old_block_data + new_entry->entries[i].name_pos;
-		i64 name_length = strlen(name_addr);
-		i32 new_child_name_pos = allocate_in_block_table(new_block,
-				name_length);
-		if (new_child_name_pos == -1) {
-			free_block(new_block);
-			pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
-			return 0;
-		}
-		memcpy(new_block_data + new_child_name_pos, name_addr, name_length + 1); // also copy the '\0'
-		new_entry->entries[i].name_pos = new_child_name_pos;
-	}
-	change_place_in_parent_and_struct(new_block, new_pos, place);
-	return 1;
+//	if (!allow_block_change) {
+	return 0;
+//	}
+//	i64 new_block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_ENTRIES);
+//	if (new_block == -1) {
+//		return 0;
+//	}
+//	void *new_block_data = pfs->get(pfs, new_block);
+//	init_block(new_block, new_size);
+//	void *old_block_data = pfs->get(pfs, place->block);
+//	memcpy(new_block_data, old_block_data + place->pos,
+//			new_size - sizeof(struct pfs_folder_entry));
+//	struct pfs_folder *new_entry = new_block_data;
+//	if ((new_entry->element.flags & PFS_FLAGS_FOLDER) == 0) {
+//		free_block(new_block);
+//		pfs->unget(pfs, new_block);
+//		pfs->unget(pfs, place->block);
+//		abort();
+//	}
+//	for (int i = 0; i < new_entry->direct_child_count; i++) {
+//		char *name_addr = old_block_data + new_entry->entries[i].name_pos;
+//		i64 name_length = strlen(name_addr);
+//		i32 new_child_name_pos = allocate_in_block_table(new_block,
+//				name_length);
+//		if (new_child_name_pos == -1) {
+//			free_block(new_block);
+//			pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+//			return 0;
+//		}
+//		memcpy(new_block_data + new_child_name_pos, name_addr, name_length + 1); // also copy the '\0'
+//		new_entry->entries[i].name_pos = new_child_name_pos;
+//	}
+//	change_place_in_parent_and_struct(new_block, new_pos, place);
+//	return 1;
 }
 
-i32 add_name(struct pfs_place *place, char *name) {
+i32 add_name(i64 block_num, char *name) {
 	i64 strsize = strlen(name) + 1;
-	void *block = pfs->get(pfs, place->block);
-	i32 pos = allocate_in_block_table(place->block, strsize);
+	void *block = pfs->get(pfs, block_num);
+	i32 pos = allocate_in_block_table(block_num, strsize);
 	if (pos != -1) {
 		memcmp(block + pos, name, strsize);
-		pfs->set(pfs, place->block);
+		pfs->set(pfs, block_num);
 		return pos;
 	}
-	pfs->unget(pfs, place->block);
+	pfs->unget(pfs, block_num);
 	return -1;
 }
 
