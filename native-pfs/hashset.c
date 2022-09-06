@@ -8,13 +8,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#define I_AM_HASH_SET
 #include "hashset.h"
 
 #define INIT_MAP_SIZE 17
 
 static void* put0(struct hashset*, unsigned int, void*);
 
-void* hashset_get(const struct hashset *set, unsigned int hash,
+extern void* hashset_get(const struct hashset *set, unsigned int hash,
 		const void *equalto) {
 	if (!set->setsize) {
 		return NULL;
@@ -24,9 +25,11 @@ void* hashset_get(const struct hashset *set, unsigned int hash,
 		if (!set->entries[i]) {
 			return NULL;
 		}
-		if (set->hashmaker(set->entries[i]) == hash) {
-			if (set->equalizer(set->entries[i], equalto)) {
-				return set->entries[i];
+		if (set->entries[i] != &illegal) {
+			if (set->hashmaker(set->entries[i]) == hash) {
+				if (set->equalizer(set->entries[i], equalto)) {
+					return set->entries[i];
+				}
 			}
 		}
 		i++;
@@ -36,7 +39,7 @@ void* hashset_get(const struct hashset *set, unsigned int hash,
 	}
 }
 
-void* hashset_put(struct hashset *set, unsigned int hash, void *newvalue) {
+extern void* hashset_put(struct hashset *set, unsigned int hash, void *newvalue) {
 	set->entrycount++;
 	if (set->setsize <= set->entrycount * 1.5) {
 		const int oldlen = set->setsize;
@@ -49,9 +52,13 @@ void* hashset_put(struct hashset *set, unsigned int hash, void *newvalue) {
 			newentries[i] = NULL; //NULL entries are not permitted
 		}
 		for (int i = 0; i < oldlen; i++) {
-			if (oldentries[i]) {
-				put0(set, set->hashmaker(oldentries[i]), oldentries[i]);
+			if (!oldentries[i]) {
+				continue;
 			}
+			if (oldentries[i] == &illegal) {
+				continue;
+			}
+			put0(set, set->hashmaker(oldentries[i]), oldentries[i]);
 		}
 		if (freePNTR) {
 			free(freePNTR);
@@ -64,7 +71,10 @@ void* hashset_put(struct hashset *set, unsigned int hash, void *newvalue) {
 	return old;
 }
 
-void* hashset_remove(struct hashset *set, unsigned int hash, void *oldvalue) {
+extern void* hashset_remove(struct hashset *set, unsigned int hash, void *oldvalue) {
+	if (set->setsize == 0) {
+		return NULL;
+	}
 	int i = hash % (unsigned int) set->setsize;
 	while (1) {
 		if (set->entries[i] == NULL) {
@@ -74,14 +84,10 @@ void* hashset_remove(struct hashset *set, unsigned int hash, void *oldvalue) {
 			if (set->equalizer(set->entries[i], oldvalue)) {
 				set->entrycount--;
 				void *old = set->entries[i];
-				for (i++; i < set->setsize; i++) {
-					if (set->entries[i] == NULL) {
-						set->entries[i - 1] = NULL;
-						break;
-					}
-					if ((set->hashmaker(set->entries[i]) % set->setsize) < i) {
-						set->entries[i - 1] = set->entries[i];
-					}
+				if (set->entries[i + 1 == set->setsize ? 0 : i + 1] == NULL) {
+					set->entries[i] = NULL;
+				} else {
+					set->entries[i] = &illegal;
 				}
 				return old;
 			}
@@ -96,7 +102,7 @@ void* hashset_remove(struct hashset *set, unsigned int hash, void *oldvalue) {
 static void* put0(struct hashset *set, unsigned int hash, void *newvalue) {
 	int i = hash % (unsigned int) set->setsize;
 	while (1) {
-		if (set->entries[i] == NULL) {
+		if ((set->entries[i] == NULL) || (set->entries[i] == &illegal)) {
 			set->entries[i] = newvalue;
 			return NULL;
 		}

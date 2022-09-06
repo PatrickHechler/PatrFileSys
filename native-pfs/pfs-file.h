@@ -8,14 +8,13 @@
 #ifndef PFS_FILE_H_
 #define PFS_FILE_H_
 
-#include "pfs-element.h"
-#include "pfs-constants.h"
+#include "pfs.h"
 
 extern int pfs_file_read(element *f, i64 position, void *buffer, i64 length);
 
 extern int pfs_file_write(element *f, i64 position, void *data, i64 length);
 
-extern int pfs_file_append(element *f, void *data, i64 length);
+extern i64 pfs_file_append(element *f, void *data, i64 length);
 
 extern int pfs_file_truncate(element *f, i64 new_length);
 

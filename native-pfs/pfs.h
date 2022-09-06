@@ -14,6 +14,8 @@
 #include "pfs-element.h"
 #include "pfs-file.h"
 #include "pfs-folder.h"
+#include <stdlib.h>
+#include <string.h>
 
 #ifdef I_AM_PFS
 struct bm_block_manager *pfs;
