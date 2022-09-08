@@ -140,74 +140,74 @@ static int file_check() {
 	void *data = random_data(rd_start, 1016);
 	res = pfs_file_append(&e, data, 1016);
 	if (res != 1016) {
-		printf("%scould not append to the file (appended: %ld) [7]\n", start,
+		printf("%scould not append to the file (appended: %ld) [3]\n", start,
 				res);
 		return EXIT_FAILURE;
 	}
 	length = pfs_file_length(&e);
 	if (length != 1016L) {
-		printf("%sfile length != 1016 (%ld) [8]\n", start, length);
+		printf("%sfile length != 1016 (%ld) [4]\n", start, length);
 		return EXIT_FAILURE;
 	}
 	res = pfs_file_truncate(&e, 10);
 	if (!res) {
-		printf("%scould not truncate the file to length 10 [9]\n", start);
+		printf("%scould not truncate the file to length 10 [5]\n", start);
 		return EXIT_FAILURE;
 	}
 	length = pfs_file_length(&e);
 	if (length != 10L) {
-		printf("%sfile length != 10 (%ld) [A]\n", start, length);
+		printf("%sfile length != 10 (%ld) [6]\n", start, length);
 		return EXIT_FAILURE;
 	}
 	res = pfs_file_truncate(&e, 1500);
 	if (!res) {
-		printf("%scould not truncate the file to length 1500 [B]\n", start);
+		printf("%scould not truncate the file to length 1500 [7]\n", start);
 		return EXIT_FAILURE;
 	}
 	length = pfs_file_length(&e);
 	if (length != 1500L) {
-		printf("%sfile length != 1500 (%ld) [C]\n", start, length);
+		printf("%sfile length != 1500 (%ld) [8]\n", start, length);
 		return EXIT_FAILURE;
 	}
 	res = pfs_file_truncate(&e, 0);
 	if (!res) {
-		printf("%scould not truncate the file to length 0 [D]\n", start);
+		printf("%scould not truncate the file to length 0 [9]\n", start);
 		return EXIT_FAILURE;
 	}
 	length = pfs_file_length(&e);
 	if (length != 0L) {
-		printf("%sfile length != 0 (%ld) [E]\n", start, length);
+		printf("%sfile length != 0 (%ld) [A]\n", start, length);
 		return EXIT_FAILURE;
 	}
 	res = pfs_file_truncate(&e, 10000);
 	if (!res) {
-		printf("%scould not truncate the file to length 10000 [F]\n", start);
+		printf("%scould not truncate the file to length 10000 [B]\n", start);
 		return EXIT_FAILURE;
 	}
 	length = pfs_file_length(&e);
 	if (length != 10000L) {
-		printf("%sfile length != 10000 (%ld) [10]\n", start, length);
+		printf("%sfile length != 10000 (%ld) [C]\n", start, length);
 		return EXIT_FAILURE;
 	}
 	res = pfs_file_append(&e, data, 1016);
 	if (res != 1016) {
-		printf("%scould not append to the file (appended: %ld) [11]\n", start,
+		printf("%scould not append to the file (appended: %ld) [D]\n", start,
 				res);
 		return EXIT_FAILURE;
 	}
 	length = pfs_file_length(&e);
 	if (length != 11016L) {
-		printf("%sfile length != 11016 (%ld) [12]\n", start, length);
+		printf("%sfile length != 11016 (%ld) [E]\n", start, length);
 		return EXIT_FAILURE;
 	}
 	res = pfs_file_truncate(&e, 0);
 	if (!res) {
-		printf("%scould not truncate the file to length 0 [13]\n", start);
+		printf("%scould not truncate the file to length 0 [F]\n", start);
 		return EXIT_FAILURE;
 	}
 	length = pfs_file_length(&e);
 	if (length != 0L) {
-		printf("%sfile length != 0 (%ld) [14]\n", start, length);
+		printf("%sfile length != 0 (%ld) [10]\n", start, length);
 		return EXIT_FAILURE;
 	}
 	return EXIT_SUCCESS;
