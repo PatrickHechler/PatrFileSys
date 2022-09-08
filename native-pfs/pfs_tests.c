@@ -222,6 +222,12 @@ static int read_write_file_check() {
 		printf("%scould not create the file [0]\n", start);
 		return EXIT_FAILURE;
 	}
-	void *rnd = random_data(rd_start, 1016);
+	void *rnd = random_data(rd_start, 4098);
+	i64 res = pfs_file_append(&file, rnd, 4098);
+	if (res != 4098) {
+		printf("%scould not append the random data file (appended=%ld) [0]\n", res, start);
+		return EXIT_FAILURE;
+	}
+	//TODO check read/write
 	return EXIT_SUCCESS;
 }

@@ -23,6 +23,8 @@ struct bm_block_manager *pfs;
 extern struct bm_block_manager *pfs;
 #endif
 
+extern i64 first_block_table_block();
+
 extern int pfs_format(i64 block_count);
 
 extern i64 pfs_block_count();

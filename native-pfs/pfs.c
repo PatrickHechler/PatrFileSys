@@ -9,7 +9,38 @@
 #include "pfs-intern.h"
 #include "pfs.h"
 
+extern i64 first_block_table_block() {
+	if (pfs == NULL) {
+		return -2L;
+	}
+	struct pfs_b0 *b0 = pfs->get(pfs ,0L);
+	if (b0 == NULL) {
+		return -3;
+	}
+	i64 res = b0->block_table_first_block;
+	pfs->unget(pfs, 0L);
+	return res;
+}
+
 extern int pfs_format(i64 block_count) {
+	if (pfs == NULL) {
+		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+		return 0;
+	}
+	if (pfs->block_size
+			< (sizeof(struct pfs_b0) + sizeof(struct pfs_folder)
+					+ (sizeof(struct pfs_folder_entry) * 2) + 30)) {
+		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+		/*
+		 * absolute minimum:
+		 *    'super_block'
+		 *  + folder
+		 *  + two folder entry
+		 *  + one single character name (with the '\0' character)
+		 *  + table (three table_entries ('super_block', folder, name(, table.start)))
+		 */
+		return 0;
+	}
 	if (block_count < 2) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
@@ -43,20 +74,14 @@ extern int pfs_format(i64 block_count) {
 		super_data->block_table_first_block = 1L;
 		void *b1 = pfs->get(pfs, 1L);
 		memset(b1, 0, pfs->block_size - 8);
-		*(ui8*) b1 |= 3;
+		*(ui8*) b1 = 3;
 		*(i64*) (b1 + pfs->block_size - 8) = -1L;
-	}
-	if (pfs->block_size
-			< (sizeof(struct pfs_b0) + sizeof(struct pfs_folder)
-					+ sizeof(struct pfs_folder_entry) + 20)) {
-		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
-		// absolute minimum: 'super_block' + folder + one folder entry + table (two table_entries)
-		return 0;
 	}
 	struct pfs_folder *root = b0 + sizeof(struct pfs_b0);
 	const struct pfs_place no_parent = { .block = -1L, .pos = -1 };
-	init_element(&root->element, no_parent, PFS_FLAGS_FOLDER);
+	init_element(&root->element, no_parent, PFS_FLAGS_FOLDER, time(NULL));
 	root->direct_child_count = 0L;
+	root->helper_index = -1;
 	pfs->set(pfs, 1L);
 	pfs->set(pfs, 0L);
 	return 1;
@@ -98,7 +123,7 @@ static int del_helper(struct pfs_place h) {
 			pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 			return 0;
 		}
-		helper->helper_index = -1;
+		helper->helper_index = -1; // just to make sure
 		helper->direct_child_count = 0;
 	}
 	reallocate_in_block_table(h.block, h.pos, 0, 0);
@@ -108,7 +133,10 @@ static int del_helper(struct pfs_place h) {
 
 extern int pfs_element_delete(element *e) {
 	struct pfs_element *element = pfs->get(pfs, e->block) + e->pos;
-	if ((element->flags & PFS_FLAGS_FOLDER) != 0) {
+	struct pfs_folder *parent = pfs->get(pfs, element->parent.block)
+			+ element->parent.pos;
+	if ((parent->entries[element->index_in_parent_list].flags & PFS_FLAGS_FOLDER)
+			!= 0) {
 		struct pfs_folder *folder = (struct pfs_folder*) element;
 		if (folder->direct_child_count > 0) {
 			if ((folder->direct_child_count > 1) || (folder->helper_index == -1)
@@ -120,42 +148,29 @@ extern int pfs_element_delete(element *e) {
 			folder->direct_child_count = 0;
 			folder->helper_index = -1;
 		}
-	} else if ((element->flags & PFS_FLAGS_FILE) != 0) {
+	} else if ((parent->entries[element->index_in_parent_list].flags
+			& PFS_FLAGS_FILE) != 0) {
 		pfs_file_truncate(e, 0L);
 	} else {
 		abort();
 	}
-	struct pfs_folder *parent = pfs->get(pfs, element->parent.block)
-			+ element->parent.pos;
-	// this must be the direct parent (maybe a helper folder), so no deep search is needed
-	for (int i = 0; i < parent->direct_child_count; i++) {
-		if (parent->entries[i].child_place.pos == e->pos) {
-			if (parent->entries[i].child_place.block == e->block) {
-				memmove(parent->entries + i, parent->entries + i + 1,
-						(parent->direct_child_count - i - 1)
-								* sizeof(struct pfs_folder_entry));
-				parent->direct_child_count--;
-				if (parent->helper_index > i) {
-					parent->helper_index--;
-				}
-				reallocate_in_block_table(e->block, e->pos, 0, 0);
-				pfs->set(pfs, element->parent.block);
-				pfs->set(pfs, e->block);
-				return 1;
-			}
-		}
+	memmove(parent->entries + element->index_in_parent_list,
+			parent->entries + element->index_in_parent_list + 1,
+			(element->index_in_parent_list - parent->direct_child_count - 1)
+					* sizeof(struct pfs_folder_entry));
+	parent->direct_child_count--;
+	if (parent->helper_index > element->index_in_parent_list) {
+		parent->helper_index--;
+	} else if (parent->helper_index == element->index_in_parent_list) {
+		abort();
 	}
-	abort();
-}
-
-void init_element(struct pfs_element *element, const struct pfs_place parent,
-		ui32 flags) {
-	i64 now = time(NULL);
-	element->parent = parent;
-	element->flags = flags;
-	element->create_time = now;
-	element->last_mod_time = now;
-	element->last_meta_mod_time = now;
+	shrink_folder_entry(element->parent,
+			sizeof(struct pfs_folder)
+					+ (sizeof(struct pfs_folder_entry)
+							* (1 + parent->direct_child_count)));
+	pfs->set(pfs, element->parent.block);
+	pfs->set(pfs, e->block);
+	return 1;
 }
 
 void init_block(i64 block, i64 size) {
@@ -313,11 +328,13 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos,
 }
 
 int allocate_new_entry(struct pfs_place *write, i64 base_block, i32 size) {
-	i32 pos = allocate_in_block_table(base_block, size);
-	if (pos != -1) {
-		write->block = base_block;
-		write->pos = pos;
-		return 1;
+	if (base_block != -1L) {
+		i32 pos = allocate_in_block_table(base_block, size);
+		if (pos != -1) {
+			write->block = base_block;
+			write->pos = pos;
+			return 1;
+		}
 	}
 	i64 block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_ENTRIES);
 	if (block == -1L) {
@@ -354,10 +371,9 @@ int grow_folder_entry(struct pfs_place *place, i32 new_size) {
 	i32 new_pos = reallocate_in_block_table(place->block, place->pos, new_size,
 			1);
 	if (new_pos != -1) {
-		if (place->pos == new_pos) {
-			return 1;
+		if (place->pos != new_pos) {
+			change_place_in_parent_and_struct(place->block, new_pos, place);
 		}
-		change_place_in_parent_and_struct(place->block, new_pos, place);
 		return 1;
 	}
 //	if (!allow_block_change) {
@@ -463,7 +479,11 @@ i64 allocate_block(ui64 block_flags) {
 	if (btfb == -1L) {
 		i64 fzfb = pfs->first_zero_flagged_block(pfs);
 		if (fzfb == -1L) {
-			abort();
+			if (pfs->block_flag_bits <= 0) {
+				abort();
+			}
+			pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+			return -1L;
 		}
 		const i64 block_count = pfs_block_count();
 		if (fzfb >= block_count) {

@@ -15,8 +15,10 @@ struct pfs_place {
 	i64 a;
 	i64 b;
 };
-static_assert(offsetof(struct pfs_place, a) == 0);
-static_assert(offsetof(struct pfs_place, b) == 8);
+static_assert(offsetof(struct pfs_place, a)
+== 0);
+static_assert(offsetof(struct pfs_place, b)
+== 8);
 static_assert(sizeof(struct pfs_place) == 16);
 #endif
 typedef struct pfs_place element;
@@ -26,15 +28,14 @@ typedef struct pfs_place element;
 
 #define PFS_MAGIC_START 0xF17565393C422698
 
-enum pfs_flag {
-	PFS_FLAGS_RESERVED       = 0x0000FFFF,// these flags are reserved for intern use
-	PFS_FLAGS_FOLDER         = 0x00000001,
-	PFS_FLAGS_FILE           = 0x00000002,
-	PFS_FLAGS_HELPER_FOLDER  = 0x00000004,
-	PFS_FLAGS_FOLDER_SORTED  = 0x00000100,
-	PFS_FLAGS_FOLDER_HASH    = 0x00000200,
-	PFS_FLAGS_FILE_ENCRYPTED = 0x00008000,
-	PFS_FLAGS_HIDDEN         = 0x00010000,
-};
+// these flags are reserved for intern use
+#define	PFS_FLAGS_RESERVED               0x0000FFFFU
+#define	PFS_FLAGS_FOLDER                 0x00000001U
+#define	PFS_FLAGS_FILE                   0x00000002U
+#define	PFS_FLAGS_HELPER_FOLDER          0x00000004U
+#define	PFS_FLAGS_FOLDER_SORTED          0x00000100U
+#define	PFS_FLAGS_FOLDER_HASH            0x00000200U
+#define	PFS_FLAGS_FILE_ENCRYPTED         0x00010000U
+#define	PFS_FLAGS_HIDDEN         0x0000010000000000UL
 
 #endif /* PFS_CONSTANTS_H_ */

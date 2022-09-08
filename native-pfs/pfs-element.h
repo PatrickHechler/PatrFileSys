@@ -20,13 +20,9 @@ extern i64 pfs_element_get_create_time(element *e);
 
 extern i64 pfs_element_get_last_mod_time(element *e);
 
-extern i64 pfs_element_get_last_meta_mod_time(element *e);
-
 extern int pfs_element_set_create_time(element *e, i64 new_time);
 
 extern int pfs_element_set_last_mod_time(element *e, i64 new_time);
-
-extern int pfs_element_set_last_meta_mod_time(element *e, i64 new_time);
 
 extern int pfs_element_delete(element *e);
 

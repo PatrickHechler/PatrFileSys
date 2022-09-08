@@ -22,11 +22,11 @@
 // the bit number of the file system entries block flag
 #define BLOCK_FLAG_ENTRIES_BIT   2
 // this flag indicates that the block is used by the file system
-#define BLOCK_FLAG_USED      (1L << BLOCK_FLAG_USED_BIT)
+#define BLOCK_FLAG_USED         (1UL << BLOCK_FLAG_USED_BIT)
 // this flag indicates that the block is used by a file and stores file data
-#define BLOCK_FLAG_FILE_DATA (1L << BLOCK_FLAG_FILE_DATA_BIT)
+#define BLOCK_FLAG_FILE_DATA    (1UL << BLOCK_FLAG_FILE_DATA_BIT)
 // this flag indicates that the block is used and stores file system entries
-#define BLOCK_FLAG_ENTRIES   (1L << BLOCK_FLAG_ENTRIES_BIT)
+#define BLOCK_FLAG_ENTRIES      (1UL << BLOCK_FLAG_ENTRIES_BIT)
 
 struct pfs_place {
 	i64 block;
@@ -43,21 +43,21 @@ struct pfs_b0 {
 
 struct pfs_element {
 	struct pfs_place parent;
-	ui32 flags;
-	i64 create_time;
+	i32 index_in_parent_list;
 	i64 last_mod_time;
-	i64 last_meta_mod_time;
 } __attribute__((packed));
 
 struct pfs_folder_entry {
 	struct pfs_place child_place;
 	i32 name_pos;
+	i64 create_time;
+	ui64 flags;
 } __attribute__((packed));
 
 struct pfs_folder {
 	struct pfs_element element;
 	i32 direct_child_count;
-	i32 helper_index; // only max one helper for each folder
+	i32 helper_index;
 	struct pfs_folder_entry entries[];
 } __attribute__((packed));
 
@@ -67,8 +67,10 @@ struct pfs_file {
 	i64 first_block;
 } __attribute__((packed));
 
-void init_element(struct pfs_element *elemnet, const struct pfs_place parent,
-		ui32 element_flags);
+#define init_element(element, parent_place, element_index_in_parent_list, now) \
+	((struct pfs_element*)element)->parent = parent_place; \
+	((struct pfs_element*)element)->index_in_parent_list = element_index_in_parent_list; \
+	((struct pfs_element*)element)->last_mod_time = now; \
 
 void init_block(i64 block, i64 size);
 
