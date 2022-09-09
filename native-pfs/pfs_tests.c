@@ -215,19 +215,114 @@ static int file_check() {
 
 static int read_write_file_check() {
 	const char *start = "[main.checks.read_write_file_check]:                  ";
-	const char *rd_start =
-			"[main.checks.read_write_file_check.random_data]:      ";
+	const char *rd0_start =
+			"[main.checks.read_write_file_check.random_data[0]:   ";
+	const char *rd1_start =
+			"[main.checks.read_write_file_check.random_data[1]:   ";
 	element file = pfs_root();
 	if (!pfs_folder_create_file(&file, "read_write_file")) {
 		printf("%scould not create the file [0]\n", start);
 		return EXIT_FAILURE;
 	}
-	void *rnd = random_data(rd_start, 4098);
+	void *data = malloc(4098);
+	void *rnd = random_data(rd0_start, 4098);
+	memcpy(data, rnd, 4098);
 	i64 res = pfs_file_append(&file, rnd, 4098);
 	if (res != 4098) {
-		printf("%scould not append the random data file (appended=%ld) [0]\n", res, start);
+		printf("%scould not append the random data file (appended=%ld) [1]\n",
+				start, res);
 		return EXIT_FAILURE;
 	}
-	//TODO check read/write
+	void *reat = malloc(4098);
+	if (!pfs_file_read(&file, 0L, reat, 4098)) {
+		printf("%sfailed to read from the file [2]\n", start);
+		return EXIT_FAILURE;
+	}
+	if (memcmp(data, reat, 4098) != 0) {
+		printf("%sdid not reat the expected data! [3]\n", start);
+		return EXIT_FAILURE;
+	}
+	memset(reat, 0, 4098);
+	if (!pfs_file_read(&file, 100L, reat, 3998)) {
+		printf("%sfailed to read from the file [4]\n", start);
+		return EXIT_FAILURE;
+	}
+	if (memcmp(data + 100, reat, 3998) != 0) {
+		printf("%sdid not reat the expected data! [5]\n", start);
+		return EXIT_FAILURE;
+	}
+	memset(reat, 0, 3998);
+	if (!pfs_file_read(&file, 1000L, reat, 2098)) {
+		printf("%sfailed to read from the file [6]\n", start);
+		return EXIT_FAILURE;
+	}
+	if (memcmp(data + 1000, reat, 2098) != 0) {
+		printf("%sdid not reat the expected data! [7]\n", start);
+		return EXIT_FAILURE;
+	}
+	if (!pfs_file_read(&file, 0L, reat, 4098)) {
+		printf("%sfailed to read from the file [8]\n", start);
+		return EXIT_FAILURE;
+	}
+	if (memcmp(data, reat, 4098) != 0) {
+		printf("%sdid not reat the expected data! [9]\n", start);
+		return EXIT_FAILURE;
+	}
+	const i64 start1 = 0, len1 = 100;
+	void *rnd2 = random_data(rd1_start, 2048);
+	memcpy(data + start1, rnd2, len1);
+	if (!pfs_file_write(&file, start1, rnd2, len1)) {
+		printf("%sfailed to write to the file [A]\n", start);
+		return EXIT_FAILURE;
+	}
+	memset(reat, 0, 4098);
+	if (!pfs_file_read(&file, 0L, reat, 4098)) {
+		printf("%sfailed to read from the file [B]\n", start);
+		return EXIT_FAILURE;
+	}
+	if (memcmp(data, reat, 4098) != 0) {
+		printf("%sdid not reat the data expected data! [C]\n", start);
+		return EXIT_FAILURE;
+	}
+	const i64 start2 = 1000, len2 = 412;
+	memcpy(data + start2, rnd2 + len1, len2);
+	if (!pfs_file_write(&file, start2, rnd2 + len1, len2)) {
+		printf("%sfailed to write to the file [D]\n", start);
+		return EXIT_FAILURE;
+	}
+	if (!pfs_file_read(&file, 0L, reat, 4098)) {
+		printf("%sfailed to read from the file [E]\n", start);
+		return EXIT_FAILURE;
+	}
+	if (memcmp(data, reat, 4098) != 0) {
+		printf("%sdid not reat the expected data! [F]\n", start);
+		return EXIT_FAILURE;
+	}
+	const i64 len3 = 2048 - len1 - len2, start3 = 4098 - len3;
+	memcpy(data + start3, rnd2 + (len1 + len2), len3);
+	if (!pfs_file_write(&file, start3, rnd2 + (len1 + len2), len3)) {
+		printf("%sfailed to write to the file [10]\n", start);
+		return EXIT_FAILURE;
+	}
+	if (!pfs_file_read(&file, 0L, reat, 4098)) {
+		printf("%sfailed to read from the file [11]\n", start);
+		return EXIT_FAILURE;
+	}
+	if (memcmp(data, reat, 4098) != 0) {
+		printf("%sdid not reat the expected data! [12]\n", start);
+		for (int i = 0;i < 4098; i++) {
+			if ((*(unsigned char*) (data + i)) != (*(unsigned char*) (reat + i))) {
+				if (i != 0 && ((*(unsigned char*) (data + i - 1)) != (*(unsigned char*) (reat + i - 1)))) {
+					continue;
+				}
+				printf("%sdiff at index=%d\n", start, i);
+			} else if (i != 0 && ((*(unsigned char*) (data + i - 1)) != (*(unsigned char*) (reat + i - 1)))) {
+				printf("%ssame at index=%d\n", start, i);
+			}
+		}
+		return EXIT_FAILURE;
+	}
+	static_assert(start1 == 0, "error");
+	static_assert((start3 + len3) == 4098, "error");
 	return EXIT_SUCCESS;
 }

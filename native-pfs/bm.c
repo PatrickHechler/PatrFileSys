@@ -221,6 +221,7 @@ static void bm_ram_unget(struct bm_block_manager *bm, i64 block) {
 							+ (block * (i64) br->bm.block_size)), loaded->data,
 					br->bm.block_size);
 		}
+		free(loaded->data);
 		free(loaded);
 	}
 }
@@ -237,6 +238,7 @@ static void bm_ram_set(struct bm_block_manager *bm, i64 block) {
 		hashset_remove(&br->bm.loaded, (unsigned int) block, loaded);
 		memcpy((void*) ((i64) br->blocks + (block * (i64) br->bm.block_size)),
 				loaded->data, br->bm.block_size);
+		free(loaded->data);
 		free(loaded);
 	}
 }
@@ -299,8 +301,9 @@ static inline void save_block(i64 block, struct bm_file *bf,
 	if (lseek64(bf->file, block * (i64) bf->bm.block_size, SEEK_SET) == -1) {
 		abort();
 	}
+	void *data = loaded->data;
 	for (i64 need = bf->bm.block_size; need;) {
-		i64 wrote = write(bf->file, loaded->data, need);
+		i64 wrote = write(bf->file, data, need);
 		if (wrote == -1) {
 			if (errno == EINTR) {
 				continue;
@@ -308,7 +311,7 @@ static inline void save_block(i64 block, struct bm_file *bf,
 			abort();
 		}
 		need -= wrote;
-		loaded->data += wrote;
+		data += wrote;
 	}
 }
 
@@ -324,6 +327,7 @@ static void bm_file_unget(struct bm_block_manager *bm, i64 block) {
 		if (loaded->save) {
 			save_block(block, bf, loaded);
 		}
+		free(loaded->data);
 		free(loaded);
 	}
 }
@@ -339,6 +343,7 @@ static void bm_file_set(struct bm_block_manager *bm, i64 block) {
 	if (--loaded->count == 0) {
 		hashset_remove(&bf->bm.loaded, (unsigned int) block, loaded);
 		save_block(block, bf, loaded);
+		free(loaded->data);
 		free(loaded);
 	}
 }

@@ -178,6 +178,9 @@ static inline int read_write(element *f, i64 position, void *buffer, i64 length,
 		void *copy_block = pfs->get(pfs, cpy_place.block);
 		i64 next_block = *(i64*) (copy_block + pfs->block_size - 8);
 		copy_block += cpy_place.pos;
+		if (cpy > length) {
+			cpy = length;
+		}
 		if (read) {
 			memcpy(buffer, copy_block, cpy);
 			pfs->unget(pfs, cpy_place.block);

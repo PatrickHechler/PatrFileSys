@@ -9,19 +9,6 @@
 #include "pfs-intern.h"
 #include "pfs.h"
 
-extern i64 first_block_table_block() {
-	if (pfs == NULL) {
-		return -2L;
-	}
-	struct pfs_b0 *b0 = pfs->get(pfs ,0L);
-	if (b0 == NULL) {
-		return -3;
-	}
-	i64 res = b0->block_table_first_block;
-	pfs->unget(pfs, 0L);
-	return res;
-}
-
 extern int pfs_format(i64 block_count) {
 	if (pfs == NULL) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
@@ -543,7 +530,7 @@ void ensure_block_is_entry(i64 block) {
 }
 
 struct pfs_place find_place(i64 first_block, i64 remain) {
-	for (i64 current_block = first_block; 1; remain -= pfs->block_size) {
+	for (i64 current_block = first_block; 1; remain -= pfs->block_size - 8) {
 		if (remain < (pfs->block_size - 8)) {
 			struct pfs_place result;
 			result.block = current_block;
