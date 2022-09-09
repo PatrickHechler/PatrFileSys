@@ -5,7 +5,6 @@
  *      Author: pat
  */
 
-#include "patr-file-sys.h"
 #include "bm.h"
 #include <stdlib.h>
 #include <assert.h>
@@ -72,7 +71,7 @@ extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count,
 	bm->bm.unget = bm_ram_unget;
 	bm->bm.set = bm_ram_set;
 	bm->bm.sync = bm_ram_sync;
-	bm->bm.close = bm_ram_close;
+	bm->bm.close_bm = bm_ram_close;
 	*(i32*) ((void*) bm
 			+ (offsetof(struct bm_ram, bm)
 					+ offsetof(struct bm_block_manager, block_size))) =
@@ -107,7 +106,7 @@ extern struct bm_block_manager* bm_new_file_block_manager(int fd,
 	bm->bm.unget = bm_file_unget;
 	bm->bm.set = bm_file_set;
 	bm->bm.sync = bm_file_sync;
-	bm->bm.close = bm_file_close;
+	bm->bm.close_bm = bm_file_close;
 	*(i32*) ((void*) bm
 			+ (offsetof(struct bm_ram, bm)
 					+ offsetof(struct bm_block_manager, block_size))) =
@@ -138,7 +137,7 @@ extern struct bm_block_manager* bm_new_flaggable_ram_block_manager(
 	bm->bm.bm.unget = bm_ram_unget;
 	bm->bm.bm.set = bm_ram_set;
 	bm->bm.bm.sync = bm_ram_sync;
-	bm->bm.bm.close = bm_flag_ram_close;
+	bm->bm.bm.close_bm = bm_flag_ram_close;
 	*(i32*) ((void*) bm
 			+ (offsetof(struct bm_ram, bm)
 					+ offsetof(struct bm_block_manager, block_size))) =
@@ -394,7 +393,7 @@ static void set_flag_ram_flags(struct bm_block_manager *bm, i64 block,
 
 static i64 get_flag_ram_first_zero_flagged_block(struct bm_block_manager *bm) {
 	struct bm_flag_ram *f = (struct bm_flag_ram*) bm;
-	for (i64 i = 0; i < f->block_count; i ++) {
+	for (i64 i = 0; i < f->block_count; i++) {
 		if (f->flags[i] == 255U) {
 			continue;
 		}

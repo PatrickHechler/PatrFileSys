@@ -17,11 +17,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef I_AM_PFS
-struct bm_block_manager *pfs;
-#else
-extern struct bm_block_manager *pfs;
+#ifndef I_AM_PFS
+extern
 #endif
+struct bm_block_manager *pfs;
 
 extern int pfs_format(i64 block_count);
 

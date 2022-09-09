@@ -38,7 +38,7 @@ struct bm_block_manager {
 	/**
 	 * closes the block manager
 	 */
-	void (*close)(struct bm_block_manager *bm);
+	void (*close_bm)(struct bm_block_manager *bm);
 	/**
 	 * the size of a block
 	 */
@@ -79,7 +79,8 @@ struct bm_block_manager {
  *
  * block_size: the size of the blocks
  */
-extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count, i32 block_size);
+extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count,
+		i32 block_size);
 
 /**
  * creates a new file block manager
@@ -88,7 +89,46 @@ extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count, i32 bl
  *
  * block_size: the size of the blocks
  */
-extern struct bm_block_manager* bm_new_file_block_manager(int file, i32 block_size);
+extern struct bm_block_manager* bm_new_file_block_manager(int file,
+		i32 block_size);
+
+#define sread(fd, buf, count, error) \
+	{ \
+		void *_pntr = buf; \
+		for (i64 _cnt = count; _cnt > 0; ) { \
+			i64 _reat = read(fd, buf, _cnt); \
+			if (_reat <= 0) { \
+				if (_reat == 0) { \
+					error \
+				} else if ((errno == EAGAIN) || (errno == EINTR)) { \
+					continue; \
+				} else { \
+					error \
+				} \
+			} \
+			_cnt -= _reat; \
+			_pntr += _reat; \
+		} \
+	}
+
+#define new_file_bm(bm, file, error) { \
+	ui64 magic; \
+	i32 block_size; \
+	if (lseek64(file, 0, SEEK_SET) == -1) { \
+		error \
+	} \
+	sread(file, &magic, 8, error) \
+	if (magic != PFS_MAGIC_START) { \
+		error \
+	} \
+	if (lseek64(file, PFS_B0_OFFSET_BLOCK_SIZE, SEEK_SET) == -1) { \
+		error \
+	} \
+	sread(file, &block_size, 4, error) \
+	pfs = bm_new_file_block_manager(file, block_size); \
+}
+
+#define new_file_pfs( file, error) new_file_bm( pfs, file, error)
 
 /**
  * creates a new ram block manager
@@ -98,6 +138,7 @@ extern struct bm_block_manager* bm_new_file_block_manager(int file, i32 block_si
  *
  * block_size: the size of the blocks
  */
-extern struct bm_block_manager* bm_new_flaggable_ram_block_manager(i64 block_count, i32 block_size);
+extern struct bm_block_manager* bm_new_flaggable_ram_block_manager(
+		i64 block_count, i32 block_size);
 
 #endif /* BM_H_ */

@@ -10,11 +10,10 @@
 
 #include "patr-file-sys.h"
 
-#ifdef I_AM_PFS
-ui64 pfs_errno;
-#else
-extern ui64 pfs_errno;
+#ifndef I_AM_PFS
+extern
 #endif
+ui64 pfs_errno;
 
 #define PFS_ERRNO_NONE                  0x0000000000000000 /* if no error occurred */
 #define PFS_ERRNO_ELEMENT_WRONG_TYPE    0x0040000000000000 /* if an IO operation failed because the element is not of the correct type (file expected, but folder or reverse) */

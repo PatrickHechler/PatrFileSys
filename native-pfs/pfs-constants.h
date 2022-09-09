@@ -26,7 +26,9 @@ typedef struct pfs_place element;
 #define PFS_NO_TIME -1L
 #define PFS_NO_LOCK 0L
 
-#define PFS_MAGIC_START 0xF17565393C422698
+#define PFS_MAGIC_START 0xF17565393C422698UL
+#define PFS_B0_OFFSET_BLOCK_COUNT 24
+#define PFS_B0_OFFSET_BLOCK_SIZE 20
 
 // these flags are reserved for intern use
 #define	PFS_FLAGS_RESERVED               0x0000FFFFU

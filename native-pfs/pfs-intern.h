@@ -9,6 +9,7 @@
 #define PFS_INTERN_H_
 
 #include "patr-file-sys.h"
+#include "pfs-constants.h"
 
 /*
  * only the used flag is important, the other flags are optional
@@ -40,6 +41,14 @@ struct pfs_b0 {
 	i64 block_count;
 	i64 block_table_first_block;
 } __attribute__((packed));
+
+#define offsetof(TYPE, MEMBER) __builtin_offsetof (TYPE, MEMBER)
+
+static_assert(offsetof(struct pfs_b0, MAGIC)
+== 0, "error!");
+static_assert(offsetof(struct pfs_b0, block_size)
+== PFS_B0_OFFSET_BLOCK_SIZE, "error!");
+static_assert(offsetof(struct pfs_b0, block_count) == PFS_B0_OFFSET_BLOCK_COUNT, "error!");
 
 struct pfs_element {
 	struct pfs_place parent;

@@ -5,6 +5,7 @@
  *      Author: pat
  */
 
+#include "bm.h"
 #include "pfs.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -26,24 +27,48 @@ int main(int argc, char **argv) {
 	if (res != EXIT_SUCCESS) {
 		return res;
 	}
-	pfs->close(pfs);
+	pfs->close_bm(pfs);
 	printf("%sstart checks with a file block manager [1]\n", start);
-	int fd = open("./testout/testfile.pfs", O_RDWR | O_CREAT | O_TRUNC, 0666);
+	const char* test_file = "./testout/testfile.pfs";
+	if (argc > 1) {
+		if (argc != 2) {
+			printf("%sinvalid argument count (Usage: pfs_tests [OPTIONAL_TESTFILE]) [2]\n", start);
+			return EXIT_FAILURE;
+		}
+		test_file = argv[1];
+	}
+	int fd = open(test_file, O_RDWR | O_CREAT | O_TRUNC, 0666);
+	if (fd == -1) {
+		printf("%scould not open testfile ('%s') [3]\n", start, test_file);
+		return EXIT_FAILURE;
+	}
 	pfs = bm_new_file_block_manager(fd, 1024);
 	res = checks();
 	if (res != EXIT_SUCCESS) {
 		return res;
 	}
-	pfs->close(pfs);
-	printf("%sstart checks with block-flaggable ram block manager [2]\n",
+	pfs->close_bm(pfs);
+	printf("%sstart checks with a file block manager (again) [4]\n", start);
+	fd = open(test_file, O_RDWR, 0666);
+	if (fd == -1) {
+		printf("%scould not open testfile ('%s') [5]\n", start, test_file);
+		return EXIT_FAILURE;
+	}
+	new_file_pfs(fd, return EXIT_FAILURE;)
+	res = checks();
+	if (res != EXIT_SUCCESS) {
+		return res;
+	}
+	pfs->close_bm(pfs);
+	printf("%sstart checks with block-flaggable ram block manager [6]\n",
 			start);
 	pfs = bm_new_ram_block_manager(512L, 1024);
 	res = checks();
 	if (res != EXIT_SUCCESS) {
 		return res;
 	}
-	pfs->close(pfs);
-	printf("%sFINISH [3]\n", start);
+	pfs->close_bm(pfs);
+	printf("%sFINISH [7]\n", start);
 	return EXIT_SUCCESS;
 }
 
