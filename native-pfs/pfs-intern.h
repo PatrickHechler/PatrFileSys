@@ -59,6 +59,7 @@ struct pfs_folder {
 	struct pfs_place real_parent;
 	i32 direct_child_count;
 	struct pfs_place folder_entry;
+	// direct parent is indirect known with the folder entry place (start of memory table entry)
 	i32 helper_index;
 	struct pfs_folder_entry entries[];
 } __attribute__((packed));
@@ -87,9 +88,20 @@ struct pfs_folder_iter {
 
 void init_block(i64 block, i64 size);
 
+/**
+ * tries to allocate a block-entry in the base block.
+ * if the base_block has not enough space a new block
+ * will be allocated
+ *
+ * if base_block is -1 a new block will be allocated
+ *
+ * if a new block was allocated write->pos will always
+ * be set to zero
+ */
 int allocate_new_entry(struct pfs_place *write, i64 base_block, i32 size);
 
-//should only be used implicit with defines outside of pfs.c (like shrink_folder_entry)
+i32 allocate_in_block_table(i64 block, i64 size);
+
 i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size, const int copy);
 
 #define shrink_folder_entry(place, old_size) \
@@ -102,7 +114,7 @@ int grow_folder_entry(pfs_eh e, i32 new_size);
 
 #define remove_table_entry(block, pos) reallocate_in_block_table(block, pos, 0, 0)
 
-i32 add_name(i64 block_num, char *name);
+i32 add_name(i64 block_num, char *name, i64 str_len);
 
 i64 allocate_block(ui64 block_flags);
 

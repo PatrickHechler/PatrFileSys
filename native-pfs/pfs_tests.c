@@ -99,8 +99,8 @@ static int checks() {
 
 static int simple_check() {
 	const char *start = "[main.checks.simple_check]:                           ";
-	element root = pfs_root();
-	i64 child_count = pfs_folder_child_count(&root);
+	pfs_eh root = pfs_root();
+	i64 child_count = pfs_folder_child_count(root);
 	if (child_count != 0) {
 		printf("%sroot child count != 0 (%ld) [0]\n", start, child_count);
 		return EXIT_FAILURE;
@@ -146,91 +146,91 @@ static int file_check() {
 	const char *start = "[main.checks.file_check]:                             ";
 	const char *rd_start =
 			"[main.checks.file_check.random_data]:                 ";
-	element e = pfs_root();
-	i64 child_count = pfs_folder_child_count(&e);
+	pfs_eh file = pfs_root();
+	i64 child_count = pfs_folder_child_count(file);
 	if (child_count != 0) {
 		printf("%sroot child count != 0 (%ld) [0]\n", start, child_count);
 		return EXIT_FAILURE;
 	}
-	int res = pfs_folder_create_file(&e, "file-name");
+	int res = pfs_folder_create_file(file, "file-name");
 	if (!res) {
 		printf("%scould not create the file [1]\n", start);
 		return EXIT_FAILURE;
 	}
-	i64 length = pfs_file_length(&e);
+	i64 length = pfs_file_length(file);
 	if (length != 0L) {
 		printf("%sfile length != 0 (%ld) [2]\n", start, length);
 		return EXIT_FAILURE;
 	}
 	void *data = random_data(rd_start, 1016);
-	res = pfs_file_append(&e, data, 1016);
+	res = pfs_file_append(file, data, 1016);
 	if (res != 1016) {
 		printf("%scould not append to the file (appended: %ld) [3]\n", start,
 				res);
 		return EXIT_FAILURE;
 	}
-	length = pfs_file_length(&e);
+	length = pfs_file_length(file);
 	if (length != 1016L) {
 		printf("%sfile length != 1016 (%ld) [4]\n", start, length);
 		return EXIT_FAILURE;
 	}
-	res = pfs_file_truncate(&e, 10);
+	res = pfs_file_truncate(file, 10);
 	if (!res) {
 		printf("%scould not truncate the file to length 10 [5]\n", start);
 		return EXIT_FAILURE;
 	}
-	length = pfs_file_length(&e);
+	length = pfs_file_length(file);
 	if (length != 10L) {
 		printf("%sfile length != 10 (%ld) [6]\n", start, length);
 		return EXIT_FAILURE;
 	}
-	res = pfs_file_truncate(&e, 1500);
+	res = pfs_file_truncate(file, 1500);
 	if (!res) {
 		printf("%scould not truncate the file to length 1500 [7]\n", start);
 		return EXIT_FAILURE;
 	}
-	length = pfs_file_length(&e);
+	length = pfs_file_length(file);
 	if (length != 1500L) {
 		printf("%sfile length != 1500 (%ld) [8]\n", start, length);
 		return EXIT_FAILURE;
 	}
-	res = pfs_file_truncate(&e, 0);
+	res = pfs_file_truncate(file, 0);
 	if (!res) {
 		printf("%scould not truncate the file to length 0 [9]\n", start);
 		return EXIT_FAILURE;
 	}
-	length = pfs_file_length(&e);
+	length = pfs_file_length(file);
 	if (length != 0L) {
 		printf("%sfile length != 0 (%ld) [A]\n", start, length);
 		return EXIT_FAILURE;
 	}
-	res = pfs_file_truncate(&e, 10000);
+	res = pfs_file_truncate(file, 10000);
 	if (!res) {
 		printf("%scould not truncate the file to length 10000 [B]\n", start);
 		return EXIT_FAILURE;
 	}
-	length = pfs_file_length(&e);
+	length = pfs_file_length(file);
 	if (length != 10000L) {
 		printf("%sfile length != 10000 (%ld) [C]\n", start, length);
 		return EXIT_FAILURE;
 	}
-	res = pfs_file_append(&e, data, 1016);
+	res = pfs_file_append(file, data, 1016);
 	if (res != 1016) {
 		printf("%scould not append to the file (appended: %ld) [D]\n", start,
 				res);
 		return EXIT_FAILURE;
 	}
-	length = pfs_file_length(&e);
+	length = pfs_file_length(file);
 	if (length != 11016L) {
 		printf("%sfile length != 11016 (%ld) [E]\n", start, length);
 		return EXIT_FAILURE;
 	}
-	res = pfs_file_truncate(&e, 0);
+	res = pfs_file_truncate(file, 0);
 	if (!res) {
 		printf("%scould not truncate the file to length 0 [F]\n", start);
 		return EXIT_FAILURE;
 	}
-	length = pfs_file_length(&e);
+	length = pfs_file_length(file);
 	if (length != 0L) {
 		printf("%sfile length != 0 (%ld) [10]\n", start, length);
 		return EXIT_FAILURE;
@@ -244,22 +244,22 @@ static int read_write_file_check() {
 			"[main.checks.read_write_file_check.random_data[0]:   ";
 	const char *rd1_start =
 			"[main.checks.read_write_file_check.random_data[1]:   ";
-	element file = pfs_root();
-	if (!pfs_folder_create_file(&file, "read_write_file")) {
+	pfs_eh file = pfs_root();
+	if (!pfs_folder_create_file(file, "read_write_file")) {
 		printf("%scould not create the file [0]\n", start);
 		return EXIT_FAILURE;
 	}
 	void *data = malloc(4098);
 	void *rnd = random_data(rd0_start, 4098);
 	memcpy(data, rnd, 4098);
-	i64 res = pfs_file_append(&file, rnd, 4098);
+	i64 res = pfs_file_append(file, rnd, 4098);
 	if (res != 4098) {
 		printf("%scould not append the random data file (appended=%ld) [1]\n",
 				start, res);
 		return EXIT_FAILURE;
 	}
 	void *reat = malloc(4098);
-	if (!pfs_file_read(&file, 0L, reat, 4098)) {
+	if (!pfs_file_read(file, 0L, reat, 4098)) {
 		printf("%sfailed to read from the file [2]\n", start);
 		return EXIT_FAILURE;
 	}
@@ -268,7 +268,7 @@ static int read_write_file_check() {
 		return EXIT_FAILURE;
 	}
 	memset(reat, 0, 4098);
-	if (!pfs_file_read(&file, 100L, reat, 3998)) {
+	if (!pfs_file_read(file, 100L, reat, 3998)) {
 		printf("%sfailed to read from the file [4]\n", start);
 		return EXIT_FAILURE;
 	}
@@ -277,7 +277,7 @@ static int read_write_file_check() {
 		return EXIT_FAILURE;
 	}
 	memset(reat, 0, 3998);
-	if (!pfs_file_read(&file, 1000L, reat, 2098)) {
+	if (!pfs_file_read(file, 1000L, reat, 2098)) {
 		printf("%sfailed to read from the file [6]\n", start);
 		return EXIT_FAILURE;
 	}
@@ -285,7 +285,7 @@ static int read_write_file_check() {
 		printf("%sdid not reat the expected data! [7]\n", start);
 		return EXIT_FAILURE;
 	}
-	if (!pfs_file_read(&file, 0L, reat, 4098)) {
+	if (!pfs_file_read(file, 0L, reat, 4098)) {
 		printf("%sfailed to read from the file [8]\n", start);
 		return EXIT_FAILURE;
 	}
@@ -296,12 +296,12 @@ static int read_write_file_check() {
 	const i64 start1 = 0, len1 = 100;
 	void *rnd2 = random_data(rd1_start, 2048);
 	memcpy(data + start1, rnd2, len1);
-	if (!pfs_file_write(&file, start1, rnd2, len1)) {
+	if (!pfs_file_write(file, start1, rnd2, len1)) {
 		printf("%sfailed to write to the file [A]\n", start);
 		return EXIT_FAILURE;
 	}
 	memset(reat, 0, 4098);
-	if (!pfs_file_read(&file, 0L, reat, 4098)) {
+	if (!pfs_file_read(file, 0L, reat, 4098)) {
 		printf("%sfailed to read from the file [B]\n", start);
 		return EXIT_FAILURE;
 	}
@@ -311,11 +311,11 @@ static int read_write_file_check() {
 	}
 	const i64 start2 = 1000, len2 = 412;
 	memcpy(data + start2, rnd2 + len1, len2);
-	if (!pfs_file_write(&file, start2, rnd2 + len1, len2)) {
+	if (!pfs_file_write(file, start2, rnd2 + len1, len2)) {
 		printf("%sfailed to write to the file [D]\n", start);
 		return EXIT_FAILURE;
 	}
-	if (!pfs_file_read(&file, 0L, reat, 4098)) {
+	if (!pfs_file_read(file, 0L, reat, 4098)) {
 		printf("%sfailed to read from the file [E]\n", start);
 		return EXIT_FAILURE;
 	}
@@ -325,11 +325,11 @@ static int read_write_file_check() {
 	}
 	const i64 len3 = 2048 - len1 - len2, start3 = 4098 - len3;
 	memcpy(data + start3, rnd2 + (len1 + len2), len3);
-	if (!pfs_file_write(&file, start3, rnd2 + (len1 + len2), len3)) {
+	if (!pfs_file_write(file, start3, rnd2 + (len1 + len2), len3)) {
 		printf("%sfailed to write to the file [10]\n", start);
 		return EXIT_FAILURE;
 	}
-	if (!pfs_file_read(&file, 0L, reat, 4098)) {
+	if (!pfs_file_read(file, 0L, reat, 4098)) {
 		printf("%sfailed to read from the file [11]\n", start);
 		return EXIT_FAILURE;
 	}

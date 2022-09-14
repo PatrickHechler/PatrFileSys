@@ -23,19 +23,23 @@
 
 #define get_folder get_folder1(folder, block_data)
 
-extern i64 pfs_folder_child_count(pfs_eh f) {
-	get_folder
+static i64 count_children(struct pfs_place *f) {
+	get_folder2(folder, block_data, f->block, f->pos)
 	i64 child_count = folder->direct_child_count;
 	i64 result = 0L;
 	for (i64 i = 0; i < child_count; i++) {
 		if (folder->entries[i].name_pos != -1) {
 			result++;
 		} else {
-			result += pfs_folder_child_count(&folder->entries[i].child_place);
+			result += count_children(&folder->entries[i].child_place);
 		}
 	}
-	pfs->unget(pfs, f->element_place.block);
+	pfs->unget(pfs, f->block);
 	return result;
+}
+
+extern i64 pfs_folder_child_count(pfs_eh f) {
+	return count_children(&f->element_place);
 }
 
 static int pfs_folder_child_from_name_impl(pfs_eh f, char *name, int is_helper) {
@@ -106,7 +110,8 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size, int g
 			helper->element.last_mod_time = -1L;
 			helper->direct_child_count = 1;
 			helper->entries[0] = me->entries[me->direct_child_count - 1];
-			i32 name_pos = add_name(new_block, ((void*) helper) + helper->entries[0].name_pos);
+			char *new_helper_child_name = ((void*) helper) + helper->entries[0].name_pos;
+			i32 name_pos = add_name(new_block, new_helper_child_name, strlen(new_helper_child_name));
 			if (name_pos == -1) {
 				free_block(name_pos);
 				pfs->unget(pfs, new_block);
@@ -144,14 +149,14 @@ static inline int create_folder_or_file(pfs_eh f, struct pfs_place direct_parent
 			my_place.pos = f->element_place.pos;
 			me = my_old_block_data + my_place.pos;
 		}
-		name_pos = add_name(my_place.block, name);
+		name_pos = add_name(my_place.block, name, strlen(name));
 		if (name_pos == -1) {
 			return delegate_create_element_to_helper(my_new_size, grow_success, create_folder, me,
 			        my_place, f, name);
 		}
 	} else if (((me->direct_child_count) < 2) && (me->helper_index == -1)) {
 		grow_success = 0;
-		if (!allocate_new_entry(f, -1,
+		if (!allocate_new_entry(&f->element_place, -1,
 		        sizeof(struct pfs_folder)
 		                + (sizeof(struct pfs_folder_entry) * (me->direct_child_count + 1)))) {
 			pfs->unget(pfs, my_place.block);
@@ -159,7 +164,7 @@ static inline int create_folder_or_file(pfs_eh f, struct pfs_place direct_parent
 		}
 		struct pfs_folder *old_me = me;
 		const i64 my_old_block = my_place.block;
-		my_place = *f;
+		my_place = f->element_place;
 		me = pfs->get(pfs, my_place.block) + my_place.pos;
 		me->element = old_me->element;
 		me->direct_child_count = old_me->direct_child_count;
@@ -169,7 +174,7 @@ static inline int create_folder_or_file(pfs_eh f, struct pfs_place direct_parent
 		my_parent->entries[f->index_in_direct_parent_list].child_place = my_place;
 		pfs->set(pfs, f->direct_parent_place.block);
 		pfs->set(pfs, my_old_block);
-		name_pos = add_name(my_place.block, name);
+		name_pos = add_name(my_place.block, name, strlen(name));
 	} else {
 		grow_success = 0;
 		return delegate_create_element_to_helper(my_new_size, grow_success, create_folder, me,

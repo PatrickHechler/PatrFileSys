@@ -62,10 +62,13 @@ extern int pfs_element_set_name(pfs_eh e, char *name);
 /**
  * get the create time of the given pfs-element
  *
- * when the operation fails (ui64) -1 is returned and pfs_errno will be set
+ * when the operation fails PFS_NO_TIME will be
+ * returned and pfs_errno will be set
  *
- * note that -1 may also be the create time of the pfs-element, so ensure that
- * pfs_errno is set to zero before calling this and than check with the pfs_errno
+ * note that PFS_NO_TIME may also be the create
+ * time of the pfs-element, so ensure that pfs_errno
+ * is set to zero before calling this and than check
+ * with the pfs_errno and not with the return value
  */
 extern i64 pfs_element_get_create_time(pfs_eh e);
 

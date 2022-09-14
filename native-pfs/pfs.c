@@ -91,7 +91,7 @@ extern i32 pfs_block_size() {
 	return block_size;
 }
 
-extern struct pfs_element_handle* pfs_root() {
+extern pfs_eh pfs_root() {
 	struct pfs_element_handle *res = malloc(sizeof(struct pfs_element_handle));
 	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
 	res->real_parent_place.block = -1L;
@@ -179,7 +179,7 @@ void init_block(i64 block, i64 size) {
 	pfs->set(pfs, block);
 }
 
-static i32 allocate_in_block_table(i64 block, i64 size) {
+i32 allocate_in_block_table(i64 block, i64 size) {
 	void *block_data = pfs->get(pfs, block);
 	i32 *table_end = block_data + pfs->block_size - 4;
 	i32 *table = block_data + *table_end;
@@ -262,9 +262,11 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size
 			if (new_size > 0) {
 				table[1] = pos + new_size;
 			} else if (new_size == 0) {
+//				memmove(block_data + *table_end + 8, block_data + *table_end, __n)
 				for (i64 *cpy = block_data + *table_end; ((void*) cpy) < ((void*) table); cpy++) {
 					cpy[1] = cpy[0];
 				}
+				*table_end += 8;
 			} else {
 				abort();
 			}
@@ -418,17 +420,17 @@ int grow_folder_entry(pfs_eh e, i32 new_size) {
 //	return 1;
 }
 
-i32 add_name(i64 block_num, char *name) {
-	i64 strsize = strlen(name) + 1;
+i32 add_name(i64 block_num, char *name, i64 str_len) {
 	void *block = pfs->get(pfs, block_num);
-	i32 pos = allocate_in_block_table(block_num, strsize);
-	if (pos != -1) {
-		memcmp(block + pos, name, strsize);
+	i32 pos = allocate_in_block_table(block_num, str_len);
+	if (pos == -1) {
+		pfs->unget(pfs, block_num);
+		return -1;
+	} else {
+		memcmp(block + pos, name, str_len);
 		pfs->set(pfs, block_num);
 		return pos;
 	}
-	pfs->unget(pfs, block_num);
-	return -1;
 }
 
 i64 get_block_table_first_block() {
