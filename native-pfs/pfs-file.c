@@ -9,8 +9,15 @@
 #include "pfs-file.h"
 #include <string.h>
 
-static inline int read_write(pfs_eh f, i64 position, void *buffer, i64 length,
-		int read);
+#define get_file(error_result) \
+	void *file_block_data = pfs->get(pfs, f->element_place.block); \
+	if (file_block_data == NULL) { \
+		pfs_errno = PFS_ERRNO_UNKNOWN_ERROR; \
+		return error_result; \
+	} \
+	struct pfs_file *file = file_block_data + f->element_place.pos;
+
+static inline int read_write(pfs_eh f, i64 position, void *buffer, i64 length, int read);
 
 extern int pfs_file_read(pfs_eh f, i64 position, void *buffer, i64 length) {
 	return read_write(f, position, buffer, length, 1);
@@ -28,11 +35,11 @@ extern i64 pfs_file_append(pfs_eh f, void *data, i64 length) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return -1;
 	}
-	struct pfs_file *file = pfs->get(pfs, f->element_place.block) + f->element_place.pos;
+	get_file(-1)
 	struct pfs_place file_end;
 	if (file->file_length == 0) {
 		file->first_block = file_end.block = allocate_block(
-				BLOCK_FLAG_USED | BLOCK_FLAG_FILE_DATA);
+		BLOCK_FLAG_USED | BLOCK_FLAG_FILE_DATA);
 		file_end.pos = 0;
 	} else {
 		file_end = find_place(file->first_block, file->file_length);
@@ -65,8 +72,8 @@ extern i64 pfs_file_append(pfs_eh f, void *data, i64 length) {
 	return appended;
 }
 
-static inline int truncate_shrink(i64 new_length, struct pfs_place *f) {
-	struct pfs_file *file = pfs->get(pfs, f->block) + f->pos;
+static inline int truncate_shrink(i64 new_length, pfs_eh f) {
+	struct pfs_file *file = pfs->get(pfs, f->element_place.block) + f->element_place.pos;
 	i64 remain = file->file_length - new_length;
 	struct pfs_place place = find_place(file->first_block, new_length);
 	if (new_length == 0) {
@@ -85,20 +92,20 @@ static inline int truncate_shrink(i64 new_length, struct pfs_place *f) {
 		remain -= free_data;
 		pfs->set(pfs, current_block_num);
 	}
-	pfs->set(pfs, f->block);
+	pfs->set(pfs, f->element_place.block);
 	return 1;
 }
 
-static inline int truncate_grow(i64 new_length, struct pfs_place *f) {
-	struct pfs_file *file = pfs->get(pfs, f->block) + f->pos;
+static inline int truncate_grow(i64 new_length, pfs_eh f) {
+	struct pfs_file *file = pfs->get(pfs, f->element_place.block) + f->element_place.pos;
 	const i64 old_length = file->file_length;
 	struct pfs_place file_end = find_place(file->first_block, old_length);
 	if (old_length == 0) {
 		file->first_block = file_end.block = allocate_block(
-				BLOCK_FLAG_USED | BLOCK_FLAG_FILE_DATA);
+		BLOCK_FLAG_USED | BLOCK_FLAG_FILE_DATA);
 		if (file_end.block == -1L) {
 			pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
-			pfs->unget(pfs, f->block);
+			pfs->unget(pfs, f->element_place.block);
 			return 0;
 		}
 	}
@@ -117,20 +124,20 @@ static inline int truncate_grow(i64 new_length, struct pfs_place *f) {
 			break;
 		}
 		const i64 current_block_num = file_end.block;
-		*(i64*) (current_block + pfs->block_size - 8) = file_end.block =
-				allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_FILE_DATA);
+		*(i64*) (current_block + pfs->block_size - 8) = file_end.block = allocate_block(
+		        BLOCK_FLAG_USED | BLOCK_FLAG_FILE_DATA);
 		file_end.pos = 0;
 		pfs->set(pfs, current_block_num);
 		if (file_end.block == -1L) {
 			truncate_shrink(old_length, f);
-			pfs->set(pfs, f->block);
+			pfs->set(pfs, f->element_place.block);
 			return 0;
 		}
 	}
 	if (file->file_length != new_length) {
 		abort();
 	}
-	pfs->set(pfs, f->block);
+	pfs->set(pfs, f->element_place.block);
 	return 1;
 }
 
@@ -139,7 +146,7 @@ extern int pfs_file_truncate(pfs_eh f, i64 new_length) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
-	struct pfs_file *file = pfs->get(pfs, f->element_place.block) + f->element_place.pos;
+	get_file(0)
 	int res;
 	if (file->file_length < new_length) {
 		res = truncate_grow(new_length, f);
@@ -151,19 +158,18 @@ extern int pfs_file_truncate(pfs_eh f, i64 new_length) {
 }
 
 i64 pfs_file_length(pfs_eh f) {
-	struct pfs_file *file = pfs->get(pfs, f->element_place.block) + f->element_place.pos;
+	get_file(-1)
 	i64 len = file->file_length;
 	pfs->unget(pfs, f->element_place.block);
 	return len;
 }
 
-static inline int read_write(pfs_eh f, i64 position, void *buffer, i64 length,
-		int read) {
+static inline int read_write(pfs_eh f, i64 position, void *buffer, i64 length, int read) {
 	if (position < 0 || length < 0) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
-	struct pfs_file *file = pfs->get(pfs, f->element_place.block) + f->element_place.pos;
+	get_file(0)
 	if (file->file_length - position < length) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
