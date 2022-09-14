@@ -9,28 +9,26 @@
 #include "pfs-file.h"
 #include <string.h>
 
-static inline int read_write(element *f, i64 position, void *buffer, i64 length,
+static inline int read_write(pfs_eh f, i64 position, void *buffer, i64 length,
 		int read);
 
-extern int pfs_file_read(element *f, i64 position, void *buffer, i64 length) {
+extern int pfs_file_read(pfs_eh f, i64 position, void *buffer, i64 length) {
 	return read_write(f, position, buffer, length, 1);
 }
 
-extern int pfs_file_write(element *f, i64 position, void *data, i64 length) {
+extern int pfs_file_write(pfs_eh f, i64 position, void *data, i64 length) {
 	return read_write(f, position, data, length, 0);
 }
 
-extern i64 pfs_file_append(element *f, void *data, i64 length) {
+extern i64 pfs_file_append(pfs_eh f, void *data, i64 length) {
 	if (length <= 0) {
 		if (length == 0) {
-			pfs->get(pfs, f->block);
-			pfs->unget(pfs, f->block);
 			return 1;
 		}
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return -1;
 	}
-	struct pfs_file *file = pfs->get(pfs, f->block) + f->pos;
+	struct pfs_file *file = pfs->get(pfs, f->element_place.block) + f->element_place.pos;
 	struct pfs_place file_end;
 	if (file->file_length == 0) {
 		file->first_block = file_end.block = allocate_block(
@@ -63,7 +61,7 @@ extern i64 pfs_file_append(element *f, void *data, i64 length) {
 		cpy = pfs->block_size - 8;
 	}
 	file->file_length += appended;
-	pfs->set(pfs, f->block);
+	pfs->set(pfs, f->element_place.block);
 	return appended;
 }
 
@@ -136,42 +134,42 @@ static inline int truncate_grow(i64 new_length, struct pfs_place *f) {
 	return 1;
 }
 
-extern int pfs_file_truncate(element *f, i64 new_length) {
+extern int pfs_file_truncate(pfs_eh f, i64 new_length) {
 	if (new_length < 0L) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
-	struct pfs_file *file = pfs->get(pfs, f->block) + f->pos;
+	struct pfs_file *file = pfs->get(pfs, f->element_place.block) + f->element_place.pos;
 	int res;
 	if (file->file_length < new_length) {
 		res = truncate_grow(new_length, f);
 	} else { // shrink can handle no change
 		res = truncate_shrink(new_length, f);
 	}
-	pfs->unget(pfs, f->block);
+	pfs->unget(pfs, f->element_place.block);
 	return res;
 }
 
-i64 pfs_file_length(element *f) {
-	struct pfs_file *file = pfs->get(pfs, f->block) + f->pos;
+i64 pfs_file_length(pfs_eh f) {
+	struct pfs_file *file = pfs->get(pfs, f->element_place.block) + f->element_place.pos;
 	i64 len = file->file_length;
-	pfs->unget(pfs, f->block);
+	pfs->unget(pfs, f->element_place.block);
 	return len;
 }
 
-static inline int read_write(element *f, i64 position, void *buffer, i64 length,
+static inline int read_write(pfs_eh f, i64 position, void *buffer, i64 length,
 		int read) {
 	if (position < 0 || length < 0) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
-	struct pfs_file *file = pfs->get(pfs, f->block) + f->pos;
+	struct pfs_file *file = pfs->get(pfs, f->element_place.block) + f->element_place.pos;
 	if (file->file_length - position < length) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	i64 fb = file->first_block;
-	pfs->unget(pfs, f->block);
+	pfs->unget(pfs, f->element_place.block);
 	struct pfs_place cpy_place = find_place(fb, position);
 	i32 cpy = pfs->block_size - 8 - cpy_place.pos;
 	while (length > 0) {

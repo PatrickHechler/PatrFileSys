@@ -9,7 +9,6 @@
 #define PFS_INTERN_H_
 
 #include "patr-file-sys.h"
-#include "pfs-constants.h"
 
 /*
  * only the used flag is important, the other flags are optional
@@ -42,17 +41,9 @@ struct pfs_b0 {
 	i64 block_table_first_block;
 } __attribute__((packed));
 
-#define offsetof(TYPE, MEMBER) __builtin_offsetof (TYPE, MEMBER)
-
-static_assert(offsetof(struct pfs_b0, MAGIC)
-== 0, "error!");
-static_assert(offsetof(struct pfs_b0, block_size)
-== PFS_B0_OFFSET_BLOCK_SIZE, "error!");
-static_assert(offsetof(struct pfs_b0, block_count) == PFS_B0_OFFSET_BLOCK_COUNT, "error!");
+static_assert(offsetof(struct pfs_b0, MAGIC) == 0, "error!");
 
 struct pfs_element {
-	struct pfs_place parent;
-	i32 index_in_parent_list;
 	i64 last_mod_time;
 } __attribute__((packed));
 
@@ -65,7 +56,9 @@ struct pfs_folder_entry {
 
 struct pfs_folder {
 	struct pfs_element element;
+	struct pfs_place real_parent;
 	i32 direct_child_count;
+	struct pfs_place folder_entry;
 	i32 helper_index;
 	struct pfs_folder_entry entries[];
 } __attribute__((packed));
@@ -76,26 +69,36 @@ struct pfs_file {
 	i64 first_block;
 } __attribute__((packed));
 
-#define init_element(element, parent_place, element_index_in_parent_list, now) \
-	((struct pfs_element*)element)->parent = parent_place; \
-	((struct pfs_element*)element)->index_in_parent_list = element_index_in_parent_list; \
-	((struct pfs_element*)element)->last_mod_time = now; \
+struct pfs_element_handle {
+	struct pfs_place real_parent_place;
+	int : 32;
+	struct pfs_place direct_parent_place;
+	i32 index_in_direct_parent_list;
+	struct pfs_place element_place;
+};
+
+struct pfs_folder_iter {
+	struct pfs_place current_place;
+	i32 current_depth;
+	struct pfs_place current_folder;
+	i32 remaining_direct_entries;
+	struct pfs_element_handle *eh;
+};
 
 void init_block(i64 block, i64 size);
 
 int allocate_new_entry(struct pfs_place *write, i64 base_block, i32 size);
 
-//should only be used with implicit defines outside of pfs.c
-i32 reallocate_in_block_table(const i64 block, const i32 pos,
-		const i64 new_size, const int copy);
+//should only be used implicit with defines outside of pfs.c (like shrink_folder_entry)
+i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size, const int copy);
 
-#define shrink_folder_entry(/*struct pfs_place */ place, /* i32 */ old_size) \
+#define shrink_folder_entry(place, old_size) \
 	if ( (place.pos = reallocate_in_block_table(place.block, place.pos, \
 			(old_size) - sizeof(struct pfs_folder_entry), 1)) == -1) { \
 		abort(); \
 	}
 
-int grow_folder_entry(struct pfs_place *place, i32 new_size);
+int grow_folder_entry(pfs_eh e, i32 new_size);
 
 #define remove_table_entry(block, pos) reallocate_in_block_table(block, pos, 0, 0)
 

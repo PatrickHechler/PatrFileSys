@@ -18,6 +18,7 @@
 #include <stdint.h>
 #include <time.h>
 #include <assert.h>
+#include <string.h>
 
 typedef int64_t i64;
 typedef int32_t i32;
@@ -32,5 +33,12 @@ static_assert(sizeof(i32) == 4, "Error!");
 static_assert(sizeof(ui64) == 8, "Error!");
 static_assert(sizeof(ui32) == 4, "Error!");
 static_assert(sizeof(char) == 1, "Error!");
+
+struct pfs_folder_iter;
+struct pfs_element_handle;
+
+typedef struct pfs_element_handle *pfs_eh;
+
+typedef struct pfs_folder_iter *pfs_fi;
 
 #endif /* PATR_FILE_SYS_H_ */
