@@ -26,6 +26,8 @@ extern i64 pfs_block_count();
 
 extern i32 pfs_block_size();
 
+extern int pfs_fill_root(pfs_eh overwrite_me);
+
 extern pfs_eh pfs_root();
 
 #define pfs_duplicate_handle0(eh, new_eh, out_of_mem) \

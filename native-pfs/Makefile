@@ -34,7 +34,7 @@ all:	INIT_MKDIR $(TEST_TARGET)
 
 INIT_MKDIR:
 	mkdir -p $(BINARY)
-	mkdir -p ./testout/
+	mkdir -p $(PROJECT_ROOT)/testout/fs-root/
 
 $(TEST_TARGET): $(TARGET) $(TEST_TARGET).o
 	$(CC) -o $(TEST_TARGET) $(TEST_TARGET).o  $(TEST_LIBS)

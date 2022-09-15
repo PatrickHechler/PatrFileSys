@@ -91,17 +91,33 @@ extern i32 pfs_block_size() {
 	return block_size;
 }
 
+extern int pfs_fill_root(pfs_eh overwrite_me) {
+	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
+	if (b0 == NULL) {
+		pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
+		return 0;
+	}
+	overwrite_me->real_parent_place.block = -1L;
+	overwrite_me->real_parent_place.pos = -1;
+	overwrite_me->direct_parent_place.block = -1L;
+	overwrite_me->direct_parent_place.pos = -1;
+	overwrite_me->index_in_direct_parent_list = -1;
+	overwrite_me->element_place.block = b0->root.block;
+	overwrite_me->element_place.pos = b0->root.pos;
+	pfs->unget(pfs, 0L);
+	return 1;
+}
+
 extern pfs_eh pfs_root() {
 	struct pfs_element_handle *res = malloc(sizeof(struct pfs_element_handle));
-	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
-	res->real_parent_place.block = -1L;
-	res->real_parent_place.pos = -1;
-	res->direct_parent_place.block = -1L;
-	res->direct_parent_place.pos = -1;
-	res->index_in_direct_parent_list = -1;
-	res->element_place.block = b0->root.block;
-	res->element_place.pos = b0->root.pos;
-	pfs->unget(pfs, 0L);
+	if (res == NULL) {
+		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
+		return NULL;
+	}
+	if (!pfs_fill_root(res)) {
+		free(res);
+		return NULL;
+	}
 	return res;
 }
 
@@ -226,12 +242,12 @@ static inline i32 fill_entry_and_move_data(i32 free, i32 last_end, const i64 new
 			abort();
 		}
 	}
-	*table[0] = new_pos;
-	*table[1] = new_pos + new_size;
-	if (*table[1] > *table[2]) {
+	(*table)[0] = new_pos;
+	(*table)[1] = new_pos + new_size;
+	if ((*table)[1] > (*table)[2]) {
 		abort();
 	}
-	if (*table[-1] > *table[0]) {
+	if ((*table)[-1] > (*table)[0]) {
 		abort();
 	}
 	if (copy) {

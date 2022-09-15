@@ -90,8 +90,7 @@ extern int pfs_folder_iter_next(pfs_fi fi) {
 				}
 			}
 			abort();
-finish_search:
-			;
+			finish_search: ;
 			i32 size = fi->current_place.pos - fi->current_folder_pos - sizeof(struct pfs_folder);
 			i32 current_index = size / sizeof(struct pfs_folder_entry);
 			if ((current_index * sizeof(struct pfs_folder_entry)) != size) {
@@ -115,7 +114,7 @@ finish_search:
 			fi->eh->real_parent_place.block = fi->current_place.block;
 			fi->eh->real_parent_place.pos = fi->current_folder_pos;
 		} else {
-			void* fe_block_data = pfs->get(pfs, folder->folder_entry.block);
+			void *fe_block_data = pfs->get(pfs, folder->folder_entry.block);
 			if (fe_block_data == NULL) {
 				pfs->unget(pfs, fi->current_place.block);
 				pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
@@ -363,7 +362,11 @@ static inline int create_folder_or_file(pfs_eh f, struct pfs_place real_parent, 
 	if (create_folder) {
 		struct pfs_folder *cf = child;
 		cf->element.last_mod_time = now;
+		cf->real_parent = real_parent;
 		cf->direct_child_count = 0;
+		cf->folder_entry.block = my_place.block;
+		cf->folder_entry.pos = my_place.pos + sizeof(struct pfs_folder)
+		        + (sizeof(struct pfs_folder_entry) * me->direct_child_count);
 		cf->helper_index = -1;
 	} else {
 		struct pfs_file *cf = child;
