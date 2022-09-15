@@ -30,7 +30,7 @@ extern int pfs_file_write(pfs_eh f, i64 position, void *data, i64 length) {
 extern i64 pfs_file_append(pfs_eh f, void *data, i64 length) {
 	if (length <= 0) {
 		if (length == 0) {
-			return 1;
+			return 0;
 		}
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return -1;

@@ -30,7 +30,7 @@ extern pfs_eh pfs_root();
 
 #define pfs_duplicate_handle0(eh, new_eh, out_of_mem) \
 	pfs_eh new_eh = malloc(PFS_EH_SIZE); \
-	if (new_eh == NULL) } \
+	if (new_eh == NULL) { \
 		out_of_mem \
 	} \
 	memcpy(new_eh, eh, PFS_EH_SIZE);

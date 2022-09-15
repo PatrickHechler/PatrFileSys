@@ -11,11 +11,13 @@
 #include "pfs-err.h"
 
 #define PFS_EH_SIZE 44
+#define PFS_FI_SIZE 40
 
 #define PFS_NO_TIME -1L
 
 #ifdef PFS_INTERN_H_
 static_assert(PFS_EH_SIZE == sizeof(struct pfs_element_handle), "error!");
+static_assert(PFS_FI_SIZE == sizeof(struct pfs_folder_iter), "error!");
 #endif
 
 #define PFS_MAGIC_START 0xF17565393C422698UL

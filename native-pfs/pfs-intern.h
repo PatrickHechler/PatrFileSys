@@ -81,9 +81,10 @@ struct pfs_element_handle {
 struct pfs_folder_iter {
 	struct pfs_place current_place;
 	i32 current_depth;
-	struct pfs_place current_folder;
+	i32 current_folder_pos;
 	i32 remaining_direct_entries;
 	struct pfs_element_handle *eh;
+	int show_hidden;
 };
 
 void init_block(i64 block, i64 size);
