@@ -23,6 +23,25 @@ static int append_file_check();
 static int folder_check();
 static int deep_folder_check();
 
+static void print_block_table(i64 block) {
+	const char *start = "[[...].print_block_table]:                            ";
+	void *block_data = pfs->get(pfs, block);
+	if (block_data == NULL) {
+		printf("%scould not get the block [0]\n", start);
+		return;
+	}
+	i32 *table_end = block_data + pfs->block_size - 4;
+	printf("%sblock: %ld [1]\n"
+			"%s  table_end: %d [2]\n"
+			"%s  table: [3]\n", start, block, start, *table_end, start);
+	i32 *table_start = block_data + *table_end;
+	for (int i = 0; table_start + i < table_end; i += 2) {
+		printf("%s    [%d]: %d..%d [4]\n", start, i >> 1, table_start[i], table_start[i + 1]);
+	}
+	printf("%s    end: %d.. [5]\n", start, *table_end);
+	pfs->unget(pfs, block);
+}
+
 int main(int argc, char **argv) {
 	const char *start = "[main]:                                               ";
 	printf("%sstart checks with a ram block manager [0]\n", start);
@@ -83,6 +102,7 @@ static int checks() {
 		printf("%scould not format the file system! [0]\n", start);
 		return EXIT_FAILURE;
 	}
+	print_block_table(0L);
 	printf("%sstart simple_check [1]\n", start);
 	int res = simple_check();
 	if (res != EXIT_SUCCESS) {

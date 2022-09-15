@@ -232,8 +232,7 @@ i32 allocate_in_block_table(i64 block, i64 size) {
 }
 
 static inline i32 fill_entry_and_move_data(i32 free, i32 last_end, const i64 new_size,
-        const int copy, const i32 pos, i32 old_size, i32 **table, void *block_data,
-        const i64 *block) {
+        const int copy, const i32 pos, i32 old_size, i32 *table, void *block_data, const i64 block) {
 	i32 new_pos = (free >> 1) + last_end;
 	new_pos = new_pos & ~7L;
 	if (last_end > new_pos) {
@@ -242,18 +241,18 @@ static inline i32 fill_entry_and_move_data(i32 free, i32 last_end, const i64 new
 			abort();
 		}
 	}
-	(*table)[0] = new_pos;
-	(*table)[1] = new_pos + new_size;
-	if ((*table)[1] > (*table)[2]) {
+	table[0] = new_pos;
+	table[1] = new_pos + new_size;
+	if (table[1] > table[2]) {
 		abort();
 	}
-	if ((*table)[-1] > (*table)[0]) {
+	if (table[-1] > table[0]) {
 		abort();
 	}
 	if (copy) {
 		memcpy(block_data + new_pos, block_data + pos, old_size);
 	}
-	pfs->set(pfs, *block);
+	pfs->set(pfs, block);
 	return new_pos;
 }
 
@@ -274,7 +273,7 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size
 		if (old_size == new_size) {
 			pfs->unget(pfs, block);
 			return pos;
-		} else if (old_size < new_size) {
+		} else if (old_size > new_size) {
 			if (new_size > 0) {
 				table[1] = pos + new_size;
 			} else if (new_size == 0) {
@@ -313,18 +312,18 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size
 			pfs->set(pfs, block);
 			return new_pos;
 		}
-		i32 *old_entry = table;
+		i32 *my_old_entry = table;
 		table = block_data + *table_end;
 		i32 last_end = 0;
-		for (; table < old_entry; table += 2) {
+		for (; table < my_old_entry; table += 2) {
 			i32 free = (*table) - last_end;
 			if (free >= new_size) {
-				for (i64 *table_entry = (void*) table; ((void*) table_entry) < ((void*) old_entry);
-				        table_entry++) {
+				for (i64 *table_entry = (void*) table;
+				        ((void*) table_entry) < ((void*) my_old_entry); table_entry++) {
 					table_entry[1] = table_entry[0];
 				}
 				i32 new_pos = fill_entry_and_move_data(free, last_end, new_size, copy, pos,
-				        old_size, &table, block_data, &block);
+				        old_size, table, block_data, block);
 				return new_pos;
 			}
 		}
@@ -332,12 +331,12 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size
 		for (; table < table_end; table += 2) {
 			i32 free = table[0] - table[-1];
 			if (free >= new_size) {
-				for (i64 *table_entry = (void*) old_entry; ((void*) table_entry) < ((void*) table);
-				        table_entry++) {
+				for (i64 *table_entry = (void*) my_old_entry;
+				        ((void*) table_entry) < ((void*) table); table_entry++) {
 					table_entry[0] = table_entry[1];
 				}
 				i32 new_pos = fill_entry_and_move_data(free, last_end, new_size, copy, pos,
-				        old_size, &table, block_data, &block);
+				        old_size, table, block_data, block);
 				return new_pos;
 			}
 		} // could not resize
