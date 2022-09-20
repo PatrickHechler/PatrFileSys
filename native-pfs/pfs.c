@@ -263,7 +263,10 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size
 	}
 	i32 *table_end = block_data + pfs->block_size - 4;
 	i32 *table = block_data + *table_end;
-	for (; table < table_end; table += 2) {
+	for (; 1; table += 2) {
+		if (table >= table_end) {
+			abort();
+		}
 		if (pos > *table) {
 			continue;
 		} else if (pos < *table) {
@@ -326,16 +329,17 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size
 				        old_size, table, block_data, block);
 				return new_pos;
 			}
+			last_end = table[1];
 		}
 		table += 4; // skip this entry + skip next entry (already checked at the beginning if this entry can grow in place)
 		for (; table < table_end; table += 2) {
 			i32 free = table[0] - table[-1];
 			if (free >= new_size) {
-				for (i64 *table_entry = (void*) my_old_entry;
-				        ((void*) table_entry) < ((void*) table); table_entry++) {
-					table_entry[0] = table_entry[1];
+				for (i64 *table_entry = ((void*) my_old_entry) + 8;
+				        ((void*) table_entry) <= ((void*) table); table_entry++) {
+					table_entry[-1] = table_entry[0];
 				}
-				i32 new_pos = fill_entry_and_move_data(free, last_end, new_size, copy, pos,
+				i32 new_pos = fill_entry_and_move_data(free, table[-1], new_size, copy, pos,
 				        old_size, table, block_data, block);
 				return new_pos;
 			}
@@ -343,8 +347,6 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size
 		pfs->unget(pfs, block);
 		return -1;
 	}
-	// pos not in table
-	abort();
 }
 
 int allocate_new_entry(struct pfs_place *write, i64 base_block, i32 size) {
@@ -391,10 +393,16 @@ int grow_folder_entry(pfs_eh e, i32 new_size) {
 	        1);
 	if (new_pos != -1) {
 		if (e->element_place.pos != new_pos) {
-			struct pfs_folder *direct_parent = pfs->get(pfs, e->direct_parent_place.block)
-			        + e->direct_parent_place.pos;
-			direct_parent->entries[e->index_in_direct_parent_list].child_place.pos = new_pos;
-			pfs->set(pfs, e->direct_parent_place.block);
+			if (e->direct_parent_place.block == -1) {
+				struct pfs_b0 *b0 = pfs->get(pfs, 0L);
+				b0->root.pos = new_pos;
+				pfs->set(pfs, 0L);
+			} else {
+				struct pfs_folder *direct_parent = pfs->get(pfs, e->direct_parent_place.block)
+				        + e->direct_parent_place.pos;
+				direct_parent->entries[e->index_in_direct_parent_list].child_place.pos = new_pos;
+				pfs->set(pfs, e->direct_parent_place.block);
+			}
 			e->element_place.pos = new_pos;
 		}
 		return 1;

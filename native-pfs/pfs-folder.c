@@ -284,8 +284,8 @@ static inline int create_folder_or_file(pfs_eh f, struct pfs_place real_parent, 
 	const i64 my_new_size = sizeof(struct pfs_folder)
 	        + (sizeof(struct pfs_folder_entry) * (1 + me->direct_child_count));
 	i32 name_pos;
-	int grow_success;
-	if (grow_folder_entry(f, my_new_size)) {
+	int grow_success = grow_folder_entry(f, my_new_size);
+	if (grow_success) {
 		grow_success = 1;
 		if (my_place.pos != f->element_place.pos) {
 			my_place.pos = f->element_place.pos;
@@ -333,9 +333,15 @@ static inline int create_folder_or_file(pfs_eh f, struct pfs_place real_parent, 
 			pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
 			return 0;
 		}
-		struct pfs_folder_entry *my_entry = my_entry_block + old_me->folder_entry.pos;
-		my_entry->child_place = my_place;
-		pfs->set(pfs, old_me->folder_entry.block);
+		if (old_me->folder_entry.pos == -1) {
+			struct pfs_b0 *b0 = pfs->get(pfs, 0L);
+			b0->root = my_place;
+			pfs->set(pfs, 0L);
+		} else {
+			struct pfs_folder_entry *my_entry = my_entry_block + old_me->folder_entry.pos;
+			my_entry->child_place = my_place;
+			pfs->set(pfs, old_me->folder_entry.block);
+		}
 		reallocate_in_block_table(my_old_block, my_old_pos, 0, 0);
 		if (pfs->block_size - 4 == *(i32*) (my_old_block_data + pfs->block_size - 4)) {
 			pfs->unget(pfs, my_old_block); // free blocks can contain anything, so disk writing can be reduced

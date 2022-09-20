@@ -23,22 +23,28 @@ static int append_file_check();
 static int folder_check();
 static int deep_folder_check();
 
+/** this function is there only for debugging/bug fixing purposes */
 static void print_block_table(i64 block) {
 	const char *start = "[[...].print_block_table]:                            ";
+	// may be called before pfs is initialized
+	if (pfs == NULL) {
+		printf("%spfs is NULL! [0]\n", start);
+		return;
+	}
 	void *block_data = pfs->get(pfs, block);
 	if (block_data == NULL) {
-		printf("%scould not get the block [0]\n", start);
+		printf("%scould not get the block [1]\n", start);
 		return;
 	}
 	i32 *table_end = block_data + pfs->block_size - 4;
-	printf("%sblock: %ld [1]\n"
-			"%s  table_end: %d [2]\n"
-			"%s  table: [3]\n", start, block, start, *table_end, start);
+	printf("%sblock: %ld [2]\n"
+			"%s  table_end: %d [3]\n"
+			"%s  table: [4]\n", start, block, start, *table_end, start);
 	i32 *table_start = block_data + *table_end;
-	for (int i = 0; table_start + i < table_end; i += 2) {
-		printf("%s    [%d]: %d..%d [4]\n", start, i >> 1, table_start[i], table_start[i + 1]);
+	for (int i = 0; (table_start + i) < table_end; i += 2) {
+		printf("%s    [%d]: %d..%d [5]\n", start, i >> 1, table_start[i], table_start[i + 1]);
 	}
-	printf("%s    end: %d.. [5]\n", start, *table_end);
+	printf("%s    end: %d.. [6]\n", start, *table_end);
 	pfs->unget(pfs, block);
 }
 
@@ -566,6 +572,7 @@ static int deep_folder_check() {
 		printf("%scould not get the root element [0]\n", start);
 		return EXIT_FAILURE;
 	}
+	print_block_table(0);
 	pfs_duplicate_handle0(root, child,
 	        printf("%scould not duplicate the handle! [1]\n", start); return EXIT_FAILURE;);
 	if (!pfs_folder_create_folder(child, "folder-name")) {
