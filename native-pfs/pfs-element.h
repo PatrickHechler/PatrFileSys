@@ -100,4 +100,13 @@ extern int pfs_element_set_last_mod_time(pfs_eh e, i64 new_time);
  */
 extern int pfs_element_delete(pfs_eh e);
 
+// note that this function is implemented in pfs-folder.c and not in pfs-element.c
+/**
+ * get the parent folder of the given element
+ *
+ * when the operation fails 0 is returned and
+ * pfs_errno will be set, otherwise 1 is returned
+ */
+extern int pfs_element_get_parent(pfs_eh e);
+
 #endif /* PFS_ELEMENT_H_ */

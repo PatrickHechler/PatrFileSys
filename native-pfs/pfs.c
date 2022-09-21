@@ -99,9 +99,10 @@ extern int pfs_fill_root(pfs_eh overwrite_me) {
 	}
 	overwrite_me->real_parent_place.block = -1L;
 	overwrite_me->real_parent_place.pos = -1;
+	overwrite_me->index_in_direct_parent_list = -1;
 	overwrite_me->direct_parent_place.block = -1L;
 	overwrite_me->direct_parent_place.pos = -1;
-	overwrite_me->index_in_direct_parent_list = -1;
+	overwrite_me->entry_pos = -1;
 	overwrite_me->element_place.block = b0->root.block;
 	overwrite_me->element_place.pos = b0->root.pos;
 	pfs->unget(pfs, 0L);
@@ -137,7 +138,7 @@ static int del_helper(struct pfs_place h) {
 		helper->helper_index = -1; // just to make sure
 		helper->direct_child_count = 0;
 	}
-	reallocate_in_block_table(h.block, h.pos, 0, 0);
+	remove_from_block_table(h.block, h.pos);
 	pfs->set(pfs, h.block);
 	return 1;
 }
@@ -237,9 +238,6 @@ static inline i32 fill_entry_and_move_data(i32 free, i32 last_end, const i64 new
 	new_pos = new_pos & ~7L;
 	if (last_end > new_pos) {
 		new_pos = (free >> 1) + last_end;
-		if (last_end > new_pos) {
-			abort();
-		}
 	}
 	table[0] = new_pos;
 	table[1] = new_pos + new_size;
@@ -252,7 +250,6 @@ static inline i32 fill_entry_and_move_data(i32 free, i32 last_end, const i64 new
 	if (copy) {
 		memcpy(block_data + new_pos, block_data + pos, old_size);
 	}
-	pfs->set(pfs, block);
 	return new_pos;
 }
 
@@ -280,8 +277,8 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size
 			if (new_size > 0) {
 				table[1] = pos + new_size;
 			} else if (new_size == 0) {
-//				memmove(block_data + *table_end + 8, block_data + *table_end, __n)
-				for (i64 *cpy = block_data + *table_end; ((void*) cpy) < ((void*) table); cpy++) {
+				for (i64 *cpy = ((void*) table) - 8; ((void*) cpy) >= (block_data + *table_end);
+				        cpy--) {
 					cpy[1] = cpy[0];
 				}
 				*table_end += 8;
@@ -299,16 +296,7 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size
 		}
 		i32 max_in_place_mov = table[2] - table[-1];
 		if (max_in_place_mov >= new_size) {
-			i32 new_pos = (max_in_place_mov >> 1) + table[-1];
-			i32 old_size = pos - table[2];
-			table[0] = new_pos;
-			table[1] = new_pos + new_size;
-			if (table[1] > table[2]) {
-				abort();
-			}
-			if (table[-1] > table[0]) {
-				abort();
-			}
+			i32 new_pos = fill_entry_and_move_data(max_in_place_mov - new_size, table[-1], new_size, copy, pos, old_size, table, block_data, block);
 			if (copy) {
 				memmove(block_data + new_pos, block_data + pos, old_size);
 			}
@@ -327,20 +315,22 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size
 				}
 				i32 new_pos = fill_entry_and_move_data(free, last_end, new_size, copy, pos,
 				        old_size, table, block_data, block);
+				pfs->set(pfs, block);
 				return new_pos;
 			}
 			last_end = table[1];
 		}
 		table += 4; // skip this entry + skip next entry (already checked at the beginning if this entry can grow in place)
-		for (; table < table_end; table += 2) {
+		for (; table <= table_end; table += 2) {
 			i32 free = table[0] - table[-1];
 			if (free >= new_size) {
 				for (i64 *table_entry = ((void*) my_old_entry) + 8;
-				        ((void*) table_entry) <= ((void*) table); table_entry++) {
+				        ((void*) table_entry) < ((void*) table); table_entry++) {
 					table_entry[-1] = table_entry[0];
 				}
-				i32 new_pos = fill_entry_and_move_data(free, table[-1], new_size, copy, pos,
-				        old_size, table, block_data, block);
+				i32 new_pos = fill_entry_and_move_data(free - new_size, table[-3], new_size, copy,
+				        pos, old_size, table - 2, block_data, block);
+				pfs->set(pfs, block);
 				return new_pos;
 			}
 		} // could not resize
@@ -388,7 +378,7 @@ int allocate_new_entry(struct pfs_place *write, i64 base_block, i32 size) {
 //	abort();
 //}
 
-int grow_folder_entry(pfs_eh e, i32 new_size) {
+i32 grow_folder_entry(pfs_eh e, i32 new_size) {
 	i32 new_pos = reallocate_in_block_table(e->element_place.block, e->element_place.pos, new_size,
 	        1);
 	if (new_pos != -1) {
@@ -403,12 +393,11 @@ int grow_folder_entry(pfs_eh e, i32 new_size) {
 				direct_parent->entries[e->index_in_direct_parent_list].child_place.pos = new_pos;
 				pfs->set(pfs, e->direct_parent_place.block);
 			}
-			e->element_place.pos = new_pos;
 		}
-		return 1;
+		return new_pos;
 	}
 //	if (!allow_block_change) {
-	return 0;
+	return -1;
 //	}
 //	i64 new_block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_ENTRIES);
 //	if (new_block == -1) {
@@ -443,14 +432,14 @@ int grow_folder_entry(pfs_eh e, i32 new_size) {
 //	return 1;
 }
 
-i32 add_name(i64 block_num, char *name, i64 str_len) {
+i32 add_name(i64 block_num, const char *name, i64 str_len) {
 	void *block = pfs->get(pfs, block_num);
 	i32 pos = allocate_in_block_table(block_num, str_len);
 	if (pos == -1) {
 		pfs->unget(pfs, block_num);
 		return -1;
 	} else {
-		memcmp(block + pos, name, str_len);
+		memcpy(block + pos, name, str_len);
 		pfs->set(pfs, block_num);
 		return pos;
 	}

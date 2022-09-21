@@ -72,9 +72,9 @@ struct pfs_file {
 
 struct pfs_element_handle {
 	struct pfs_place real_parent_place;
-	int : 32;
-	struct pfs_place direct_parent_place;
 	i32 index_in_direct_parent_list;
+	struct pfs_place direct_parent_place;
+	i32 entry_pos;
 	struct pfs_place element_place;
 };
 
@@ -105,17 +105,19 @@ i32 allocate_in_block_table(i64 block, i64 size);
 
 i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size, const int copy);
 
+#define remove_from_block_table(block, pos) reallocate_in_block_table(block, pos, 0, 0)
+
 #define shrink_folder_entry(place, old_size) \
 	if ( (place.pos = reallocate_in_block_table(place.block, place.pos, \
 			(old_size) - sizeof(struct pfs_folder_entry), 1)) == -1) { \
 		abort(); \
 	}
 
-int grow_folder_entry(pfs_eh e, i32 new_size);
+i32 grow_folder_entry(pfs_eh e, i32 new_size);
 
 #define remove_table_entry(block, pos) reallocate_in_block_table(block, pos, 0, 0)
 
-i32 add_name(i64 block_num, char *name, i64 str_len);
+i32 add_name(i64 block_num, const char *name, i64 str_len);
 
 i64 allocate_block(ui64 block_flags);
 

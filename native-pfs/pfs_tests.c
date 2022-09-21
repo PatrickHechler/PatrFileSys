@@ -23,9 +23,14 @@ static int append_file_check();
 static int folder_check();
 static int deep_folder_check();
 
-/** this function is there only for debugging/bug fixing purposes */
+static void print_block_table0(i64 block, const char *start);
+
 static void print_block_table(i64 block) {
-	const char *start = "[[...].print_block_table]:                            ";
+	const char *start = "[[…].print_block_table0]:                             ";
+	print_block_table0(block, start);
+}
+
+static void print_block_table0(i64 block, const char *start) {
 	// may be called before pfs is initialized
 	if (pfs == NULL) {
 		printf("%spfs is NULL! [0]\n", start);
@@ -41,11 +46,106 @@ static void print_block_table(i64 block) {
 			"%s  table_end: %d [3]\n"
 			"%s  table: [4]\n", start, block, start, *table_end, start);
 	i32 *table_start = block_data + *table_end;
+	i32 last = 0;
 	for (int i = 0; (table_start + i) < table_end; i += 2) {
-		printf("%s    [%d]: %d..%d [5]\n", start, i >> 1, table_start[i], table_start[i + 1]);
+		printf("%s    [%d]: %d..%d [5]\n", start, (i64) (table_start + i) - (i64) block_data,
+		        table_start[i], table_start[i + 1]);
+		if (last > table_start[i]) {
+			printf("%s      [WARN]: invalid table! [6]\n", start);
+		}
+		if (table_start[i] > table_start[i + 1]) {
+			printf("%s      [WARN]: invalid table! [7]\n", start);
+		}
+		last = table_start[i + 1];
 	}
-	printf("%s    end: %d.. [6]\n", start, *table_end);
+	printf("%s    [%d]: %d.. [8]\n", start, pfs->block_size - 4, *table_end);
 	pfs->unget(pfs, block);
+}
+
+#include "pfs-intern.h"
+
+static void print_folder(struct pfs_place fp) {
+	const char *start = "[[…].print_pfs.print_folder]:                         ";
+	const char *sub_start = "[[…].print_pfs.print_folder.print_block_table0]:      ";
+	void *block_data = pfs->get(pfs, fp.block);
+	if (block_data == NULL) {
+		printf("%sblock_data is NULL (block=%ld)! [0]\n", start, fp.block);
+		return;
+	}
+	struct pfs_folder *f = block_data + fp.pos;
+	printf("%sblock=%ld; pos=%d [1]\n"
+			"%schild_count=%d [2]\n"
+			"%shelper: %d [3]\n", start, fp.block, fp.pos, start, f->direct_child_count, start,
+	        f->helper_index);
+	for (int i = 0; i < f->direct_child_count; i++) {
+		i64 name_size;
+		i32 name_pos = f->entries[i].name_pos;
+		const char *name;
+		if (name_pos == -1) {
+			name = "help-folder";
+		} else {
+			name = block_data + f->entries[i].name_pos;
+			for (i32 *table = block_data + *(i32*) (block_data + pfs->block_size - 4); 1; table +=
+			        2) {
+				if (table >= (i32*) (block_data + pfs->block_size - 4)) {
+				} else if (f->entries[i].name_pos < *table) {
+					continue;
+				} else if (f->entries[i].name_pos > *table) {
+				} else {
+					char *new_name = malloc(table[1] - table[0] + 1);
+					if (new_name != NULL) {
+						memcpy(new_name, name, table[1] - table[0]);
+						new_name[table[1] - table[0]] = '\0';
+						name = new_name;
+					}
+				}
+				break;
+			}
+		}
+		printf("%s  [%d]: %c%s%c [4]\n"
+				"%s    flags: %lu : %s [5]\n"
+				"%s    create_time=%ld [6]\n", start, i, name_pos == -1 ? '<' : '"', name,
+		        name_pos == -1 ? '>' : '"', start, f->entries[i].flags,
+		        (PFS_FLAGS_FOLDER & f->entries[i].flags) ? "folder" :
+		                ((PFS_FLAGS_FILE & f->entries[i].flags) ? "file" : "invalid"), start,
+		        f->entries[i].create_time);
+		if ((f->entries[i].flags & PFS_FLAGS_FOLDER) != 0) {
+			print_folder(f->entries[i].child_place);
+		}
+	}
+	for (i32 *table = block_data + *(i32*) (block_data + pfs->block_size - 4); 1; table += 2) {
+		if (table >= (i32*) (block_data + pfs->block_size - 4)) {
+			printf("%spos is not in table[7]\n", start);
+		} else if (fp.pos > *table) {
+			continue;
+		} else if (fp.pos == *table) {
+			break;
+		} else {
+			printf("%spos is not at the start[8]\n", start);
+		}
+		printf("%sblock=%ld; pos=%d [9]\n", start, fp.block, fp.pos);
+		print_block_table0(fp.block, sub_start);
+	}
+	pfs->unget(pfs, fp.block);
+	printf("%sfinished print of folder [A]\n", start);
+}
+
+static void print_pfs() {
+	const char *start = "[[…].print_pfs]:                                      ";
+	if (pfs == NULL) {
+		printf("%spfs is NULL! [0]\n", start);
+		return;
+	}
+	struct pfs_b0 *b0 = pfs->get(pfs, 0);
+	if (b0 == NULL) {
+		printf("%sb0 is NULL! [1]\n", start);
+		return;
+	}
+	struct pfs_place rp = b0->root;
+	pfs->unget(pfs, 0);
+	printf("%sprint now pfs [2]\n", start);
+	print_folder(rp);
+	printf("%sfinished printing pfs [3]\n", start);
 }
 
 int main(int argc, char **argv) {
@@ -62,7 +162,8 @@ int main(int argc, char **argv) {
 	int open_mode = O_RDWR | O_CREAT | O_TRUNC;
 	if (argc > 1) {
 		if (argc != 2) {
-			printf("%sinvalid argument count (Usage: pfs_tests [OPTIONAL_TESTFILE]) [2]\n", start);
+			printf("%sinvalid argument count (Usage: %s [OPTIONAL_TESTFILE]) [2]\n", start,
+			        argv[0]);
 			return EXIT_FAILURE;
 		}
 		test_file = argv[1];
@@ -108,7 +209,7 @@ static int checks() {
 		printf("%scould not format the file system! [0]\n", start);
 		return EXIT_FAILURE;
 	}
-	print_block_table(0L);
+	print_pfs();
 	printf("%sstart simple_check [1]\n", start);
 	int res = simple_check();
 	if (res != EXIT_SUCCESS) {
@@ -221,7 +322,7 @@ static int file_check() {
 		printf("%sroot child count != 0 (%ld) [1]\n", start, child_count);
 		return EXIT_FAILURE;
 	}
-	int res = pfs_folder_create_file(file, "file-name");
+	int res = pfs_folder_create_file(file, NULL, "file-name");
 	if (!res) {
 		printf("%scould not create the file [2]\n", start);
 		return EXIT_FAILURE;
@@ -314,7 +415,7 @@ static int read_write_file_check() {
 		printf("%scould not get the root element [0]\n", start);
 		return EXIT_FAILURE;
 	}
-	if (!pfs_folder_create_file(file, "read_write_file")) {
+	if (!pfs_folder_create_file(file, NULL, "read_write_file")) {
 		printf("%scould not create the file [1]\n", start);
 		return EXIT_FAILURE;
 	}
@@ -430,7 +531,7 @@ static int append_file_check() {
 		printf("%scould not get the root element [0]\n", start);
 		return EXIT_FAILURE;
 	}
-	if (!pfs_folder_create_file(file, "append_file")) {
+	if (!pfs_folder_create_file(file, NULL, "append_file")) {
 		printf("%scould not create the file [1]\n", start);
 		return EXIT_FAILURE;
 	}
@@ -525,15 +626,20 @@ static int folder_check() {
 		printf("%scould not get the root element [1]\n", start);
 		return EXIT_FAILURE;
 	}
+	const char *n0 = "first_folder", *n1 = "second-folder";
 	pfs_duplicate_handle0(root, child,
 	        printf("%scould not duplicate the handle! [2]\n", start); return EXIT_FAILURE;);
-	pfs_folder_create_folder(child, "first_folder");
-	pfs_duplicate_handle0(root, child2,
-	        printf("%scould not duplicate the handle! [3]\n", start); return EXIT_FAILURE;);
-	pfs_folder_create_file(child2, "second-folder");
-	pfs_duplicate_handle0(root, iter,
-	        printf("%scould not duplicate the handle! [4]\n", start); return EXIT_FAILURE;);
-	pfs_fi fi = pfs_folder_iterator(iter, 0);
+	if (!pfs_folder_create_folder(child, root, n0)) {
+		printf("%scould not create the folder %s [3]\n", start, n0);
+		return EXIT_FAILURE;
+	}
+	memcpy(child, root, PFS_EH_SIZE);
+	if (!pfs_folder_create_file(child, root, n1)) {
+		printf("%scould not create the folder %s [4]\n", start, n1);
+		return EXIT_FAILURE;
+	}
+	memcpy(child, root, PFS_EH_SIZE);
+	pfs_fi fi = pfs_folder_iterator(child, 0);
 	if (fi == NULL) {
 		printf("%scould not get the folder-iter! [5]\n", start);
 		return EXIT_FAILURE;
@@ -542,24 +648,34 @@ static int folder_check() {
 		printf("%scould not get the next element from the iter! [6]\n", start);
 		return EXIT_FAILURE;
 	}
-	if (memcmp(iter, child, PFS_EH_SIZE) != 0) {
-		printf("%sgot not the expected element from the iter! [7]\n", start);
+	char *name;
+	i64 len = 0;
+	if (!pfs_element_get_name(child, &name, &len)) {
+		printf("%scould not get the name! [7]\n", start);
+		return EXIT_FAILURE;
+	}
+	if (strcmp(n0, name) != 0) {
+		printf("%sgot not the expected element from the iter! (name=%s) [8]\n", start, name);
 		return EXIT_FAILURE;
 	}
 	if (!pfs_folder_iter_next(fi)) {
 		printf("%scould not get the next element from the iter! [8]\n", start);
 		return EXIT_FAILURE;
 	}
-	if (memcmp(iter, child2, PFS_EH_SIZE) != 0) {
-		printf("%sgot not the expected element from the iter! [9]\n", start);
+	if (!pfs_element_get_name(child, &name, &len)) {
+		printf("%scould not get the name! [9]\n", start);
+		return EXIT_FAILURE;
+	}
+	if (strcmp(n1, name) != 0) {
+		printf("%sgot not the expected element from the iter! (name=%s) [A]\n", start, name);
 		return EXIT_FAILURE;
 	}
 	if (pfs_folder_iter_next(fi)) {
-		printf("%sgot more elements from the iter than expected! [A]\n", start);
+		printf("%sgot more elements from the iter than expected! [B]\n", start);
 		return EXIT_FAILURE;
 	}
 	if (pfs_errno != PFS_ERRNO_NO_MORE_ELEMNETS) {
-		printf("%spfs_errno has not the expected value (no-more-elements)! [B]\n", start);
+		printf("%spfs_errno has not the expected value (no-more-elements)! [C]\n", start);
 		return EXIT_FAILURE;
 	}
 	return EXIT_SUCCESS;
@@ -567,78 +683,109 @@ static int folder_check() {
 
 static int deep_folder_check() {
 	const char *start = "[main.checks.deep_folder_check]:                      ";
-	pfs_eh root = pfs_root();
-	if (root == NULL) {
+	pfs_eh parent = pfs_root();
+	if (parent == NULL) {
 		printf("%scould not get the root element [0]\n", start);
 		return EXIT_FAILURE;
 	}
 	print_block_table(0);
-	pfs_duplicate_handle0(root, child,
+	pfs_duplicate_handle0(parent, child,
 	        printf("%scould not duplicate the handle! [1]\n", start); return EXIT_FAILURE;);
-	if (!pfs_folder_create_folder(child, "folder-name")) {
+	if (!pfs_folder_create_folder(child, NULL, "folder-name")) {
 		printf("%scould not create a child folder [2]\n", start);
 		return EXIT_FAILURE;
 	}
-	if (!pfs_folder_create_folder(child, "folder-name")) {
+	if (!pfs_folder_create_folder(child, NULL, "folder-name")) {
 		printf("%scould not create a child folder [3]\n", start);
 		return EXIT_FAILURE;
 	}
-	if (!pfs_folder_create_folder(child, "folder-name")) {
+	if (!pfs_folder_create_folder(child, NULL, "folder-name")) {
 		printf("%scould not create a child folder [4]\n", start);
 		return EXIT_FAILURE;
 	}
-	if (!pfs_folder_create_folder(child, "folder-name")) {
+	if (!pfs_folder_create_folder(child, NULL, "folder-name")) {
 		printf("%scould not create a child folder [5]\n", start);
 		return EXIT_FAILURE;
 	}
-	pfs_duplicate_handle0(child, child2,
-	        printf("%scould not duplicate the handle! [6]\n", start); return EXIT_FAILURE;);
-	if (!pfs_folder_create_folder(child2, "folder-name2")) {
+	memcpy(parent, child, PFS_EH_SIZE);
+	if (!pfs_folder_create_folder(child, parent, "folder-name2")) {
 		printf("%scould not create a child folder [7]\n", start);
 		return EXIT_FAILURE;
 	}
-	memcpy(child2, child, PFS_EH_SIZE);
-	if (!pfs_folder_create_folder(child2, "folder-name3")) {
-		printf("%scould not create a child folder [8]\n", start);
+	pfs_element_get_parent(child);
+	if (memcmp(child, parent, PFS_EH_SIZE) != 0) {
+		printf("%sdid not get the expected handle [8]\n", start);
 		return EXIT_FAILURE;
 	}
-	memcpy(child2, child, PFS_EH_SIZE);
-	if (!pfs_folder_create_folder(child2, "folder-name4")) {
+	if (!pfs_folder_create_folder(child, parent, "folder-name3")) {
 		printf("%scould not create a child folder [9]\n", start);
 		return EXIT_FAILURE;
 	}
-	memcpy(child2, child, PFS_EH_SIZE);
-	if (!pfs_folder_create_folder(child2, "folder-name5")) {
-		printf("%scould not create a child folder [A]\n", start);
+	pfs_element_get_parent(child);
+	if (memcmp(child, parent, PFS_EH_SIZE) != 0) {
+		printf("%sdid not get the expected handle [A]\n", start);
 		return EXIT_FAILURE;
 	}
-	memcpy(child2, child, PFS_EH_SIZE);
-	if (!pfs_folder_create_folder(child2, "folder-name6")) {
+	if (!pfs_folder_create_folder(child, parent, "folder-name4")) {
 		printf("%scould not create a child folder [B]\n", start);
 		return EXIT_FAILURE;
 	}
-	memcpy(child2, child, PFS_EH_SIZE);
-	if (!pfs_folder_create_folder(child2, "folder-name7")) {
-		printf("%scould not create a child folder [C]\n", start);
+	pfs_element_get_parent(child);
+	if (memcmp(child, parent, PFS_EH_SIZE) != 0) {
+		printf("%sdid not get the expected handle [C]\n", start);
 		return EXIT_FAILURE;
 	}
-	memcpy(child2, child, PFS_EH_SIZE);
-	if (!pfs_folder_create_folder(child2, "folder-name8")) {
+	if (!pfs_folder_create_folder(child, parent, "folder-name5")) {
 		printf("%scould not create a child folder [D]\n", start);
 		return EXIT_FAILURE;
 	}
-	memcpy(child2, child, PFS_EH_SIZE);
-	if (!pfs_folder_create_folder(child2, "folder-name9")) {
-		printf("%scould not create a child folder [E]\n", start);
+	pfs_element_get_parent(child);
+	if (memcmp(child, parent, PFS_EH_SIZE) != 0) {
+		printf("%sdid not get the expected handle [E]\n", start);
 		return EXIT_FAILURE;
 	}
-	memcpy(child2, child, PFS_EH_SIZE);
-	if (pfs_folder_create_folder(child2, "folder-name5")) {
-		printf("%scould create a child folder [F]\n", start);
+	if (!pfs_folder_create_folder(child, parent, "folder-name6")) {
+		printf("%scould not create a child folder [F]\n", start);
+		return EXIT_FAILURE;
+	}
+	pfs_element_get_parent(child);
+	if (memcmp(child, parent, PFS_EH_SIZE) != 0) {
+		printf("%sdid not get the expected handle [10]\n", start);
+		return EXIT_FAILURE;
+	}
+	if (!pfs_folder_create_folder(child, parent, "folder-name7")) {
+		printf("%scould not create a child folder [11]\n", start);
+		return EXIT_FAILURE;
+	}
+	pfs_element_get_parent(child);
+	if (memcmp(child, parent, PFS_EH_SIZE) != 0) {
+		printf("%sdid not get the expected handle [12]\n", start);
+		return EXIT_FAILURE;
+	}
+	if (!pfs_folder_create_folder(child, parent, "folder-name8")) {
+		printf("%scould not create a child folder [13]\n", start);
+		return EXIT_FAILURE;
+	}
+	pfs_element_get_parent(child);
+	if (memcmp(child, parent, PFS_EH_SIZE) != 0) {
+		printf("%sdid not get the expected handle [14]\n", start);
+		return EXIT_FAILURE;
+	}
+	if (!pfs_folder_create_folder(child, parent, "folder-name9")) {
+		printf("%scould not create a child folder [15]\n", start);
+		return EXIT_FAILURE;
+	}
+	pfs_element_get_parent(child);
+	if (memcmp(child, parent, PFS_EH_SIZE) != 0) {
+		printf("%sdid not get the expected handle [16]\n", start);
+		return EXIT_FAILURE;
+	}
+	if (pfs_folder_create_folder(child, NULL, "folder-name5")) {
+		printf("%scould create a child folder [17]\n", start);
 		return EXIT_FAILURE;
 	}
 	if (pfs_errno != PFS_ERRNO_ELEMENT_ALREADY_EXIST) {
-		printf("%spfs_errno has not the expected value! [10]\n", start);
+		printf("%spfs_errno has not the expected value! (pfs_errno=%lu) [18]\n", start, pfs_errno);
 		return EXIT_FAILURE;
 	}
 	return EXIT_SUCCESS;
