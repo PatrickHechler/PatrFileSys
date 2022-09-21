@@ -113,7 +113,7 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size
 		abort(); \
 	}
 
-i32 grow_folder_entry(pfs_eh e, i32 new_size);
+i32 grow_folder_entry(const struct pfs_element_handle *e, i32 new_size);
 
 #define remove_table_entry(block, pos) reallocate_in_block_table(block, pos, 0, 0)
 

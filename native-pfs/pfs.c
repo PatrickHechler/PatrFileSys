@@ -296,10 +296,8 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size
 		}
 		i32 max_in_place_mov = table[2] - table[-1];
 		if (max_in_place_mov >= new_size) {
-			i32 new_pos = fill_entry_and_move_data(max_in_place_mov - new_size, table[-1], new_size, copy, pos, old_size, table, block_data, block);
-			if (copy) {
-				memmove(block_data + new_pos, block_data + pos, old_size);
-			}
+			i32 new_pos = fill_entry_and_move_data(max_in_place_mov - new_size, table[-1], new_size,
+			        copy, pos, old_size, table, block_data, block);
 			pfs->set(pfs, block);
 			return new_pos;
 		}
@@ -358,6 +356,40 @@ int allocate_new_entry(struct pfs_place *write, i64 base_block, i32 size) {
 	return 1;
 }
 
+void set_parent_place_from_childs(struct pfs_place e, struct pfs_place real_parent) {
+	void *block_data = pfs->get(pfs, e.block);
+	if (block_data == NULL) {
+		abort();
+	}
+	struct pfs_folder *f = block_data + e.pos;
+	for (i32 i = 0; i < f->direct_child_count; i++) {
+		if ((f->entries[i].flags & PFS_FLAGS_FOLDER) != 0) {
+			void *child_block_data = pfs->get(pfs, f->entries[i].child_place.block);
+			if (child_block_data == NULL) {
+				abort();
+			}
+			struct pfs_folder *child = child_block_data + f->entries[i].child_place.pos;
+			child->real_parent = real_parent;
+			child->folder_entry.block = e.block;
+			child->folder_entry.pos = e.pos + sizeof(struct pfs_folder)
+			        + i * sizeof(struct pfs_folder_entry);
+			if (child->folder_entry.pos != ((i64) &f->entries[i]) - (i64) block_data) {
+				abort();
+			}
+			if ((f->entries[i].flags & PFS_FLAGS_HELPER_FOLDER) != 0) {
+				if (i != f->helper_index) {
+					abort();
+				}
+				set_parent_place_from_childs(f->entries[i].child_place, real_parent);
+			} else if (i == f->helper_index) {
+				abort();
+			}
+			pfs->set(pfs, f->entries[i].child_place.block);
+		}
+	}
+	pfs->set(pfs, e.block);
+}
+
 ///**
 // * only called with folder elements
 // */
@@ -378,21 +410,30 @@ int allocate_new_entry(struct pfs_place *write, i64 base_block, i32 size) {
 //	abort();
 //}
 
-i32 grow_folder_entry(pfs_eh e, i32 new_size) {
+i32 grow_folder_entry(const struct pfs_element_handle *e, i32 new_size) {
 	i32 new_pos = reallocate_in_block_table(e->element_place.block, e->element_place.pos, new_size,
 	        1);
 	if (new_pos != -1) {
+		//TODO remove line
 		if (e->element_place.pos != new_pos) {
 			if (e->direct_parent_place.block == -1) {
 				struct pfs_b0 *b0 = pfs->get(pfs, 0L);
+				if (b0 == NULL) {
+					abort();
+				}
 				b0->root.pos = new_pos;
 				pfs->set(pfs, 0L);
 			} else {
-				struct pfs_folder *direct_parent = pfs->get(pfs, e->direct_parent_place.block)
-				        + e->direct_parent_place.pos;
-				direct_parent->entries[e->index_in_direct_parent_list].child_place.pos = new_pos;
+				void *block_data = pfs->get(pfs, e->direct_parent_place.block);
+				if (block_data == NULL) {
+					abort();
+				}
+				struct pfs_folder_entry *entry = block_data + e->entry_pos;
+				entry->child_place.pos = new_pos;
 				pfs->set(pfs, e->direct_parent_place.block);
 			}
+			struct pfs_place place = { .block = e->element_place.block, .pos = new_pos };
+			set_parent_place_from_childs(place, place);
 		}
 		return new_pos;
 	}

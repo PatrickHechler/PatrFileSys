@@ -23,23 +23,20 @@ static int append_file_check();
 static int folder_check();
 static int deep_folder_check();
 
-static void print_block_table0(i64 block, const char *start);
-
-static void print_block_table(i64 block) {
+static int print_block_table0(i64 block, int long_start) {
 	const char *start = "[[…].print_block_table0]:                             ";
-	print_block_table0(block, start);
-}
-
-static void print_block_table0(i64 block, const char *start) {
+	if (long_start) {
+		start = "[[…].print_pfs.print_folder.print_block_table0]:          ";
+	}
 	// may be called before pfs is initialized
 	if (pfs == NULL) {
 		printf("%spfs is NULL! [0]\n", start);
-		return;
+		return 1;
 	}
 	void *block_data = pfs->get(pfs, block);
 	if (block_data == NULL) {
 		printf("%scould not get the block [1]\n", start);
-		return;
+		return 1;
 	}
 	i32 *table_end = block_data + pfs->block_size - 4;
 	printf("%sblock: %ld [2]\n"
@@ -47,38 +44,84 @@ static void print_block_table0(i64 block, const char *start) {
 			"%s  table: [4]\n", start, block, start, *table_end, start);
 	i32 *table_start = block_data + *table_end;
 	i32 last = 0;
+	int res = 0;
 	for (int i = 0; (table_start + i) < table_end; i += 2) {
 		printf("%s    [%d]: %d..%d [5]\n", start, (i64) (table_start + i) - (i64) block_data,
 		        table_start[i], table_start[i + 1]);
 		if (last > table_start[i]) {
 			printf("%s      [WARN]: invalid table! [6]\n", start);
+			res++;
 		}
 		if (table_start[i] > table_start[i + 1]) {
 			printf("%s      [WARN]: invalid table! [7]\n", start);
+			res++;
 		}
 		last = table_start[i + 1];
 	}
 	printf("%s    [%d]: %d.. [8]\n", start, pfs->block_size - 4, *table_end);
 	pfs->unget(pfs, block);
+	return res;
 }
 
 #include "pfs-intern.h"
 
-static void print_folder(struct pfs_place fp) {
-	const char *start = "[[…].print_pfs.print_folder]:                         ";
-	const char *sub_start = "[[…].print_pfs.print_folder.print_block_table0]:      ";
+static int print_folder(struct pfs_place fp, const char *name, struct pfs_place real_parent,
+        struct pfs_place folder_entry, int is_helper) {
+	const char *start = "[[…].print_pfs.print_folder]:                           ";
 	void *block_data = pfs->get(pfs, fp.block);
 	if (block_data == NULL) {
-		printf("%sblock_data is NULL (block=%ld)! [0]\n", start, fp.block);
-		return;
+		printf("%s[WARN]: block_data is NULL (block=%ld)! [0]\n", start, fp.block);
+		return 1;
 	}
+	int res = 0;
 	struct pfs_folder *f = block_data + fp.pos;
 	printf("%sblock=%ld; pos=%d [1]\n"
 			"%schild_count=%d [2]\n"
 			"%shelper: %d [3]\n", start, fp.block, fp.pos, start, f->direct_child_count, start,
 	        f->helper_index);
+	if (f->real_parent.block != real_parent.block) {
+		printf("%sreal_parent.block does not match (expected: %ld got: %ld) [4]\n", start,
+		        real_parent.block, f->real_parent.block);
+		res++;
+	}
+	if (f->real_parent.pos != real_parent.pos) {
+		printf("%sreal_parent.pos does not match (expected: %d got: %d) [5]\n", start,
+		        real_parent.pos, f->real_parent.pos);
+		res++;
+	}
+	if (f->folder_entry.block != folder_entry.block) {
+		printf("%sfolder_entry.block does not match (expected: %ld got: %ld) [6]\n", start,
+		        folder_entry.block, f->folder_entry.block);
+		res++;
+	}
+	if (f->folder_entry.pos != folder_entry.pos) {
+		printf("%sfolder_entry.pos does not match (expected: %d got: %d) [7]\n", start,
+		        folder_entry.pos, f->folder_entry.pos);
+		res++;
+	}
+	i64 my_size = sizeof(struct pfs_folder)
+	        + (f->direct_child_count * sizeof(struct pfs_folder_entry));
+	for (i32 *table = block_data + *(i32*) (block_data + pfs->block_size - 4); 1; table += 2) {
+		if (table >= (i32*) (block_data + pfs->block_size - 4)) {
+			printf("%spos not in table! (pos=%d) [8]\n", start, fp.pos);
+			res++;
+		} else if (fp.pos > *table) {
+			continue;
+		} else if (fp.pos < *table) {
+			printf("%spos not in table! (pos=%d) [9]\n", start, fp.pos);
+			res++;
+		} else {
+			i32 allocated = table[1] - table[0];
+			if (allocated != my_size) {
+				printf("%smy_size (%ld) and my_allocated_sizes (%d) does not match! [A]\n", start,
+				        my_size, allocated);
+				res++;
+			}
+		}
+		break;
+	}
+	res += print_block_table0(fp.block, 1);
 	for (int i = 0; i < f->direct_child_count; i++) {
-		i64 name_size;
 		i32 name_pos = f->entries[i].name_pos;
 		const char *name;
 		if (name_pos == -1) {
@@ -88,9 +131,15 @@ static void print_folder(struct pfs_place fp) {
 			for (i32 *table = block_data + *(i32*) (block_data + pfs->block_size - 4); 1; table +=
 			        2) {
 				if (table >= (i32*) (block_data + pfs->block_size - 4)) {
-				} else if (f->entries[i].name_pos < *table) {
-					continue;
+					printf("%sname not in table! (name_pos=%d) [B]\n", start, name_pos);
+					res++;
+					res += print_block_table0(fp.block, 1);
 				} else if (f->entries[i].name_pos > *table) {
+					continue;
+				} else if (f->entries[i].name_pos < *table) {
+					printf("%sname not in table! (name_pos=%d) [C]\n", start, name_pos);
+					res++;
+					res += print_block_table0(fp.block, 1);
 				} else {
 					char *new_name = malloc(table[1] - table[0] + 1);
 					if (new_name != NULL) {
@@ -102,50 +151,46 @@ static void print_folder(struct pfs_place fp) {
 				break;
 			}
 		}
-		printf("%s  [%d]: %c%s%c [4]\n"
-				"%s    flags: %lu : %s [5]\n"
-				"%s    create_time=%ld [6]\n", start, i, name_pos == -1 ? '<' : '"', name,
+		printf("%s  [%d]: %c%s%c [D]\n"
+				"%s    flags: %lu : %s [E]\n"
+				"%s    create_time=%ld [F]\n", start, i, name_pos == -1 ? '<' : '"', name,
 		        name_pos == -1 ? '>' : '"', start, f->entries[i].flags,
 		        (PFS_FLAGS_FOLDER & f->entries[i].flags) ? "folder" :
 		                ((PFS_FLAGS_FILE & f->entries[i].flags) ? "file" : "invalid"), start,
 		        f->entries[i].create_time);
 		if ((f->entries[i].flags & PFS_FLAGS_FOLDER) != 0) {
-			print_folder(f->entries[i].child_place);
+			struct pfs_place cur_pos;
+			cur_pos.block = fp.block;
+			cur_pos.pos = fp.pos + sizeof(struct pfs_folder) + i * sizeof(struct pfs_folder_entry);
+			res += print_folder(f->entries[i].child_place, name, is_helper ? real_parent : fp,
+			        cur_pos, name_pos == -1);
 		}
-	}
-	for (i32 *table = block_data + *(i32*) (block_data + pfs->block_size - 4); 1; table += 2) {
-		if (table >= (i32*) (block_data + pfs->block_size - 4)) {
-			printf("%spos is not in table[7]\n", start);
-		} else if (fp.pos > *table) {
-			continue;
-		} else if (fp.pos == *table) {
-			break;
-		} else {
-			printf("%spos is not at the start[8]\n", start);
-		}
-		printf("%sblock=%ld; pos=%d [9]\n", start, fp.block, fp.pos);
-		print_block_table0(fp.block, sub_start);
 	}
 	pfs->unget(pfs, fp.block);
-	printf("%sfinished print of folder [A]\n", start);
+	printf("%sfinished print of folder %s [12]\n", start, name);
+	return res;
 }
 
-static void print_pfs() {
+static int print_pfs() {
 	const char *start = "[[…].print_pfs]:                                      ";
 	if (pfs == NULL) {
 		printf("%spfs is NULL! [0]\n", start);
-		return;
+		return 1;
 	}
 	struct pfs_b0 *b0 = pfs->get(pfs, 0);
 	if (b0 == NULL) {
 		printf("%sb0 is NULL! [1]\n", start);
-		return;
+		return 1;
 	}
 	struct pfs_place rp = b0->root;
 	pfs->unget(pfs, 0);
 	printf("%sprint now pfs [2]\n", start);
-	print_folder(rp);
-	printf("%sfinished printing pfs [3]\n", start);
+	struct pfs_place np;
+	np.block = -1L;
+	np.pos = -1;
+	int res = print_folder(rp, "<ROOT>", np, np, 0);
+	printf("%sfinished printing pfs (found %d errors) [3]\n", start, res);
+	return res;
 }
 
 int main(int argc, char **argv) {
@@ -626,7 +671,7 @@ static int folder_check() {
 		printf("%scould not get the root element [1]\n", start);
 		return EXIT_FAILURE;
 	}
-	const char *n0 = "first_folder", *n1 = "second-folder";
+	const char *n0 = "first_folder", *n1 = "the-file";
 	pfs_duplicate_handle0(root, child,
 	        printf("%scould not duplicate the handle! [2]\n", start); return EXIT_FAILURE;);
 	if (!pfs_folder_create_folder(child, root, n0)) {
@@ -688,7 +733,6 @@ static int deep_folder_check() {
 		printf("%scould not get the root element [0]\n", start);
 		return EXIT_FAILURE;
 	}
-	print_block_table(0);
 	pfs_duplicate_handle0(parent, child,
 	        printf("%scould not duplicate the handle! [1]\n", start); return EXIT_FAILURE;);
 	if (!pfs_folder_create_folder(child, NULL, "folder-name")) {
@@ -707,8 +751,7 @@ static int deep_folder_check() {
 		printf("%scould not create a child folder [5]\n", start);
 		return EXIT_FAILURE;
 	}
-	memcpy(parent, child, PFS_EH_SIZE);
-	if (!pfs_folder_create_folder(child, parent, "folder-name2")) {
+	if (!pfs_folder_create_folder(child, parent, "folder-name")) {
 		printf("%scould not create a child folder [7]\n", start);
 		return EXIT_FAILURE;
 	}
@@ -717,7 +760,7 @@ static int deep_folder_check() {
 		printf("%sdid not get the expected handle [8]\n", start);
 		return EXIT_FAILURE;
 	}
-	if (!pfs_folder_create_folder(child, parent, "folder-name3")) {
+	if (!pfs_folder_create_folder(child, parent, "folder-name2")) {
 		printf("%scould not create a child folder [9]\n", start);
 		return EXIT_FAILURE;
 	}
@@ -726,7 +769,7 @@ static int deep_folder_check() {
 		printf("%sdid not get the expected handle [A]\n", start);
 		return EXIT_FAILURE;
 	}
-	if (!pfs_folder_create_folder(child, parent, "folder-name4")) {
+	if (!pfs_folder_create_folder(child, parent, "folder-name3")) {
 		printf("%scould not create a child folder [B]\n", start);
 		return EXIT_FAILURE;
 	}
@@ -735,7 +778,7 @@ static int deep_folder_check() {
 		printf("%sdid not get the expected handle [C]\n", start);
 		return EXIT_FAILURE;
 	}
-	if (!pfs_folder_create_folder(child, parent, "folder-name5")) {
+	if (!pfs_folder_create_folder(child, parent, "folder-name4")) {
 		printf("%scould not create a child folder [D]\n", start);
 		return EXIT_FAILURE;
 	}
@@ -744,7 +787,7 @@ static int deep_folder_check() {
 		printf("%sdid not get the expected handle [E]\n", start);
 		return EXIT_FAILURE;
 	}
-	if (!pfs_folder_create_folder(child, parent, "folder-name6")) {
+	if (!pfs_folder_create_folder(child, parent, "folder-name5")) {
 		printf("%scould not create a child folder [F]\n", start);
 		return EXIT_FAILURE;
 	}
@@ -753,7 +796,7 @@ static int deep_folder_check() {
 		printf("%sdid not get the expected handle [10]\n", start);
 		return EXIT_FAILURE;
 	}
-	if (!pfs_folder_create_folder(child, parent, "folder-name7")) {
+	if (!pfs_folder_create_folder(child, parent, "folder-name6")) {
 		printf("%scould not create a child folder [11]\n", start);
 		return EXIT_FAILURE;
 	}
@@ -762,7 +805,7 @@ static int deep_folder_check() {
 		printf("%sdid not get the expected handle [12]\n", start);
 		return EXIT_FAILURE;
 	}
-	if (!pfs_folder_create_folder(child, parent, "folder-name8")) {
+	if (!pfs_folder_create_folder(child, parent, "folder-name7")) {
 		printf("%scould not create a child folder [13]\n", start);
 		return EXIT_FAILURE;
 	}
@@ -771,7 +814,7 @@ static int deep_folder_check() {
 		printf("%sdid not get the expected handle [14]\n", start);
 		return EXIT_FAILURE;
 	}
-	if (!pfs_folder_create_folder(child, parent, "folder-name9")) {
+	if (!pfs_folder_create_folder(child, parent, "folder-name8")) {
 		printf("%scould not create a child folder [15]\n", start);
 		return EXIT_FAILURE;
 	}
@@ -780,7 +823,7 @@ static int deep_folder_check() {
 		printf("%sdid not get the expected handle [16]\n", start);
 		return EXIT_FAILURE;
 	}
-	if (pfs_folder_create_folder(child, NULL, "folder-name5")) {
+	if (pfs_folder_create_folder(child, NULL, "folder-name6")) {
 		printf("%scould create a child folder [17]\n", start);
 		return EXIT_FAILURE;
 	}

@@ -238,6 +238,10 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 			return 0;
 		}
 		struct pfs_folder *helper = pfs->get(pfs, new_block);
+		if (helper == NULL) {
+			//TODO fail
+			return 0;
+		}
 		helper->element.last_mod_time = -1L;
 		helper->real_parent = real_parent;
 		if (grow_success) {
@@ -265,7 +269,19 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 		helper->folder_entry.pos = my_place.pos
 		        + (sizeof(struct pfs_folder_entry) * me->helper_index);
 		helper->helper_index = -1;
+		me->entries[me->helper_index].child_place.block = new_block;
+		me->entries[me->helper_index].child_place.pos = 0;
+		me->entries[me->helper_index].name_pos = -1;
+		me->entries[me->helper_index].create_time = -1;
+		me->entries[me->helper_index].flags = PFS_FLAGS_FOLDER | PFS_FLAGS_HELPER_FOLDER;
 	}
+//	f->real_parent_place = f->real_parent_place;
+	f->index_in_direct_parent_list = me->helper_index;
+	f->direct_parent_place = f->element_place;
+	f->entry_pos = f->direct_parent_place.pos + sizeof(struct pfs_folder)
+	        + me->helper_index * sizeof(struct pfs_folder_entry);
+	f->element_place = me->entries[me->helper_index].child_place;
+	// TODO change f to handle for helper
 	if (grow_success) {
 		shrink_folder_entry(my_place, my_new_size);
 	}
@@ -294,15 +310,15 @@ static inline int create_folder_or_file(pfs_eh f, pfs_eh parent, struct pfs_plac
 	i32 name_pos;
 	i32 new_pos = grow_folder_entry(f, my_new_size);
 	if (new_pos != -1) {
-		if (my_place.pos != f->element_place.pos) {
+		if (new_pos != f->element_place.pos) {
 			if (real_parent.block == my_place.block) {
 				if (real_parent.pos != my_place.pos) {
 					abort();
 				}
-				real_parent.pos = f->element_place.pos;
+				real_parent.pos = new_pos;
 			}
-			my_place.pos = f->element_place.pos;
-			me = my_old_block_data + my_place.pos;
+			my_place.pos = f->element_place.pos = new_pos;
+			me = my_old_block_data + new_pos;
 			if (parent != NULL) {
 				*parent = *f;
 			}
@@ -496,7 +512,7 @@ extern int pfs_element_get_parent(pfs_eh e) {
 		if (old_parent->folder_entry.pos > table[1]) {
 			continue;
 		}
-		if (old_parent->folder_entry.pos <= table[0]) {
+		if (old_parent->folder_entry.pos < table[0]) {
 			abort();
 		}
 		e->direct_parent_place.pos = *table;

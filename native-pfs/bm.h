@@ -21,6 +21,8 @@ struct bm_block_manager {
 	struct hashset loaded;
 	/**
 	 * function to load/get a block
+	 *
+	 * this function may only fail if the ram memory could not be allocated
 	 */
 	void* (*get)(struct bm_block_manager *bm, i64 block);
 	/**
