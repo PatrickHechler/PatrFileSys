@@ -166,6 +166,7 @@ extern i64 pfs_folder_child_count(pfs_eh f) {
 
 static int pfs_folder_child_from_name_impl(pfs_eh f, char *name, int is_helper, ui64 neededflag) {
 	const i64 old_block_num = f->element_place.block;
+	const i64 name_len = strlen(name);
 	get_folder
 	for (int i = 0; i < folder->direct_child_count; i++) {
 		if (folder->entries[i].name_pos == -1) {
@@ -176,16 +177,27 @@ static int pfs_folder_child_from_name_impl(pfs_eh f, char *name, int is_helper, 
 			}
 		}
 		char *cn = block_data + folder->entries[i].name_pos;
-		if (strcmp(name, cn) == 0) {
-			if ((folder->entries[i].flags & neededflag) == 0) {
-				pfs->unget(pfs, old_block_num);
-				pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
-				return -1;
+		for (i32 *table = block_data + *(i32*) (block_data + pfs->block_size - 4); 1; table += 2) {
+			if (table >= (i32*) block_data + pfs->block_size - 4) {
+				abort();
+			} else if (*table < folder->entries[i].name_pos) {
+				continue;
+			} else if (*table > folder->entries[i].name_pos) {
+				abort();
+			} else if ((table[1] - table[0]) == name_len) {
+				if (memcmp(name, block_data + folder->entries[i].name_pos, name_len) == 0) {
+					if ((folder->entries[i].flags & neededflag) == 0) {
+						pfs->unget(pfs, old_block_num);
+						pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+						return -1;
+					}
+					f->element_place.block = folder->entries[i].child_place.block;
+					f->element_place.pos = folder->entries[i].child_place.pos;
+					pfs->unget(pfs, old_block_num);
+					return 1;
+				}
 			}
-			f->element_place.block = folder->entries[i].child_place.block;
-			f->element_place.pos = folder->entries[i].child_place.pos;
-			pfs->unget(pfs, old_block_num);
-			return 1;
+			break;
 		}
 	}
 	pfs->unget(pfs, old_block_num);
@@ -207,17 +219,43 @@ extern int pfs_folder_file_child_from_name(pfs_eh f, char *name) {
 	return 1 == pfs_folder_child_from_name_impl(f, name, 0, PFS_FLAGS_FILE);
 }
 
-static inline int has_child_with_name(struct pfs_place place, const char *name) {
+static inline int has_child_with_name(struct pfs_place place, const char *name, i64 name_len) {
 	get_folder1(folder, block_data, place)
 	for (int i = 0; i < folder->direct_child_count; i++) {
 		if (folder->entries[i].name_pos == -1) {
-			if (has_child_with_name(folder->entries[i].child_place, name)) {
+			if (folder->helper_index != i) {
+				abort();
+			}
+			if ((folder->entries[i].flags & (PFS_FLAGS_FOLDER | PFS_FLAGS_HELPER_FOLDER))
+			        != (PFS_FLAGS_FOLDER | PFS_FLAGS_HELPER_FOLDER)) {
+				abort();
+			}
+			if (has_child_with_name(folder->entries[i].child_place, name, name_len)) {
+				pfs->unget(pfs, place.block);
 				return 1;
 			}
+			continue;
 		}
-		if (strcmp(name, block_data + folder->entries[i].name_pos) == 0) {
-			pfs->unget(pfs, place.block);
-			return 1;
+		if (folder->helper_index == i) {
+			abort();
+		}
+		if ((folder->entries[i].flags & (PFS_FLAGS_HELPER_FOLDER)) != 0) {
+			abort();
+		}
+		for (i32 *table = block_data + *(i32*) (block_data + pfs->block_size - 4); 1; table += 2) {
+			if (table >= (i32*) block_data + pfs->block_size - 4) {
+				abort();
+			} else if (*table < folder->entries[i].name_pos) {
+				continue;
+			} else if (*table > folder->entries[i].name_pos) {
+				abort();
+			} else if ((table[1] - table[0]) == name_len) {
+				if (memcmp(name, block_data + folder->entries[i].name_pos, name_len) == 0) {
+					pfs->unget(pfs, place.block);
+					return 1;
+				}
+			}
+			break;
 		}
 	}
 	pfs->unget(pfs, place.block);
@@ -264,15 +302,29 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 			me->helper_index = me->direct_child_count - 1;
 			helper->direct_child_count = 1;
 			helper->entries[0] = me->entries[me->direct_child_count - 1];
-			char *new_helper_child_name = ((void*) helper) + helper->entries[0].name_pos;
-			i32 name_pos = add_name(helper_block, new_helper_child_name,
-			        strlen(new_helper_child_name));
-			if (name_pos == -1) {
-				free_block(helper_block);
-				pfs->unget(pfs, helper_block);
-				pfs->unget(pfs, my_place.block);
-				pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
-				return 0;
+			void *my_block_data = ((void*) me) - my_place.pos;
+			char *new_helper_child_name = my_block_data + helper->entries[0].name_pos;
+			// TODO make find pos in table function
+			for (i32 *table = my_block_data + *(i32*) (my_block_data + pfs->block_size - 4); 1;
+			        table += 2) {
+				if (table >= (i32*) my_block_data + pfs->block_size - 4) {
+					abort();
+				} else if (*table < helper->entries[0].name_pos) {
+					continue;
+				} else if (*table > helper->entries[0].name_pos) {
+					abort();
+				} else {
+					i32 name_pos = add_name(helper_block, new_helper_child_name,
+					        table[1] - table[0]);
+					if (name_pos == -1) {
+						free_block(helper_block);
+						pfs->unget(pfs, helper_block);
+						pfs->unget(pfs, my_place.block);
+						pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+						return 0;
+					}
+				}
+				break;
 			}
 		}
 		helper->folder_entry.block = my_place.block;
@@ -299,8 +351,8 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 		shrink_folder_entry(my_place, my_new_size);
 	}
 	int res = create_folder_or_file(f, NULL, real_parent, name, create_folder);
-	*f = eh;
 	if (!res) {
+		*f = eh;
 		if (orig_grow_success) {
 			shrink_folder_entry(f->element_place, my_new_size)
 			me->direct_child_count--;
@@ -328,7 +380,8 @@ static inline int create_folder_or_file(pfs_eh f, pfs_eh parent, struct pfs_plac
 	}
 	get_folder0(me, my_old_block_data)
 	struct pfs_place my_place = f->element_place;
-	if (has_child_with_name(my_place, name)) {
+	i64 name_len = strlen(name);
+	if (has_child_with_name(my_place, name, name_len)) {
 		pfs->unget(pfs, my_place.block);
 		pfs_errno = PFS_ERRNO_ELEMENT_ALREADY_EXIST;
 		return 0;
@@ -348,10 +401,10 @@ static inline int create_folder_or_file(pfs_eh f, pfs_eh parent, struct pfs_plac
 			my_place.pos = f->element_place.pos = new_pos;
 			me = my_old_block_data + new_pos;
 			if (parent != NULL) {
-				*parent = *f;
+				parent->element_place.pos = new_pos;
 			}
 		}
-		name_pos = add_name(my_place.block, name, strlen(name));
+		name_pos = add_name(my_place.block, name, name_len);
 		if (name_pos == -1) {
 			return delegate_create_element_to_helper(my_new_size, real_parent, new_pos != -1,
 			        create_folder, me, my_place, f, name);
@@ -408,7 +461,7 @@ static inline int create_folder_or_file(pfs_eh f, pfs_eh parent, struct pfs_plac
 		if (old_me->folder_entry.block != f->direct_parent_place.block) {
 			abort();
 		}
-		name_pos = add_name(my_place.block, name, strlen(name));
+		name_pos = add_name(my_place.block, name, name_len);
 		if (name_pos == -1) {
 			free_block(f->element_place.block);
 			pfs->unget(pfs, my_place.block);

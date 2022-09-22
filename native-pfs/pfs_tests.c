@@ -66,36 +66,36 @@ static int print_block_table0(i64 block, int long_start) {
 #include "pfs-intern.h"
 
 static int print_folder(struct pfs_place fp, const char *name, struct pfs_place real_parent,
-        struct pfs_place folder_entry, int is_helper) {
-	const char *start = "[[…].print_pfs.print_folder]:                           ";
+        struct pfs_place folder_entry, int is_helper, int deep) {
+	const char *start = "[[…].print_pfs.print_folder]:                           [DEEP=";
 	void *block_data = pfs->get(pfs, fp.block);
 	if (block_data == NULL) {
-		printf("%s[WARN]: block_data is NULL (block=%ld)! [0]\n", start, fp.block);
+		printf("%s%d]: [WARN]: block_data is NULL (block=%ld)! [0]\n", start, deep, fp.block);
 		return 1;
 	}
 	int res = 0;
 	struct pfs_folder *f = block_data + fp.pos;
-	printf("%sblock=%ld; pos=%d [1]\n"
-			"%schild_count=%d [2]\n"
-			"%shelper: %d [3]\n", start, fp.block, fp.pos, start, f->direct_child_count, start,
-	        f->helper_index);
+	printf("%s%d]: block=%ld; pos=%d [1]\n"
+			"%s%d]: child_count=%d [2]\n"
+			"%s%d]: helper: %d [3]\n", start, deep, fp.block, fp.pos, start, deep,
+	        f->direct_child_count, start, deep, f->helper_index);
 	if (f->real_parent.block != real_parent.block) {
-		printf("%sreal_parent.block does not match (expected: %ld got: %ld) [4]\n", start,
+		printf("%s%d]: real_parent.block does not match (expected: %ld got: %ld) [4]\n", start, deep,
 		        real_parent.block, f->real_parent.block);
 		res++;
 	}
 	if (f->real_parent.pos != real_parent.pos) {
-		printf("%sreal_parent.pos does not match (expected: %d got: %d) [5]\n", start,
+		printf("%s%d]: real_parent.pos does not match (expected: %d got: %d) [5]\n", start, deep,
 		        real_parent.pos, f->real_parent.pos);
 		res++;
 	}
 	if (f->folder_entry.block != folder_entry.block) {
-		printf("%sfolder_entry.block does not match (expected: %ld got: %ld) [6]\n", start,
-		        folder_entry.block, f->folder_entry.block);
+		printf("%s%d]: folder_entry.block does not match (expected: %ld got: %ld) [6]\n", start,
+		        deep, folder_entry.block, f->folder_entry.block);
 		res++;
 	}
 	if (f->folder_entry.pos != folder_entry.pos) {
-		printf("%sfolder_entry.pos does not match (expected: %d got: %d) [7]\n", start,
+		printf("%s%d]: folder_entry.pos does not match (expected: %d got: %d) [7]\n", start, deep,
 		        folder_entry.pos, f->folder_entry.pos);
 		res++;
 	}
@@ -103,18 +103,18 @@ static int print_folder(struct pfs_place fp, const char *name, struct pfs_place 
 	        + (f->direct_child_count * sizeof(struct pfs_folder_entry));
 	for (i32 *table = block_data + *(i32*) (block_data + pfs->block_size - 4); 1; table += 2) {
 		if (table >= (i32*) (block_data + pfs->block_size - 4)) {
-			printf("%spos not in table! (pos=%d) [8]\n", start, fp.pos);
+			printf("%s%d]: pos not in table! (pos=%d) [8]\n", start, deep, fp.pos);
 			res++;
 		} else if (fp.pos > *table) {
 			continue;
 		} else if (fp.pos < *table) {
-			printf("%spos not in table! (pos=%d) [9]\n", start, fp.pos);
+			printf("%s%d]: pos not in table! (pos=%d) [9]\n", start, deep, fp.pos);
 			res++;
 		} else {
 			i32 allocated = table[1] - table[0];
 			if (allocated != my_size) {
-				printf("%smy_size (%ld) and my_allocated_sizes (%d) does not match! [A]\n", start,
-				        my_size, allocated);
+				printf("%s%d]: my_size (%ld) and my_allocated_sizes (%d) does not match! [A]\n",
+				        start, deep, my_size, allocated);
 				res++;
 			}
 		}
@@ -131,13 +131,13 @@ static int print_folder(struct pfs_place fp, const char *name, struct pfs_place 
 			for (i32 *table = block_data + *(i32*) (block_data + pfs->block_size - 4); 1; table +=
 			        2) {
 				if (table >= (i32*) (block_data + pfs->block_size - 4)) {
-					printf("%sname not in table! (name_pos=%d) [B]\n", start, name_pos);
+					printf("%s%d]: name not in table! (name_pos=%d) [B]\n", start, deep, name_pos);
 					res++;
 					res += print_block_table0(fp.block, 1);
 				} else if (f->entries[i].name_pos > *table) {
 					continue;
 				} else if (f->entries[i].name_pos < *table) {
-					printf("%sname not in table! (name_pos=%d) [C]\n", start, name_pos);
+					printf("%s%d]: name not in table! (name_pos=%d) [C]\n", start, deep, name_pos);
 					res++;
 					res += print_block_table0(fp.block, 1);
 				} else {
@@ -151,12 +151,12 @@ static int print_folder(struct pfs_place fp, const char *name, struct pfs_place 
 				break;
 			}
 		}
-		printf("%s  [%d]: %c%s%c [D]\n"
-				"%s    flags: %lu : %s [E]\n"
-				"%s    create_time=%ld [F]\n", start, i, name_pos == -1 ? '<' : '"', name,
-		        name_pos == -1 ? '>' : '"', start, f->entries[i].flags,
+		printf("%s%d]:   [%d]: %c%s%c [D]\n"
+				"%s%d]:     flags: %lu : %s [E]\n"
+				"%s%d]:     create_time=%ld [F]\n", start, deep, i, name_pos == -1 ? '<' : '"', name,
+		        name_pos == -1 ? '>' : '"', start, deep, f->entries[i].flags,
 		        (PFS_FLAGS_FOLDER & f->entries[i].flags) ? "folder" :
-		                ((PFS_FLAGS_FILE & f->entries[i].flags) ? "file" : "invalid"), start,
+		                ((PFS_FLAGS_FILE & f->entries[i].flags) ? "file" : "invalid"), start, deep,
 		        f->entries[i].create_time);
 		if ((f->entries[i].flags & (PFS_FLAGS_FILE | PFS_FLAGS_FOLDER)) == 0) {
 			res++;
@@ -181,11 +181,11 @@ static int print_folder(struct pfs_place fp, const char *name, struct pfs_place 
 			cur_pos.block = fp.block;
 			cur_pos.pos = fp.pos + sizeof(struct pfs_folder) + i * sizeof(struct pfs_folder_entry);
 			res += print_folder(f->entries[i].child_place, name, is_helper ? real_parent : fp,
-			        cur_pos, name_pos == -1);
+			        cur_pos, name_pos == -1, deep + 1);
 		}
 	}
 	pfs->unget(pfs, fp.block);
-	printf("%sfinished print of folder %s [12]\n", start, name);
+	printf("%s%d]: finished print of folder %s [12]\n", start, deep, name);
 	return res;
 }
 
@@ -206,7 +206,7 @@ static int print_pfs() {
 	struct pfs_place np;
 	np.block = -1L;
 	np.pos = -1;
-	int res = print_folder(rp, "<ROOT>", np, np, 0);
+	int res = print_folder(rp, "<ROOT>", np, np, 0, 0);
 	printf("%sfinished printing pfs (found %d errors) [3]\n", start, res);
 	return res;
 }
