@@ -49,6 +49,6 @@ extern pfs_eh pfs_root();
  *
  * (see: pfs_folder_create*)
  */
-#define pfs_duplicate_handle(eh, new_eh) pfs_duplicate_handle0(eh, new_eh, abort())
+#define pfs_duplicate_handle(eh, new_eh) pfs_duplicate_handle0(eh, new_eh, abort();)
 
 #endif /* PFS_H_ */

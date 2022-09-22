@@ -128,7 +128,7 @@ extern struct bm_block_manager* bm_new_file_block_manager(int file, i32 block_si
 	pfs = bm_new_file_block_manager(file, block_size); \
 }
 
-#define new_file_pfs( file, error) new_file_bm( pfs, file, error)
+#define new_file_pfs(file, error) new_file_bm(pfs, file, error)
 
 /**
  * creates a new ram block manager

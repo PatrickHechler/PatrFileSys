@@ -28,6 +28,9 @@ extern int pfs_format(i64 block_count) {
 		 */
 		return 0;
 	}
+	if ((pfs->block_size & 7) != 0) {
+		return 0;
+	}
 	if (block_count < 2) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
@@ -63,6 +66,7 @@ extern int pfs_format(i64 block_count) {
 		memset(b1, 0, pfs->block_size - 8);
 		*(ui8*) b1 = 3;
 		*(i64*) (b1 + pfs->block_size - 8) = -1L;
+		pfs->set(pfs, 1L);
 	}
 	struct pfs_folder *root = b0 + sizeof(struct pfs_b0);
 	const struct pfs_place no_parent = { .block = -1L, .pos = -1 };
@@ -72,7 +76,6 @@ extern int pfs_format(i64 block_count) {
 	root->direct_child_count = 0L;
 	root->folder_entry = no_parent;
 	root->helper_index = -1;
-	pfs->set(pfs, 1L);
 	pfs->set(pfs, 0L);
 	return 1;
 }

@@ -363,34 +363,11 @@ static void set_flag_ram_flags(struct bm_block_manager *bm, i64 block, ui64 flag
 static i64 get_flag_ram_first_zero_flagged_block(struct bm_block_manager *bm) {
 	struct bm_flag_ram *f = (struct bm_flag_ram*) bm;
 	for (i64 i = 0; i < f->block_count; i++) {
-		if (f->flags[i] == 255U) {
+		if (f->flags[i] != 0) {
 			continue;
+		} else {
+			return i;
 		}
-		if ((f->flags[i] & 0x01) == 0) {
-			return (i << 3);
-		}
-		if ((f->flags[i] & 0x02) == 0) {
-			return (i << 3) | 1;
-		}
-		if ((f->flags[i] & 0x04) == 0) {
-			return (i << 3) | 2;
-		}
-		if ((f->flags[i] & 0x08) == 0) {
-			return (i << 3) | 3;
-		}
-		if ((f->flags[i] & 0x10) == 0) {
-			return (i << 3) | 4;
-		}
-		if ((f->flags[i] & 0x20) == 0) {
-			return (i << 3) | 5;
-		}
-		if ((f->flags[i] & 0x40) == 0) {
-			return (i << 3) | 6;
-		}
-		if ((f->flags[i] & 0x80) == 0) {
-			return (i << 3) | 7;
-		}
-		abort();
 	}
 	return -1L;
 }

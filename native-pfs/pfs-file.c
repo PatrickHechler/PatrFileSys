@@ -38,8 +38,8 @@ extern i64 pfs_file_append(pfs_eh f, void *data, i64 length) {
 	get_file(-1)
 	struct pfs_place file_end;
 	if (file->file_length == 0) {
-		file->first_block = file_end.block = allocate_block(
-		BLOCK_FLAG_USED | BLOCK_FLAG_FILE_DATA);
+		file->first_block = file_end.block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_FILE_DATA);
+		//TODO remove line
 		file_end.pos = 0;
 	} else {
 		file_end = find_place(file->first_block, file->file_length);
@@ -125,7 +125,7 @@ static inline int truncate_grow(i64 new_length, pfs_eh f) {
 		}
 		const i64 current_block_num = file_end.block;
 		*(i64*) (current_block + pfs->block_size - 8) = file_end.block = allocate_block(
-		        BLOCK_FLAG_USED | BLOCK_FLAG_FILE_DATA);
+		BLOCK_FLAG_USED | BLOCK_FLAG_FILE_DATA);
 		file_end.pos = 0;
 		pfs->set(pfs, current_block_num);
 		if (file_end.block == -1L) {
