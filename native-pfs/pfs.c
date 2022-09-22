@@ -196,6 +196,12 @@ void init_block(i64 block, i64 size) {
 	pfs->set(pfs, block);
 }
 
+union pov {
+	i32 *pntr;
+	i64 val;
+	ui64 uval;
+};
+
 i32 get_size_from_block_table(i64 block, i32 pos) {
 	void *block_data = pfs->get(pfs, block);
 	if (block_data == NULL) {
@@ -203,20 +209,42 @@ i32 get_size_from_block_table(i64 block, i32 pos) {
 	}
 	i32 *table_end = block_data + pfs->block_size - 4;
 	i32 *table_start = block_data + *table_end;
-	for (i32 *table = table_end - 2; 1; table -= 2) {
-		if (table < table_start) {
-			abort();
-		}
-		if (pos < *table) {
-			continue;
-		}
-		if (pos > *table) {
-			abort();
-		}
-		i32 size = table[1] - table[0];
-		pfs->unget(pfs, block);
-		return size;
+	union pov min, max;
+	min.pntr = table_start;
+	max.pntr = table_end - 2;
+	if ((((i64) table_start) & 7) != 4) {
+		abort();
 	}
+	while (1) {
+		if (min.val > max.val) {
+			abort();
+		}
+		union pov mid;
+		mid.val = ((min.val + ((max.uval - min.uval) >> 1)) & ~3L) | 4;
+		if (pos > *mid.pntr) {
+			min = mid;
+		} else if (pos < *mid.pntr) {
+			max = mid;
+		} else {
+			pfs->unget(pfs, block);
+			return mid.pntr[1] - mid.pntr[0];
+		}
+	}
+	// old linear search
+//	for (i32 *table = table_start; 1; table += 2) {
+//		if (table >= table_end) {
+//			abort();
+//		}
+//		if (pos > *table) {
+//			continue;
+//		}
+//		if (pos < *table) {
+//			abort();
+//		}
+//		i32 size = table[1] - table[0];
+//		pfs->unget(pfs, block);
+//		return size;
+//	}
 }
 
 i32 allocate_in_block_table(i64 block, i64 size) {
