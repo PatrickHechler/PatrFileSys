@@ -37,6 +37,12 @@ struct bm_flag_ram {
 	ui8 *flags;
 };
 
+static_assert(offsetof(struct bm_ram, bm)
+== 0, "error!");
+static_assert(offsetof(struct bm_file, bm)
+== 0, "error!");
+static_assert(offsetof(struct bm_flag_ram, bm) == 0, "error!");
+
 static void* bm_ram_get(struct bm_block_manager *bm, i64 block);
 static void bm_ram_unget(struct bm_block_manager *bm, i64 block);
 static void bm_ram_set(struct bm_block_manager *bm, i64 block);
@@ -55,6 +61,28 @@ static void set_flag_ram_flags(struct bm_block_manager *bm, i64 block, ui64 flag
 static i64 get_flag_ram_first_zero_flagged_block(struct bm_block_manager *bm);
 static void delete_flag_ram_all_flags(struct bm_block_manager *bm);
 
+#define setValues(name, bm_close_name, set_flags_name, get_flags_name, block_flag_bit_count, get_first_zero_flagged_block_name, delete_all_flags_name) \
+	setVal(void* (**)(struct bm_block_manager*, i64)       , get                      , bm_##name##_get) \
+	setVal(void  (**)(struct bm_block_manager*, i64)       , unget                    , bm_##name##_unget) \
+	setVal(void  (**)(struct bm_block_manager*, i64)       , set                      , bm_##name##_set) \
+	setVal(void  (**)(struct bm_block_manager*)            , sync_bm                  , bm_##name##_sync) \
+	setVal(void  (**)(struct bm_block_manager*)            , close_bm                 , bm_close_name) \
+	setVal(i32*                                            , block_size               , block_size) \
+	setVal(i32*                                            , block_flag_bits          , block_flag_bit_count) \
+	setVal(ui64  (**)(struct bm_block_manager*, i64)       , get_flags                , get_flags_name) \
+	setVal(void  (**)(struct bm_block_manager*, i64, ui64) , set_flags                , set_flags_name) \
+	setVal(i64   (**)(struct bm_block_manager*)            , first_zero_flagged_block , get_first_zero_flagged_block_name) \
+	setVal(void  (**)(struct bm_block_manager *bm)         , delete_all_flags         , delete_all_flags_name) \
+
+#define setNoFlagVals(name) \
+		setValues(name, bm_##name##_close, set_none_flags, get_none_flags, 0, not_get_first_zero_flagged_block, not_delete_all_flags)
+
+#define setFlagVals(name, block_flag_bit_count) \
+		setValues(name, bm_flag_##name##_close, set_flag_##name##_flags, get_flag_##name##_flags, block_flag_bit_count, get_flag_##name##_first_zero_flagged_block, delete_flag_##name##_all_flags)
+
+#define setVal(type_pntr, struct_member, value) \
+		*(type_pntr) (((void*) bm) + offsetof (struct bm_block_manager, struct_member)) = value;
+
 extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count, i32 block_size) {
 	struct bm_ram *bm = malloc(sizeof(struct bm_ram));
 	if (bm == NULL) {
@@ -65,21 +93,7 @@ extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count, i32 bl
 	bm->bm.loaded.entrycount = 0;
 	bm->bm.loaded.equalizer = bm_equal;
 	bm->bm.loaded.hashmaker = bm_hash;
-	bm->bm.get = bm_ram_get;
-	bm->bm.unget = bm_ram_unget;
-	bm->bm.set = bm_ram_set;
-	bm->bm.sync = bm_ram_sync;
-	bm->bm.close_bm = bm_ram_close;
-	*(i32*) ((void*) bm
-	        + (offsetof(struct bm_ram, bm) + offsetof(struct bm_block_manager, block_size))) =
-	        block_size;
-	*(int*) ((void*) bm
-	        + (offsetof(struct bm_ram, bm) + offsetof(struct bm_block_manager, block_flag_bits))) =
-	        0;
-	bm->bm.get_flags = get_none_flags;
-	bm->bm.set_flags = set_none_flags;
-	bm->bm.first_zero_flagged_block = not_get_first_zero_flagged_block;
-	bm->bm.delete_all_flags = not_delete_all_flags;
+	setNoFlagVals(ram)
 	bm->blocks = malloc(block_count * (i64) block_size);
 	if (bm->blocks == NULL) {
 		free(bm);
@@ -98,21 +112,7 @@ extern struct bm_block_manager* bm_new_file_block_manager(int fd, i32 block_size
 	bm->bm.loaded.entrycount = 0;
 	bm->bm.loaded.equalizer = bm_equal;
 	bm->bm.loaded.hashmaker = bm_hash;
-	bm->bm.get = bm_file_get;
-	bm->bm.unget = bm_file_unget;
-	bm->bm.set = bm_file_set;
-	bm->bm.sync = bm_file_sync;
-	bm->bm.close_bm = bm_file_close;
-	*(i32*) ((void*) bm
-	        + (offsetof(struct bm_ram, bm) + offsetof(struct bm_block_manager, block_size))) =
-	        block_size;
-	*(int*) ((void*) bm
-	        + (offsetof(struct bm_ram, bm) + offsetof(struct bm_block_manager, block_flag_bits))) =
-	        0;
-	bm->bm.get_flags = get_none_flags;
-	bm->bm.set_flags = set_none_flags;
-	bm->bm.first_zero_flagged_block = not_get_first_zero_flagged_block;
-	bm->bm.delete_all_flags = not_delete_all_flags;
+	setNoFlagVals(file)
 	bm->file = fd;
 	return &bm->bm;
 }
@@ -127,21 +127,7 @@ extern struct bm_block_manager* bm_new_flaggable_ram_block_manager(i64 block_cou
 	bm->bm.bm.loaded.entrycount = 0;
 	bm->bm.bm.loaded.equalizer = bm_equal;
 	bm->bm.bm.loaded.hashmaker = bm_hash;
-	bm->bm.bm.get = bm_ram_get;
-	bm->bm.bm.unget = bm_ram_unget;
-	bm->bm.bm.set = bm_ram_set;
-	bm->bm.bm.sync = bm_ram_sync;
-	bm->bm.bm.close_bm = bm_flag_ram_close;
-	*(i32*) ((void*) bm
-	        + (offsetof(struct bm_ram, bm) + offsetof(struct bm_block_manager, block_size))) =
-	        block_size;
-	*(int*) ((void*) bm
-	        + (offsetof(struct bm_ram, bm) + offsetof(struct bm_block_manager, block_flag_bits))) =
-	        8;
-	bm->bm.bm.get_flags = get_flag_ram_flags;
-	bm->bm.bm.set_flags = set_flag_ram_flags;
-	bm->bm.bm.first_zero_flagged_block = get_flag_ram_first_zero_flagged_block;
-	bm->bm.bm.delete_all_flags = delete_flag_ram_all_flags;
+	setFlagVals(ram, 8)
 	bm->bm.blocks = malloc(block_count * (i64) block_size);
 	if (bm->bm.blocks == NULL) {
 		free(bm);

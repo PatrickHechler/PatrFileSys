@@ -64,6 +64,8 @@ struct pfs_folder {
 	struct pfs_folder_entry entries[];
 } __attribute__((packed));
 
+static_assert(offsetof(struct pfs_folder, entries) == sizeof(struct pfs_folder));
+
 struct pfs_file {
 	struct pfs_element element;
 	i64 file_length;
@@ -113,7 +115,7 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size
 		abort(); \
 	}
 
-i32 grow_folder_entry(const struct pfs_element_handle *e, i32 new_size);
+i32 grow_folder_entry(const struct pfs_element_handle *e, i32 new_size, struct pfs_place real_parent);
 
 #define remove_table_entry(block, pos) reallocate_in_block_table(block, pos, 0, 0)
 

@@ -294,7 +294,7 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size
 			pfs->set(pfs, block);
 			return pos;
 		}
-		i32 max_in_place_mov = table[2] - table[-1];
+		i32 max_in_place_mov = table[2] - ((table == block_data + *table_end) ? 0 : table[-1]);
 		if (max_in_place_mov >= new_size) {
 			i32 new_pos = fill_entry_and_move_data(max_in_place_mov - new_size, table[-1], new_size,
 			        copy, pos, old_size, table, block_data, block);
@@ -410,11 +410,11 @@ void set_parent_place_from_childs(struct pfs_place e, struct pfs_place real_pare
 //	abort();
 //}
 
-i32 grow_folder_entry(const struct pfs_element_handle *e, i32 new_size) {
+i32 grow_folder_entry(const struct pfs_element_handle *e, i32 new_size,
+        struct pfs_place real_parent) {
 	i32 new_pos = reallocate_in_block_table(e->element_place.block, e->element_place.pos, new_size,
 	        1);
 	if (new_pos != -1) {
-		//TODO remove line
 		if (e->element_place.pos != new_pos) {
 			if (e->direct_parent_place.block == -1) {
 				struct pfs_b0 *b0 = pfs->get(pfs, 0L);
@@ -433,7 +433,10 @@ i32 grow_folder_entry(const struct pfs_element_handle *e, i32 new_size) {
 				pfs->set(pfs, e->direct_parent_place.block);
 			}
 			struct pfs_place place = { .block = e->element_place.block, .pos = new_pos };
-			set_parent_place_from_childs(place, place);
+			if (real_parent.block == place.block) {
+				real_parent.pos = new_pos;
+			}
+			set_parent_place_from_childs(place, real_parent);
 		}
 		return new_pos;
 	}

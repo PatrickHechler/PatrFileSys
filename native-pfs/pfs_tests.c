@@ -125,7 +125,7 @@ static int print_folder(struct pfs_place fp, const char *name, struct pfs_place 
 		i32 name_pos = f->entries[i].name_pos;
 		const char *name;
 		if (name_pos == -1) {
-			name = "help-folder";
+			name = "help-folder/no-name";
 		} else {
 			name = block_data + f->entries[i].name_pos;
 			for (i32 *table = block_data + *(i32*) (block_data + pfs->block_size - 4); 1; table +=
@@ -158,6 +158,24 @@ static int print_folder(struct pfs_place fp, const char *name, struct pfs_place 
 		        (PFS_FLAGS_FOLDER & f->entries[i].flags) ? "folder" :
 		                ((PFS_FLAGS_FILE & f->entries[i].flags) ? "file" : "invalid"), start,
 		        f->entries[i].create_time);
+		if ((f->entries[i].flags & (PFS_FLAGS_FILE | PFS_FLAGS_FOLDER)) == 0) {
+			res++;
+		}
+		if ((f->entries[i].flags & (PFS_FLAGS_FILE | PFS_FLAGS_FOLDER))
+		        == (PFS_FLAGS_FILE | PFS_FLAGS_FOLDER)) {
+			res++;
+		}
+		if ((f->entries[i].flags & (PFS_FLAGS_FILE | PFS_FLAGS_HELPER_FOLDER))
+		        == (PFS_FLAGS_FILE | PFS_FLAGS_HELPER_FOLDER)) {
+			res++;
+		}
+		if ((f->entries[i].flags & PFS_FLAGS_HELPER_FOLDER) != 0) {
+			if (f->entries[i].name_pos != -1) {
+				res++;
+			}
+		} else if (f->entries[i].name_pos == -1) {
+			res++;
+		}
 		if ((f->entries[i].flags & PFS_FLAGS_FOLDER) != 0) {
 			struct pfs_place cur_pos;
 			cur_pos.block = fp.block;

@@ -24,23 +24,23 @@ struct bm_block_manager {
 	 *
 	 * this function may only fail if the ram memory could not be allocated
 	 */
-	void* (*get)(struct bm_block_manager *bm, i64 block);
+	void* (*const get)(struct bm_block_manager *bm, i64 block);
 	/**
 	 * function to unload/un-get a block without saving
 	 */
-	void (*unget)(struct bm_block_manager *bm, i64 block);
+	void (*const unget)(struct bm_block_manager *bm, i64 block);
 	/**
 	 * function to unload/un-get a block with saving
 	 */
-	void (*set)(struct bm_block_manager *bm, i64 block);
+	void (*const set)(struct bm_block_manager *bm, i64 block);
 	/**
 	 * synchronizes the block manager
 	 */
-	void (*sync)(struct bm_block_manager *bm);
+	void (*const sync_bm)(struct bm_block_manager *bm);
 	/**
 	 * closes the block manager
 	 */
-	void (*close_bm)(struct bm_block_manager *bm);
+	void (*const close_bm)(struct bm_block_manager *bm);
 	/**
 	 * the size of a block
 	 */
@@ -56,22 +56,22 @@ struct bm_block_manager {
 	 * if not all block_flag_bits is lower than 64 the lowest block_flag_bits bits will be used for the flags
 	 * the unsupported bits are filled with zeros
 	 */
-	ui64 (*get_flags)(struct bm_block_manager *bm, i64 block);
+	ui64 (*const get_flags)(struct bm_block_manager *bm, i64 block);
 	/**
 	 * set the flags of a block
 	 * if not all block_flag_bits is lower than 64 the lowest block_flag_bits bits will be used for the flags
 	 * the unsupported bits are ignored
 	 */
-	void (*set_flags)(struct bm_block_manager *bm, i64 block, ui64 flags);
+	void (*const set_flags)(struct bm_block_manager *bm, i64 block, ui64 flags);
 	/**
 	 * gets the first zero-flagged block
 	 * if all blocks are flagged (or block flagging is not supported) -1 is returned
 	 */
-	i64 (*first_zero_flagged_block)(struct bm_block_manager *bm);
+	i64 (*const first_zero_flagged_block)(struct bm_block_manager *bm);
 	/**
 	 * sets all flags to zero
 	 */
-	void (*delete_all_flags)(struct bm_block_manager *bm);
+	void (*const delete_all_flags)(struct bm_block_manager *bm);
 };
 
 /**
@@ -81,8 +81,7 @@ struct bm_block_manager {
  *
  * block_size: the size of the blocks
  */
-extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count,
-		i32 block_size);
+extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count, i32 block_size);
 
 /**
  * creates a new file block manager
@@ -91,8 +90,7 @@ extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count,
  *
  * block_size: the size of the blocks
  */
-extern struct bm_block_manager* bm_new_file_block_manager(int file,
-		i32 block_size);
+extern struct bm_block_manager* bm_new_file_block_manager(int file, i32 block_size);
 
 #define sread(fd, buf, count, error) \
 	{ \
@@ -140,7 +138,6 @@ extern struct bm_block_manager* bm_new_file_block_manager(int file,
  *
  * block_size: the size of the blocks
  */
-extern struct bm_block_manager* bm_new_flaggable_ram_block_manager(
-		i64 block_count, i32 block_size);
+extern struct bm_block_manager* bm_new_flaggable_ram_block_manager(i64 block_count, i32 block_size);
 
 #endif /* BM_H_ */
