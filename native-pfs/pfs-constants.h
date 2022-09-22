@@ -33,6 +33,10 @@ static_assert(PFS_B0_OFFSET_BLOCK_SIZE == offsetof(struct pfs_b0, block_size), "
 #define	PFS_FLAGS_FOLDER          0x00000001U
 #define	PFS_FLAGS_FILE            0x00000002U
 #define	PFS_FLAGS_HELPER_FOLDER   0x00000004U
+/*// not yet supported
+#define	PFS_FLAGS_SYM_LINK        0x00000008U
+#define	PFS_FLAGS_HARD_LINK       0x00000010U
+*/
 
 // these flags meaning are different for flags and folders
 #define	PFS_FILE_FOLDER_FLAGS     0x00FF0000U

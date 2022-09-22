@@ -196,6 +196,29 @@ void init_block(i64 block, i64 size) {
 	pfs->set(pfs, block);
 }
 
+i32 get_size_from_block_table(i64 block, i32 pos) {
+	void *block_data = pfs->get(pfs, block);
+	if (block_data == NULL) {
+		abort(); // block should already be loaded, so this should never occur
+	}
+	i32 *table_end = block_data + pfs->block_size - 4;
+	i32 *table_start = block_data + *table_end;
+	for (i32 *table = table_end - 2; 1; table -= 2) {
+		if (table < table_start) {
+			abort();
+		}
+		if (pos < *table) {
+			continue;
+		}
+		if (pos > *table) {
+			abort();
+		}
+		i32 size = table[1] - table[0];
+		pfs->unget(pfs, block);
+		return size;
+	}
+}
+
 i32 allocate_in_block_table(i64 block, i64 size) {
 	void *block_data = pfs->get(pfs, block);
 	i32 *table_end = block_data + pfs->block_size - 4;
