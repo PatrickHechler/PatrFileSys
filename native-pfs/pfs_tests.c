@@ -30,13 +30,13 @@ static void real_file_sys_check();
 static void meta_check();
 static void pipe_check();
 
-#undef PRINT_PFS
+#define PRINT_PFS
 
 #ifdef PRINT_PFS
 
 #include "pfs-intern.h"
 
-static void print_block_table0(i64 block, int long_start) {
+static int print_block_table0(i64 block, int long_start) {
 	const char *start = "[[…].print_block_table0]:                             ";
 	if (long_start) {
 		start = "[[…].print_pfs.print_folder.print_block_table0]:          ";
@@ -76,7 +76,7 @@ static void print_block_table0(i64 block, int long_start) {
 	return res;
 }
 
-static void print_folder(struct pfs_place fp, const char *name, struct pfs_place real_parent,
+static int print_folder(struct pfs_place fp, const char *name, struct pfs_place real_parent,
         struct pfs_place folder_entry, int is_helper, int deep) {
 	const char *start = "[[…].print_pfs.print_folder]:                           [DEEP=";
 	void *block_data = pfs->get(pfs, fp.block);
@@ -200,7 +200,7 @@ static void print_folder(struct pfs_place fp, const char *name, struct pfs_place
 	return res;
 }
 
-static void print_pfs() {
+static int print_pfs() {
 	const char *start = "[[…].print_pfs]:                                      ";
 	if (pfs == NULL) {
 		printf("%spfs is NULL! [0]\n", start);
@@ -1466,6 +1466,10 @@ static void meta_check() {
 		exit(EXIT_FAILURE);
 	}
 	sub_meta_check(e, 1);
+	if (!pfs_fill_root(e)) {
+		printf("%scould not get the root directory! (%s) [4]\n", start, pfs_error());
+		exit(EXIT_FAILURE);
+	}
 }
 
 static void pipe_check() {

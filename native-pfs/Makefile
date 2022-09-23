@@ -30,11 +30,13 @@ TEST_TARGET = $(BINARY)pfs_tests
 OBJS = $(BINARY)hashset.o $(BINARY)pfs.o $(BINARY)bm.o $(BINARY)pfs-element.o $(BINARY)pfs-folder.o $(BINARY)pfs-file.o
 
 all:	INIT_MKDIR $(TEST_TARGET)
+	sh remove-src-from-bin.sh
 	$(TEST_TARGET)
 
 INIT_MKDIR:
 	mkdir -p $(BINARY)
 	mkdir -p $(PROJECT_ROOT)testout/fs-root/
+	sh remove-src-from-bin.sh
 
 $(TEST_TARGET): $(TARGET) $(TEST_TARGET).o
 	$(CC) -o $(TEST_TARGET) $(TEST_TARGET).o  $(TEST_LIBS)

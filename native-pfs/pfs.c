@@ -33,6 +33,8 @@ extern const char* pfs_error() {
 		return "out of ram";
 	case PFS_ERRNO_ROOT_FOLDER: /* if an IO operation failed because the root folder has some restrictions */
 		return "root folder restrictions";
+	case PFS_ERRNO_PARENT_IS_CHILD:
+		return "new parent folder is a child folder";
 	default:
 		char *buf = malloc(33);
 		sprintf(buf, "unknown value [%lx]", pfs_errno);
@@ -163,67 +165,6 @@ extern pfs_eh pfs_root() {
 	return res;
 }
 
-static int del_helper(struct pfs_place h) {
-	struct pfs_folder *helper = pfs->get(pfs, h.block) + h.pos;
-	if (helper->direct_child_count > 0) {
-		if ((helper->direct_child_count > 1) || (helper->helper_index == -1)) {
-			pfs->unget(pfs, h.block);
-			pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
-			return 0;
-		}
-		if (!del_helper(helper->entries[0].child_place)) {
-			pfs->unget(pfs, h.block);
-			pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
-			return 0;
-		}
-		helper->helper_index = -1; // just to make sure
-		helper->direct_child_count = 0;
-	}
-	remove_from_block_table(h.block, h.pos);
-	pfs->set(pfs, h.block);
-	return 1;
-}
-
-extern int pfs_element_delete(pfs_eh e) {
-	struct pfs_element *element = pfs->get(pfs, e->element_place.block) + e->element_place.pos;
-	struct pfs_folder *direct_parent = pfs->get(pfs, e->direct_parent_place.block)
-	        + e->direct_parent_place.pos;
-	if ((direct_parent->entries[e->index_in_direct_parent_list].flags & PFS_FLAGS_FOLDER) != 0) {
-		struct pfs_folder *folder = (struct pfs_folder*) element;
-		if (folder->direct_child_count > 0) {
-			if ((folder->direct_child_count > 1) || (folder->helper_index == -1)
-			        || (!del_helper(folder->entries[0].child_place))) {
-				pfs->unget(pfs, e->element_place.block);
-				pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
-				return 0;
-			}
-			folder->direct_child_count = 0;
-			folder->helper_index = -1;
-		}
-	} else if ((direct_parent->entries[e->index_in_direct_parent_list].flags & PFS_FLAGS_FILE)
-	        != 0) {
-		pfs_file_truncate(e, 0L);
-	} else {
-		abort();
-	}
-	memmove(direct_parent->entries + e->index_in_direct_parent_list,
-	        direct_parent->entries + e->index_in_direct_parent_list + 1,
-	        (e->index_in_direct_parent_list - direct_parent->direct_child_count - 1)
-	                * sizeof(struct pfs_folder_entry));
-	direct_parent->direct_child_count--;
-	if (direct_parent->helper_index > e->index_in_direct_parent_list) {
-		direct_parent->helper_index--;
-	} else if (direct_parent->helper_index == e->index_in_direct_parent_list) {
-		abort();
-	}
-	shrink_folder_entry(e->direct_parent_place,
-	        sizeof(struct pfs_folder)
-	                + (sizeof(struct pfs_folder_entry) * (1 + direct_parent->direct_child_count)));
-	pfs->set(pfs, e->direct_parent_place.block);
-	pfs->set(pfs, e->element_place.block);
-	return 1;
-}
-
 void init_block(i64 block, i64 size) {
 	if (size > pfs->block_size - 12) {
 		abort();
@@ -237,38 +178,26 @@ void init_block(i64 block, i64 size) {
 	pfs->set(pfs, block);
 }
 
-union pov {
-	i32 *pntr;
-	i64 val;
-	ui64 uval;
-};
-
-i32 get_size_from_block_table(i64 block, i32 pos) {
+i32 get_size_from_block_table(const i64 block, const i32 pos) {
 	void *block_data = pfs->get(pfs, block);
 	if (block_data == NULL) {
 		abort(); // block should already be loaded, so this should never occur
 	}
 	i32 *table_end = block_data + pfs->block_size - 4;
 	i32 *table_start = block_data + *table_end;
-	union pov min, max;
-	min.pntr = table_start;
-	max.pntr = table_end - 2;
-	if ((((i64) table_start) & 7) != 4) {
-		abort();
-	}
+	int min = 0, max = (pfs->block_size - 4 - *table_end) >> 2;
 	while (1) {
-		if (min.val > max.val) {
+		if (min > max) {
 			abort();
 		}
-		union pov mid;
-		mid.val = ((min.val + ((max.uval - min.uval) >> 1)) & ~3L) | 4;
-		if (pos > *mid.pntr) {
+		int mid = ((unsigned) (max + min)) >> 1;
+		if (pos > table_start[mid]) {
 			min = mid;
-		} else if (pos < *mid.pntr) {
+		} else if (pos < table_start[mid]) {
 			max = mid;
 		} else {
 			pfs->unget(pfs, block);
-			return mid.pntr[1] - mid.pntr[0];
+			return table_start[mid + 1] - table_start[mid];
 		}
 	}
 	// old linear search

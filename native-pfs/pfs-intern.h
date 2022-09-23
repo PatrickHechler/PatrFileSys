@@ -51,7 +51,7 @@ struct pfs_folder_entry {
 	struct pfs_place child_place;
 	i32 name_pos;
 	i64 create_time;
-	ui64 flags;
+	ui32 flags;
 } __attribute__((packed));
 
 struct pfs_folder {
@@ -96,7 +96,7 @@ struct pfs_folder_iter {
 
 void init_block(i64 block, i64 size);
 
-i32 get_size_from_block_table(i64 block, i32 pos);
+i32 get_size_from_block_table(const i64 block, const i32 pos);
 
 /**
  * tries to allocate a block-entry in the base block.
@@ -117,12 +117,19 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size
 #define remove_from_block_table(block, pos) reallocate_in_block_table(block, pos, 0, 0)
 
 #define shrink_folder_entry(place, old_size) \
-	if ( (place.pos = reallocate_in_block_table(place.block, place.pos, \
-			(old_size) - sizeof(struct pfs_folder_entry), 1)) == -1) { \
-		abort(); \
+	{ \
+		i32 new_pos = reallocate_in_block_table(place.block, place.pos, \
+						(old_size) - sizeof(struct pfs_folder_entry), 1); \
+		if (new_pos == -1) { \
+			abort(); \
+		}\
+		if (new_pos == place.pos) { \
+			abort(); /*shrink reallocate should always be in place */ \
+		} \
 	}
 
-i32 grow_folder_entry(const struct pfs_element_handle *e, i32 new_size, struct pfs_place real_parent);
+i32 grow_folder_entry(const struct pfs_element_handle *e, i32 new_size,
+        struct pfs_place real_parent);
 
 #define remove_table_entry(block, pos) reallocate_in_block_table(block, pos, 0, 0)
 

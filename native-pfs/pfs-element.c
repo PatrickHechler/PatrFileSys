@@ -49,18 +49,18 @@
 
 #define get_entry(error_result) get_entry0(entry, parent, dpblock, error_result)
 
-extern ui64 pfs_element_get_flags(pfs_eh e) {
+extern ui32 pfs_element_get_flags(pfs_eh e) {
 	if (e->real_parent_place.block == -1) {
 		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
 		return 0;
 	}
 	get_entry(0)
-	ui64 flags = entry->flags;
+	ui32 flags = entry->flags;
 	pfs->unget(pfs, e->direct_parent_place.block);
 	return flags;
 }
 
-extern int pfs_element_modify_flags(pfs_eh e, ui64 add_flags, ui64 rem_flags) {
+extern int pfs_element_modify_flags(pfs_eh e, ui32 add_flags, ui32 rem_flags) {
 	if (e->real_parent_place.block == -1) {
 		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
 		return 0;
@@ -69,7 +69,7 @@ extern int pfs_element_modify_flags(pfs_eh e, ui64 add_flags, ui64 rem_flags) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
-	if (((add_flags | rem_flags) & PFS_FLAGS_RESERVED) != 0) {
+	if (((add_flags | rem_flags) & PFS_UNMODIFIABLE_FLAGS) != 0) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
@@ -302,6 +302,3 @@ extern int pfs_element_set_last_mod_time(pfs_eh e, i64 new_time) {
 	pfs->set(pfs, e->element_place.block);
 	return 1;
 }
-
-// implemented in pfs.c
-// extern int pfs_element_delete(pfs_eh e);

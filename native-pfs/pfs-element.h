@@ -13,9 +13,9 @@
 /**
  * get the flags of a patr-file-system-element
  *
- * when the operation fails (ui64) 0 is returned and pfs_errno will be set
+ * when the operation fails (ui32) -1 is returned and pfs_errno will be set
  */
-extern ui64 pfs_element_get_flags(pfs_eh e);
+extern ui32 pfs_element_get_flags(pfs_eh e);
 
 /**
  * modify the flags of a patr-file-system-element
@@ -32,7 +32,7 @@ extern ui64 pfs_element_get_flags(pfs_eh e);
  *
  * when the operation fails 0 is returned and pfs_errno will be set
  */
-extern int pfs_element_modify_flags(pfs_eh e, ui64 add_flags, ui64 rem_flags);
+extern int pfs_element_modify_flags(pfs_eh e, ui32 add_flags, ui32 rem_flags);
 
 /**
  * get the length of the name in the UTF-8 charset without the '\0' terminating character
@@ -92,7 +92,14 @@ extern i64 pfs_element_get_last_mod_time(pfs_eh e);
  */
 extern int pfs_element_set_last_mod_time(pfs_eh e, i64 new_time);
 
-// note that this function is implemented in pfs.c and not in pfs-element.c
+/*
+ * note that the following functions are implemented in pfs-folder.c
+ * and not in pfs-element.c.
+ *
+ * this is because they need to access the folder structure.
+ */
+
+// note that this function is implemented in pfs-folder.c and not in pfs-element.c
 /**
  * deletes the given pfs-element
  *
@@ -108,5 +115,37 @@ extern int pfs_element_delete(pfs_eh e);
  * pfs_errno will be set, otherwise 1 is returned
  */
 extern int pfs_element_get_parent(pfs_eh e);
+
+// note that this function is implemented in pfs-folder.c and not in pfs-element.c
+/**
+ * set the parent folder of the given element
+ * to new_parent
+ *
+ * when the operation fails 0 is returned and
+ * pfs_errno will be set, otherwise 1 is returned
+ *
+ * not that this function will always set pfs_erno
+ * (to PFS_ERRNO_NONE on success)
+ */
+extern int pfs_element_set_parent(pfs_eh e, pfs_eh new_parent);
+
+// note that this function is implemented in pfs-folder.c and not in pfs-element.c
+/**
+ * set the parent folder of the given element
+ * to new_parent and also sets the name to name
+ *
+ * this operation is very similar to
+ * pfs_element_set_parent() and
+ * pfs_element_set_name() together. This operation
+ * can be used when the new_parent maybe/definitely
+ * contains a child with the old name
+ *
+ * when the operation fails 0 is returned and
+ * pfs_errno will be set, otherwise 1 is returned
+ *
+ * not that this function will always set pfs_erno
+ * (to PFS_ERRNO_NONE on success)
+ */
+extern int pfs_element_move(pfs_eh e, pfs_eh new_parent, char *name);
 
 #endif /* PFS_ELEMENT_H_ */

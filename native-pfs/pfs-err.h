@@ -27,6 +27,7 @@ enum PFS_ERRNO {
     PFS_ERRNO_ILLEGAL_ARG           = 8,  /* if there was at least one invalid argument */
     PFS_ERRNO_OUT_OF_MEMORY         = 9,  /* if an IO operation failed because there was not enough space in the file system */
     PFS_ERRNO_ROOT_FOLDER           = 10, /* if an IO operation failed because the root folder has some restrictions */
+    PFS_ERRNO_PARENT_IS_CHILD       = 11, /* if an folder can not be moved because the new child (maybe a deep/indirect child) is a child of the folder */
 };
 
 extern const char* pfs_error();
