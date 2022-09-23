@@ -304,7 +304,7 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 				pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
 				return 0;
 			}
-			helper->entries[0].name_pos = name_pos;
+ 			helper->entries[0].name_pos = name_pos;
 			if ((helper->entries[0].flags & PFS_FLAGS_FOLDER) != 0) {
 				get_folder3(helper_child_folder, helper_child_folder_block_data,
 				        helper->entries[0].child_place.block, helper->entries[0].child_place.pos,
