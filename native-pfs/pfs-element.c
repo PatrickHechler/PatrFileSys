@@ -10,9 +10,10 @@
 
 #define ensure_entry_blocks \
 	ensure_block_is_entry(e->element_place.block); \
-	ensure_block_is_entry(e->direct_parent_place.block); \
-	ensure_block_is_entry(e->real_parent_place.block); \
-
+	if (e->direct_parent_place.block != -1) { \
+		ensure_block_is_entry(e->direct_parent_place.block); \
+		ensure_block_is_entry(e->real_parent_place.block); \
+	}
 
 #define get_element0(element_name, block_name, error_result) \
 	ensure_entry_blocks \
@@ -49,6 +50,10 @@
 #define get_entry(error_result) get_entry0(entry, parent, dpblock, error_result)
 
 extern ui64 pfs_element_get_flags(pfs_eh e) {
+	if (e->real_parent_place.block == -1) {
+		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
+		return 0;
+	}
 	get_entry(0)
 	ui64 flags = entry->flags;
 	pfs->unget(pfs, e->direct_parent_place.block);
@@ -56,6 +61,10 @@ extern ui64 pfs_element_get_flags(pfs_eh e) {
 }
 
 extern int pfs_element_modify_flags(pfs_eh e, ui64 add_flags, ui64 rem_flags) {
+	if (e->real_parent_place.block == -1) {
+		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
+		return 0;
+	}
 	if ((add_flags & rem_flags) != 0) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
@@ -66,7 +75,7 @@ extern int pfs_element_modify_flags(pfs_eh e, ui64 add_flags, ui64 rem_flags) {
 	}
 	get_entry(0)
 	entry->flags = add_flags | (entry->flags & ~rem_flags);
-	pfs->unget(pfs, e->direct_parent_place.block);
+	pfs->set(pfs, e->direct_parent_place.block);
 	return 1;
 }
 
@@ -149,7 +158,7 @@ extern int pfs_element_get_name(pfs_eh e, char **buffer, i64 *buffer_len) {
 
 extern int pfs_element_set_name(pfs_eh e, char *name) {
 	if (e->real_parent_place.block == -1) {
-		pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
 		return 0;
 	}
 	get_entry0(entry, parent, block_data, 0)
@@ -259,6 +268,10 @@ extern int pfs_element_set_name(pfs_eh e, char *name) {
 }
 
 extern i64 pfs_element_get_create_time(pfs_eh e) {
+	if (e->direct_parent_place.block == -1) {
+		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
+		return PFS_NO_TIME;
+	}
 	get_entry(PFS_NO_TIME);
 	i64 ct = entry->create_time;
 	pfs->unget(pfs, e->direct_parent_place.block);
@@ -266,9 +279,13 @@ extern i64 pfs_element_get_create_time(pfs_eh e) {
 }
 
 extern int pfs_element_set_create_time(pfs_eh e, i64 new_time) {
+	if (e->direct_parent_place.block == -1) {
+		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
+		return 0;
+	}
 	get_entry(PFS_NO_TIME);
 	entry->create_time = new_time;
-	pfs->unget(pfs, e->direct_parent_place.block);
+	pfs->set(pfs, e->direct_parent_place.block);
 	return 1;
 }
 

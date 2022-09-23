@@ -13,7 +13,7 @@
 /**
  * get the flags of a patr-file-system-element
  *
- * when the operation fails (ui64) -1 is returned and pfs_errno will be set
+ * when the operation fails (ui64) 0 is returned and pfs_errno will be set
  */
 extern ui64 pfs_element_get_flags(pfs_eh e);
 

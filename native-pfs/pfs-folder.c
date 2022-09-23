@@ -295,6 +295,7 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 				pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
 				return 0;
 			}
+			helper->entries[0].name_pos = name_pos;
 		}
 		helper->folder_entry.block = my_place.block;
 		helper->folder_entry.pos = my_place.pos + sizeof(struct pfs_folder)
@@ -533,6 +534,10 @@ extern int pfs_folder_create_file(pfs_eh f, pfs_eh parent, const char *name) {
 }
 
 extern int pfs_element_get_parent(pfs_eh e) {
+	if (e->real_parent_place.block == -1) {
+		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
+		return 0;
+	}
 	get_folder1(old_parent, block_data, (e->real_parent_place))
 	struct pfs_place old_place = e->element_place;
 	i32 entry_pos = e->entry_pos;

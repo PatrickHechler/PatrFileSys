@@ -36,6 +36,7 @@ extern i64 pfs_file_append(pfs_eh f, void *data, i64 length) {
 		return -1;
 	}
 	get_file(-1)
+	file->element.last_mod_time = time(NULL);
 	struct pfs_place file_end;
 	if (file->file_length == 0) {
 		file->first_block = file_end.block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_FILE_DATA);
@@ -154,6 +155,7 @@ extern int pfs_file_truncate(pfs_eh f, i64 new_length) {
 		return 0;
 	}
 	get_file(0)
+	file->element.last_mod_time = time(NULL);
 	int res;
 	if (file->file_length < new_length) {
 		res = truncate_grow(new_length, f);
@@ -180,6 +182,9 @@ static inline int read_write(pfs_eh f, i64 position, void *buffer, i64 length, i
 	if (file->file_length - position < length) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
+	}
+	if (!read) {
+		file->element.last_mod_time = time(NULL);
 	}
 	i64 fb = file->first_block;
 	pfs->unget(pfs, f->element_place.block);

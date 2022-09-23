@@ -13,6 +13,8 @@ extern const char* pfs_error() {
 	switch (pfs_errno) {
 	case PFS_ERRNO_NONE: /* if no error occurred */
 		return "no error/success";
+	case PFS_ERRNO_UNKNOWN_ERROR: /* if an operation failed because there was not enough space in the file system */
+		return "some unknown/unspecified error";
 	case PFS_ERRNO_NO_MORE_ELEMNETS: /* if the iterator has no next element */
 		return "no more elements";
 	case PFS_ERRNO_ELEMENT_WRONG_TYPE: /* if an IO operation failed because the element is not of the correct type (file expected, but folder or reverse) */
@@ -29,13 +31,20 @@ extern const char* pfs_error() {
 		return "Illegal argument(s)";
 	case PFS_ERRNO_OUT_OF_MEMORY: /* if an IO operation failed because there was not enough space in the file system */
 		return "out of ram";
-	case PFS_ERRNO_UNKNOWN_ERROR: /* if an operation failed because there was not enough space in the file system */
-		return "some unknown/unspecified error";
+	case PFS_ERRNO_ROOT_FOLDER: /* if an IO operation failed because the root folder has some restrictions */
+		return "root folder restrictions";
 	default:
 		char *buf = malloc(33);
 		sprintf(buf, "unknown value [%lx]", pfs_errno);
 		return buf;
 	}
+}
+
+extern void pfs_perror(const char *msg) {
+	if (msg == NULL) {
+		msg = "pfs-error";
+	}
+	fprintf(stderr, "%s: %s\n", msg, pfs_error());
 }
 
 extern int pfs_format(i64 block_count) {
@@ -688,8 +697,14 @@ void ensure_block_is_file_data(i64 block) {
 void ensure_block_is_entry(i64 block) {
 	i64 btfb = get_block_table_first_block();
 	if (btfb != -1L) return;
+	if (pfs->block_flag_bits <= 0) {
+		abort();
+	}
+	ui64 block_flags = pfs->get_flags(pfs, block);
+	if ((block_flags & BLOCK_FLAG_USED) == 0) {
+		abort();
+	}
 	if (pfs->block_flag_bits > BLOCK_FLAG_USED_BIT) {
-		ui64 block_flags = pfs->get_flags(pfs, block);
 		if ((block_flags & BLOCK_FLAG_FILE_DATA) != 0) {
 			abort();
 		}
