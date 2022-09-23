@@ -247,6 +247,8 @@ static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 		return NULL;
 	}
 	if (lseek64(bf->file, block * (i64) bf->bm.block_size, SEEK_SET) == -1) {
+		perror("error");
+		fflush(NULL);
 		abort();
 	}
 	for (i64 need = bf->bm.block_size; need;) {

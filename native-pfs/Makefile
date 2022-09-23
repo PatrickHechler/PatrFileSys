@@ -19,7 +19,7 @@ else
     $(error Build mode $(BUILD_MODE) not supported by this Makefile)
 endif
 
-BINARY = $(PROJEXT_ROOT)bin/$(BUILD_MODE)/
+BINARY = $(PROJECT_ROOT)bin/$(BUILD_MODE)/
 
 TEST_LIBS = -L $(BINARY) -l pfs
 

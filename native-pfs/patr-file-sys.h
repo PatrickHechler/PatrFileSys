@@ -16,6 +16,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <time.h>
 #include <assert.h>
 #include <string.h>

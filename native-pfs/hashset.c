@@ -14,13 +14,14 @@
 #define INIT_MAP_SIZE 17
 
 static void* put0(struct hashset*, unsigned int, void*);
+static void grow(struct hashset*);
 
-extern void* hashset_get(const struct hashset *set, unsigned int hash,
-		const void *equalto) {
-	if (!set->setsize) {
+extern void* hashset_get(const struct hashset *set, unsigned int hash, const void *equalto) {
+	if (set->entrycount == 0) {
 		return NULL;
 	}
 	int i = hash % set->setsize;
+	const int origI = i;
 	while (1) {
 		if (!set->entries[i]) {
 			return NULL;
@@ -36,33 +37,16 @@ extern void* hashset_get(const struct hashset *set, unsigned int hash,
 		if (i >= set->setsize) {
 			i = 0;
 		}
+		if (i == origI) {
+			return NULL;
+		}
 	}
 }
 
 extern void* hashset_put(struct hashset *set, unsigned int hash, void *newvalue) {
 	set->entrycount++;
 	if (set->setsize <= set->entrycount * 1.5) {
-		const int oldlen = set->setsize;
-		const int newsize = set->setsize =
-				set->setsize ? set->setsize * 2 : INIT_MAP_SIZE;
-		void **oldentries = set->entries;
-		void *freePNTR = set->entries;
-		void **newentries = set->entries = malloc(newsize * sizeof(void*));
-		for (int i = 0; i < newsize; i++) {
-			newentries[i] = NULL; //NULL entries are not permitted
-		}
-		for (int i = 0; i < oldlen; i++) {
-			if (!oldentries[i]) {
-				continue;
-			}
-			if (oldentries[i] == &illegal) {
-				continue;
-			}
-			put0(set, set->hashmaker(oldentries[i]), oldentries[i]);
-		}
-		if (freePNTR) {
-			free(freePNTR);
-		}
+		grow(set);
 	}
 	void *old = put0(set, hash, newvalue);
 	if (old) {
@@ -76,6 +60,7 @@ extern void* hashset_remove(struct hashset *set, unsigned int hash, void *oldval
 		return NULL;
 	}
 	int i = hash % (unsigned int) set->setsize;
+	const int origI = i;
 	while (1) {
 		if (set->entries[i] == NULL) {
 			return NULL;
@@ -95,6 +80,10 @@ extern void* hashset_remove(struct hashset *set, unsigned int hash, void *oldval
 		i++;
 		if (i >= set->setsize) {
 			i = 0;
+		}
+		if (i == origI) {
+			grow(set);
+			return NULL;
 		}
 	}
 }
@@ -117,5 +106,28 @@ static void* put0(struct hashset *set, unsigned int hash, void *newvalue) {
 		if (i >= set->setsize) {
 			i = 0;
 		}
+	}
+}
+
+static void grow(struct hashset *set) {
+	const int oldlen = set->setsize;
+	const int newsize = set->setsize = set->setsize ? set->setsize * 2 : INIT_MAP_SIZE;
+	void **oldentries = set->entries;
+	void *freePNTR = set->entries;
+	void **newentries = set->entries = malloc(newsize * sizeof(void*));
+	for (int i = 0; i < newsize; i++) {
+		newentries[i] = NULL; //NULL entries are not permitted
+	}
+	for (int i = 0; i < oldlen; i++) {
+		if (!oldentries[i]) {
+			continue;
+		}
+		if (oldentries[i] == &illegal) {
+			continue;
+		}
+		put0(set, set->hashmaker(oldentries[i]), oldentries[i]);
+	}
+	if (freePNTR) {
+		free(freePNTR);
 	}
 }

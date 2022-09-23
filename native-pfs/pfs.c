@@ -9,6 +9,35 @@
 #include "pfs-intern.h"
 #include "pfs.h"
 
+extern const char* pfs_error() {
+	switch (pfs_errno) {
+	case PFS_ERRNO_NONE: /* if no error occurred */
+		return "no error/success";
+	case PFS_ERRNO_NO_MORE_ELEMNETS: /* if the iterator has no next element */
+		return "no more elements";
+	case PFS_ERRNO_ELEMENT_WRONG_TYPE: /* if an IO operation failed because the element is not of the correct type (file expected, but folder or reverse) */
+		return "wrong type";
+	case PFS_ERRNO_ELEMENT_NOT_EXIST: /* if an IO operation failed because the element does not exist */
+		return "element does not exist";
+	case PFS_ERRNO_ELEMENT_ALREADY_EXIST: /* if an IO operation failed because the element already existed */
+		return "element exists already";
+	case PFS_ERRNO_OUT_OF_SPACE: /* if an IO operation failed because there was not enough space in the file system */
+		return "out of space";
+	case PFS_ERRNO_IO_ERR: /* if an unspecified IO error occurred */
+		return "some IO error";
+	case PFS_ERRNO_ILLEGAL_ARG: /* if there was at least one invalid argument */
+		return "Illegal argument(s)";
+	case PFS_ERRNO_OUT_OF_MEMORY: /* if an IO operation failed because there was not enough space in the file system */
+		return "out of ram";
+	case PFS_ERRNO_UNKNOWN_ERROR: /* if an operation failed because there was not enough space in the file system */
+		return "some unknown/unspecified error";
+	default:
+		char *buf = malloc(33);
+		sprintf(buf, "unknown value [%lx]", pfs_errno);
+		return buf;
+	}
+}
+
 extern int pfs_format(i64 block_count) {
 	if (pfs == NULL) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
@@ -559,6 +588,15 @@ static inline i64 allocate_block_without_bm(i64 btfb) {
 		ui8 *block_data = current_block;
 		i32 remain = pfs->block_size - 8;
 		for (; remain > 0; block_data++, remain--) {
+			if (block_count == 255) {
+				result += 8;
+				if (result >= block_count) {
+					pfs->unget(pfs, current_block_num);
+					pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+					return -1L;
+				}
+				continue;
+			}
 			for (unsigned int bit = 0; bit < 8; bit++) {
 				if (((*block_data) & (1U << bit)) == 0) {
 					*block_data |= 1U << bit;
@@ -570,24 +608,29 @@ static inline i64 allocate_block_without_bm(i64 btfb) {
 				}
 				result++;
 				if (result >= block_count) {
+					pfs->unget(pfs, current_block_num);
 					pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
 					return -1L;
 				}
 			}
 		}
 		if (next_block_num == -1L) {
-			next_block_num = result;
-			*(i64*) (current_block + pfs->block_size - 8) = next_block_num;
+			if (result + 1 >= block_count) {
+				pfs->unget(pfs, current_block_num);
+				pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+			}
+			*(i64*) (current_block + pfs->block_size - 8) = result;
 			pfs->set(pfs, current_block_num);
-			current_block = pfs->get(pfs, current_block_num);
-			current_block_num = next_block_num;
+			current_block = pfs->get(pfs, result);
 			memset(current_block, 0, pfs->block_size - 8);
-			*(unsigned int*) current_block |= 1;
+			*(unsigned int*) current_block = 3;
 			*(i64*) (current_block + pfs->block_size - 8) = -1L;
+			pfs->set(pfs, result);
+			return result + 1;
 		} else {
 			pfs->unget(pfs, current_block_num);
-			current_block = pfs->get(pfs, current_block_num);
 			current_block_num = next_block_num;
+			current_block = pfs->get(pfs, current_block_num);
 		}
 	}
 }
@@ -658,10 +701,18 @@ void ensure_block_is_entry(i64 block) {
 	}
 }
 
-struct pfs_place find_place(i64 first_block, i64 remain) {
+struct pfs_place find_place(const i64 first_block, i64 remain) {
+	i64 last_block = first_block;
 	for (i64 current_block = first_block; 1; remain -= pfs->block_size - 8) {
 		if (remain < (pfs->block_size - 8)) {
 			struct pfs_place result;
+			if (current_block == -1) {
+				if (remain != 0) {
+					abort();
+				}
+				current_block = last_block;
+				remain = pfs->block_size - 8;
+			}
 			result.block = current_block;
 			result.pos = (i32) remain;
 			return result;
@@ -669,6 +720,7 @@ struct pfs_place find_place(i64 first_block, i64 remain) {
 		void *cb = pfs->get(pfs, current_block);
 		i64 next_block = *(i64*) (cb + pfs->block_size - 8);
 		pfs->unget(pfs, current_block);
+		last_block = current_block;
 		current_block = next_block;
 	}
 }

@@ -16,6 +16,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#define USED_MODE (S_IRWXU | S_IRWXG | S_IRWXG)
+
 static int checks();
 
 static int simple_check();
@@ -26,7 +28,7 @@ static int folder_check();
 static int deep_folder_check();
 static int real_file_sys_check();
 
-#define PRINT_PFS
+#undef PRINT_PFS
 
 #ifdef PRINT_PFS
 
@@ -231,7 +233,7 @@ static void my_set_flags(struct bm_block_manager *bm, i64 block, ui64 flags) {
 int main(int argc, char **argv) {
 	const char *start = "[main]:                                               ";
 	printf("%sstart checks with a ram block manager [0]\n", start);
-	pfs = bm_new_ram_block_manager(512L, 1024);
+	pfs = bm_new_ram_block_manager(1L << 20, 1024);
 	int res = checks();
 	if (res != EXIT_SUCCESS) {
 		return res;
@@ -247,7 +249,7 @@ int main(int argc, char **argv) {
 		}
 		test_file = argv[1];
 	}
-	int fd = open(test_file, O_RDWR | O_CREAT, 0666);
+	int fd = open(test_file, O_RDWR | O_CREAT, USED_MODE);
 	if (fd == -1) {
 		printf("%scould not open testfile ('%s') [3]\n", start, test_file);
 		return EXIT_FAILURE;
@@ -259,7 +261,7 @@ int main(int argc, char **argv) {
 	}
 	pfs->close_bm(pfs);
 	printf("%sstart checks with a file block manager (again) [4]\n", start);
-	fd = open(test_file, O_RDWR, 0666);
+	fd = open(test_file, O_RDWR, USED_MODE);
 	if (fd == -1) {
 		printf("%scould not open testfile ('%s') [5]\n", start, test_file);
 		return EXIT_FAILURE;
@@ -271,14 +273,14 @@ int main(int argc, char **argv) {
 	}
 	pfs->close_bm(pfs);
 	printf("%sstart checks with block-flaggable ram block manager [6]\n", start);
-	pfs = bm_new_flaggable_ram_block_manager(512L, 1024);
+	pfs = bm_new_flaggable_ram_block_manager(1L << 20, 1024);
 	res = checks();
 	if (res != EXIT_SUCCESS) {
 		return res;
 	}
 	pfs->close_bm(pfs);
 	printf("%sstart checks with block-one-bit-flaggable ram block manager [7]\n", start);
-	pfs = bm_new_flaggable_ram_block_manager(512L, 1024);
+	pfs = bm_new_flaggable_ram_block_manager(1L << 20, 1024);
 	other_set_flags = pfs->set_flags;
 	*((void (**)(struct bm_block_manager*, i64, ui64)) &pfs->set_flags) = my_set_flags;
 	*((int*) &pfs->block_flag_bits) = 1;
@@ -289,7 +291,7 @@ int main(int argc, char **argv) {
 	}
 	pfs->close_bm(pfs);
 	printf("%sstart checks with block-two-bit-flaggable ram block manager [8]\n", start);
-	pfs = bm_new_flaggable_ram_block_manager(512L, 1024);
+	pfs = bm_new_flaggable_ram_block_manager(1L << 20, 1024);
 	other_set_flags = pfs->set_flags;
 	*((void (**)(struct bm_block_manager*, i64, ui64)) &pfs->set_flags) = my_set_flags;
 	*((int*) &pfs->block_flag_bits) = 2;
@@ -300,7 +302,7 @@ int main(int argc, char **argv) {
 	}
 	pfs->close_bm(pfs);
 	printf("%sstart checks with block-three-bit-flaggable ram block manager [9]\n", start);
-	pfs = bm_new_flaggable_ram_block_manager(512L, 1024);
+	pfs = bm_new_flaggable_ram_block_manager(1L << 20, 1024);
 	other_set_flags = pfs->set_flags;
 	*((void (**)(struct bm_block_manager*, i64, ui64)) &pfs->set_flags) = my_set_flags;
 	*((int*) &pfs->block_flag_bits) = 3;
@@ -316,7 +318,7 @@ int main(int argc, char **argv) {
 
 static int checks() {
 	const char *start = "[main.checks]:                                        ";
-	if (!pfs_format(512L)) {
+	if (!pfs_format(1L << 20)) {
 		printf("%scould not format the file system! [0]\n", start);
 		return EXIT_FAILURE;
 	}
@@ -731,7 +733,7 @@ static int append_file_check() {
 
 static int folder_check() {
 	const char *start = "[main.checks.folder_check]:                           ";
-	if (!pfs_format(1024)) {
+	if (!pfs_format(1L << 20)) {
 		printf("%scould not format the file system! [0]\n");
 		return EXIT_FAILURE;
 	}
@@ -789,9 +791,11 @@ static int folder_check() {
 		return EXIT_FAILURE;
 	}
 	if (pfs_errno != PFS_ERRNO_NO_MORE_ELEMNETS) {
-		printf("%spfs_errno has not the expected value (no-more-elements)! [C]\n", start);
+		printf("%spfs_errno has not the expected value (no-more-elements, but: %s)! [C]\n", start,
+		        pfs_error());
 		return EXIT_FAILURE;
 	}
+	pfs_errno = PFS_ERRNO_NONE;
 	return EXIT_SUCCESS;
 }
 
@@ -897,13 +901,14 @@ static int deep_folder_check() {
 		return EXIT_FAILURE;
 	}
 	if (pfs_errno != PFS_ERRNO_ELEMENT_ALREADY_EXIST) {
-		printf("%spfs_errno has not the expected value! (pfs_errno=%lu) [18]\n", start, pfs_errno);
+		printf("%spfs_errno has not the expected value! (pfs_errno=%s) [18]\n", start, pfs_error());
 		return EXIT_FAILURE;
 	}
+	pfs_errno = PFS_ERRNO_NONE;
 	return EXIT_SUCCESS;
 }
 
-void ensurelen(char **name, i64 *len, i64 min_len, int from_read_dir) {
+static void ensurelen(char **name, i64 *len, i64 min_len, int from_read_dir) {
 	const char *start = "[main.checks.real_file_sys_check.read_dir.ensurelen]: ";
 	if (!from_read_dir) {
 		start = "[main.checks.real_file_sys_check.write_to.ensurelen]: ";
@@ -972,13 +977,14 @@ static void read_from(DIR *dir, pfs_eh f, char **name, i64 *name_size) {
 				printf("%scould not open the file (%s) [5]\n", start, *name);
 				exit(1);
 			}
-			void *buf = malloc(1024);
+			void *buf = malloc(1L << 15);
 			if (buf == NULL) {
 				printf("%scould not allocate the copy buffer [6]\n", start);
 				exit(1);
 			}
+			int cnt = 0;
 			while (1) {
-				i64 reat = read(fd, buf, 1024);
+				i64 reat = read(fd, buf, 1L << 15);
 				if (reat == 0) {
 					break;
 				} else if (reat == -1) {
@@ -994,9 +1000,10 @@ static void read_from(DIR *dir, pfs_eh f, char **name, i64 *name_size) {
 					}
 				}
 				i64 appended = pfs_file_append(f2, buf, reat);
+				cnt++;
 				if (appended != reat) {
-					printf("%scould not append to the file (pfs_errno=%lu) [8]\n", start,
-					        pfs_errno);
+					printf("%scould not append to the file (pfs_errno=%s, cnt=%d) [8]\n", start,
+					        pfs_error(), cnt);
 					exit(1);
 				}
 			}
@@ -1035,8 +1042,8 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 	pfs_fi iter = pfs_folder_iterator(f, 0);
 	i64 cur_len = strlen(*name);
 	if (iter == NULL) {
-		printf("%sfailed to get a iterator for the folder! (pfs_errno=&lu) [0]\n", start,
-		        pfs_errno);
+		printf("%sfailed to get a iterator for the folder! (pfs_errno=%s) [0]\n", start,
+		        pfs_error());
 		exit(1);
 	}
 	(*name)[cur_len++] = '/';
@@ -1044,8 +1051,8 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 		if (!pfs_folder_iter_next(iter)) {
 			if (pfs_errno != PFS_ERRNO_NO_MORE_ELEMNETS) {
 				printf(
-				        "%sfailed to get the next element from the folder iter! (pfs_errno=&lu) [1]\n",
-				        start, pfs_errno);
+				        "%sfailed to get the next element from the folder iter! (pfs_errno=%s) [1]\n",
+				        start, pfs_error);
 				exit(1);
 			}
 			free(iter);
@@ -1057,29 +1064,29 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 		if (!pfs_element_get_name(f, name, name_size)) {
 			*name_size += cur_len;
 			*name -= cur_len;
-			printf("%scould not get the name of the element (pfs:errno=%lu) [2]\n", start,
-			        pfs_errno);
+			printf("%scould not get the name of the element (pfs_errno=%s) [2]\n", start,
+			        pfs_error);
 			exit(1);
 		}
 		*name_size += cur_len;
 		*name -= cur_len;
 		ui64 flags = pfs_element_get_flags(f);
 		if (flags & PFS_FLAGS_FILE) {
-			void *buf = malloc(1024);
-			int fd = open64(*name, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+			void *buf = malloc(1 << 15);
+			int fd = open64(*name, O_WRONLY | O_CREAT | O_TRUNC, USED_MODE);
 			if (fd == -1) {
 				perror("open64");
 				printf("%scould not open the file %s [3]\n", start, *name);
 				exit(1);
 			}
 			for (i64 len = pfs_file_length(f), pos = 0; len > 0;) {
-				i64 cpy = 1024;
+				i64 cpy = 1 << 15;
 				if (len < cpy) {
 					cpy = len;
 				}
 				if (!pfs_file_read(f, pos, buf, cpy)) {
-					printf("%scould not read from my file %s (pfs_errno=%lu) [3]\n", start, *name,
-					        pfs_errno);
+					printf("%scould not read from my file %s (pfs_errno=%s) [3]\n", start, *name,
+					        pfs_error);
 					exit(1);
 				}
 				cpy = write(fd, buf, cpy);
@@ -1100,7 +1107,7 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 			close(fd);
 			free(buf);
 		} else if (flags & PFS_FLAGS_FOLDER) {
-			if (mkdir(*name, 0666) == -1) {
+			if (mkdir(*name, USED_MODE) == -1) {
 				switch (errno) {
 				case EEXIST:
 					if (rmdir(*name) == -1) {
@@ -1115,7 +1122,7 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 						break;
 					} else {
 						errno = 0;
-						if (mkdir(*name, 0666) == -1) {
+						if (mkdir(*name, USED_MODE) == -1) {
 							perror("mkdir");
 							printf("%scould not mkdir %s [6]\n", start, *name);
 							exit(1);
@@ -1215,8 +1222,8 @@ static void compare(DIR *dir, DIR *dir2, char *name, char *name2) {
 		}
 		case DT_REG:
 			reg_file: ;
-			void *buf = malloc(1024);
-			void *buf2 = malloc(1024);
+			void *buf = malloc(1 << 15);
+			void *buf2 = malloc(1 << 15);
 			int fd = open64(name, O_RDONLY);
 			int fd2 = open64(name2, O_RDONLY);
 			if (fd == -1 || fd2 == -1) {
@@ -1226,7 +1233,7 @@ static void compare(DIR *dir, DIR *dir2, char *name, char *name2) {
 				exit(1);
 			}
 			while (1) {
-				i64 reat = read(fd, buf, 1024);
+				i64 reat = read(fd, buf, 1 << 15);
 				if (reat == -1) {
 					switch (errno) {
 					case EAGAIN:
@@ -1239,7 +1246,7 @@ static void compare(DIR *dir, DIR *dir2, char *name, char *name2) {
 						exit(1);
 					}
 				}
-				i64 reat2 = read(fd2, buf2, 1024);
+				i64 reat2 = read(fd2, buf2, 1 << 15);
 				if (reat != reat2) {
 					perror("read");
 					printf("%sread retuned different values! (%ld and %ld) [E]\n", start, reat,
@@ -1281,7 +1288,7 @@ static void compare(DIR *dir, DIR *dir2, char *name, char *name2) {
 
 static int real_file_sys_check() {
 	const char *start = "[main.checks.real_file_sys_check]:                    ";
-	if (!pfs_format(1 << 16)) {
+	if (!pfs_format(1L << 20)) {
 		printf("%scould not format the pfs! [0]\n", start);
 		return EXIT_FAILURE;
 	}
@@ -1303,7 +1310,7 @@ static int real_file_sys_check() {
 	}
 	read_from(dir, root, &name, &name_size);
 	if (!pfs_fill_root(root)) {
-		printf("%scould not get the root! (pfs_errno=%lu) [3]\n", start, pfs_errno);
+		printf("%scould not get the root! (pfs_errno=%s) [3]\n", start, pfs_error);
 		return EXIT_FAILURE;
 	}
 	write_to(root, &name2, &name2_size);

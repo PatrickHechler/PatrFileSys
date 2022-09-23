@@ -39,15 +39,19 @@ extern i64 pfs_file_append(pfs_eh f, void *data, i64 length) {
 	struct pfs_place file_end;
 	if (file->file_length == 0) {
 		file->first_block = file_end.block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_FILE_DATA);
-		//TODO remove line
 		file_end.pos = 0;
 	} else {
 		file_end = find_place(file->first_block, file->file_length);
 	}
 	i64 appended = 0L;
 	int cpy = pfs->block_size - 8 - file_end.pos;
-	while (length > 0 && file_end.block != -1) {
-		void *cpy_target = pfs->get(pfs, file_end.block) + file_end.pos;
+	while (file_end.block != -1) {
+		void *block_data = pfs->get(pfs, file_end.block);
+		if (block_data == NULL) {
+			pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
+			break;
+		}
+		void *cpy_target = block_data + file_end.pos;
 		if (cpy > length) {
 			cpy = length;
 		}
@@ -58,6 +62,9 @@ extern i64 pfs_file_append(pfs_eh f, void *data, i64 length) {
 		i64 next_block;
 		if (length > 0) {
 			next_block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_FILE_DATA);
+			if (next_block == -1) {
+				pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+			}
 		} else {
 			next_block = -1L;
 		}
