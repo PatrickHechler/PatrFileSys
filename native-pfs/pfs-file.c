@@ -7,6 +7,7 @@
 
 #include "pfs-intern.h"
 #include "pfs-file.h"
+#include "pfs-pipe.h"
 #include <string.h>
 
 #define get_file(error_result) \
@@ -17,14 +18,23 @@
 	} \
 	struct pfs_file *file = file_block_data + f->element_place.pos;
 
-static inline int read_write(pfs_eh f, i64 position, void *buffer, i64 length, int read);
+#define get_pipe(error_result) \
+	void *file_block_data = pfs->get(pfs, p->element_place.block); \
+	if (file_block_data == NULL) { \
+		pfs_errno = PFS_ERRNO_UNKNOWN_ERROR; \
+		return error_result; \
+	} \
+	struct pfs_pipe *pipe = file_block_data + p->element_place.pos;
+
+static inline int read_write(pfs_eh f, i64 position, void *buffer, i64 length, const int read,
+        const int pipe);
 
 extern int pfs_file_read(pfs_eh f, i64 position, void *buffer, i64 length) {
-	return read_write(f, position, buffer, length, 1);
+	return read_write(f, position, buffer, length, 1, 0);
 }
 
 extern int pfs_file_write(pfs_eh f, i64 position, void *data, i64 length) {
-	return read_write(f, position, data, length, 0);
+	return read_write(f, position, data, length, 0, 0);
 }
 
 extern i64 pfs_file_append(pfs_eh f, void *data, i64 length) {
@@ -69,7 +79,7 @@ extern i64 pfs_file_append(pfs_eh f, void *data, i64 length) {
 		} else {
 			next_block = -1L;
 		}
-		*(i64*) (cpy_target + cpy) = next_block;
+		*(i64*) (block_data + pfs->block_size - 8) = next_block;
 		pfs->set(pfs, file_end.block);
 		file_end.block = next_block;
 		file_end.pos = 0;
@@ -166,31 +176,58 @@ extern int pfs_file_truncate(pfs_eh f, i64 new_length) {
 	return res;
 }
 
-i64 pfs_file_length(pfs_eh f) {
+extern i64 pfs_file_length(pfs_eh f) {
 	get_file(-1)
 	i64 len = file->file_length;
 	pfs->unget(pfs, f->element_place.block);
 	return len;
 }
 
-static inline int read_write(pfs_eh f, i64 position, void *buffer, i64 length, int read) {
-	if (position < 0 || length < 0) {
+extern i64 pfs_pipe_length(pfs_eh p) {
+	get_pipe(-1)
+	i64 len = pipe->file.file_length - pipe->start_offset;
+	pfs->unget(pfs, p->element_place.block);
+	return len;
+}
+
+extern int pfs_pipe_read(pfs_eh p, void *buffer, i64 length) {
+	return read_write(p, 0, buffer, length, 1, 1);
+}
+
+static inline int read_write(pfs_eh f, i64 position, void *buffer, i64 length, const int read,
+        const int pipe) {
+	if (position < 0 || length <= 0) {
+		if (length == 0) {
+			return 1;
+		}
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	get_file(0)
+	if (pipe) {
+		position = ((struct pfs_pipe*) file)->start_offset;
+	}
 	if (file->file_length - position < length) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+		pfs->unget(pfs, f->element_place.block);
 		return 0;
 	}
-	if (!read) {
-		file->element.last_mod_time = time(NULL);
-	}
 	i64 fb = file->first_block;
-	pfs->unget(pfs, f->element_place.block);
-	struct pfs_place cpy_place = find_place(fb, position);
+	struct pfs_place cpy_place;
+	if (!pipe) {
+		if (!read) {
+			file->element.last_mod_time = time(NULL);
+			pfs->set(pfs, f->element_place.block);
+		} else {
+			pfs->unget(pfs, f->element_place.block);
+		}
+		cpy_place = find_place(fb, position);
+	} else {
+		cpy_place.block = fb;
+		cpy_place.pos = position;
+	}
 	i32 cpy = pfs->block_size - 8 - cpy_place.pos;
-	while (length > 0) {
+	while (1) {
 		void *copy_block = pfs->get(pfs, cpy_place.block);
 		i64 next_block = *(i64*) (copy_block + pfs->block_size - 8);
 		copy_block += cpy_place.pos;
@@ -199,6 +236,13 @@ static inline int read_write(pfs_eh f, i64 position, void *buffer, i64 length, i
 		}
 		if (read) {
 			memcpy(buffer, copy_block, cpy);
+			if (pipe) {
+				if (cpy_place.pos + cpy == pfs->block_size - 8) {
+					file->file_length -= pfs->block_size - 8;
+					file->first_block = next_block;
+					free_block(cpy_place.block);
+				}
+			}
 			pfs->unget(pfs, cpy_place.block);
 		} else {
 			memcpy(copy_block, buffer, cpy);
@@ -206,9 +250,22 @@ static inline int read_write(pfs_eh f, i64 position, void *buffer, i64 length, i
 		}
 		length -= cpy;
 		buffer += cpy;
+		if (length == 0) {
+			if (pipe) {
+				if (file->file_length > 0) {
+					((struct pfs_pipe*) file)->start_offset = cpy_place.pos + cpy;
+				} else if (file->file_length < 0) {
+					abort();
+				} else {
+					((struct pfs_pipe*) file)->start_offset = 0;
+					file->first_block = -1;
+				}
+				pfs->set(pfs, f->element_place.block);
+			}
+			return 1;
+		}
 		cpy_place.block = next_block;
 		cpy_place.pos = 0;
 		cpy = pfs->block_size - 8;
 	}
-	return 1;
 }

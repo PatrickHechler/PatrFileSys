@@ -717,25 +717,29 @@ void ensure_block_is_entry(i64 block) {
 }
 
 struct pfs_place find_place(const i64 first_block, i64 remain) {
-	i64 last_block = first_block;
 	for (i64 current_block = first_block; 1; remain -= pfs->block_size - 8) {
 		if (remain < (pfs->block_size - 8)) {
 			struct pfs_place result;
-			if (current_block == -1) {
-				if (remain != 0) {
-					abort();
-				}
-				current_block = last_block;
-				remain = pfs->block_size - 8;
-			}
 			result.block = current_block;
 			result.pos = (i32) remain;
+			return result;
+		} else if (remain == (pfs->block_size - 8)) {
+			void *cb = pfs->get(pfs, current_block);
+			i64 next_block = *(i64*) (cb + pfs->block_size - 8);
+			pfs->unget(pfs, current_block);
+			struct pfs_place result;
+			if (next_block == -1) {
+				result.block = current_block;
+				result.pos = pfs->block_size - 8;
+			} else {
+				result.block = next_block;
+				result.pos = 0;
+			}
 			return result;
 		}
 		void *cb = pfs->get(pfs, current_block);
 		i64 next_block = *(i64*) (cb + pfs->block_size - 8);
 		pfs->unget(pfs, current_block);
-		last_block = current_block;
 		current_block = next_block;
 	}
 }

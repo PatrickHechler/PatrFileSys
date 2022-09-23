@@ -72,6 +72,11 @@ struct pfs_file {
 	i64 first_block;
 } __attribute__((packed));
 
+struct pfs_pipe {
+	struct pfs_file file;
+	i32 start_offset;
+} __attribute__((packed));
+
 struct pfs_element_handle {
 	struct pfs_place real_parent_place;
 	i32 index_in_direct_parent_list;

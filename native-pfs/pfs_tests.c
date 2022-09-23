@@ -18,16 +18,17 @@
 
 #define USED_MODE (S_IRWXU | S_IRWXG | S_IRWXG)
 
-static int checks();
+static void checks();
 
-static int simple_check();
-static int file_check();
-static int read_write_file_check();
-static int append_file_check();
-static int folder_check();
-static int deep_folder_check();
-static int real_file_sys_check();
-static int meta_check();
+static void simple_check();
+static void file_check();
+static void read_write_file_check();
+static void append_file_check();
+static void folder_check();
+static void deep_folder_check();
+static void real_file_sys_check();
+static void meta_check();
+static void pipe_check();
 
 #undef PRINT_PFS
 
@@ -35,7 +36,7 @@ static int meta_check();
 
 #include "pfs-intern.h"
 
-static int print_block_table0(i64 block, int long_start) {
+static void print_block_table0(i64 block, int long_start) {
 	const char *start = "[[…].print_block_table0]:                             ";
 	if (long_start) {
 		start = "[[…].print_pfs.print_folder.print_block_table0]:          ";
@@ -75,7 +76,7 @@ static int print_block_table0(i64 block, int long_start) {
 	return res;
 }
 
-static int print_folder(struct pfs_place fp, const char *name, struct pfs_place real_parent,
+static void print_folder(struct pfs_place fp, const char *name, struct pfs_place real_parent,
         struct pfs_place folder_entry, int is_helper, int deep) {
 	const char *start = "[[…].print_pfs.print_folder]:                           [DEEP=";
 	void *block_data = pfs->get(pfs, fp.block);
@@ -199,7 +200,7 @@ static int print_folder(struct pfs_place fp, const char *name, struct pfs_place 
 	return res;
 }
 
-static int print_pfs() {
+static void print_pfs() {
 	const char *start = "[[…].print_pfs]:                                      ";
 	if (pfs == NULL) {
 		printf("%spfs is NULL! [0]\n", start);
@@ -223,7 +224,7 @@ static int print_pfs() {
 
 #endif // PRINT_PFS
 
-static int flag_and;
+static ui64 flag_and;
 
 static void (*other_set_flags)(struct bm_block_manager *bm, i64 block, ui64 flags);
 
@@ -235,10 +236,7 @@ int main(int argc, char **argv) {
 	const char *start = "[main]:                                               ";
 	printf("%sstart checks with a ram block manager [0]\n", start);
 	pfs = bm_new_ram_block_manager(1L << 20, 1024);
-	int res = checks();
-	if (res != EXIT_SUCCESS) {
-		return res;
-	}
+	checks();
 	pfs->close_bm(pfs);
 	printf("%sstart checks with a file block manager [1]\n", start);
 	const char *test_file = "./testout/testfile.pfs";
@@ -246,39 +244,30 @@ int main(int argc, char **argv) {
 		if (argc != 2) {
 			printf("%sinvalid argument count (Usage: %s [OPTIONAL_TESTFILE]) [2]\n", start,
 			        argv[0]);
-			return EXIT_FAILURE;
+			exit(EXIT_FAILURE);
 		}
 		test_file = argv[1];
 	}
 	int fd = open(test_file, O_RDWR | O_CREAT, USED_MODE);
 	if (fd == -1) {
 		printf("%scould not open testfile ('%s') [3]\n", start, test_file);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	pfs = bm_new_file_block_manager(fd, 1024);
-	res = checks();
-	if (res != EXIT_SUCCESS) {
-		return res;
-	}
+	checks();
 	pfs->close_bm(pfs);
 	printf("%sstart checks with a file block manager (again) [4]\n", start);
 	fd = open(test_file, O_RDWR, USED_MODE);
 	if (fd == -1) {
 		printf("%scould not open testfile ('%s') [5]\n", start, test_file);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
-	new_file_pfs(fd, return EXIT_FAILURE;)
-	res = checks();
-	if (res != EXIT_SUCCESS) {
-		return res;
-	}
+	new_file_pfs(fd, exit(EXIT_FAILURE);)
+	checks();
 	pfs->close_bm(pfs);
 	printf("%sstart checks with block-flaggable ram block manager [6]\n", start);
 	pfs = bm_new_flaggable_ram_block_manager(1L << 20, 1024);
-	res = checks();
-	if (res != EXIT_SUCCESS) {
-		return res;
-	}
+	checks();
 	pfs->close_bm(pfs);
 	printf("%sstart checks with block-one-bit-flaggable ram block manager [7]\n", start);
 	pfs = bm_new_flaggable_ram_block_manager(1L << 20, 1024);
@@ -286,10 +275,7 @@ int main(int argc, char **argv) {
 	*((void (**)(struct bm_block_manager*, i64, ui64)) &pfs->set_flags) = my_set_flags;
 	*((int*) &pfs->block_flag_bits) = 1;
 	flag_and = 1;
-	res = checks();
-	if (res != EXIT_SUCCESS) {
-		return res;
-	}
+	checks();
 	pfs->close_bm(pfs);
 	printf("%sstart checks with block-two-bit-flaggable ram block manager [8]\n", start);
 	pfs = bm_new_flaggable_ram_block_manager(1L << 20, 1024);
@@ -297,10 +283,7 @@ int main(int argc, char **argv) {
 	*((void (**)(struct bm_block_manager*, i64, ui64)) &pfs->set_flags) = my_set_flags;
 	*((int*) &pfs->block_flag_bits) = 2;
 	flag_and = 3;
-	res = checks();
-	if (res != EXIT_SUCCESS) {
-		return res;
-	}
+	checks();
 	pfs->close_bm(pfs);
 	printf("%sstart checks with block-three-bit-flaggable ram block manager [9]\n", start);
 	pfs = bm_new_flaggable_ram_block_manager(1L << 20, 1024);
@@ -308,94 +291,67 @@ int main(int argc, char **argv) {
 	*((void (**)(struct bm_block_manager*, i64, ui64)) &pfs->set_flags) = my_set_flags;
 	*((int*) &pfs->block_flag_bits) = 3;
 	flag_and = 7;
-	res = checks();
-	if (res != EXIT_SUCCESS) {
-		return res;
-	}
+	checks();
 	pfs->close_bm(pfs);
 	printf("%sFINISH [A]\n", start);
 	return EXIT_SUCCESS;
 }
 
-static int checks() {
+static void checks() {
 	const char *start = "[main.checks]:                                        ";
 	if (!pfs_format(1L << 20)) {
 		printf("%scould not format the file system! [0]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 #ifdef PRINT_PFS
 	print_pfs();
 #endif // PRINT_PFS
 	printf("%sstart simple_check [1]\n", start);
-	int res = simple_check();
-	if (res != EXIT_SUCCESS) {
-		return res;
-	}
+	simple_check();
 	printf("%sstart file_check [2]\n", start);
-	res = file_check();
-	if (res != EXIT_SUCCESS) {
-		return res;
-	}
+	file_check();
 	printf("%sstart read_write_file_check [3]\n", start);
-	res = read_write_file_check();
-	if (res != EXIT_SUCCESS) {
-		return res;
-	}
+	read_write_file_check();
 	printf("%sstart append_file_check [4]\n", start);
-	res = append_file_check();
-	if (res != EXIT_SUCCESS) {
-		return res;
-	}
+	append_file_check();
 	printf("%sstart folder_check [5]\n", start);
-	res = folder_check();
-	if (res != EXIT_SUCCESS) {
-		return res;
-	}
+	folder_check();
 	printf("%sstart deep_folder_check [6]\n", start);
-	res = deep_folder_check();
-	if (res != EXIT_SUCCESS) {
-		return res;
-	}
+	deep_folder_check();
 	printf("%sstart real_file_sys_check [7]\n", start);
-	res = real_file_sys_check();
-	if (res != EXIT_SUCCESS) {
-		return res;
-	}
+	real_file_sys_check();
 	printf("%sstart meta_check [8]\n", start);
-	res = meta_check();
-	if (res != EXIT_SUCCESS) {
-		return res;
-	}
-	printf("%sall checks executed [9]\n", start);
-	return EXIT_SUCCESS;
+	meta_check();
+	printf("%sstart pipe_check [9]\n", start);
+	pipe_check();
+	printf("%sall checks executed [A]\n", start);
 }
 
-static int simple_check() {
+static void simple_check() {
 	const char *start = "[main.checks.simple_check]:                           ";
 	pfs_eh root = pfs_root();
 	if (root == NULL) {
 		printf("%scould not get the root element [0]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	i64 child_count = pfs_folder_child_count(root);
 	if (child_count != 0) {
 		printf("%sroot child count != 0 (%ld) [1]\n", start, child_count);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	pfs_eh other_root = malloc(PFS_EH_SIZE);
 	if (other_root == NULL) {
 		printf("%scould not allocate a element handle [2]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_fill_root(other_root)) {
 		printf("%scould not fill root element [3]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (memcmp(root, other_root, PFS_EH_SIZE) != 0) {
 		printf("%sthe two root elements differ [4]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
-	return EXIT_SUCCESS;
 }
 
 /**
@@ -432,115 +388,114 @@ static void* random_data(const char *start, i64 size) {
 }
 
 // should actually be named truncate_file_check
-static int file_check() {
+static void file_check() {
 	const char *start = "[main.checks.file_check]:                             ";
 	const char *rd_start = "[main.checks.file_check.random_data]:                 ";
 	pfs_eh file = pfs_root();
 	if (file == NULL) {
 		printf("%scould not get the root element [0]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	i64 child_count = pfs_folder_child_count(file);
 	if (child_count != 0) {
 		printf("%sroot child count != 0 (%ld) [1]\n", start, child_count);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	int res = pfs_folder_create_file(file, NULL, "file-name");
 	if (!res) {
 		printf("%scould not create the file [2]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	i64 length = pfs_file_length(file);
 	if (length != 0L) {
 		printf("%sfile length != 0 (%ld) [3]\n", start, length);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	void *data = random_data(rd_start, 1016);
 	res = pfs_file_append(file, data, 1016);
 	if (res != 1016) {
 		printf("%scould not append to the file (appended: %ld) [4]\n", start, res);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	length = pfs_file_length(file);
 	if (length != 1016L) {
 		printf("%sfile length != 1016 (%ld) [5]\n", start, length);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	res = pfs_file_truncate(file, 10);
 	if (!res) {
 		printf("%scould not truncate the file to length 10 [6]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	length = pfs_file_length(file);
 	if (length != 10L) {
 		printf("%sfile length != 10 (%ld) [7]\n", start, length);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	res = pfs_file_truncate(file, 1500);
 	if (!res) {
 		printf("%scould not truncate the file to length 1500 [8]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	length = pfs_file_length(file);
 	if (length != 1500L) {
 		printf("%sfile length != 1500 (%ld) [9]\n", start, length);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	res = pfs_file_truncate(file, 0);
 	if (!res) {
 		printf("%scould not truncate the file to length 0 [A]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	length = pfs_file_length(file);
 	if (length != 0L) {
 		printf("%sfile length != 0 (%ld) [B]\n", start, length);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	res = pfs_file_truncate(file, 10000);
 	if (!res) {
 		printf("%scould not truncate the file to length 10000 [C]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	length = pfs_file_length(file);
 	if (length != 10000L) {
 		printf("%sfile length != 10000 (%ld) [D]\n", start, length);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	res = pfs_file_append(file, data, 1016);
 	if (res != 1016) {
 		printf("%scould not append to the file (appended: %ld) [E]\n", start, res);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	length = pfs_file_length(file);
 	if (length != 11016L) {
 		printf("%sfile length != 11016 (%ld) [F]\n", start, length);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	res = pfs_file_truncate(file, 0);
 	if (!res) {
 		printf("%scould not truncate the file to length 0 [10]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	length = pfs_file_length(file);
 	if (length != 0L) {
 		printf("%sfile length != 0 (%ld) [11]\n", start, length);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
-	return EXIT_SUCCESS;
 }
 
-static int read_write_file_check() {
+static void read_write_file_check() {
 	const char *start = "[main.checks.read_write_file_check]:                  ";
 	const char *rd0_start = "[main.checks.read_write_file_check.random_data[0]:   ";
 	const char *rd1_start = "[main.checks.read_write_file_check.random_data[1]:   ";
 	pfs_eh file = pfs_root();
 	if (file == NULL) {
 		printf("%scould not get the root element [0]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_folder_create_file(file, NULL, "read_write_file")) {
 		printf("%scould not create the file [1]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	void *data = malloc(4098);
 	void *rnd = random_data(rd0_start, 4098);
@@ -548,82 +503,82 @@ static int read_write_file_check() {
 	i64 res = pfs_file_append(file, rnd, 4098);
 	if (res != 4098) {
 		printf("%scould not append the random data file (appended=%ld) [2]\n", start, res);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	void *reat = malloc(4098);
 	if (!pfs_file_read(file, 0L, reat, 4098)) {
 		printf("%sfailed to read from the file [3]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (memcmp(data, reat, 4098) != 0) {
 		printf("%sdid not reat the expected data! [4]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	memset(reat, 0, 4098);
 	if (!pfs_file_read(file, 100L, reat, 3998)) {
 		printf("%sfailed to read from the file [5]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (memcmp(data + 100, reat, 3998) != 0) {
 		printf("%sdid not reat the expected data! [6]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	memset(reat, 0, 3998);
 	if (!pfs_file_read(file, 1000L, reat, 2098)) {
 		printf("%sfailed to read from the file [7]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (memcmp(data + 1000, reat, 2098) != 0) {
 		printf("%sdid not reat the expected data! [8]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_file_read(file, 0L, reat, 4098)) {
 		printf("%sfailed to read from the file [9]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (memcmp(data, reat, 4098) != 0) {
 		printf("%sdid not reat the expected data! [A]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	const i64 start1 = 0, len1 = 100;
 	void *rnd2 = random_data(rd1_start, 2048);
 	memcpy(data + start1, rnd2, len1);
 	if (!pfs_file_write(file, start1, rnd2, len1)) {
 		printf("%sfailed to write to the file [B]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	memset(reat, 0, 4098);
 	if (!pfs_file_read(file, 0L, reat, 4098)) {
 		printf("%sfailed to read from the file [C]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (memcmp(data, reat, 4098) != 0) {
 		printf("%sdid not reat the data expected data! [D]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	const i64 start2 = 1000, len2 = 412;
 	memcpy(data + start2, rnd2 + len1, len2);
 	if (!pfs_file_write(file, start2, rnd2 + len1, len2)) {
 		printf("%sfailed to write to the file [E]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_file_read(file, 0L, reat, 4098)) {
 		printf("%sfailed to read from the file [F]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (memcmp(data, reat, 4098) != 0) {
 		printf("%sdid not reat the expected data! [10]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	const i64 len3 = 2048 - len1 - len2, start3 = 4098 - len3;
 	memcpy(data + start3, rnd2 + (len1 + len2), len3);
 	if (!pfs_file_write(file, start3, rnd2 + (len1 + len2), len3)) {
 		printf("%sfailed to write to the file [11]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_file_read(file, 0L, reat, 4098)) {
 		printf("%sfailed to read from the file [12]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (memcmp(data, reat, 4098) != 0) {
 		printf("%sdid not reat the expected data! [13]\n", start);
@@ -639,24 +594,23 @@ static int read_write_file_check() {
 				printf("%ssame at index=%d [15]\n", start, i);
 			}
 		}
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	static_assert(start1 == 0, "error");
 	static_assert((start3 + len3) == 4098, "error");
-	return EXIT_SUCCESS;
 }
 
-static int append_file_check() {
+static void append_file_check() {
 	const char *start = "[main.checks.append_file_check]:                      ";
 	const char *rd0_start = "[main.checks.append_file_check.random_data[0]:       ";
 	pfs_eh file = pfs_root();
 	if (file == NULL) {
 		printf("%scould not get the root element [0]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_folder_create_file(file, NULL, "append_file")) {
 		printf("%scould not create the file [1]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	void *data = random_data(rd0_start, 10000);
 	void *data2 = random_data(rd0_start, 1000);
@@ -664,255 +618,252 @@ static int append_file_check() {
 	i64 res = pfs_file_append(file, data, 10);
 	if (res != 10) {
 		printf("%scould not append to the file [2]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	res = pfs_file_length(file);
 	if (res != 10) {
 		printf("%sfile length is not 10 (%ld) [3]\n", start, res);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	res = pfs_file_append(file, data + 10, 2000);
 	if (res != 2000) {
 		printf("%scould not append to the file [4]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	res = pfs_file_length(file);
 	if (res != 2010) {
 		printf("%sfile length is not 2010 (%ld) [5]\n", start, res);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	res = pfs_file_append(file, data + 2010, 0);
 	if (res != 0) {
 		printf("%scould not append to the file [6]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	res = pfs_file_length(file);
 	if (res != 2010) {
 		printf("%sfile length is not 2010 (%ld) [7]\n", start, res);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	res = pfs_file_append(file, data + 2010, 1990);
 	if (res != 1990) {
 		printf("%scould not append to the file [8]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	res = pfs_file_length(file);
 	if (res != 4000) {
 		printf("%sfile length is not 4000 (%ld) [9]\n", start, res);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	res = pfs_file_append(file, data + 4000, 6000);
 	if (res != 6000) {
 		printf("%scould not append to the file [A]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	res = pfs_file_length(file);
 	if (res != 10000) {
 		printf("%sfile length is not 10000 (%ld) [B]\n", start, res);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	res = pfs_file_append(file, data2, 1000);
 	if (res != 1000) {
 		printf("%scould not append to the file [C]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	res = pfs_file_length(file);
 	if (res != 11000) {
 		printf("%sfile length is not 11000 (%ld) [D]\n", start, res);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	void *buffer = malloc(11000);
 	if (buffer == NULL) {
 		printf("%scould not allocate to buffer [E]\n", start, res);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	pfs_file_read(file, 0, buffer, 11000);
 	if (memcmp(data, buffer, 10000) != 0) {
 		printf("%smemcmp != 0 [F]\n", start, res);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (memcmp(data2, buffer + 10000, 1000) != 0) {
 		printf("%smemcmp != 0 [10]\n", start, res);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
-	return EXIT_SUCCESS;
 }
 
-static int folder_check() {
+static void folder_check() {
 	const char *start = "[main.checks.folder_check]:                           ";
 	if (!pfs_format(1L << 20)) {
 		printf("%scould not format the file system! [0]\n");
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	pfs_eh root = pfs_root();
 	if (root == NULL) {
 		printf("%scould not get the root element [1]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	const char *n0 = "first_folder", *n1 = "the-file";
 	pfs_duplicate_handle0(root, child,
-	        printf("%scould not duplicate the handle! [2]\n", start); return EXIT_FAILURE;);
+	        printf("%scould not duplicate the handle! [2]\n", start); exit(EXIT_FAILURE););
 	if (!pfs_folder_create_folder(child, root, n0)) {
 		printf("%scould not create the folder %s [3]\n", start, n0);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	memcpy(child, root, PFS_EH_SIZE);
 	if (!pfs_folder_create_file(child, root, n1)) {
 		printf("%scould not create the folder %s [4]\n", start, n1);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	memcpy(child, root, PFS_EH_SIZE);
 	pfs_fi fi = pfs_folder_iterator(child, 0);
 	if (fi == NULL) {
 		printf("%scould not get the folder-iter! [5]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_folder_iter_next(fi)) {
 		printf("%scould not get the next element from the iter! [6]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	char *name;
 	i64 len = 0;
 	if (!pfs_element_get_name(child, &name, &len)) {
 		printf("%scould not get the name! [7]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (strcmp(n0, name) != 0) {
 		printf("%sgot not the expected element from the iter! (name=%s) [8]\n", start, name);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_folder_iter_next(fi)) {
 		printf("%scould not get the next element from the iter! [8]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_element_get_name(child, &name, &len)) {
 		printf("%scould not get the name! [9]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (strcmp(n1, name) != 0) {
 		printf("%sgot not the expected element from the iter! (name=%s) [A]\n", start, name);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (pfs_folder_iter_next(fi)) {
 		printf("%sgot more elements from the iter than expected! [B]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (pfs_errno != PFS_ERRNO_NO_MORE_ELEMNETS) {
 		printf("%spfs_errno has not the expected value (no-more-elements, but: %s)! [C]\n", start,
 		        pfs_error());
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	pfs_errno = PFS_ERRNO_NONE;
-	return EXIT_SUCCESS;
 }
 
-static int deep_folder_check() {
+static void deep_folder_check() {
 	const char *start = "[main.checks.deep_folder_check]:                      ";
 	pfs_eh parent = pfs_root();
 	if (parent == NULL) {
 		printf("%scould not get the root element [0]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	pfs_duplicate_handle0(parent, child,
-	        printf("%scould not duplicate the handle! [1]\n", start); return EXIT_FAILURE;);
+	        printf("%scould not duplicate the handle! [1]\n", start); exit(EXIT_FAILURE););
 	if (!pfs_folder_create_folder(child, NULL, "folder-name")) {
 		printf("%scould not create a child folder [2]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_folder_create_folder(child, NULL, "folder-name")) {
 		printf("%scould not create a child folder [3]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_folder_create_folder(child, NULL, "folder-name")) {
 		printf("%scould not create a child folder [4]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_folder_create_folder(child, NULL, "folder-name")) {
 		printf("%scould not create a child folder [5]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_folder_create_folder(child, parent, "folder-name")) {
 		printf("%scould not create a child folder [7]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	pfs_element_get_parent(child);
 	if (memcmp(child, parent, PFS_EH_SIZE) != 0) {
 		printf("%sdid not get the expected handle [8]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_folder_create_folder(child, parent, "folder-name2")) {
 		printf("%scould not create a child folder [9]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	pfs_element_get_parent(child);
 	if (memcmp(child, parent, PFS_EH_SIZE) != 0) {
 		printf("%sdid not get the expected handle [A]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_folder_create_folder(child, parent, "folder-name3")) {
 		printf("%scould not create a child folder [B]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	pfs_element_get_parent(child);
 	if (memcmp(child, parent, PFS_EH_SIZE) != 0) {
 		printf("%sdid not get the expected handle [C]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_folder_create_folder(child, parent, "folder-name4")) {
 		printf("%scould not create a child folder [D]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	pfs_element_get_parent(child);
 	if (memcmp(child, parent, PFS_EH_SIZE) != 0) {
 		printf("%sdid not get the expected handle [E]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_folder_create_folder(child, parent, "folder-name5")) {
 		printf("%scould not create a child folder [F]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	pfs_element_get_parent(child);
 	if (memcmp(child, parent, PFS_EH_SIZE) != 0) {
 		printf("%sdid not get the expected handle [10]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_folder_create_folder(child, parent, "folder-name6")) {
 		printf("%scould not create a child folder [11]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	pfs_element_get_parent(child);
 	if (memcmp(child, parent, PFS_EH_SIZE) != 0) {
 		printf("%sdid not get the expected handle [12]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_folder_create_folder(child, parent, "folder-name7")) {
 		printf("%scould not create a child folder [13]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	pfs_element_get_parent(child);
 	if (memcmp(child, parent, PFS_EH_SIZE) != 0) {
 		printf("%sdid not get the expected handle [14]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_folder_create_folder(child, parent, "folder-name8")) {
 		printf("%scould not create a child folder [15]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	pfs_element_get_parent(child);
 	if (memcmp(child, parent, PFS_EH_SIZE) != 0) {
 		printf("%sdid not get the expected handle [16]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (pfs_folder_create_folder(child, NULL, "folder-name6")) {
 		printf("%scould create a child folder [17]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (pfs_errno != PFS_ERRNO_ELEMENT_ALREADY_EXIST) {
 		printf("%spfs_errno has not the expected value! (pfs_errno=%s) [18]\n", start, pfs_error());
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	pfs_errno = PFS_ERRNO_NONE;
-	return EXIT_SUCCESS;
 }
 
 static void ensurelen(char **name, i64 *len, i64 min_len, int from_read_dir) {
@@ -1294,11 +1245,11 @@ static void compare(DIR *dir, DIR *dir2, char *name, char *name2) {
 	}
 }
 
-static int real_file_sys_check() {
+static void real_file_sys_check() {
 	const char *start = "[main.checks.real_file_sys_check]:                    ";
 	if (!pfs_format(1L << 20)) {
 		printf("%scould not format the pfs! [0]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	i64 name_size = 128;
 	char *name = malloc(name_size);
@@ -1309,31 +1260,30 @@ static int real_file_sys_check() {
 	DIR *dir = opendir("./testin/");
 	if (dir == NULL) {
 		printf("%scould not open the ./testin/ directory! [1]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	pfs_eh root = pfs_root();
 	if (root == NULL) {
 		printf("%scould not get the root! [2]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	read_from(dir, root, &name, &name_size);
 	if (!pfs_fill_root(root)) {
 		printf("%scould not get the root! (pfs_errno=%s) [3]\n", start, pfs_error);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	write_to(root, &name2, &name2_size);
 	dir = opendir("./testin/");
 	if (dir == NULL) {
 		printf("%scould not open the ./testin/ directory! [4]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	DIR *dir2 = opendir("./testout/fs-root/");
 	if (dir2 == NULL) {
 		printf("%scould not open the ./testout/fs-root/ directory! [5]\n", start);
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	compare(dir, dir2, name, name2);
-	return EXIT_SUCCESS;
 }
 
 void sub_meta_check(pfs_eh e, int is_not_root) {
@@ -1467,54 +1417,173 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		exit(EXIT_FAILURE);
 	} else if (pfs_errno != PFS_ERRNO_ILLEGAL_ARG) {
 		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%spfs_errno has an unexpected value (%s)! [19]\n", start, pfs_error());
+			printf("%spfs_errno has an unexpected value (%s)! [1A]\n", start, pfs_error());
 			exit(EXIT_FAILURE);
 		}
 	}
 	pfs_errno = 0;
 	if (pfs_element_modify_flags(e, 0, PFS_FLAGS_FOLDER)) {
-		printf("%scould modify the flags! [1A]\n", start);
+		printf("%scould modify the flags! [1B]\n", start);
 		exit(EXIT_FAILURE);
 	} else if (pfs_errno != PFS_ERRNO_ILLEGAL_ARG) {
 		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%spfs_errno has an unexpected value (%s)! [1B]\n", start, pfs_error());
+			printf("%spfs_errno has an unexpected value (%s)! [1C]\n", start, pfs_error());
 			exit(EXIT_FAILURE);
 		}
 	}
 	pfs_errno = 0;
 	if (pfs_element_modify_flags(e, PFS_FLAGS_FILE_EXECUTABLE, PFS_FLAGS_FILE_EXECUTABLE)) {
-		printf("%scould modify the flags! [1C]\n", start);
+		printf("%scould modify the flags! [1D]\n", start);
 		exit(EXIT_FAILURE);
 	} else if (pfs_errno != PFS_ERRNO_ILLEGAL_ARG) {
 		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%spfs_errno has an unexpected value (%s)! [1D]\n", start, pfs_error());
+			printf("%spfs_errno has an unexpected value (%s)! [1E]\n", start, pfs_error());
 			exit(EXIT_FAILURE);
 		}
 	}
 	pfs_errno = 0;
 }
 
-static int meta_check() {
+static void meta_check() {
 	const char *start = "[main.checks.meta_check]:                             ";
 	pfs_eh e = pfs_root();
 	if (e == NULL) {
 		printf("%scould not get the root directory! (%s) [0]\n", start, pfs_error());
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	sub_meta_check(e, 0);
 	if (!pfs_folder_create_file(e, NULL, "meta-checking-file")) {
 		printf("%scould not create the folder! (%s) [1]\n", start, pfs_error());
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	sub_meta_check(e, 1);
 	if (!pfs_fill_root(e)) {
 		printf("%scould not get the root directory! (%s) [2]\n", start, pfs_error());
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	if (!pfs_folder_create_folder(e, NULL, "meta-checking-folder")) {
 		printf("%scould not create the folder! (%s) [3]\n", start, pfs_error());
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	sub_meta_check(e, 1);
-	return EXIT_SUCCESS;
+}
+
+static void pipe_check() {
+	const char *start = "[main.checks.pipe_check]:                             ";
+	const char *rnd_start = "[main.checks.pipe_check.random_data]:                 ";
+	pfs_eh p = pfs_root();
+	if (p == NULL) {
+		printf("%scould not get the root directory! (%s) [0]\n", start, pfs_error());
+		exit(EXIT_FAILURE);
+	}
+	if (!pfs_folder_create_pipe(p, NULL, "check-pipe")) {
+		printf("%scould not create the folder! (%s) [1]\n", start, pfs_error());
+		exit(EXIT_FAILURE);
+	}
+	if (pfs_pipe_length(p) != 0) {
+		printf("%spipe is no empty! (%s) [2]\n", start, pfs_error());
+		exit(EXIT_FAILURE);
+	}
+	void *write_buf = random_data(rnd_start, 10000);
+	void *read_buf = malloc(10000);
+	if (read_buf == NULL) {
+		printf("%scould not allocate the read buffer! [3]\n", start);
+		exit(EXIT_FAILURE);
+	}
+	i64 res = pfs_pipe_append(p, write_buf, 1000);
+	if (!res) {
+		printf("%scould not append to the pipe! [4]\n", start);
+		exit(EXIT_FAILURE);
+	}
+	// pipe: write[0..1000]
+	res = pfs_pipe_length(p);
+	if (res != 1000) {
+		printf("%spipe has not the expected length! (len=%ld (%s)) [5]\n", start,
+		        pfs_pipe_length(p), pfs_error());
+		exit(EXIT_FAILURE);
+	}
+	res = pfs_pipe_read(p, read_buf, 500);
+	if (!res) {
+		printf("%scould not read form the pipe! [6]\n", start);
+		exit(EXIT_FAILURE);
+	}
+	// read: write[0..500]
+	// pipe: write[500..1000]
+	res = pfs_pipe_length(p);
+	if (res != 500) {
+		printf("%spipe has not the expected length! (len=%ld (%s)) [7]\n", start,
+		        pfs_pipe_length(p), pfs_error());
+		exit(EXIT_FAILURE);
+	}
+	res = memcmp(write_buf, read_buf, 500);
+	if (res != 0) {
+		printf("%sdid not read the same data! [8]\n", start);
+		exit(EXIT_FAILURE);
+	}
+	res = pfs_pipe_read(p, read_buf, 256);
+	// read: [500..756],[256..500]
+	// pipe: [756..1000]
+	if (!res) {
+		printf("%scould not read form the pipe! [9]\n", start);
+		exit(EXIT_FAILURE);
+	}
+	res = pfs_pipe_length(p);
+	if (res != 244) {
+		printf("%spipe has not the expected length! [A]\n", start);
+		exit(EXIT_FAILURE);
+	}
+	res = memcmp(write_buf + 500, read_buf, 256);
+	if (res != 0) {
+		printf("%sdid not read the same data! [B]\n", start);
+		exit(EXIT_FAILURE);
+	}
+	res = pfs_pipe_append(p, write_buf + 1500, 1024);
+	// read: [500..756],[256..500]
+	// pipe: [756..1000][1500..2524]
+	if (res != 1024) {
+		printf("%scould not append tothe pipe! [C]\n", start);
+		exit(EXIT_FAILURE);
+	}
+	res = pfs_pipe_read(p, read_buf, 512);
+	// read: [756..1000],[1500..1512]
+	// pipe: [1512..2524]
+	if (!res) {
+		printf("%scould not read form the pipe! [D]\n", start);
+		exit(EXIT_FAILURE);
+	}
+	res = pfs_pipe_length(p);
+	if (res != 756) {
+		printf("%spipe has not the expected length! [E]\n", start);
+		exit(EXIT_FAILURE);
+	}
+	res = pfs_pipe_read(p, read_buf, 757);
+	if (res) {
+		printf("%scould read form the pipe! [F]\n", start);
+		exit(EXIT_FAILURE);
+	} else if (pfs_errno != PFS_ERRNO_ILLEGAL_ARG) {
+		printf("%spfs_errno has not the expected value (%s)! [10]\n", start, pfs_error());
+		exit(EXIT_FAILURE);
+	}
+	pfs_errno = PFS_ERRNO_NONE;
+	res = pfs_pipe_read(p, read_buf + 1024, 756);
+	if (!res) {
+		printf("%scould not read form the pipe! [11]\n", start);
+		exit(EXIT_FAILURE);
+	}
+	res = memcmp(read_buf, write_buf + 756, 1000 - 756);
+	if (res != 0) {
+		printf("%sdid not read the expected data! [12]\n", start);
+		exit(EXIT_FAILURE);
+	}
+	res = memcmp(read_buf + 1000 - 756, write_buf + 1500, 267);
+	if (res != 0) {
+//		for (int i = 0; i < 2524 - 1500; i++) {
+//			if (*(char*) (read_buf + i + 1000 - 756) != *(char*) (write_buf + 1500 + i)) {
+//				printf("  [%d]\n", i);
+//				break;
+//			}
+//		}
+		printf("%sdid not read the expected data! [13]\n", start);
+		exit(EXIT_FAILURE);
+	}
 }

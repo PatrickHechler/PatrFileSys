@@ -13,6 +13,7 @@
 #include "pfs-err.h"
 #include "pfs-element.h"
 #include "pfs-file.h"
+#include "pfs-pipe.h"
 #include "pfs-folder.h"
 
 #ifndef I_AM_PFS

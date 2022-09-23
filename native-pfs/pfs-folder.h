@@ -83,6 +83,16 @@ extern int pfs_folder_folder_child_from_name(pfs_eh f, char *name);
 extern int pfs_folder_file_child_from_name(pfs_eh f, char *name);
 
 /**
+ * get the child pipe with the given name
+ *
+ * if there is a child entry with the given name, but the entry
+ * is no pipe this operation will fail
+ *
+ * on success a non-zero value will be returned and on error zero
+ */
+extern int pfs_folder_pipe_child_from_name(pfs_eh f, char *name);
+
+/**
  * adds a new child folder to this folder
  *
  * note that the pfs-element-handle will be a handle of the child folder after this
@@ -119,5 +129,24 @@ extern int pfs_folder_create_folder(pfs_eh f, pfs_eh parent, const char *name);
  * on success a non-zero value will be returned and on error zero
  */
 extern int pfs_folder_create_file(pfs_eh f, pfs_eh parent, const char *name);
+
+/**
+ * adds a new child pipe to this folder
+ *
+ * note that the pfs-element-handle will be a handle of the child pipe after this
+ * call (only when successful, when not successfully the handle will remain valid)
+ *
+ * if parent is not NULL parent will be made to an element-handle of the parent
+ * folder, if parent is NULL it is ignored. this can be used when the parent will
+ * later be needed, because a duplicated handle of the parent may become invalid
+ * with this function call. note that the folder may even be moved even if the
+ * call fails. in all cases parent will, when it has a non-NULL value, be made to
+ * an element handle of the element which is currently handled by f
+ *
+ * if the function fails f will remain a valid element handle
+ *
+ * on success a non-zero value will be returned and on error zero
+ */
+extern int pfs_folder_create_pipe(pfs_eh f, pfs_eh parent, const char *name);
 
 #endif /* PFS_FOLDER_H_ */

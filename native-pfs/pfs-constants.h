@@ -31,10 +31,10 @@ static_assert(PFS_B0_OFFSET_BLOCK_SIZE == offsetof(struct pfs_b0, block_size), "
 // these flags are reserved for intern use
 #define	PFS_FLAGS_RESERVED        0x0000FFFFU
 #define	PFS_FLAGS_FOLDER          0x00000001U
-#define	PFS_FLAGS_FILE            0x00000002U
-#define	PFS_FLAGS_HELPER_FOLDER   0x00000004U
-/* not yet supported
+#define	PFS_FLAGS_HELPER_FOLDER   0x00000002U
+#define	PFS_FLAGS_FILE            0x00000004U
 #define	PFS_FLAGS_PIPE            0x00000008U
+/* not yet supported
 #define	PFS_FLAGS_SYM_LINK        0x00000010U
 #define	PFS_FLAGS_HARD_LINK       0x00000020U
 */

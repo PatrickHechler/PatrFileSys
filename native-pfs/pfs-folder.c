@@ -244,8 +244,8 @@ static inline int has_child_with_name(struct pfs_place place, const char *name, 
 	return 0;
 }
 
-static inline int create_folder_or_file(pfs_eh f, pfs_eh parent, struct pfs_place real_parent,
-        const char *name, int create_folder);
+static inline int create_child(pfs_eh f, pfs_eh parent, struct pfs_place real_parent,
+        const char *name, ui64 child_flags);
 
 static inline int delegate_create_element_to_helper(const i64 my_new_size,
         struct pfs_place real_parent, int grow_success, int create_folder, struct pfs_folder *me,
@@ -320,7 +320,7 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 	if (grow_success) {
 		shrink_folder_entry(my_place, my_new_size);
 	}
-	int res = create_folder_or_file(f, NULL, real_parent, name, create_folder);
+	int res = create_child(f, NULL, real_parent, name, create_folder);
 	if (!res) {
 		*f = eh;
 		if (orig_grow_success) {
@@ -339,8 +339,8 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 	return res;
 }
 
-static inline int create_folder_or_file(pfs_eh f, pfs_eh parent, struct pfs_place real_parent,
-        const char *name, int create_folder) {
+static inline int create_child(pfs_eh f, pfs_eh parent, struct pfs_place real_parent,
+        const char *name, ui64 child_flags) {
 	if (f == parent) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
@@ -377,7 +377,7 @@ static inline int create_folder_or_file(pfs_eh f, pfs_eh parent, struct pfs_plac
 		name_pos = add_name(my_place.block, name, name_len);
 		if (name_pos == -1) {
 			return delegate_create_element_to_helper(my_new_size, real_parent, new_pos != -1,
-			        create_folder, me, my_place, f, name);
+			        child_flags, me, my_place, f, name);
 		}
 	} else if (((me->direct_child_count) < 2) && (me->helper_index == -1)) {
 		if (!allocate_new_entry(&f->element_place, -1,
@@ -465,10 +465,12 @@ static inline int create_folder_or_file(pfs_eh f, pfs_eh parent, struct pfs_plac
 		}
 	} else {
 		return delegate_create_element_to_helper(my_new_size, real_parent, new_pos != -1,
-		        create_folder, me, my_place, f, name);
+		        child_flags, me, my_place, f, name);
 	}
 	if (!allocate_new_entry(&me->entries[me->direct_child_count].child_place, my_place.block,
-	        create_folder ? sizeof(struct pfs_folder) : sizeof(struct pfs_file))) {
+	        child_flags == PFS_FLAGS_FOLDER ? sizeof(struct pfs_folder) :
+	                (child_flags == PFS_FLAGS_FILE ? sizeof(struct pfs_file) :
+	                        sizeof(struct pfs_pipe)))) {
 		if (new_pos != -1) {
 			shrink_folder_entry(my_place, my_new_size);
 		}
@@ -479,7 +481,7 @@ static inline int create_folder_or_file(pfs_eh f, pfs_eh parent, struct pfs_plac
 	i32 child_index = me->direct_child_count;
 	struct pfs_place child_place = me->entries[child_index].child_place;
 	me->entries[child_index].create_time = now;
-	me->entries[child_index].flags = create_folder ? PFS_FLAGS_FOLDER : PFS_FLAGS_FILE;
+	me->entries[child_index].flags = child_flags;
 	me->entries[child_index].name_pos = name_pos;
 	me->direct_child_count++;
 	void *child = pfs->get(pfs, child_place.block);
@@ -507,7 +509,7 @@ static inline int create_folder_or_file(pfs_eh f, pfs_eh parent, struct pfs_plac
 	f->entry_pos = my_place.pos + sizeof(struct pfs_folder)
 	        + (child_index * sizeof(struct pfs_folder_entry));
 	f->element_place = child_place;
-	if (create_folder) {
+	if (child_flags == PFS_FLAGS_FOLDER) {
 		struct pfs_folder *cf = child;
 		cf->element.last_mod_time = now;
 		cf->real_parent = real_parent;
@@ -520,17 +522,24 @@ static inline int create_folder_or_file(pfs_eh f, pfs_eh parent, struct pfs_plac
 		cf->element.last_mod_time = now;
 		cf->file_length = 0L;
 		cf->first_block = -1L;
+		if (child_flags == PFS_FLAGS_PIPE) {
+			((struct pfs_pipe*) child)->start_offset = 0;
+		}
 	}
 	pfs->set(pfs, f->element_place.block);
 	return 1;
 }
 
 extern int pfs_folder_create_folder(pfs_eh f, pfs_eh parent, const char *name) {
-	return create_folder_or_file(f, parent, f->element_place, name, 1);
+	return create_child(f, parent, f->element_place, name, PFS_FLAGS_FOLDER);
 }
 
 extern int pfs_folder_create_file(pfs_eh f, pfs_eh parent, const char *name) {
-	return create_folder_or_file(f, parent, f->element_place, name, 0);
+	return create_child(f, parent, f->element_place, name, PFS_FLAGS_FILE);
+}
+
+extern int pfs_folder_create_pipe(pfs_eh f, pfs_eh parent, const char *name) {
+	return create_child(f, parent, f->element_place, name, PFS_FLAGS_PIPE);
 }
 
 extern int pfs_element_get_parent(pfs_eh e) {
