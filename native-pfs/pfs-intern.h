@@ -96,7 +96,7 @@ struct pfs_folder_iter {
 
 void init_block(i64 block, i64 size);
 
-i32 get_size_from_block_table(const i64 block, const i32 pos);
+i32 get_size_from_block_table(void *block_data, const i32 pos);
 
 /**
  * tries to allocate a block-entry in the base block.

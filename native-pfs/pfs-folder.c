@@ -169,7 +169,7 @@ extern i64 pfs_folder_child_count(pfs_eh f) {
 	return count_children(&f->element_place);
 }
 
-static int pfs_folder_child_from_name_impl(pfs_eh f, char *name, int is_helper, ui64 neededflag) {
+static int pfs_folder_child_from_name_impl(pfs_eh f, char *name, int is_helper, ui32 neededflag) {
 	const i64 old_block_num = f->element_place.block;
 	const i64 name_len = strlen(name);
 	get_folder
@@ -182,7 +182,7 @@ static int pfs_folder_child_from_name_impl(pfs_eh f, char *name, int is_helper, 
 			}
 		}
 		char *cn = block_data + folder->entries[i].name_pos;
-		if (get_size_from_block_table(old_block_num, folder->entries[i].name_pos) == name_len) {
+		if (get_size_from_block_table(block_data, folder->entries[i].name_pos) == name_len) {
 			if (memcmp(name, block_data + folder->entries[i].name_pos, name_len) == 0) {
 				if ((folder->entries[i].flags & neededflag) == 0) {
 					pfs->unget(pfs, old_block_num);
@@ -215,6 +215,10 @@ extern int pfs_folder_file_child_from_name(pfs_eh f, char *name) {
 	return 1 == pfs_folder_child_from_name_impl(f, name, 0, PFS_FLAGS_FILE);
 }
 
+extern int pfs_folder_pipe_child_from_name(pfs_eh f, char *name) {
+	return 1 == pfs_folder_child_from_name_impl(f, name, 0, PFS_FLAGS_PIPE);
+}
+
 static inline int has_child_with_name(struct pfs_place place, const char *name, i64 name_len) {
 	get_folder1(folder, block_data, place)
 	for (int i = 0; i < folder->direct_child_count; i++) {
@@ -238,7 +242,7 @@ static inline int has_child_with_name(struct pfs_place place, const char *name, 
 		if ((folder->entries[i].flags & (PFS_FLAGS_HELPER_FOLDER)) != 0) {
 			abort();
 		}
-		if (get_size_from_block_table(place.block, folder->entries[i].name_pos) == name_len) {
+		if (get_size_from_block_table(block_data, folder->entries[i].name_pos) == name_len) {
 			if (memcmp(name, block_data + folder->entries[i].name_pos, name_len) == 0) {
 				pfs->unget(pfs, place.block);
 				return 1;
@@ -249,8 +253,8 @@ static inline int has_child_with_name(struct pfs_place place, const char *name, 
 	return 0;
 }
 
-static inline int add_child(pfs_eh f, pfs_eh parent, struct pfs_place real_parent, const char *name, i64 name_len,
-        ui32 child_flags, struct pfs_folder_entry *overwrite_child_entry);
+static inline int add_child(pfs_eh f, pfs_eh parent, struct pfs_place real_parent, const char *name,
+        i64 name_len, ui32 child_flags, struct pfs_folder_entry *overwrite_child_entry);
 
 static inline int delegate_create_element_to_helper(const i64 my_new_size,
         struct pfs_place real_parent, int grow_success, i32 child_flags, struct pfs_folder *me,
@@ -291,8 +295,8 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 			helper->entries[0] = me->entries[me->direct_child_count - 1];
 			void *my_block_data = ((void*) me) - my_place.pos;
 			char *new_helper_child_name = my_block_data + helper->entries[0].name_pos;
-			i32 name_pos = add_name(helper_block, new_helper_child_name,
-			        get_size_from_block_table(my_place.block, helper->entries[0].name_pos));
+			i32 name_len = get_size_from_block_table(my_block_data, helper->entries[0].name_pos);
+			i32 name_pos = add_name(helper_block, new_helper_child_name, name_len);
 			if (name_pos == -1) {
 				free_block(helper_block);
 				pfs->unget(pfs, helper_block);
@@ -301,6 +305,14 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 				return 0;
 			}
 			helper->entries[0].name_pos = name_pos;
+			if ((helper->entries[0].flags & PFS_FLAGS_FOLDER) != 0) {
+				get_folder3(helper_child_folder, helper_child_folder_block_data,
+				        helper->entries[0].child_place.block, helper->entries[0].child_place.pos,
+				        pfs->unget(pfs, helper_block); pfs->unget(pfs, my_place.block);)
+				helper_child_folder->folder_entry.block = helper_block;
+				helper_child_folder->folder_entry.pos = sizeof(struct pfs_folder);
+				pfs->set(pfs, helper->entries[0].child_place.block);
+			}
 		}
 		helper->folder_entry.block = my_place.block;
 		helper->folder_entry.pos = my_place.pos + sizeof(struct pfs_folder)
@@ -492,11 +504,11 @@ static inline int add_child(pfs_eh f, pfs_eh parent, struct pfs_place real_paren
 		me->entries[child_index].flags = child_flags;
 		me->entries[child_index].name_pos = name_pos;
 		me->direct_child_count++;
-		void *child = pfs->get(pfs, child_place.block);
+		void *child_block_data = pfs->get(pfs, child_place.block);
 		pfs->set(pfs, my_place.block);
-		if (child == NULL) {
-			child = pfs->get(pfs, child_place.block);
-			if (child == NULL) {
+		if (child_block_data == NULL) {
+			child_block_data = pfs->get(pfs, child_place.block);
+			if (child_block_data == NULL) {
 				void *my_block_data = pfs->get(pfs, my_place.block);
 				if (my_block_data == NULL) {
 					abort();
@@ -510,7 +522,7 @@ static inline int add_child(pfs_eh f, pfs_eh parent, struct pfs_place real_paren
 				return 0;
 			}
 		}
-		child += child_place.pos;
+		void *child = child_block_data + child_place.pos;
 		f->real_parent_place = real_parent;
 		f->index_in_direct_parent_list = child_index;
 		f->direct_parent_place = my_place;
@@ -704,7 +716,7 @@ static int move_and_set_parent_impl(pfs_eh e, pfs_eh new_parent, char *name) {
 	i32 name_len;
 	if (name == NULL) {
 		name = old_parent_block_data + my_old_entry->name_pos;
-		name_len = get_size_from_block_table(moh.direct_parent_place.block, my_old_entry->name_pos);
+		name_len = get_size_from_block_table(old_parent_block_data, my_old_entry->name_pos);
 	} else {
 		name_len = strlen(name);
 	}

@@ -137,7 +137,15 @@ static int print_folder(struct pfs_place fp, const char *name, struct pfs_place 
 		const char *name;
 		if (name_pos == -1) {
 			name = "help-folder/no-name";
+			if (i != f->helper_index) {
+				res ++;
+				printf("non helper has no name!");
+			}
 		} else {
+			if (i == f->helper_index) {
+				res ++;
+				printf("helper has a name!");
+			}
 			name = block_data + f->entries[i].name_pos;
 			for (i32 *table = block_data + *(i32*) (block_data + pfs->block_size - 4); 1; table +=
 			        2) {
@@ -1444,7 +1452,7 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 	pfs_errno = 0;
 }
 
-static void meta_check() {
+static void meta_check() { // TODO (move|set(name|parent))checks
 	const char *start = "[main.checks.meta_check]:                             ";
 	pfs_eh e = pfs_root();
 	if (e == NULL) {

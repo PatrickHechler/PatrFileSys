@@ -178,26 +178,38 @@ void init_block(i64 block, i64 size) {
 	pfs->set(pfs, block);
 }
 
-i32 get_size_from_block_table(const i64 block, const i32 pos) {
-	void *block_data = pfs->get(pfs, block);
-	if (block_data == NULL) {
-		abort(); // block should already be loaded, so this should never occur
+union pov {
+	i32 *pntr;
+	ui64 val;
+};
+
+i32 get_size_from_block_table(void *block_data, const i32 pos) {
+	union pov max, min, mid;
+	max.pntr = block_data + pfs->block_size - 4;
+	min.pntr = block_data + *max.pntr;
+	max.val -= 8;
+	if ((max.val & ~3UL) != max.val) {
+		abort();
 	}
-	i32 *table_end = block_data + pfs->block_size - 4;
-	i32 *table_start = block_data + *table_end;
-	int min = 0, max = (pfs->block_size - 4 - *table_end) >> 2;
+	if ((max.val & ~7UL) == max.val) {
+		abort();
+	}
 	while (1) {
-		if (min > max) {
+		if (min.val > max.val) {
 			abort();
 		}
-		int mid = ((unsigned) (max + min)) >> 1;
-		if (pos > table_start[mid]) {
-			min = mid;
-		} else if (pos < table_start[mid]) {
-			max = mid;
+		mid.val = (min.val + ((max.val - min.val) >> 1)) & ~3UL;
+		if (pos > *mid.pntr) {
+			min.val = mid.val + 4;
+		} else if (pos < *mid.pntr) {
+			max.val = mid.val - 4;
 		} else {
-			pfs->unget(pfs, block);
-			return table_start[mid + 1] - table_start[mid];
+			mid.val = mid.val | 4;
+			if (pos != *mid.pntr) {
+				abort();
+			}
+			i32 res = mid.pntr[1] - mid.pntr[0];
+			return res;
 		}
 	}
 	// old linear search
