@@ -27,7 +27,9 @@ EXP = $(PROJECT_ROOT)exports/
 
 TEST_LIBS = -L $(BINARY) -l pfs
 
-TARGET = $(BINARY)libpfs.a
+TARGET_A = $(BINARY)libpfs.a
+
+TARGET_SO = $(BINARY)libpfs.so
 
 TEST_TARGET = $(BINARY)pfs_tests
 
@@ -39,19 +41,22 @@ HDRS = $(SOURCE)bm.h $(SOURCE)hashset.h $(SOURCE)pfs-element.h $(SOURCE)pfs-fold
 # general headers without a .c file + HDRS
 HEADERS = $(SOURCE)pfs.h $(SOURCE)pfs-err.h $(SOURCE)patr-file-sys.h $(SOURCE)pfs-constants.h
 
-all:	INIT_MKDIR $(TEST_TARGET)
+all:	INIT_MKDIR $(TEST_TARGET) $(TARGET_A) $(TARGET_SO)
 	$(TEST_TARGET)
-	cp -t $(EXP) $(TARGET)
+	cp -t $(EXP) $(TARGET_A) $(TARGET_SO)
 	cp -t $(EXP)include/ $(HEADERS) $(HDRS)
 
 INIT_MKDIR:
 	mkdir -p $(BINARY)
 	mkdir -p $(PROJECT_ROOT)testout/fs-root/
 
-$(TEST_TARGET): $(TARGET) $(TEST_TARGET).o
+$(TEST_TARGET): $(TARGET_A) $(TEST_TARGET).o
 	$(CC) -o $(TEST_TARGET) $(TEST_TARGET).o  $(TEST_LIBS)
 
-$(TARGET):	$(OBJS)
+$(TARGET_SO):	$(OBJS)
+	$(CC) -shared -o $@ $(LDFLAGS) $^
+
+$(TARGET_A):	$(OBJS)
 	$(AR) -rc $@ $^
 
 $(BINARY)%.o:	$(SOURCE)%.cpp

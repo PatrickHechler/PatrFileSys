@@ -1,55 +1,132 @@
 package de.hechler.patrick.pfs.fs.impl;
 
-import java.lang.annotation.Native;
-
+import static de.hechler.patrick.exceptions.PFSErr.*;
 import de.hechler.patrick.exceptions.PatrFileSysException;
-import de.hechler.patrick.pfs.bm.BlockManager;
 import de.hechler.patrick.pfs.folder.PFSFolder;
 import de.hechler.patrick.pfs.fs.PFS;
 
+import jdk.incubator.foreign.Addressable;
+import jdk.incubator.foreign.CLinker;
+import jdk.incubator.foreign.FunctionDescriptor;
+import jdk.incubator.foreign.SymbolLookup;
+import jdk.incubator.foreign.MemoryAddress;
+import jdk.incubator.foreign.MemoryLayout;
+import jdk.incubator.foreign.MemorySegment;
+import jdk.incubator.foreign.NativeSymbol;
+import jdk.incubator.foreign.ResourceScope;
+import jdk.incubator.foreign.SegmentAllocator;
+import jdk.incubator.foreign.VaList;
+
+import java.io.IOError;
+import java.io.IOException;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.nio.file.Paths;
+import java.util.Arrays;
+
+import static jdk.incubator.foreign.ValueLayout.*;
+
+
 public class NativePatrFileSys implements PFS {
 	
-	/** used as a lock during file system operations, to be thread safe */
-	@Native
-	public static final Object LOCK = new Object();
+	private static final int O_RDWR = 02;
 	
-	public static final int PFS_OPEN_TRUNCATE = 0100;
-	public static final int PFS_OPEN_CREATE   = 01000;
-	
-	@Native
-	private long      val1;
-	@Native
-	private long      val2;
-	@Native
-	private PFSFolder root;
+	private static final int SEEK_SET = 0;
+//	private static final int SEEK_CUR = 1;
+//	private static final int SEEK_END = 2;
 	
 	private NativePatrFileSys() {}
 	
-	public static native NativePatrFileSys create(String pfsFile) throws PatrFileSysException, NullPointerException;
+	static {
+		System.load(Paths.get("../native-pfs/native-core/exports/libpfs.so").toAbsolutePath().toString());
+	}
 	
-	public static native NativePatrFileSys create(String pfsFile, long blockCount, int blockSize, int openMode, int openPermissions) throws PatrFileSysException, NullPointerException;
+	public static CLinker             LINKER  = CLinker.systemCLinker();
+	private static final SymbolLookup LOOCKUP = SymbolLookup.loaderLookup();
 	
-	public static native NativePatrFileSys createRamFs(long blockCount, int blockSize);
+	private static RuntimeException t(Throwable e) {
+		if (e instanceof Error) {
+			throw (Error) e;
+		} else if (e instanceof RuntimeException) {
+			throw (RuntimeException) e;
+		} else {
+			throw new RuntimeException(e);
+		}
+	}
 	
-	public static native NativePatrFileSys create(BlockManager bm) throws PatrFileSysException;
+	public NativePatrFileSys create(String pfsFile) throws IOException {
+		MemorySegment mem = SegmentAllocator.implicitAllocator().allocateUtf8String(pfsFile);
+		MethodHandle openHandle = handle("open", JAVA_INT, ADDRESS, JAVA_INT);
+		MethodHandle seekHandle = handle("lseek", JAVA_INT, JAVA_INT, JAVA_LONG, JAVA_INT);
+		MethodHandle readHandle = handle("read", JAVA_LONG, JAVA_INT, ADDRESS, JAVA_LONG);
+		int fd = invokeInt(openHandle, mem, O_RDWR);
+		if (fd == -1) {
+			throw new PatrFileSysException(PFS_ERRNO_IO_ERR, "open");
+		}
+		long pos = invokeLong(seekHandle, fd, 0, SEEK_SET);
+		if (pos != 0L) {
+			throw new PatrFileSysException(PFS_ERRNO_IO_ERR, "lseek");
+		}
+		mem = SegmentAllocator.implicitAllocator().allocate(8);
+		for (int reat = 0; reat < 8;) {
+			long r = invokeLong(readHandle, fd, mem, 8L - reat);
+			if (r <= 0) {
+				throw new PatrFileSysException(PFS_ERRNO_IO_ERR, "read");
+			}
+			reat -= r;
+		}
+		throw new UnsupportedOperationException();
+	}
+	
+	private static MethodHandle handle(String name, MemoryLayout returnType, MemoryLayout... argTypes) {
+		return LINKER.downcallHandle(LOOCKUP.lookup(name).orElseThrow(), FunctionDescriptor.of(returnType, argTypes));
+	}
+	
+	private static int invokeInt(MethodHandle met, Object... args) {
+		try {
+			return (int) met.invoke(args);
+		} catch (Throwable e) {
+			throw t(e);
+		}
+	}
+	
+	private static long invokeLong(MethodHandle met, Object... args) {
+		try {
+			return (long) met.invoke(args);
+		} catch (Throwable e) {
+			throw t(e);
+		}
+	}
 	
 	@Override
-	public native void format(long blockCount) throws PatrFileSysException;
+	public void format(long blockCount) throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		
+	}
 	
 	@Override
-	public native PFSFolder root() throws PatrFileSysException;
+	public PFSFolder root() throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		return null;
+	}
 	
 	@Override
-	public native long blockCount() throws PatrFileSysException;
+	public long blockCount() throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		return 0;
+	}
 	
 	@Override
-	public native int blockSize() throws PatrFileSysException;
+	public int blockSize() throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		return 0;
+	}
 	
 	@Override
-	public native void close() throws PatrFileSysException;
-	
-	@Override
-	@Deprecated
-	protected native void finalize() throws Throwable;
+	public void close() throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		
+	}
 	
 }

@@ -1,7 +1,5 @@
 package de.hechler.patrick.pfs.folder.impl;
 
-import java.lang.annotation.Native;
-
 import de.hechler.patrick.exceptions.PatrFileSysException;
 import de.hechler.patrick.interfaces.ThrowableIter;
 import de.hechler.patrick.pfs.element.PFSElement;
@@ -11,79 +9,130 @@ import de.hechler.patrick.pfs.pipe.PFSPipe;
 
 
 public class NativePatrFileSysFolder implements PFSFolder {
-	
-	@Native
-	private long value;
-	
-	public NativePatrFileSysFolder(long value) {
-		this.value = value;
+
+	@Override
+	public long getFlags() throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		return 0;
 	}
-	
+
 	@Override
-	public native long getFlags() throws PatrFileSysException;
-	
+	public void modifyFlags(long addFlags, long remFlags) throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		
+	}
+
 	@Override
-	public native void modifyFlags(long addFlags, long remFlags) throws PatrFileSysException;
-	
+	public String name() throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 	@Override
-	public native String name() throws PatrFileSysException;
-	
+	public void name(String newName) throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		
+	}
+
 	@Override
-	public native void name(String newName) throws PatrFileSysException;
-	
+	public long createTime() throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
 	@Override
-	public native long createTime() throws PatrFileSysException;
-	
+	public void createTime(long ct) throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		
+	}
+
 	@Override
-	public native void createTime(long ct) throws PatrFileSysException;
-	
+	public long lastModTime() throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
 	@Override
-	public native long lastModTime() throws PatrFileSysException;
-	
+	public void lastModTime(long lmt) throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		
+	}
+
 	@Override
-	public native void lastModTime(long lmt) throws PatrFileSysException;
-	
+	public void delete() throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		
+	}
+
 	@Override
-	public native void delete() throws PatrFileSysException;
-	
+	public PFSFolder parent() throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 	@Override
-	public native PFSFolder parent() throws PatrFileSysException;
-	
+	public void parent(PFSFolder newParent) throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		
+	}
+
 	@Override
-	public native void parent(PFSFolder newParent) throws PatrFileSysException;
-	
+	public void move(PFSFolder newParent, String newName) throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		
+	}
+
 	@Override
-	public native void move(PFSFolder newParent, String newName) throws PatrFileSysException;
-	
+	public ThrowableIter <PatrFileSysException, PFSElement> iterator() throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 	@Override
-	public native ThrowableIter <PatrFileSysException, PFSElement> iterator() throws PatrFileSysException;
-	
+	public long childCount() throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
 	@Override
-	public native long childCount() throws PatrFileSysException;
-	
+	public PFSElement element(String childName) throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 	@Override
-	public native PFSElement element(String childName) throws PatrFileSysException;
-	
+	public PFSFolder folder(String childName) throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 	@Override
-	public native PFSFolder folder(String childName) throws PatrFileSysException;
-	
+	public PFSFile file(String childName) throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 	@Override
-	public native PFSFile file(String childName) throws PatrFileSysException;
-	
+	public PFSPipe pipe(String childName) throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 	@Override
-	public native PFSPipe pipe(String childName) throws PatrFileSysException;
-	
+	public PFSFolder addFolder(String newChildName) throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 	@Override
-	public native PFSFolder addFolder(String newChildName) throws PatrFileSysException;
-	
+	public PFSFile addFile(String newChildName) throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 	@Override
-	public native PFSFile addFile(String newChildName) throws PatrFileSysException;
-	
-	@Override
-	public native PFSPipe addPipe(String newChildName) throws PatrFileSysException;
-	
-	@Override
-	@Deprecated
-	protected native void finalize() throws Throwable;
-	
+	public PFSPipe addPipe(String newChildName) throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }

@@ -53,14 +53,6 @@ JNIEXPORT void JNICALL Java_de_hechler_patrick_pfs_fs_impl_NativePatrFileSys_for
 
 /*
  * Class:     de_hechler_patrick_pfs_fs_impl_NativePatrFileSys
- * Method:    root
- * Signature: ()Lde/hechler/patrick/pfs/folder/PFSFolder;
- */
-JNIEXPORT jobject JNICALL Java_de_hechler_patrick_pfs_fs_impl_NativePatrFileSys_root
-  (JNIEnv *, jobject);
-
-/*
- * Class:     de_hechler_patrick_pfs_fs_impl_NativePatrFileSys
  * Method:    blockCount
  * Signature: ()J
  */
