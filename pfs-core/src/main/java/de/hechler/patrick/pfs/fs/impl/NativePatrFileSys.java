@@ -1,34 +1,38 @@
 package de.hechler.patrick.pfs.fs.impl;
 
-import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.BlockManager.*;
-import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Constants.*;
-import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Errno.*;
-import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.FileSys.*;
-import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.*;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.LINKER;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.handle;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.BlockManager.NEW_FILE;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.BlockManager.OFFSET_CLOSE_BM;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Constants.B0_OFFSET_BLOCK_SIZE;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Constants.EH_SIZE;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Constants.MAGIC_START;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Errno.ILLEGAL_ARG;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Errno.IO_ERR;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.FileSys.BLOCK_COUNT;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.FileSys.BLOCK_SIZE;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.FileSys.ERRNO;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.FileSys.FILL_ROOT;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.FileSys.FORMAT;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.FileSys.FS;
 import static jdk.incubator.foreign.ValueLayout.ADDRESS;
 import static jdk.incubator.foreign.ValueLayout.JAVA_INT;
 import static jdk.incubator.foreign.ValueLayout.JAVA_LONG;
 
 import java.lang.invoke.MethodHandle;
-import java.nio.file.Paths;
 
 import de.hechler.patrick.pfs.exceptions.PFSErr;
 import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.folder.PFSFolder;
 import de.hechler.patrick.pfs.folder.impl.NativePatrFileSysFolder;
 import de.hechler.patrick.pfs.fs.PFS;
-import de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.FileSys;
-import jdk.incubator.foreign.CLinker;
 import jdk.incubator.foreign.FunctionDescriptor;
-import jdk.incubator.foreign.GroupLayout;
 import jdk.incubator.foreign.MemoryAddress;
-import jdk.incubator.foreign.MemoryLayout;
 import jdk.incubator.foreign.MemorySegment;
+import jdk.incubator.foreign.NativeSymbol;
 import jdk.incubator.foreign.ResourceScope;
 import jdk.incubator.foreign.SegmentAllocator;
-import jdk.incubator.foreign.SymbolLookup;
 
-@SuppressWarnings("unused")
 public class NativePatrFileSys implements PFS {
 	
 	private static final int O_RDWR  = 02;
@@ -108,8 +112,8 @@ public class NativePatrFileSys implements PFS {
 				throw PFSErr.create(ILLEGAL_ARG, "magic does not match (expected 0x"
 					+ Long.toHexString(MAGIC_START) + " got 0x" + Long.toHexString(value) + ")");
 			}
-			long pos = (long) seekHandle.invoke(fd, OFFSET_BLOCK_SIZE, SEEK_SET);
-			if (pos != OFFSET_BLOCK_SIZE) {
+			long pos = (long) seekHandle.invoke(fd, B0_OFFSET_BLOCK_SIZE, SEEK_SET);
+			if (pos != B0_OFFSET_BLOCK_SIZE) {
 				throw PFSErr.create(IO_ERR, "lseek");
 			}
 			read32(mem, readHandle, fd);
@@ -119,13 +123,12 @@ public class NativePatrFileSys implements PFS {
 			}
 		}
 		MemoryAddress bmAddr = (MemoryAddress) NEW_FILE.invoke(fd, blockSize);
-		if (bmAddr.toRawLongValue() == 0L) {
+		if (bmAddr.toRawLongValue() == MemoryAddress.NULL.toRawLongValue()) {
 			throw PFSErr.create(pfsErrno(), "new file block manager");
 		}
 		FS.set(ADDRESS, 0L, bmAddr);
 		if (blockCount != -1L) {
-			MethodHandle pfsFormatHandle = handle("pfs_format", JAVA_INT, JAVA_LONG);
-			if (0 == (int) pfsFormatHandle.invoke(blockCount)) {
+			if (0 == (int) FORMAT.invoke(blockCount)) {
 				throw PFSErr.create(pfsErrno(), "format");
 			}
 		}
@@ -161,15 +164,6 @@ public class NativePatrFileSys implements PFS {
 			}
 			reat += r;
 		}
-	}
-	
-	public static void main(String[] args) throws PatrFileSysException {
-		PFS pfs = create("testout/name.pfs", 1024, 4096);
-		System.out.println("created the pfs");
-		pfs.close();
-		System.out.println("closed the pfs");
-		pfs = load("testout/name.pfs");
-		System.out.println("loaded the pfs");
 	}
 	
 	@Override
@@ -228,15 +222,17 @@ public class NativePatrFileSys implements PFS {
 		}
 	}
 	
-	private static final MethodHandle INT_FROM_PNTR = handle("ifromp", JAVA_INT, ADDRESS, ADDRESS);
-	
 	@Override
 	public void close() throws PatrFileSysException {
 		try {
 			FS.set(ADDRESS, 0L, bm);
-			MemoryAddress closeBmAddr = bm.addOffset(OFFSET_CLOSE_BM);
-			if (0 == (int) INT_FROM_PNTR.invoke(closeBmAddr, bm)) {
-				throw PFSErr.create(pfsErrno(), "close");
+			MemoryAddress closeBmAddr = bm.get(ADDRESS, OFFSET_CLOSE_BM);
+			NativeSymbol close_bm = NativeSymbol.ofAddress("close_bm", closeBmAddr, scope);
+			try (ResourceScope scope = ResourceScope.newConfinedScope()) {
+				MethodHandle closeHandle = LINKER.downcallHandle(close_bm, FunctionDescriptor.of(JAVA_INT, ADDRESS));
+				if (0 == (int) closeHandle.invoke(bm)) {
+					throw PFSErr.create(pfsErrno(), "close");
+				}
 			}
 		} catch (Throwable t) {
 			throw t(t);

@@ -17,8 +17,8 @@ public class NativePatrFileSysDefines {
 	
 	static {
 		System.load(Paths.get("../native-pfs/native-core/exports/libpfs.so").toAbsolutePath().normalize().toString());
-		System.load(
-			Paths.get("../native-pfs/java-helper/bin/libjava-helper.so").toAbsolutePath().normalize().toString());
+//		System.load(
+//			Paths.get("../native-pfs/java-helper/bin/libjava-helper.so").toAbsolutePath().normalize().toString());
 	}
 	
 	public static final CLinker      LINKER  = CLinker.systemCLinker();;
@@ -204,7 +204,7 @@ public class NativePatrFileSysDefines {
 		 * extern int pfs_format(i64 block_count);
 		 * </code>
 		 */
-		public static final MethodHandle FORMAT        = handle(S_FORMAT, JAVA_INT, JAVA_INT);
+		public static final MethodHandle FORMAT        = handle(S_FORMAT, JAVA_INT, JAVA_LONG);
 		private static final String      S_BLOCK_COUNT = "pfs_block_count";
 		/**
 		 * declaration:<br>

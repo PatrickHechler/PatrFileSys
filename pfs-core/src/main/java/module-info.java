@@ -1,5 +1,6 @@
-module pfs_core {
+open module de.hechler.patrick.pfs {
 	requires jdk.incubator.foreign;
+//	exports de.hechler.patrick.pfs;
 	exports de.hechler.patrick.pfs.interfaces;
 	exports de.hechler.patrick.pfs.exceptions;
 	exports de.hechler.patrick.pfs.bm;
