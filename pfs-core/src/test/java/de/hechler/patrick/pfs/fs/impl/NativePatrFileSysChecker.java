@@ -1,4 +1,4 @@
-package de.hechler.patrick.pfs.fs;
+package de.hechler.patrick.pfs.fs.impl;
 
 import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.fs.PFS;
