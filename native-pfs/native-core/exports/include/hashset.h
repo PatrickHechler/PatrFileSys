@@ -22,6 +22,8 @@ struct hashset {
 	void **entries;
 };
 
+_Static_assert(sizeof(struct hashset) == 32);
+
 extern void* hashset_get(const struct hashset *set, unsigned int hash, const void *other);
 
 extern void* hashset_put(struct hashset *set, unsigned int hash, void *newval);

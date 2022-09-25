@@ -42,7 +42,7 @@ struct bm_block_manager {
 	 */
 	int (*const close_bm)(struct bm_block_manager *bm);
 	/**
-	 * the size of a block
+	 * the size of all blocks
 	 */
 	const ui32 block_size;
 	/**
@@ -60,7 +60,7 @@ struct bm_block_manager {
 	i64 (*const get_flags)(struct bm_block_manager *bm, i64 block);
 	/**
 	 * set the flags of a block
-	 * if not all block_flag_bits is lower than 64 the lowest block_flag_bits bits will be used for the flags
+	 * if not all block_flag_bits is lower than 63 the lowest block_flag_bits bits will be used for the flags
 	 * the unsupported bits are ignored
 	 * if an error occurred 0 is returned otherwise 1
 	 */
@@ -76,6 +76,18 @@ struct bm_block_manager {
 	 */
 	int (*const delete_all_flags)(struct bm_block_manager *bm);
 };
+
+static_assert(offsetof(struct bm_block_manager, get) == 32);
+static_assert(offsetof(struct bm_block_manager, unget) == 40);
+static_assert(offsetof(struct bm_block_manager, set) == 48);
+static_assert(offsetof(struct bm_block_manager, sync_bm) == 56);
+static_assert(offsetof(struct bm_block_manager, close_bm) == 64);
+static_assert(offsetof(struct bm_block_manager, block_size) == 72);
+static_assert(offsetof(struct bm_block_manager, block_flag_bits) == 76);
+static_assert(offsetof(struct bm_block_manager, get_flags) == 80);
+static_assert(offsetof(struct bm_block_manager, set_flags) == 88);
+static_assert(offsetof(struct bm_block_manager, first_zero_flagged_block) == 96);
+static_assert(offsetof(struct bm_block_manager, delete_all_flags) == 104);
 
 /**
  * creates a new ram block manager

@@ -52,9 +52,9 @@
 extern ui32 pfs_element_get_flags(pfs_eh e) {
 	if (e->real_parent_place.block == -1) {
 		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
-		return 0;
+		return -1;
 	}
-	get_entry(0)
+	get_entry(-1)
 	ui32 flags = entry->flags;
 	pfs->unget(pfs, e->direct_parent_place.block);
 	return flags;
@@ -100,7 +100,7 @@ static i32 get_table_entry_size(i64 block, i32 pos) {
 
 extern i64 pfs_element_get_name_length(pfs_eh e) {
 	if (e->real_parent_place.block == -1) {
-		return 0; // root
+		return 0; // root name is empty
 	}
 	get_entry0(entry, parent, block_data, -1L)
 	i32 len = get_table_entry_size(e->direct_parent_place.block, entry->name_pos);

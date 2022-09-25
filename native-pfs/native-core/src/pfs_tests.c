@@ -1366,7 +1366,12 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		exit(EXIT_FAILURE);
 	}
 	if ((pfs_element_get_flags(e) & PFS_FLAGS_FILE_ENCRYPTED) != 0) {
-		printf("%sthe flags have an unexpected value! [E]\n", start);
+		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
+			printf("%sthe flags have an unexpected value! (%s) [E]\n", start, pfs_error());
+			exit(EXIT_FAILURE);
+		}
+	} else if (!is_not_root) {
+		printf("%scould get the flags! (%s) [E.2]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	if (!pfs_element_modify_flags(e, PFS_FLAGS_FILE_ENCRYPTED, 0)) {
@@ -1380,23 +1385,20 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		exit(EXIT_FAILURE);
 	}
 	if ((pfs_element_get_flags(e) & PFS_FLAGS_FILE_ENCRYPTED) == 0) {
-		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%scould not modify the flags! [11]\n", start);
-			exit(EXIT_FAILURE);
-		}
-		pfs_errno = 0;
-	} else if (!is_not_root) {
-		printf("%scould get the flags! [12]\n", start);
+		printf("%sthe flags have an unexpected value! [11]\n", start);
+		exit(EXIT_FAILURE);
+	} else if ((!is_not_root && pfs_errno != PFS_ERRNO_ROOT_FOLDER)
+	        || (is_not_root && pfs_errno != PFS_ERRNO_NONE)) {
+		printf("%serror! (%s) [11.2]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
+	pfs_errno = 0;
 	if ((pfs_element_get_flags(e) & PFS_FLAGS_FILE_ENCRYPTED) == 0) {
-		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%sthe flags have an unexpected value! [13]\n", start);
-			exit(EXIT_FAILURE);
-		}
-		pfs_errno = 0;
-	} else if (!is_not_root) {
-		printf("%scould get the flags! [14]\n", start);
+		printf("%sthe flags have an unexpected value! [13]\n", start);
+		exit(EXIT_FAILURE);
+	} else if ((!is_not_root && pfs_errno != PFS_ERRNO_ROOT_FOLDER)
+	        || (is_not_root && pfs_errno != PFS_ERRNO_NONE)) {
+		printf("%serror! (%s) [14]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	if (!pfs_element_modify_flags(e, 0, PFS_FLAGS_FILE_ENCRYPTED)) {
@@ -1410,14 +1412,12 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		exit(EXIT_FAILURE);
 	}
 	if ((pfs_element_get_flags(e) & PFS_FLAGS_FILE_ENCRYPTED) != 0
-	        || pfs_element_get_flags(e) == 0) {
-		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%scould not modify the flags! [17]\n", start);
-			exit(EXIT_FAILURE);
-		}
-		pfs_errno = 0;
-	} else if (!is_not_root) {
-		printf("%scould get the flags! [18]\n", start);
+	        && pfs_element_get_flags(e) != -1) {
+		printf("%scould not modify the flags! (%s) [17]\n", start, pfs_error());
+		exit(EXIT_FAILURE);
+	} else if ((!is_not_root && pfs_errno != PFS_ERRNO_ROOT_FOLDER)
+	        || (is_not_root && pfs_errno != PFS_ERRNO_NONE)) {
+		printf("%serror! (%s) [18]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	if (pfs_element_modify_flags(e, PFS_FLAGS_FILE, 0)) {
