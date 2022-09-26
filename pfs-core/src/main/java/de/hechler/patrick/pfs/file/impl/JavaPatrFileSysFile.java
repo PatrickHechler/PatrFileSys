@@ -4,11 +4,11 @@ import java.lang.ref.Reference;
 import java.nio.ByteBuffer;
 
 import de.hechler.patrick.pfs.element.impl.JavaPatrFileSysElement;
-import de.hechler.patrick.pfs.element.impl.Place;
 import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.file.PFSFile;
 import de.hechler.patrick.pfs.folder.impl.JavaPatrFileSysFolder;
 import de.hechler.patrick.pfs.fs.impl.JavaPatrFileSys;
+import de.hechler.patrick.pfs.other.Place;
 
 @SuppressWarnings("exports")
 public class JavaPatrFileSysFile extends JavaPatrFileSysElement implements PFSFile {

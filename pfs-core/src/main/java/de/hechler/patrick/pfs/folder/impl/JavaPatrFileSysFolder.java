@@ -1,18 +1,18 @@
 package de.hechler.patrick.pfs.folder.impl;
 
-import static de.hechler.patrick.pfs.fs.impl.PatrFileSysConstants.Element.Folder.*;
+import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.*;
 
 import java.lang.ref.Reference;
 import java.nio.ByteBuffer;
 
 import de.hechler.patrick.pfs.element.PFSElement;
 import de.hechler.patrick.pfs.element.impl.JavaPatrFileSysElement;
-import de.hechler.patrick.pfs.element.impl.Place;
 import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.file.PFSFile;
 import de.hechler.patrick.pfs.folder.FolderIter;
 import de.hechler.patrick.pfs.folder.PFSFolder;
 import de.hechler.patrick.pfs.fs.impl.JavaPatrFileSys;
+import de.hechler.patrick.pfs.other.Place;
 import de.hechler.patrick.pfs.pipe.PFSPipe;
 
 @SuppressWarnings("exports")

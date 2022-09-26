@@ -1,18 +1,18 @@
 package de.hechler.patrick.pfs.fs.impl;
 
-import static de.hechler.patrick.pfs.fs.impl.PatrFileSysConstants.Element.Folder.EMPTY_SIZE;
-import static de.hechler.patrick.pfs.fs.impl.PatrFileSysConstants.Element.Folder.Entry;
+import static de.hechler.patrick.pfs.other.PatrFileSysConstants.B0.*;
+import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.EMPTY_SIZE;
+import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry;
 
 import java.nio.ByteBuffer;
 
-import static de.hechler.patrick.pfs.fs.impl.PatrFileSysConstants.B0.*;
-
 import de.hechler.patrick.pfs.bm.BlockManager;
-import de.hechler.patrick.pfs.element.impl.Place;
+import de.hechler.patrick.pfs.exceptions.PFSErr;
 import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.folder.PFSFolder;
 import de.hechler.patrick.pfs.folder.impl.JavaPatrFileSysFolder;
 import de.hechler.patrick.pfs.fs.PFS;
+import de.hechler.patrick.pfs.other.Place;
 
 public class JavaPatrFileSys implements PFS {
 	
@@ -27,7 +27,7 @@ public class JavaPatrFileSys implements PFS {
 	@Override
 	public void format(long blockCount) throws PatrFileSysException {
 		if (bm.blockSize() < (SIZE + EMPTY_SIZE + (Entry.SIZE * 2) + 30)) {
-			
+			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ILLEGAL_ARG, "block size is too small");
 		}
 		
 	}

@@ -2,9 +2,9 @@ package de.hechler.patrick.pfs.pipe.impl;
 
 import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSys.pfsErrno;
 import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSys.t;
-import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Pipe.APPEND;
-import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Pipe.LENGTH;
-import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Pipe.READ;
+import static de.hechler.patrick.pfs.other.NativePatrFileSysDefines.Pipe.APPEND;
+import static de.hechler.patrick.pfs.other.NativePatrFileSysDefines.Pipe.LENGTH;
+import static de.hechler.patrick.pfs.other.NativePatrFileSysDefines.Pipe.READ;
 
 import java.lang.ref.Reference;
 import java.nio.ByteBuffer;
@@ -14,7 +14,7 @@ import de.hechler.patrick.pfs.exceptions.PFSErr;
 import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.folder.impl.NativePatrFileSysFolder;
 import de.hechler.patrick.pfs.fs.impl.NativePatrFileSys;
-import de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Errno;
+import de.hechler.patrick.pfs.other.NativePatrFileSysDefines.Errno;
 import de.hechler.patrick.pfs.pipe.PFSPipe;
 import jdk.incubator.foreign.MemorySegment;
 

@@ -1,12 +1,12 @@
 package de.hechler.patrick.pfs.element;
 
-import static de.hechler.patrick.pfs.fs.impl.PatrFileSysConstants.Element.Folder.Entry.FLAGS_FILE;
-import static de.hechler.patrick.pfs.fs.impl.PatrFileSysConstants.Element.Folder.Entry.FLAGS_FILE_ENCRYPTED;
-import static de.hechler.patrick.pfs.fs.impl.PatrFileSysConstants.Element.Folder.Entry.FLAGS_FILE_EXECUTABLE;
-import static de.hechler.patrick.pfs.fs.impl.PatrFileSysConstants.Element.Folder.Entry.FLAGS_FOLDER;
-import static de.hechler.patrick.pfs.fs.impl.PatrFileSysConstants.Element.Folder.Entry.FLAGS_HIDDEN;
-import static de.hechler.patrick.pfs.fs.impl.PatrFileSysConstants.Element.Folder.Entry.FLAGS_PIPE;
-import static de.hechler.patrick.pfs.fs.impl.PatrFileSysConstants.Element.Folder.Entry.UNMODIFIABLE_FLAGS;
+import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.FLAGS_FILE;
+import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.FLAGS_FILE_ENCRYPTED;
+import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.FLAGS_FILE_EXECUTABLE;
+import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.FLAGS_FOLDER;
+import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.FLAGS_HIDDEN;
+import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.FLAGS_PIPE;
+import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.UNMODIFIABLE_FLAGS;
 
 import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.file.PFSFile;

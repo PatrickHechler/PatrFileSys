@@ -1,7 +1,7 @@
 package de.hechler.patrick.pfs.element.impl;
 
-import static de.hechler.patrick.pfs.fs.impl.PatrFileSysConstants.Element.*;
-import static de.hechler.patrick.pfs.fs.impl.PatrFileSysConstants.Element.Folder.Entry.*;
+import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.*;
+import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.*;
 
 import java.lang.ref.PhantomReference;
 import java.lang.ref.Reference;
@@ -15,6 +15,7 @@ import de.hechler.patrick.pfs.file.impl.JavaPatrFileSysFile;
 import de.hechler.patrick.pfs.folder.PFSFolder;
 import de.hechler.patrick.pfs.folder.impl.JavaPatrFileSysFolder;
 import de.hechler.patrick.pfs.fs.impl.JavaPatrFileSys;
+import de.hechler.patrick.pfs.other.Place;
 import de.hechler.patrick.pfs.pipe.PFSPipe;
 import de.hechler.patrick.pfs.pipe.impl.JavaPatrFileSysPipe;
 
@@ -145,6 +146,9 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 	
 	@Override
 	public PFSFolder parent() throws PatrFileSysException {
+		if (parent == null) {
+			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ROOT_FOLDER, "root folder has no parent");
+		}
 		// TODO Auto-generated method stub
 		return null;
 	}

@@ -13,7 +13,7 @@ import de.hechler.patrick.pfs.bm.BlockAccessor;
 import de.hechler.patrick.pfs.exceptions.PFSErr;
 import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.fs.PFS;
-import de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines;
+import de.hechler.patrick.pfs.other.NativePatrFileSysDefines;
 
 public class SeekableBlockAccessor implements BlockAccessor {
 	

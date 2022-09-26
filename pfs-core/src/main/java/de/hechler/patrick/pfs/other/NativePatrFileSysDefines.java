@@ -1,4 +1,4 @@
-package de.hechler.patrick.pfs.fs.impl;
+package de.hechler.patrick.pfs.other;
 
 import static jdk.incubator.foreign.ValueLayout.ADDRESS;
 import static jdk.incubator.foreign.ValueLayout.JAVA_INT;
@@ -14,7 +14,6 @@ import jdk.incubator.foreign.MemoryAddress;
 import jdk.incubator.foreign.MemoryLayout;
 import jdk.incubator.foreign.SymbolLookup;
 
-@SuppressWarnings("exports")
 public class NativePatrFileSysDefines {
 	
 	/** used to check if the class could be successfully loaded */

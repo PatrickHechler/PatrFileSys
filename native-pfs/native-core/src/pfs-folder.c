@@ -717,7 +717,12 @@ static int move_and_set_parent_impl(pfs_eh e, pfs_eh new_parent, char *name) {
 				}
 			}
 			if (!pfs_element_get_parent(&eh)) {
-
+				if (pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
+					pfs->unget(pfs, moh.real_parent_place.block);
+					return 0;
+				} else {
+					pfs_errno = 0;
+				}
 			}
 		}
 	}

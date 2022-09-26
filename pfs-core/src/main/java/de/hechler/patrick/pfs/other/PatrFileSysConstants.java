@@ -1,4 +1,4 @@
-package de.hechler.patrick.pfs.fs.impl;
+package de.hechler.patrick.pfs.other;
 
 
 public class PatrFileSysConstants {

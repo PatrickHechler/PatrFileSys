@@ -1,7 +1,7 @@
-package de.hechler.patrick.pfs.element.impl;
+package de.hechler.patrick.pfs.other;
 
 
-public class Place {
+public class Place implements Cloneable {
 	
 	public long block;
 	public int pos;
@@ -29,6 +29,16 @@ public class Place {
 		if (block != other.block) return false;
 		if (pos != other.pos) return false;
 		return true;
+	}
+	
+	@Override
+	public Place clone() {
+		try {
+			return (Place) super.clone();
+		} catch (CloneNotSupportedException e) {
+			e.printStackTrace();
+			return new Place(block, pos);
+		}
 	}
 	
 }
