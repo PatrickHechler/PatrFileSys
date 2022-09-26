@@ -1,7 +1,9 @@
 package de.hechler.patrick.pfs.element;
 
 import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
+import de.hechler.patrick.pfs.file.PFSFile;
 import de.hechler.patrick.pfs.folder.PFSFolder;
+import de.hechler.patrick.pfs.pipe.PFSPipe;
 
 public interface PFSElement {
 
@@ -56,5 +58,11 @@ public interface PFSElement {
     static int PFS_FLAGS_FILE_EXECUTABLE = 0x00000100;
     static int PFS_FLAGS_FILE_ENCRYPTED = 0x00000200;
     static int PFS_FLAGS_HIDDEN = 0x01000000;
-
+    
+	PFSFolder toFolder() throws IllegalStateException;
+    
+	PFSFile toFile() throws IllegalStateException;
+    
+	PFSPipe toPipe() throws IllegalStateException;
+    
 }

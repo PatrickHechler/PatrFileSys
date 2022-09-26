@@ -33,6 +33,7 @@ import jdk.incubator.foreign.NativeSymbol;
 import jdk.incubator.foreign.ResourceScope;
 import jdk.incubator.foreign.SegmentAllocator;
 
+@SuppressWarnings("exports")
 public class NativePatrFileSys implements PFS {
 	
 	private static final int O_RDWR  = 02;
@@ -66,16 +67,6 @@ public class NativePatrFileSys implements PFS {
 		}
 	}
 	
-	/**
-	 * returns a new {@link NativePatrFileSys} for an existing PatrFileSystem.
-	 * 
-	 * the block manager of the returned {@link PFS} will store it's data on the given file
-	 * 
-	 * @param pfsFile
-	 *            the file which stores the {@link PFS}
-	 * @return the newly loaded {@link PFS} from the file
-	 * @throws PatrFileSysException
-	 */
 	public static NativePatrFileSys load(String pfsFile) throws PatrFileSysException {
 		try {
 			return newImpl(pfsFile, -1L, -1);
@@ -222,6 +213,8 @@ public class NativePatrFileSys implements PFS {
 		}
 	}
 	
+	private static final MethodHandle G_CLOSE = LINKER.downcallHandle(FunctionDescriptor.of(JAVA_INT, ADDRESS));
+	
 	@Override
 	public void close() throws PatrFileSysException {
 		try {
@@ -229,8 +222,7 @@ public class NativePatrFileSys implements PFS {
 			MemoryAddress closeBmAddr = bm.get(ADDRESS, OFFSET_CLOSE_BM);
 			NativeSymbol close_bm = NativeSymbol.ofAddress("close_bm", closeBmAddr, scope);
 			try (ResourceScope scope = ResourceScope.newConfinedScope()) {
-				MethodHandle closeHandle = LINKER.downcallHandle(close_bm, FunctionDescriptor.of(JAVA_INT, ADDRESS));
-				if (0 == (int) closeHandle.invoke(bm)) {
+				if (0 == (int) G_CLOSE.invoke(close_bm, bm)) {
 					throw PFSErr.create(pfsErrno(), "close");
 				}
 			}

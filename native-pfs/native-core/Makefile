@@ -45,6 +45,7 @@ all:	INIT_MKDIR $(TEST_TARGET) $(TARGET_A) $(TARGET_SO)
 	$(TEST_TARGET)
 	cp -t $(EXP) $(TARGET_A) $(TARGET_SO)
 	cp -t $(EXP)include/ $(HEADERS) $(HDRS)
+	cp -t ../../pfs-core/lib/ $(TARGET_SO)
 
 INIT_MKDIR:
 	mkdir -p $(BINARY)

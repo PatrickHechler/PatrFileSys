@@ -13,10 +13,27 @@ import jdk.incubator.foreign.MemoryAddress;
 import jdk.incubator.foreign.MemoryLayout;
 import jdk.incubator.foreign.SymbolLookup;
 
+@SuppressWarnings("exports")
 public class NativePatrFileSysDefines {
 	
+	/**used to check if the class could be successfully loaded */
+	public static void nop() { }
+	
 	static {
-		System.load(Paths.get("../native-pfs/native-core/exports/libpfs.so").toAbsolutePath().normalize().toString());
+		try {
+			System.load(Paths.get("./lib/libpfs.so").toAbsolutePath().normalize().toString());
+		} catch (UnsatisfiedLinkError e) {
+			try {
+				System.loadLibrary("pfs");
+			} catch (Throwable e1) {
+				if (e1.getCause() == null) {
+					e1.initCause(e);
+				} else {
+					e1.addSuppressed(e);
+				}
+				throw e1;
+			}
+		}
 //		System.load(
 //			Paths.get("../native-pfs/java-helper/bin/libjava-helper.so").toAbsolutePath().normalize().toString());
 	}
@@ -633,7 +650,7 @@ public class NativePatrFileSysDefines {
 		 * extern i64 pfs_pipe_length(pfs_eh p);
 		 * </code>
 		 */
-		public static final MethodHandle LEGNTH   = handle(S_LENGTH, JAVA_LONG, ADDRESS);
+		public static final MethodHandle LENGTH   = handle(S_LENGTH, JAVA_LONG, ADDRESS);
 		
 	}
 	

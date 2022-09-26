@@ -3,12 +3,11 @@ package de.hechler.patrick.pfs.folder;
 import de.hechler.patrick.pfs.element.PFSElement;
 import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.file.PFSFile;
-import de.hechler.patrick.pfs.interfaces.ThrowableIter;
 import de.hechler.patrick.pfs.pipe.PFSPipe;
 
 public interface PFSFolder extends PFSElement {
 	
-	ThrowableIter <PatrFileSysException, PFSElement> iterator(boolean showHidden) throws PatrFileSysException;
+	FolderIter iterator(boolean showHidden) throws PatrFileSysException;
 	
 	long childCount() throws PatrFileSysException;
 	

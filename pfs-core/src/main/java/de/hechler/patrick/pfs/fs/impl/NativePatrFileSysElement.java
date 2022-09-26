@@ -22,16 +22,19 @@ import java.lang.ref.SoftReference;
 import de.hechler.patrick.pfs.element.PFSElement;
 import de.hechler.patrick.pfs.exceptions.PFSErr;
 import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
+import de.hechler.patrick.pfs.file.PFSFile;
 import de.hechler.patrick.pfs.folder.PFSFolder;
 import de.hechler.patrick.pfs.folder.impl.NativePatrFileSysFolder;
 import de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Constants;
 import de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Errno;
+import de.hechler.patrick.pfs.pipe.PFSPipe;
 import jdk.incubator.foreign.MemoryAddress;
 import jdk.incubator.foreign.MemorySegment;
 import jdk.incubator.foreign.ResourceScope;
 import jdk.incubator.foreign.SegmentAllocator;
 
-public class NativePatrFileSysElement implements PFSElement {
+@SuppressWarnings("exports")
+public abstract class NativePatrFileSysElement implements PFSElement {
 	
 	private static final Reference <NativePatrFileSysFolder> EMPTY_REF = new PhantomReference <NativePatrFileSysFolder>(null, null);
 	
@@ -252,6 +255,21 @@ public class NativePatrFileSysElement implements PFSElement {
 		} catch (Throwable e) {
 			throw t(e);
 		}
+	}
+
+	@Override
+	public PFSFolder toFolder() throws IllegalStateException {
+		throw new IllegalStateException("this element is no folder");
+	}
+
+	@Override
+	public PFSFile toFile() throws IllegalStateException {
+		throw new IllegalStateException("this element is no file");
+	}
+
+	@Override
+	public PFSPipe toPipe() throws IllegalStateException {
+		throw new IllegalStateException("this element is no pipe");
 	}
 	
 }

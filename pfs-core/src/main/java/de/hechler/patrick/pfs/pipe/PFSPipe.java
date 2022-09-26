@@ -5,9 +5,11 @@ import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 
 public interface PFSPipe extends PFSElement {
 	
-	void read(byte[] data, int length) throws PatrFileSysException;
+	byte[] read(int length) throws PatrFileSysException;
 	
-	void append(byte[] data, int length) throws PatrFileSysException;
+	void read(int byteOff, byte[] data, int length) throws PatrFileSysException;
+	
+	void append(int byteOff, byte[] data, int length) throws PatrFileSysException;
 	
 	long length() throws PatrFileSysException;
 	
