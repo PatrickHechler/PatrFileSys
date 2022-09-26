@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.ServiceLoader;
 
+import de.hechler.patrick.pfs.bm.BlockManager;
 import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.fs.NativePFSProvider;
 import de.hechler.patrick.pfs.fs.PFS;
@@ -42,11 +43,14 @@ public abstract class PFSProvider {
 	}
 	
 	/**
-	 * creates a new {@link PFS}
+	 * creates a new {@link PFS} this method will also format the new {@link PFS}
 	 * 
 	 * @param pfsFile
+	 *            the underlying file
 	 * @param blockCount
+	 *            the number of blocks available for the {@link PFS}
 	 * @param blockSize
+	 *            the sieze of each block
 	 * @return
 	 * @throws PatrFileSysException
 	 */
@@ -55,6 +59,43 @@ public abstract class PFSProvider {
 			load();
 		}
 		return defaultProv.createPFS(pfsFile, blockCount, blockSize);
+	}
+	
+	/**
+	 * returns a new {@link PFS} for an existing PatrFileSystem.
+	 * 
+	 * the block manager of the returned {@link PFS} will store it's data on the given {@link BlockManager}
+	 * 
+	 * @param bm
+	 *            the underlying {@link BlockManager}
+	 * @return the newly loaded {@link PFS} from the file
+	 * @throws PatrFileSysException
+	 */
+	public static PFS load(BlockManager bm) throws PatrFileSysException {
+		if (defaultProv == null) {
+			load();
+		}
+		return defaultProv.loadPFS(bm);
+	}
+	
+	/**
+	 * creates a new {@link PFS} this method will also format the new {@link PFS}
+	 * <p>
+	 * the block-size will be read from the {@link BlockManager#blockSize()}
+	 * 
+	 * @param bm
+	 *            the underlying {@link BlockManager}
+	 * @param blockCount
+	 *            the number of blocks which will be available for the {@link PFS}
+	 * @return the newly created {@link PFS}
+	 * @throws PatrFileSysException
+	 *             if an error occurs
+	 */
+	public static PFS create(BlockManager bm, long blockCount) throws PatrFileSysException {
+		if (defaultProv == null) {
+			load();
+		}
+		return defaultProv.createPFS(bm, blockCount);
 	}
 	
 	/**
@@ -109,6 +150,10 @@ public abstract class PFSProvider {
 	public abstract PFS loadPFS(String pfsFile) throws PatrFileSysException;
 	
 	public abstract PFS createPFS(String pfsFile, long blockCount, int blockSize) throws PatrFileSysException;
+	
+	public abstract PFS loadPFS(BlockManager bm) throws PatrFileSysException;
+	
+	public abstract PFS createPFS(BlockManager bm, long blockCount) throws PatrFileSysException;
 	
 	public final String identifier() {
 		return identifier;

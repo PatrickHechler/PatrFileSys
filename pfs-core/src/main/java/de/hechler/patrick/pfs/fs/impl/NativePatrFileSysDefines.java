@@ -16,8 +16,8 @@ import jdk.incubator.foreign.SymbolLookup;
 @SuppressWarnings("exports")
 public class NativePatrFileSysDefines {
 	
-	/**used to check if the class could be successfully loaded */
-	public static void nop() { }
+	/** used to check if the class could be successfully loaded */
+	public static void nop() {}
 	
 	static {
 		try {
@@ -34,8 +34,8 @@ public class NativePatrFileSysDefines {
 				throw e1;
 			}
 		}
-//		System.load(
-//			Paths.get("../native-pfs/java-helper/bin/libjava-helper.so").toAbsolutePath().normalize().toString());
+		// System.load(
+		// Paths.get("../native-pfs/java-helper/bin/libjava-helper.so").toAbsolutePath().normalize().toString());
 	}
 	
 	public static final CLinker      LINKER  = CLinker.systemCLinker();;
@@ -89,80 +89,116 @@ public class NativePatrFileSysDefines {
 		/**
 		 * declaration:<br>
 		 * <code>
+		 * int entrycount;
+		 * </code>
+		 */
+		public static final long OFFSET_LOADED_ENTRYCOUNT        = 0L;
+		/**
+		 * declaration:<br>
+		 * <code>
+		 * int setsize;
+		 * </code>
+		 */
+		public static final long OFFSET_LOADED_SETSIZE           = 4L;
+		/**
+		 * declaration:<br>
+		 * <code>
+		 * int (*equalizer)(const void*, const void*);
+		 * </code>
+		 */
+		public static final long OFFSET_LOADED_EQUALIZER         = 8L;
+		/**
+		 * declaration:<br>
+		 * <code>
+		 * unsigned int (*hashmaker)(const void*);
+		 * </code>
+		 */
+		public static final long OFFSET_LOADED_HASHMAKER         = 16L;
+		/**
+		 * declaration:<br>
+		 * <code>
+		 * void **entries;
+		 * </code>
+		 */
+		public static final long OFFSET_LOADED_ENTRIES           = 24L;
+		/**
+		 * declaration:<br>
+		 * <code>
 		 * void* (*const get)(struct bm_block_manager *bm, i64 block);
 		 * </code>
 		 */
-		public static final long OFFSET_GET                      = 32;
+		public static final long OFFSET_GET                      = 32L;
 		/**
 		 * declaration:<br>
 		 * <code>
 		 * int (*const unget)(struct bm_block_manager *bm, i64 block);
 		 * </code>
 		 */
-		public static final long OFFSET_UNGET                    = 40;
+		public static final long OFFSET_UNGET                    = 40L;
 		/**
 		 * declaration:<br>
 		 * <code>
 		 * int (*const set)(struct bm_block_manager *bm, i64 block);
 		 * </code>
 		 */
-		public static final long OFFSET_SET                      = 48;
+		public static final long OFFSET_SET                      = 48L;
 		/**
 		 * declaration:<br>
 		 * <code>
 		 * int (*const sync_bm)(struct bm_block_manager *bm);
 		 * </code>
 		 */
-		public static final long OFFSET_SYNC_BM                  = 56;
+		public static final long OFFSET_SYNC_BM                  = 56L;
 		/**
 		 * declaration:<br>
 		 * <code>
 		 * int (*const close_bm)(struct bm_block_manager *bm);
 		 * </code>
 		 */
-		public static final long OFFSET_CLOSE_BM                 = 64;
+		public static final long OFFSET_CLOSE_BM                 = 64L;
 		/**
 		 * declaration:<br>
 		 * <code>
 		 * const ui32 block_size;
 		 * </code>
 		 */
-		public static final long OFFSET_BLOCK_SIZE               = 72;
+		public static final long OFFSET_BLOCK_SIZE               = 72L;
 		/**
 		 * declaration:<br>
 		 * <code>
 		 * const int block_flag_bits;
 		 * </code>
 		 */
-		public static final long OFFSET_BLOCK_FLAG_BITS          = 76;
+		public static final long OFFSET_BLOCK_FLAG_BITS          = 76L;
 		/**
 		 * declaration:<br>
 		 * <code>
 		 * i64 (*const get_flags)(struct bm_block_manager *bm, i64 block);
 		 * </code>
 		 */
-		public static final long OFFSET_GET_FLAGS                = 80;
+		public static final long OFFSET_GET_FLAGS                = 80L;
 		/**
 		 * declaration:<br>
 		 * <code>
 		 * int (*const set_flags)(struct bm_block_manager *bm, i64 block, i64 flags);
 		 * </code>
 		 */
-		public static final long OFFSET_SET_FLAGS                = 88;
+		public static final long OFFSET_SET_FLAGS                = 88L;
 		/**
 		 * declaration:<br>
 		 * <code>
 		 * i64 (*const first_zero_flagged_block)(struct bm_block_manager *bm);
 		 * </code>
 		 */
-		public static final long OFFSET_FIRST_ZERO_FLAGGED_BLOCK = 96;
+		public static final long OFFSET_FIRST_ZERO_FLAGGED_BLOCK = 96L;
 		/**
 		 * declaration:<br>
 		 * <code>
 		 * int (*const delete_all_flags)(struct bm_block_manager *bm);
 		 * </code>
 		 */
-		public static final long OFFSET_DELETE_ALL_FLAGS         = 104;
+		public static final long OFFSET_DELETE_ALL_FLAGS         = 104L;
+		public static final long MINIMAL_SIZE                    = 112L;
 		
 		private static final String      S_NEW_RAM      = "bm_new_ram_block_manager";
 		/**

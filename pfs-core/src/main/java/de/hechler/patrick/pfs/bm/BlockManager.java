@@ -1,10 +1,12 @@
 package de.hechler.patrick.pfs.bm;
 
+import java.nio.ByteBuffer;
+
 import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 
 public interface BlockManager {
 	
-	byte[] get(long block) throws PatrFileSysException;
+	ByteBuffer get(long block) throws PatrFileSysException;
 	
 	void unget(long block) throws PatrFileSysException;
 	
@@ -12,7 +14,7 @@ public interface BlockManager {
 	
 	int blockSize();
 	
-	void sync()throws PatrFileSysException;
+	void sync() throws PatrFileSysException;
 	
 	void close() throws PatrFileSysException;
 	
@@ -24,8 +26,12 @@ public interface BlockManager {
 		return 0L;
 	}
 	
-	default void flag(long block, long flags) throws PatrFileSysException {
-		
+	default void flag(long block, long flags) throws PatrFileSysException {}
+	
+	default long firstZeroFlaggedBlock() throws PatrFileSysException {
+		return -1L;
 	}
+	
+	default void deletaAllFlags() throws PatrFileSysException {}
 	
 }
