@@ -1,85 +1,85 @@
 package de.hechler.patrick.pfs.bm;
 
+import java.io.Closeable;
 import java.nio.ByteBuffer;
 
 import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.fs.PFS;
 
-public interface BlockManager {
+public interface BlockAccessor extends Closeable {
 	
 	/**
-	 * get the given block
-	 * <p>
-	 * if the block is already loaded the same {@link ByteBuffer} instance will be returned
-	 * <p>
-	 * the {@link BlockManager} will internally count how many times each block is loaded.<br>
-	 * when a block is {@link #unget(long)} and {@link #set(long)} as often as it was
-	 * {@link #get(long)} it will be unloaded/saved
+	 * returns the length of the arrays returned by {@link #loadBlock(long)}
 	 * 
-	 * @param block
-	 *            the block number
-	 * @return the data of the block
-	 * @throws PatrFileSysException
-	 *             if an error occurs
-	 */
-	ByteBuffer get(long block) throws PatrFileSysException;
-	
-	/**
-	 * tell the {@link BlockManager} that the block is no longer needed and no changes has been made
-	 * (or no changes needs to be saved)
-	 * <p>
-	 * it is up to the {@link BlockManager} to decide if the block will be saved or if all changes
-	 * will be discarded or if the block will be saved when the times for unloading/saving comes for
-	 * the given block<br>
-	 * normally the {@link BlockManager} will just decide to save all blocks which has been
-	 * {@link #set(long)} at least once and discard all others
-	 * 
-	 * @param block
-	 *            the block number
-	 * @throws PatrFileSysException
-	 *             if an error occurs
-	 */
-	void unget(long block) throws PatrFileSysException;
-	
-	/**
-	 * tell the {@link BlockManager} that the block is no longer needed and that there has been made
-	 * changes which need to be saved.
-	 * <p>
-	 * when a block is {@link #set(long)} at least once the {@link BlockManager} is not allowed to
-	 * just discard the changes and has to save all changes of the block in the underlying storage
-	 * 
-	 * @throws PatrFileSysException
-	 *             if an error occurs
-	 */
-	void set(long block) throws PatrFileSysException;
-	
-	/**
-	 * returns the size of each block
-	 * <p>
-	 * all blocks will have the given size, so {@link ByteBuffer#capacity()} of all blocks will be
-	 * equal to {@link #blockSize()}
-	 * 
-	 * @return the size of each block
+	 * @return the length of the arrays returned by {@link #loadBlock(long)}
 	 */
 	int blockSize();
 	
 	/**
-	 * synchronises all blocks, which are currently not in use
+	 * returns the value of the block at the position {@code block}<br>
+	 * all changes on the returned array possibly have a direct impact on the {@link BlockAccessor},
+	 * but the {@link #saveBlock(byte[], long)} or {@link #discardBlock(long)} method has to be
+	 * called after calling this method with the returned block and the position.<br>
+	 * the behaviour is undefined if this method is called twice without calling
+	 * {@link #saveBlock(byte[], long)} or {@link #discardBlock(long)} between the calls.
 	 * 
+	 * @param block
+	 *            the position of the block returned
+	 * @return the value of the block
 	 * @throws PatrFileSysException
-	 *             if an error occurs
+	 *             if an IO error occurs during the operation
 	 */
-	void sync() throws PatrFileSysException;
+	ByteBuffer loadBlock(long block) throws PatrFileSysException;
 	
 	/**
-	 * closes the {@link BlockManager}
+	 * saves the block after changing it.<br>
+	 * the behaviour is undefined if the {@code value} array is not the same array as the array
+	 * previously returned by {@link #loadBlock(long)} with the same {@code block} or if the block
+	 * has already been unloaded/saved.
+	 * 
+	 * @param data
+	 *            the data of the block
+	 * @param block
+	 *            the position of the block
+	 * @throws PatrFileSysException
+	 *             if an IO error occurs during the operation
+	 */
+	void saveBlock(ByteBuffer data, long block) throws PatrFileSysException;
+	
+	/**
+	 * unloads the given block without saving it.<br>
+	 * the behaviour is undefined if the {@code block} has not been {@link #loadBlock(long) loaded}
+	 * before or the block has been unloaded already using the {@link #saveBlock(byte[], long)} or
+	 * {@link #discardBlock(long)} method.
+	 * 
+	 * @throws PatrFileSysException
+	 *             if an IO error occurs during the operation
+	 */
+	void discardBlock(long block) throws PatrFileSysException;
+	
+	/**
+	 * discards all loaded blocks without saving them. If they should be saved use
+	 * {@link #saveAll()}. further calls to {@link #loadBlock(long)},
+	 * {@link #saveBlock(byte[], long)}, {@link #discardBlock(long)} and {@link #saveAll()} should
+	 * throw an {@link ClosedChannelException}.
 	 * <p>
-	 * if there are currently any blocks used an exception should be thrown
+	 * If the {@link BlockAccessor} is already closed then invoking this method has no effect.
+	 * 
+	 * @throws PatrFileSysException
+	 *             if an IO error occurs during the operation
+	 */
+	@Override
+	void close() throws PatrFileSysException;
+	
+	/**
+	 * synchronises all blocks, if any changes has been made with
+	 * {@link #saveBlock(ByteBuffer, long)} they are ensured to be saved on the underlying storage
+	 * and not in any buffer
 	 * 
 	 * @throws PatrFileSysException
 	 *             if an error occurred
 	 */
-	void close() throws PatrFileSysException;
+	void sync() throws PatrFileSysException;
 	
 	/**
 	 * returns the number of flags each block can have
@@ -154,5 +154,6 @@ public interface BlockManager {
 	 *             if an error occurs
 	 */
 	default void deleteAllFlags() throws PatrFileSysException {}
+	
 	
 }

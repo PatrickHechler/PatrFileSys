@@ -7,6 +7,7 @@ import static jdk.incubator.foreign.ValueLayout.JAVA_LONG;
 import java.lang.invoke.MethodHandle;
 import java.nio.file.Paths;
 
+import de.hechler.patrick.pfs.exceptions.PFSErr;
 import jdk.incubator.foreign.CLinker;
 import jdk.incubator.foreign.FunctionDescriptor;
 import jdk.incubator.foreign.MemoryAddress;
@@ -41,46 +42,50 @@ public class NativePatrFileSysDefines {
 	public static final CLinker      LINKER  = CLinker.systemCLinker();;
 	public static final SymbolLookup LOOCKUP = SymbolLookup.loaderLookup();;
 	
-	public static MethodHandle handle(String name, MemoryLayout returnType, MemoryLayout... argTypes) {
-		return LINKER.downcallHandle(LOOCKUP.lookup(name).orElseThrow(), FunctionDescriptor.of(returnType, argTypes));
+	public static MethodHandle handle(String name, MemoryLayout returnType,
+		MemoryLayout... argTypes) {
+		return LINKER.downcallHandle(LOOCKUP.lookup(name).orElseThrow(), FunctionDescriptor.of(
+			returnType, argTypes));
 	}
 	
 	public static class Errno {
 		
 		/** if pfs_errno is not set/no error occurred */
-		public static final int NONE                  = 0;
+		public static final int NONE                  = PFSErr.PFS_ERR_NONE;
 		/** if an operation failed because of an unknown/unspecified error */
-		public static final int UNKNOWN_ERROR         = 1;
+		public static final int UNKNOWN_ERROR         = PFSErr.PFS_ERR_UNKNOWN_ERROR;
 		/** if the iterator has no next element */
-		public static final int NO_MORE_ELEMNETS      = 2;
+		public static final int NO_MORE_ELEMNETS      = PFSErr.PFS_ERR_NO_MORE_ELEMNETS;
 		/**
-		 * if an IO operation failed because the element is not of the correct type (file expected, but folder or reverse)
+		 * if an IO operation failed because the element is not of the correct type (file expected,
+		 * but folder or reverse)
 		 */
-		public static final int ELEMENT_WRONG_TYPE    = 3;
+		public static final int ELEMENT_WRONG_TYPE    = PFSErr.PFS_ERR_ELEMENT_WRONG_TYPE;
 		/** if an IO operation failed because the element does not exist */
-		public static final int ELEMENT_NOT_EXIST     = 4;
+		public static final int ELEMENT_NOT_EXIST     = PFSErr.PFS_ERR_ELEMENT_NOT_EXIST;
 		/** if an IO operation failed because the element already existed */
-		public static final int ELEMENT_ALREADY_EXIST = 5;
+		public static final int ELEMENT_ALREADY_EXIST = PFSErr.PFS_ERR_ELEMENT_ALREADY_EXIST;
 		/**
 		 * if an IO operation failed because there was not enough space in the file system
 		 */
-		public static final int OUT_OF_SPACE          = 6;
+		public static final int OUT_OF_SPACE          = PFSErr.PFS_ERR_OUT_OF_SPACE;
 		/** if an unspecified IO error occurred */
-		public static final int IO_ERR                = 7;
+		public static final int IO_ERR                = PFSErr.PFS_ERR_IO_ERR;
 		/** if there was at least one invalid argument */
-		public static final int ILLEGAL_ARG           = 8;
+		public static final int ILLEGAL_ARG           = PFSErr.PFS_ERR_ILLEGAL_ARG;
 		/**
 		 * if an IO operation failed because there was not enough space in the file system
 		 */
-		public static final int OUT_OF_MEMORY         = 9;
+		public static final int OUT_OF_MEMORY         = PFSErr.PFS_ERR_OUT_OF_MEMORY;
 		/**
 		 * if an IO operation failed because the root folder has some restrictions
 		 */
-		public static final int ROOT_FOLDER           = 10;
+		public static final int ROOT_FOLDER           = PFSErr.PFS_ERR_ROOT_FOLDER;
 		/**
-		 * if an folder can not be moved because the new child (maybe a deep/indirect child) is a child of the folder
+		 * if an folder can not be moved because the new child (maybe a deep/indirect child) is a
+		 * child of the folder
 		 */
-		public static final int PARENT_IS_CHILD       = 11;
+		public static final int PARENT_IS_CHILD       = PFSErr.PFS_ERR_PARENT_IS_CHILD;
 		
 	}
 	
@@ -208,7 +213,8 @@ public class NativePatrFileSysDefines {
 		 * (i64 block_count, i32 block_size);
 		 * </code>
 		 */
-		public static final MethodHandle NEW_RAM        = handle(S_NEW_RAM, ADDRESS, JAVA_LONG, JAVA_INT);
+		public static final MethodHandle NEW_RAM        = handle(S_NEW_RAM, ADDRESS, JAVA_LONG,
+			JAVA_INT);
 		private static final String      S_NEW_FILE     = "bm_new_file_block_manager";
 		/**
 		 * declaration:<br>
@@ -217,7 +223,8 @@ public class NativePatrFileSysDefines {
 		 * (int file, i32 block_size);
 		 * </code>
 		 */
-		public static final MethodHandle NEW_FILE       = handle(S_NEW_FILE, ADDRESS, JAVA_INT, JAVA_INT);
+		public static final MethodHandle NEW_FILE       = handle(S_NEW_FILE, ADDRESS, JAVA_INT,
+			JAVA_INT);
 		private static final String      S_NEW_FLAG_RAM = "bm_new_flaggable_ram_block_manager";
 		/**
 		 * declaration:<br>
@@ -226,7 +233,8 @@ public class NativePatrFileSysDefines {
 		 * (i64 block_count, i32 block_size);
 		 * </code>
 		 */
-		public static final MethodHandle NEW_FLAG_RAM   = handle(S_NEW_FLAG_RAM, ADDRESS, JAVA_LONG, JAVA_INT);
+		public static final MethodHandle NEW_FLAG_RAM   = handle(S_NEW_FLAG_RAM, ADDRESS, JAVA_LONG,
+			JAVA_INT);
 		
 	}
 	
@@ -324,21 +332,21 @@ public class NativePatrFileSysDefines {
 		 * #define PFS_MAGIC_START 0xF17565393C422698UL
 		 * </code>
 		 */
-		public static final long MAGIC_START           = 0xF17565393C422698L;
+		public static final long MAGIC_START           = PatrFileSysConstants.B0.MAGIC;
 		/**
 		 * declaration:<br>
 		 * <code>
 		 * #define PFS_B0_OFFSET_BLOCK_COUNT 24
 		 * </code>
 		 */
-		public static final long B0_OFFSET_BLOCK_COUNT = 24L;
+		public static final long B0_OFFSET_BLOCK_COUNT = PatrFileSysConstants.B0.OFF_BLOCK_COUNT;
 		/**
 		 * declaration:<br>
 		 * <code>
 		 * #define PFS_B0_OFFSET_BLOCK_SIZE 20
 		 * </code>
 		 */
-		public static final long B0_OFFSET_BLOCK_SIZE  = 20L;
+		public static final long B0_OFFSET_BLOCK_SIZE  = PatrFileSysConstants.B0.OFF_BLOCK_SIZE;
 		
 		/**
 		 * declaration:<br>
@@ -422,7 +430,8 @@ public class NativePatrFileSysDefines {
 		 * extern ui32 pfs_element_get_flags(pfs_eh e);
 		 * </code>
 		 */
-		public static final MethodHandle GET_FLAGS           = handle(S_GET_FLAGS, JAVA_INT, ADDRESS);
+		public static final MethodHandle GET_FLAGS           = handle(S_GET_FLAGS, JAVA_INT,
+			ADDRESS);
 		private static final String      S_MODIFY_FLAGS      = "pfs_element_modify_flags";
 		/**
 		 * declaration:<br>
@@ -430,7 +439,8 @@ public class NativePatrFileSysDefines {
 		 * extern int pfs_element_modify_flags(pfs_eh e, ui32 add_flags, ui32 rem_flags);
 		 * </code>
 		 */
-		public static final MethodHandle MODIFY_FLAGS        = handle(S_MODIFY_FLAGS, JAVA_INT, ADDRESS, JAVA_INT, JAVA_INT);
+		public static final MethodHandle MODIFY_FLAGS        = handle(S_MODIFY_FLAGS, JAVA_INT,
+			ADDRESS, JAVA_INT, JAVA_INT);
 		private static final String      S_GET_NAME_LENGTH   = "pfs_element_get_name_length";
 		/**
 		 * declaration:<br>
@@ -438,7 +448,8 @@ public class NativePatrFileSysDefines {
 		 * extern i64 pfs_element_get_name_length(pfs_eh e);
 		 * </code>
 		 */
-		public static final MethodHandle GET_NAME_LENGTH     = handle(S_GET_NAME_LENGTH, JAVA_LONG, ADDRESS);
+		public static final MethodHandle GET_NAME_LENGTH     = handle(S_GET_NAME_LENGTH, JAVA_LONG,
+			ADDRESS);
 		private static final String      S_GET_NAME          = "pfs_element_get_name";
 		/**
 		 * declaration:<br>
@@ -446,7 +457,8 @@ public class NativePatrFileSysDefines {
 		 * extern int pfs_element_get_name(pfs_eh e, char **buffer, i64 *buffer_len);
 		 * </code>
 		 */
-		public static final MethodHandle GET_NAME            = handle(S_GET_NAME, JAVA_INT, ADDRESS, ADDRESS, ADDRESS);
+		public static final MethodHandle GET_NAME            = handle(S_GET_NAME, JAVA_INT, ADDRESS,
+			ADDRESS, ADDRESS);
 		private static final String      S_SET_NAME          = "pfs_element_set_name";
 		/**
 		 * declaration:<br>
@@ -454,7 +466,8 @@ public class NativePatrFileSysDefines {
 		 * extern int pfs_element_set_name(pfs_eh e, char *name);
 		 * </code>
 		 */
-		public static final MethodHandle SET_NAME            = handle(S_SET_NAME, JAVA_INT, ADDRESS, ADDRESS);
+		public static final MethodHandle SET_NAME            = handle(S_SET_NAME, JAVA_INT, ADDRESS,
+			ADDRESS);
 		private static final String      S_GET_CREATE_TIME   = "pfs_element_get_create_time";
 		/**
 		 * declaration:<br>
@@ -462,7 +475,8 @@ public class NativePatrFileSysDefines {
 		 * extern i64 pfs_element_get_create_time(pfs_eh e);
 		 * </code>
 		 */
-		public static final MethodHandle GET_CREATE_TIME     = handle(S_GET_CREATE_TIME, JAVA_LONG, ADDRESS);
+		public static final MethodHandle GET_CREATE_TIME     = handle(S_GET_CREATE_TIME, JAVA_LONG,
+			ADDRESS);
 		private static final String      S_SET_CREATE_TIME   = "pfs_element_set_create_time";
 		/**
 		 * declaration:<br>
@@ -470,7 +484,8 @@ public class NativePatrFileSysDefines {
 		 * extern int pfs_element_set_create_time(pfs_eh e, i64 new_time);
 		 * </code>
 		 */
-		public static final MethodHandle SET_CREATE_TIME     = handle(S_SET_CREATE_TIME, JAVA_INT, ADDRESS, JAVA_LONG);
+		public static final MethodHandle SET_CREATE_TIME     = handle(S_SET_CREATE_TIME, JAVA_INT,
+			ADDRESS, JAVA_LONG);
 		private static final String      S_GET_LAST_MOD_TIME = "pfs_element_get_last_mod_time";
 		/**
 		 * declaration:<br>
@@ -478,7 +493,8 @@ public class NativePatrFileSysDefines {
 		 * extern i64 pfs_element_get_last_mod_time(pfs_eh e);
 		 * </code>
 		 */
-		public static final MethodHandle GET_LAST_MOD_TIME   = handle(S_GET_LAST_MOD_TIME, JAVA_LONG, ADDRESS);
+		public static final MethodHandle GET_LAST_MOD_TIME   = handle(S_GET_LAST_MOD_TIME,
+			JAVA_LONG, ADDRESS);
 		private static final String      S_SET_LAST_MOD_TIME = "pfs_element_set_last_mod_time";
 		/**
 		 * declaration:<br>
@@ -486,7 +502,8 @@ public class NativePatrFileSysDefines {
 		 * extern int pfs_element_set_last_mod_time(pfs_eh e, i64 new_time);
 		 * </code>
 		 */
-		public static final MethodHandle SET_LAST_MOD_TIME   = handle(S_SET_LAST_MOD_TIME, JAVA_INT, ADDRESS, JAVA_LONG);
+		public static final MethodHandle SET_LAST_MOD_TIME   = handle(S_SET_LAST_MOD_TIME, JAVA_INT,
+			ADDRESS, JAVA_LONG);
 		private static final String      S_DELETE            = "pfs_element_delete";
 		/**
 		 * declaration:<br>
@@ -502,7 +519,8 @@ public class NativePatrFileSysDefines {
 		 * extern int pfs_element_get_parent(pfs_eh e);
 		 * </code>
 		 */
-		public static final MethodHandle GET_PARENT          = handle(S_GET_PARENT, JAVA_INT, ADDRESS);
+		public static final MethodHandle GET_PARENT          = handle(S_GET_PARENT, JAVA_INT,
+			ADDRESS);
 		
 		private static final String      S_SET_PARENT = "pfs_element_set_parent";
 		/**
@@ -511,7 +529,8 @@ public class NativePatrFileSysDefines {
 		 * extern int pfs_element_set_parent(pfs_eh e, pfs_eh new_parent);
 		 * </code>
 		 */
-		public static final MethodHandle SET_PAREMT   = handle(S_SET_PARENT, JAVA_INT, ADDRESS, ADDRESS);
+		public static final MethodHandle SET_PAREMT   = handle(S_SET_PARENT, JAVA_INT, ADDRESS,
+			ADDRESS);
 		private static final String      S_MOVE       = "pfs_element_move";
 		/**
 		 * declaration:<br>
@@ -519,7 +538,8 @@ public class NativePatrFileSysDefines {
 		 * extern int pfs_element_move(pfs_eh e, pfs_eh new_parent, char *name);
 		 * </code>
 		 */
-		public static final MethodHandle MOVE         = handle(S_MOVE, JAVA_INT, ADDRESS, ADDRESS, ADDRESS);
+		public static final MethodHandle MOVE         = handle(S_MOVE, JAVA_INT, ADDRESS, ADDRESS,
+			ADDRESS);
 		
 	}
 	
@@ -532,7 +552,8 @@ public class NativePatrFileSysDefines {
 		 * extern pfs_fi pfs_folder_iterator(pfs_eh f, int show_hidden);
 		 * </code>
 		 */
-		public static final MethodHandle ITERATOR                 = handle(S_ITERATOR, ADDRESS, ADDRESS, JAVA_INT);
+		public static final MethodHandle ITERATOR                 = handle(S_ITERATOR, ADDRESS,
+			ADDRESS, JAVA_INT);
 		private static final String      S_FILL_ITERATOR          = "pfs_folder_fill_iterator";
 		/**
 		 * declaration:<br>
@@ -540,7 +561,8 @@ public class NativePatrFileSysDefines {
 		 * extern int pfs_folder_fill_iterator(pfs_eh f, pfs_fi iter, int show_hidden);
 		 * </code>
 		 */
-		public static final MethodHandle FILL_ITERATOR            = handle(S_FILL_ITERATOR, JAVA_INT, ADDRESS, ADDRESS, JAVA_INT);
+		public static final MethodHandle FILL_ITERATOR            = handle(S_FILL_ITERATOR,
+			JAVA_INT, ADDRESS, ADDRESS, JAVA_INT);
 		private static final String      S_ITER_NEXT              = "pfs_folder_iter_next";
 		/**
 		 * declaration:<br>
@@ -548,7 +570,8 @@ public class NativePatrFileSysDefines {
 		 * extern int pfs_folder_iter_next(pfs_fi fi);
 		 * </code>
 		 */
-		public static final MethodHandle ITER_NEXT                = handle(S_ITER_NEXT, JAVA_INT, ADDRESS);
+		public static final MethodHandle ITER_NEXT                = handle(S_ITER_NEXT, JAVA_INT,
+			ADDRESS);
 		private static final String      S_CHILD_COUNT            = "pfs_folder_child_count";
 		/**
 		 * declaration:<br>
@@ -556,7 +579,8 @@ public class NativePatrFileSysDefines {
 		 * extern i64 pfs_folder_child_count(pfs_eh f);
 		 * </code>
 		 */
-		public static final MethodHandle CHILD_COUNT              = handle(S_CHILD_COUNT, JAVA_LONG, ADDRESS);
+		public static final MethodHandle CHILD_COUNT              = handle(S_CHILD_COUNT, JAVA_LONG,
+			ADDRESS);
 		private static final String      S_CHILD_FROM_NAME        = "pfs_folder_child_from_name";
 		/**
 		 * declaration:<br>
@@ -564,31 +588,38 @@ public class NativePatrFileSysDefines {
 		 * extern int pfs_folder_child_from_name(pfs_eh f, char *name);
 		 * </code>
 		 */
-		public static final MethodHandle CHILD_FROM_NAME          = handle(S_CHILD_FROM_NAME, JAVA_INT, ADDRESS, ADDRESS);
-		private static final String      S_FOLDER_CHILD_FROM_NAME = "pfs_folder_folder_child_from_name";
+		public static final MethodHandle CHILD_FROM_NAME          = handle(S_CHILD_FROM_NAME,
+			JAVA_INT, ADDRESS, ADDRESS);
+		private static final String      S_FOLDER_CHILD_FROM_NAME =
+			"pfs_folder_folder_child_from_name";
 		/**
 		 * declaration:<br>
 		 * <code>
 		 * extern int pfs_folder_folder_child_from_name(pfs_eh f, char *name);
 		 * </code>
 		 */
-		public static final MethodHandle FOLDER_CHILD_FROM_NAME   = handle(S_FOLDER_CHILD_FROM_NAME, JAVA_INT, ADDRESS, ADDRESS);
-		private static final String      S_FILE_CHILD_FROM_NAME   = "pfs_folder_file_child_from_name";
+		public static final MethodHandle FOLDER_CHILD_FROM_NAME   = handle(S_FOLDER_CHILD_FROM_NAME,
+			JAVA_INT, ADDRESS, ADDRESS);
+		private static final String      S_FILE_CHILD_FROM_NAME   =
+			"pfs_folder_file_child_from_name";
 		/**
 		 * declaration:<br>
 		 * <code>
 		 * extern int pfs_folder_file_child_from_name(pfs_eh f, char *name);
 		 * </code>
 		 */
-		public static final MethodHandle FILE_CHILD_FROM_NAME     = handle(S_FILE_CHILD_FROM_NAME, JAVA_INT, ADDRESS, ADDRESS);
-		private static final String      S_PIPE_CHILD_FROM_NAME   = "pfs_folder_pipe_child_from_name";
+		public static final MethodHandle FILE_CHILD_FROM_NAME     = handle(S_FILE_CHILD_FROM_NAME,
+			JAVA_INT, ADDRESS, ADDRESS);
+		private static final String      S_PIPE_CHILD_FROM_NAME   =
+			"pfs_folder_pipe_child_from_name";
 		/**
 		 * declaration:<br>
 		 * <code>
 		 * extern int pfs_folder_pipe_child_from_name(pfs_eh f, char *name);
 		 * </code>
 		 */
-		public static final MethodHandle PIPE_CHILD_FROM_NAME     = handle(S_PIPE_CHILD_FROM_NAME, JAVA_INT, ADDRESS, ADDRESS);
+		public static final MethodHandle PIPE_CHILD_FROM_NAME     = handle(S_PIPE_CHILD_FROM_NAME,
+			JAVA_INT, ADDRESS, ADDRESS);
 		private static final String      S_CREATE_FOLDER          = "pfs_folder_create_folder";
 		/**
 		 * declaration:<br>
@@ -596,7 +627,8 @@ public class NativePatrFileSysDefines {
 		 * extern int pfs_folder_create_folder(pfs_eh f, pfs_eh parent, const char *name);
 		 * </code>
 		 */
-		public static final MethodHandle CREATE_FOLDER            = handle(S_CREATE_FOLDER, JAVA_INT, ADDRESS, ADDRESS);
+		public static final MethodHandle CREATE_FOLDER            = handle(S_CREATE_FOLDER,
+			JAVA_INT, ADDRESS, ADDRESS);
 		private static final String      S_CREATE_FILE            = "pfs_folder_create_file";
 		/**
 		 * declaration:<br>
@@ -604,7 +636,8 @@ public class NativePatrFileSysDefines {
 		 * extern int pfs_folder_create_file(pfs_eh f, pfs_eh parent, const char *name);
 		 * </code>
 		 */
-		public static final MethodHandle CREATE_FILE              = handle(S_CREATE_FILE, JAVA_INT, ADDRESS, ADDRESS);
+		public static final MethodHandle CREATE_FILE              = handle(S_CREATE_FILE, JAVA_INT,
+			ADDRESS, ADDRESS);
 		private static final String      S_CREATE_PIPE            = "pfs_folder_create_pipe";
 		/**
 		 * declaration:<br>
@@ -612,7 +645,8 @@ public class NativePatrFileSysDefines {
 		 * extern int pfs_folder_create_pipe(pfs_eh f, pfs_eh parent, const char *name);
 		 * </code>
 		 */
-		public static final MethodHandle CREATE_PIPE              = handle(S_CREATE_PIPE, JAVA_INT, ADDRESS, ADDRESS);
+		public static final MethodHandle CREATE_PIPE              = handle(S_CREATE_PIPE, JAVA_INT,
+			ADDRESS, ADDRESS);
 		
 	}
 	
@@ -625,7 +659,8 @@ public class NativePatrFileSysDefines {
 		 * extern int pfs_file_read(pfs_eh f, i64 position, void *buffer, i64 length);
 		 * </code>
 		 */
-		public static final MethodHandle READ       = handle(S_READ, JAVA_INT, ADDRESS, JAVA_LONG, ADDRESS, JAVA_LONG);
+		public static final MethodHandle READ       = handle(S_READ, JAVA_INT, ADDRESS, JAVA_LONG,
+			ADDRESS, JAVA_LONG);
 		private static final String      S_WRITE    = "pfs_file_write";
 		/**
 		 * declaration:<br>
@@ -633,7 +668,8 @@ public class NativePatrFileSysDefines {
 		 * extern int pfs_file_write(pfs_eh f, i64 position, void *data, i64 length);
 		 * </code>
 		 */
-		public static final MethodHandle WRITE      = handle(S_WRITE, JAVA_INT, ADDRESS, JAVA_LONG, ADDRESS, JAVA_LONG);
+		public static final MethodHandle WRITE      = handle(S_WRITE, JAVA_INT, ADDRESS, JAVA_LONG,
+			ADDRESS, JAVA_LONG);
 		private static final String      S_APPEND   = "pfs_file_append";
 		/**
 		 * declaration:<br>
@@ -641,7 +677,8 @@ public class NativePatrFileSysDefines {
 		 * extern i64 pfs_file_append(pfs_eh f, void *data, i64 length);
 		 * </code>
 		 */
-		public static final MethodHandle APPEND     = handle(S_APPEND, JAVA_INT, ADDRESS, ADDRESS, JAVA_LONG);
+		public static final MethodHandle APPEND     = handle(S_APPEND, JAVA_INT, ADDRESS, ADDRESS,
+			JAVA_LONG);
 		private static final String      S_TRUNCATE = "pfs_file_truncate";
 		/**
 		 * declaration:<br>
@@ -649,7 +686,8 @@ public class NativePatrFileSysDefines {
 		 * extern int pfs_file_truncate(pfs_eh f, i64 new_length);
 		 * </code>
 		 */
-		public static final MethodHandle TRUNCATE   = handle(S_TRUNCATE, JAVA_INT, ADDRESS, JAVA_LONG);
+		public static final MethodHandle TRUNCATE   = handle(S_TRUNCATE, JAVA_INT, ADDRESS,
+			JAVA_LONG);
 		private static final String      S_LENGTH   = "pfs_file_length";
 		/**
 		 * declaration:<br>
@@ -670,7 +708,8 @@ public class NativePatrFileSysDefines {
 		 * extern int pfs_pipe_read(pfs_eh p, void *buffer, i64 length);
 		 * </code>
 		 */
-		public static final MethodHandle READ     = handle(S_READ, JAVA_INT, ADDRESS, ADDRESS, JAVA_LONG);
+		public static final MethodHandle READ     = handle(S_READ, JAVA_INT, ADDRESS, ADDRESS,
+			JAVA_LONG);
 		private static final String      S_APPEND = "pfs_file_append";
 		/**
 		 * declaration:<br>
@@ -678,7 +717,8 @@ public class NativePatrFileSysDefines {
 		 * extern int __REDIRECT(pfs_pipe_append, (pfs_eh p, void *data, i64 length), pfs_file_append);
 		 * </code>
 		 */
-		public static final MethodHandle APPEND   = handle(S_APPEND, JAVA_INT, ADDRESS, ADDRESS, JAVA_LONG);
+		public static final MethodHandle APPEND   = handle(S_APPEND, JAVA_INT, ADDRESS, ADDRESS,
+			JAVA_LONG);
 		private static final String      S_LENGTH = "pfs_pipe_length";
 		/**
 		 * declaration:<br>

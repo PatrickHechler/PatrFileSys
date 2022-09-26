@@ -9,13 +9,24 @@ import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Constants.
 import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Constants.FLAGS_FOLDER;
 import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Element.GET_FLAGS;
 import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.FileSys.ERRNO;
-import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Folder.*;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Folder.CHILD_COUNT;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Folder.CHILD_FROM_NAME;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Folder.CREATE_FOLDER;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Folder.FILE_CHILD_FROM_NAME;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Folder.FILL_ITERATOR;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Folder.FOLDER_CHILD_FROM_NAME;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Folder.ITER_NEXT;
+import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Folder.PIPE_CHILD_FROM_NAME;
 import static jdk.incubator.foreign.ValueLayout.JAVA_INT;
 
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
+import java.util.HashMap;
+import java.util.Map;
 
+import de.hechler.patrick.pfs.SoftRef;
 import de.hechler.patrick.pfs.element.PFSElement;
+import de.hechler.patrick.pfs.element.impl.NativePatrFileSysElement;
 import de.hechler.patrick.pfs.exceptions.PFSErr;
 import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.file.PFSFile;
@@ -24,7 +35,6 @@ import de.hechler.patrick.pfs.folder.FolderIter;
 import de.hechler.patrick.pfs.folder.PFSFolder;
 import de.hechler.patrick.pfs.fs.impl.NativePatrFileSys;
 import de.hechler.patrick.pfs.fs.impl.NativePatrFileSysDefines.Errno;
-import de.hechler.patrick.pfs.fs.impl.NativePatrFileSysElement;
 import de.hechler.patrick.pfs.pipe.PFSPipe;
 import de.hechler.patrick.pfs.pipe.impl.NativePatrFileSysPipe;
 import jdk.incubator.foreign.MemorySegment;
@@ -34,8 +44,12 @@ import jdk.incubator.foreign.SegmentAllocator;
 @SuppressWarnings("exports")
 public class NativePatrFileSysFolder extends NativePatrFileSysElement implements PFSFolder {
 	
-	public NativePatrFileSysFolder(NativePatrFileSys pfs, MemorySegment root, Reference <NativePatrFileSysFolder> parent) {
+	public final Map <Object, SoftRef <NativePatrFileSysElement>> childs;
+	
+	public NativePatrFileSysFolder(NativePatrFileSys pfs, MemorySegment root, Reference <
+		NativePatrFileSysFolder> parent) {
 		super(pfs, root, parent);
+		this.childs = new HashMap <>();
 	}
 	
 	@Override
@@ -45,7 +59,7 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 			MemorySegment fiSeg = pfs.alloc.allocate(FI_SIZE);
 			ehSeg.copyFrom(ehSeg);
 			if (0 == (int) FILL_ITERATOR.invoke(ehSeg, fiSeg, showHidden ? 1 : 0)) {
-				throw PFSErr.create(pfsErrno(), "fill folder iter");
+				throw PFSErr.createAndThrow(pfsErrno(), "fill folder iter");
 			}
 			return new NativeFolderIter(ehSeg, fiSeg);
 		} catch (Throwable e) {
@@ -74,7 +88,7 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 						ERRNO.set(JAVA_INT, 0L, Errno.NONE);
 						return null;
 					}
-					throw PFSErr.create(errno, "folder iter get next");
+					throw PFSErr.createAndThrow(errno, "folder iter get next");
 				}
 				MemorySegment ehSeg = pfs.alloc.allocate(EH_SIZE);
 				ehSeg.copyFrom(fieh);
@@ -97,7 +111,7 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 		try {
 			long val = (long) CHILD_COUNT.invoke(eh);
 			if (val == -1L) {
-				throw PFSErr.create(pfsErrno(), "get child count");
+				throw PFSErr.createAndThrow(pfsErrno(), "get child count");
 			}
 			return val;
 		} catch (Throwable e) {
@@ -114,7 +128,7 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 				MemorySegment ehSeg = pfs.alloc.allocate(EH_SIZE);
 				ehSeg.copyFrom(eh);
 				if (0 == (int) CHILD_FROM_NAME.invoke(ehSeg, u8str)) {
-					throw PFSErr.create(pfsErrno(), "get folder child");
+					throw PFSErr.createAndThrow(pfsErrno(), "get folder child");
 				}
 				return newElement(ehSeg);
 			}
@@ -132,9 +146,11 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 				MemorySegment ehSeg = pfs.alloc.allocate(EH_SIZE);
 				ehSeg.copyFrom(eh);
 				if (0 == (int) FOLDER_CHILD_FROM_NAME.invoke(ehSeg, u8str)) {
-					throw PFSErr.create(pfsErrno(), "get folder child");
+					throw PFSErr.createAndThrow(pfsErrno(), "get folder child");
 				}
-				return new NativePatrFileSysFolder(pfs, ehSeg, new SoftReference <NativePatrFileSysFolder>(this));
+				NativePatrFileSysFolder result = new NativePatrFileSysFolder(pfs, ehSeg,
+					new SoftReference <NativePatrFileSysFolder>(this));
+				return get(result);
 			}
 		} catch (Throwable e) {
 			throw t(e);
@@ -150,9 +166,11 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 				MemorySegment ehSeg = pfs.alloc.allocate(EH_SIZE);
 				ehSeg.copyFrom(eh);
 				if (0 == (int) FILE_CHILD_FROM_NAME.invoke(ehSeg, u8str)) {
-					throw PFSErr.create(pfsErrno(), "get folder child");
+					throw PFSErr.createAndThrow(pfsErrno(), "get folder child");
 				}
-				return new NativePatrFileSysFile(pfs, ehSeg, new SoftReference <NativePatrFileSysFolder>(this));
+				NativePatrFileSysFile result = new NativePatrFileSysFile(pfs, ehSeg,
+					new SoftReference <NativePatrFileSysFolder>(this));
+				return get(result);
 			}
 		} catch (Throwable e) {
 			throw t(e);
@@ -168,9 +186,11 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 				MemorySegment ehSeg = pfs.alloc.allocate(EH_SIZE);
 				ehSeg.copyFrom(eh);
 				if (0 == (int) PIPE_CHILD_FROM_NAME.invoke(ehSeg, u8str)) {
-					throw PFSErr.create(pfsErrno(), "get folder child");
+					throw PFSErr.createAndThrow(pfsErrno(), "get folder child");
 				}
-				return new NativePatrFileSysPipe(pfs, ehSeg, new SoftReference <NativePatrFileSysFolder>(this));
+				NativePatrFileSysPipe result = new NativePatrFileSysPipe(pfs, ehSeg,
+					new SoftReference <NativePatrFileSysFolder>(this));
+				return get(result);
 			}
 		} catch (Throwable e) {
 			throw t(e);
@@ -186,9 +206,13 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 				MemorySegment ehSeg = pfs.alloc.allocate(EH_SIZE);
 				ehSeg.copyFrom(eh);
 				if (0 == (int) CREATE_FOLDER.invoke(ehSeg, eh, u8str)) {
-					throw PFSErr.create(pfsErrno(), "get folder child");
+					throw PFSErr.createAndThrow(pfsErrno(), "get folder child");
 				}
-				return new NativePatrFileSysFolder(pfs, ehSeg, new SoftReference <NativePatrFileSysFolder>(this));
+				NativePatrFileSysFolder result = new NativePatrFileSysFolder(pfs, ehSeg,
+					new SoftReference <NativePatrFileSysFolder>(this));
+				SoftRef <NativePatrFileSysElement> ref = new SoftRef <>(result);
+				childs.put(ref, ref);
+				return result;
 			}
 		} catch (Throwable e) {
 			throw t(e);
@@ -204,9 +228,13 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 				MemorySegment ehSeg = pfs.alloc.allocate(EH_SIZE);
 				ehSeg.copyFrom(eh);
 				if (0 == (int) CREATE_FOLDER.invoke(ehSeg, eh, u8str)) {
-					throw PFSErr.create(pfsErrno(), "get folder child");
+					throw PFSErr.createAndThrow(pfsErrno(), "get folder child");
 				}
-				return new NativePatrFileSysFile(pfs, ehSeg, new SoftReference <NativePatrFileSysFolder>(this));
+				NativePatrFileSysFile result = new NativePatrFileSysFile(pfs, ehSeg,
+					new SoftReference <NativePatrFileSysFolder>(this));
+				SoftRef <NativePatrFileSysElement> ref = new SoftRef <>(result);
+				childs.put(ref, ref);
+				return result;
 			}
 		} catch (Throwable e) {
 			throw t(e);
@@ -222,9 +250,13 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 				MemorySegment ehSeg = pfs.alloc.allocate(EH_SIZE);
 				ehSeg.copyFrom(eh);
 				if (0 == (int) CREATE_FOLDER.invoke(ehSeg, eh, u8str)) {
-					throw PFSErr.create(pfsErrno(), "get folder child");
+					throw PFSErr.createAndThrow(pfsErrno(), "get folder child");
 				}
-				return new NativePatrFileSysPipe(pfs, ehSeg, new SoftReference <NativePatrFileSysFolder>(this));
+				NativePatrFileSysPipe result = new NativePatrFileSysPipe(pfs, ehSeg,
+					new SoftReference <NativePatrFileSysFolder>(this));
+				SoftRef <NativePatrFileSysElement> ref = new SoftRef <>(result);
+				childs.put(ref, ref);
+				return result;
 			}
 		} catch (Throwable e) {
 			throw t(e);
@@ -236,18 +268,54 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 		return this;
 	}
 	
+	@Override
+	public boolean isFolder() {
+		return true;
+	}
+	
+	@Override
+	public boolean isRoot() {
+		return this == pfs.root;
+	}
+	
 	private PFSElement newElement(MemorySegment ehSeg) throws Throwable, InternalError {
 		int flags = (int) GET_FLAGS.invoke(ehSeg);
+		if (flags == -1) {
+			throw PFSErr.createAndThrow(pfsErrno(), "get flags");
+		}
+		NativePatrFileSysElement result;
 		switch (flags & FLAGS_ESSENTIAL_FLAGS) {
 		case FLAGS_FOLDER:
-			return new NativePatrFileSysFolder(pfs, ehSeg, new SoftReference <NativePatrFileSysFolder>(NativePatrFileSysFolder.this));
+			result = new NativePatrFileSysFolder(pfs, ehSeg, new SoftReference <
+				NativePatrFileSysFolder>(NativePatrFileSysFolder.this));
+			break;
 		case FLAGS_FILE:
-			return new NativePatrFileSysFile(pfs, ehSeg, new SoftReference <NativePatrFileSysFolder>(NativePatrFileSysFolder.this));
+			result = new NativePatrFileSysFile(pfs, ehSeg, new SoftReference <
+				NativePatrFileSysFolder>(NativePatrFileSysFolder.this));
+			break;
 		case PFS_FLAGS_PIPE:
-			return new NativePatrFileSysPipe(pfs, ehSeg, new SoftReference <NativePatrFileSysFolder>(NativePatrFileSysFolder.this));
+			result = new NativePatrFileSysPipe(pfs, ehSeg, new SoftReference <
+				NativePatrFileSysFolder>(NativePatrFileSysFolder.this));
+			break;
 		default:
-			throw new InternalError("unknown internal flag compination! flags=0x" + Integer.toHexString(flags));
+			throw new InternalError("unknown internal flag compination! flags=0x" + Integer
+				.toHexString(flags));
 		}
+		return get(result);
+	}
+	
+	@SuppressWarnings("unchecked")
+	private <E extends NativePatrFileSysElement> E get(E result) {
+		SoftRef <NativePatrFileSysElement> ref = childs.get(result);
+		if (ref != null) {
+			NativePatrFileSysElement r = ref.get();
+			if (r != null) {
+				return (E) r;
+			}
+		}
+		ref = new SoftRef <NativePatrFileSysElement>(result);
+		childs.put(ref, ref);
+		return result;
 	}
 	
 }

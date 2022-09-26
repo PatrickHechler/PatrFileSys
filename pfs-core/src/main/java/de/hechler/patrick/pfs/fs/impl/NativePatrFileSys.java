@@ -65,13 +65,14 @@ public class NativePatrFileSys implements PFS {
 	// private static final int SEEK_CUR = 1;
 	// private static final int SEEK_END = 2;
 	
-	public final ResourceScope           scope;
-	public final SegmentAllocator        alloc;
-	public final MemoryAddress           bm;
-	public final NativePatrFileSysFolder root;
-	private boolean                      closed = false;
+	public final ResourceScope                                            scope;
+	public final SegmentAllocator                                         alloc;
+	public final MemoryAddress                                            bm;
+	public final NativePatrFileSysFolder                                  root;
+	private boolean                                                       closed = false;
 	
-	private NativePatrFileSys(ResourceScope scope, SegmentAllocator alloc, MemoryAddress pfs, MemorySegment root) {
+	private NativePatrFileSys(ResourceScope scope, SegmentAllocator alloc, MemoryAddress pfs,
+		MemorySegment root) {
 		this.scope = scope;
 		this.alloc = alloc;
 		this.bm = pfs;
@@ -98,10 +99,11 @@ public class NativePatrFileSys implements PFS {
 		}
 	}
 	
-	public static NativePatrFileSys create(String pfsFile, long blockCount, int blockSize) throws PatrFileSysException {
+	public static NativePatrFileSys create(String pfsFile, long blockCount, int blockSize)
+		throws PatrFileSysException {
 		try {
 			if (blockCount == -1L) {
-				throw PFSErr.create(ILLEGAL_ARG, "blockCount is -1");
+				throw PFSErr.createAndThrow(ILLEGAL_ARG, "blockCount is -1");
 			}
 			return newImpl(pfsFile, blockCount, blockSize);
 		} catch (Throwable t) {
@@ -117,10 +119,11 @@ public class NativePatrFileSys implements PFS {
 		}
 	}
 	
-	public static NativePatrFileSys create(BlockManager bm, long blockCount) throws PatrFileSysException {
+	public static NativePatrFileSys create(BlockManager bm, long blockCount)
+		throws PatrFileSysException {
 		try {
 			if (blockCount == -1L) {
-				throw PFSErr.create(ILLEGAL_ARG, "blockCount is -1");
+				throw PFSErr.createAndThrow(ILLEGAL_ARG, "blockCount is -1");
 			}
 			return newImpl(bm, -1L);
 		} catch (Throwable t) {
@@ -128,12 +131,13 @@ public class NativePatrFileSys implements PFS {
 		}
 	}
 	
-	private static NativePatrFileSys newImpl(String pfsFile, long blockCount, int blockSize) throws Throwable {
+	private static NativePatrFileSys newImpl(String pfsFile, long blockCount, int blockSize)
+		throws Throwable {
 		MemorySegment mem = SegmentAllocator.implicitAllocator().allocateUtf8String(pfsFile);
 		MethodHandle openHandle = handle("open", JAVA_INT, ADDRESS, JAVA_INT, JAVA_INT);
 		int fd = (int) openHandle.invoke(mem, blockCount == -1 ? O_RDWR : (O_RDWR | O_CREAT), 0666);
 		if (fd == -1) {
-			throw PFSErr.create(IO_ERR, "open");
+			throw PFSErr.createAndThrow(IO_ERR, "open");
 		}
 		if (blockCount == -1L) {
 			MethodHandle seekHandle = handle("lseek", JAVA_INT, JAVA_INT, JAVA_LONG, JAVA_INT);
@@ -142,34 +146,34 @@ public class NativePatrFileSys implements PFS {
 			read64(mem, readHandle, fd);
 			long value = mem.get(JAVA_LONG, 0L);
 			if (value != MAGIC_START) {
-				throw PFSErr.create(ILLEGAL_ARG, "magic does not match (expected 0x"
+				throw PFSErr.createAndThrow(ILLEGAL_ARG, "magic does not match (expected 0x"
 					+ Long.toHexString(MAGIC_START) + " got 0x" + Long.toHexString(value) + ")");
 			}
 			long pos = (long) seekHandle.invoke(fd, B0_OFFSET_BLOCK_SIZE, SEEK_SET);
 			if (pos != B0_OFFSET_BLOCK_SIZE) {
-				throw PFSErr.create(IO_ERR, "lseek");
+				throw PFSErr.createAndThrow(IO_ERR, "lseek");
 			}
 			read32(mem, readHandle, fd);
 			blockSize = mem.get(JAVA_INT, 0L);
 			if (blockSize <= 0) {
-				throw PFSErr.create(ILLEGAL_ARG, "block size <= 0 (blockSize=" + blockSize + ')');
+				throw PFSErr.createAndThrow(ILLEGAL_ARG, "block size <= 0 (blockSize=" + blockSize + ')');
 			}
 		}
 		MemoryAddress bmAddr = (MemoryAddress) NEW_FILE.invoke(fd, blockSize);
 		if (bmAddr.toRawLongValue() == MemoryAddress.NULL.toRawLongValue()) {
-			throw PFSErr.create(pfsErrno(), "new file block manager");
+			throw PFSErr.createAndThrow(pfsErrno(), "new file block manager");
 		}
 		FS.set(ADDRESS, 0L, bmAddr);
 		if (blockCount != -1L) {
 			if (0 == (int) FORMAT.invoke(blockCount)) {
-				throw PFSErr.create(pfsErrno(), "format");
+				throw PFSErr.createAndThrow(pfsErrno(), "format");
 			}
 		}
 		ResourceScope scope = ResourceScope.newConfinedScope();
 		SegmentAllocator alloc = SegmentAllocator.nativeAllocator(scope);
 		MemorySegment root = alloc.allocate(EH_SIZE);
 		if (0 == (int) FILL_ROOT.invoke(root)) {
-			throw PFSErr.create(pfsErrno(), "get root");
+			throw PFSErr.createAndThrow(pfsErrno(), "get root");
 		}
 		return new NativePatrFileSys(scope, alloc, bmAddr, root);
 	}
@@ -179,7 +183,8 @@ public class NativePatrFileSys implements PFS {
 		
 		private final BlockManager jbm;
 		
-		private NativePatrFileSysWithJBM(ResourceScope scope, SegmentAllocator alloc, MemoryAddress pfs, MemorySegment root, BlockManager jbm) {
+		private NativePatrFileSysWithJBM(ResourceScope scope, SegmentAllocator alloc,
+			MemoryAddress pfs, MemorySegment root, BlockManager jbm) {
 			super(scope, alloc, pfs, root);
 			this.jbm = jbm;
 		}
@@ -273,7 +278,7 @@ public class NativePatrFileSys implements PFS {
 		private int delete_all_flags(MemoryAddress addr) {
 			checkAddr(addr);
 			try {
-				jbm.deletaAllFlags();
+				jbm.deleteAllFlags();
 				return 1;
 			} catch (PatrFileSysException e) {
 				ERRNO.set(JAVA_INT, 0L, e.pfs_errno);
@@ -305,47 +310,67 @@ public class NativePatrFileSys implements PFS {
 		bm.set(ADDRESS, OFFSET_LOADED_EQUALIZER, MemoryAddress.NULL);
 		bm.set(ADDRESS, OFFSET_LOADED_HASHMAKER, MemoryAddress.NULL);
 		bm.set(ADDRESS, OFFSET_LOADED_ENTRIES, MemoryAddress.NULL);
-		MethodHandle handle = lookup.findSpecial(NativePatrFileSysWithJBM.class, "get", MethodType.methodType(Addressable.class, MemoryAddress.class, long.class), NativePatrFileSys.class);
-		NativeSymbol symbol = LINKER.upcallStub(handle, FunctionDescriptor.of(ADDRESS, ADDRESS, JAVA_LONG), scope);
+		MethodHandle handle = lookup.findSpecial(NativePatrFileSysWithJBM.class, "get",
+			MethodType.methodType(Addressable.class, MemoryAddress.class, long.class),
+			NativePatrFileSys.class);
+		NativeSymbol symbol =
+			LINKER.upcallStub(handle, FunctionDescriptor.of(ADDRESS, ADDRESS, JAVA_LONG), scope);
 		bm.set(ADDRESS, OFFSET_GET, symbol);
-		handle = lookup.findSpecial(NativePatrFileSysWithJBM.class, "unget", MethodType.methodType(int.class, MemoryAddress.class, long.class), NativePatrFileSys.class);
-		symbol = LINKER.upcallStub(handle, FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_LONG), scope);
+		handle = lookup.findSpecial(NativePatrFileSysWithJBM.class, "unget",
+			MethodType.methodType(int.class, MemoryAddress.class, long.class),
+			NativePatrFileSys.class);
+		symbol =
+			LINKER.upcallStub(handle, FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_LONG), scope);
 		bm.set(ADDRESS, OFFSET_UNGET, symbol);
-		handle = lookup.findSpecial(NativePatrFileSysWithJBM.class, "set", MethodType.methodType(int.class, MemoryAddress.class, long.class), NativePatrFileSys.class);
-		symbol = LINKER.upcallStub(handle, FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_LONG), scope);
+		handle = lookup.findSpecial(NativePatrFileSysWithJBM.class, "set",
+			MethodType.methodType(int.class, MemoryAddress.class, long.class),
+			NativePatrFileSys.class);
+		symbol =
+			LINKER.upcallStub(handle, FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_LONG), scope);
 		bm.set(ADDRESS, OFFSET_SET, symbol);
-		handle = lookup.findSpecial(NativePatrFileSysWithJBM.class, "sync_bm", MethodType.methodType(int.class, MemoryAddress.class), NativePatrFileSys.class);
+		handle = lookup.findSpecial(NativePatrFileSysWithJBM.class, "sync_bm",
+			MethodType.methodType(int.class, MemoryAddress.class), NativePatrFileSys.class);
 		symbol = LINKER.upcallStub(handle, FunctionDescriptor.of(JAVA_INT, ADDRESS), scope);
 		bm.set(ADDRESS, OFFSET_SYNC_BM, symbol);
-		handle = lookup.findSpecial(NativePatrFileSysWithJBM.class, "close_bm", MethodType.methodType(int.class, MemoryAddress.class), NativePatrFileSys.class);
+		handle = lookup.findSpecial(NativePatrFileSysWithJBM.class, "close_bm",
+			MethodType.methodType(int.class, MemoryAddress.class), NativePatrFileSys.class);
 		symbol = LINKER.upcallStub(handle, FunctionDescriptor.of(JAVA_INT, ADDRESS), scope);
 		bm.set(ADDRESS, OFFSET_CLOSE_BM, symbol);
 		int bs = jbm.blockSize();
 		if (bs <= 0) {
-			throw PFSErr.create(ILLEGAL_ARG, "block size <= 0 (" + bs + ")");
+			throw PFSErr.createAndThrow(ILLEGAL_ARG, "block size <= 0 (" + bs + ")");
 		}
 		bm.set(JAVA_INT, OFFSET_BLOCK_SIZE, bs);
 		int fpb = jbm.flagsPerBlock();
 		if (fpb < 0 || fpb >= 64) {
-			throw PFSErr.create(ILLEGAL_ARG, "flagsPerBlock returned an invalid value (<0 or >=64) (" + fpb + ")");
+			throw PFSErr.createAndThrow(ILLEGAL_ARG,
+				"flagsPerBlock returned an invalid value (<0 or >=64) (" + fpb + ")");
 		}
 		bm.set(JAVA_INT, OFFSET_BLOCK_FLAG_BITS, fpb);
-		handle = lookup.findSpecial(NativePatrFileSysWithJBM.class, "get_flags", MethodType.methodType(long.class, MemoryAddress.class, long.class), NativePatrFileSys.class);
-		symbol = LINKER.upcallStub(handle, FunctionDescriptor.of(JAVA_LONG, ADDRESS, JAVA_LONG), scope);
+		handle = lookup.findSpecial(NativePatrFileSysWithJBM.class, "get_flags",
+			MethodType.methodType(long.class, MemoryAddress.class, long.class),
+			NativePatrFileSys.class);
+		symbol =
+			LINKER.upcallStub(handle, FunctionDescriptor.of(JAVA_LONG, ADDRESS, JAVA_LONG), scope);
 		bm.set(ADDRESS, OFFSET_GET_FLAGS, symbol);
-		handle = lookup.findSpecial(NativePatrFileSysWithJBM.class, "set_flags", MethodType.methodType(int.class, MemoryAddress.class, long.class, long.class), NativePatrFileSys.class);
-		symbol = LINKER.upcallStub(handle, FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_LONG, JAVA_LONG), scope);
+		handle = lookup.findSpecial(NativePatrFileSysWithJBM.class, "set_flags",
+			MethodType.methodType(int.class, MemoryAddress.class, long.class, long.class),
+			NativePatrFileSys.class);
+		symbol = LINKER.upcallStub(handle,
+			FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_LONG, JAVA_LONG), scope);
 		bm.set(ADDRESS, OFFSET_SET_FLAGS, symbol);
-		handle = lookup.findSpecial(NativePatrFileSysWithJBM.class, "first_zero_flagged_block", MethodType.methodType(long.class, MemoryAddress.class), NativePatrFileSys.class);
+		handle = lookup.findSpecial(NativePatrFileSysWithJBM.class, "first_zero_flagged_block",
+			MethodType.methodType(long.class, MemoryAddress.class), NativePatrFileSys.class);
 		symbol = LINKER.upcallStub(handle, FunctionDescriptor.of(JAVA_LONG, ADDRESS), scope);
 		bm.set(ADDRESS, OFFSET_FIRST_ZERO_FLAGGED_BLOCK, symbol);
-		handle = lookup.findSpecial(NativePatrFileSysWithJBM.class, "delete_all_flags", MethodType.methodType(int.class, MemoryAddress.class), NativePatrFileSys.class);
+		handle = lookup.findSpecial(NativePatrFileSysWithJBM.class, "delete_all_flags",
+			MethodType.methodType(int.class, MemoryAddress.class), NativePatrFileSys.class);
 		symbol = LINKER.upcallStub(handle, FunctionDescriptor.of(JAVA_INT, ADDRESS), scope);
 		bm.set(ADDRESS, OFFSET_DELETE_ALL_FLAGS, symbol);
 		MemorySegment root = alloc.allocate(EH_SIZE);
 		FS.set(ADDRESS, 0, bm);
 		if (0 == (int) FILL_ROOT.invoke(root)) {
-			throw PFSErr.create(pfsErrno(), "fill root");
+			throw PFSErr.createAndThrow(pfsErrno(), "fill root");
 		}
 		return new NativePatrFileSysWithJBM(scope, alloc, bm.address(), root, jbm);
 	}
@@ -370,7 +395,7 @@ public class NativePatrFileSys implements PFS {
 		for (long reat = 0; reat < len;) {
 			long r = (long) readHandle.invoke(fd, addr.addOffset(reat), 8L - reat);
 			if (r <= 0) {
-				throw PFSErr.create(IO_ERR, "read");
+				throw PFSErr.createAndThrow(IO_ERR, "read");
 			}
 			reat += r;
 		}
@@ -381,10 +406,10 @@ public class NativePatrFileSys implements PFS {
 		try {
 			FS.set(ADDRESS, 0L, bm);
 			if (0 == (int) FORMAT.invoke(blockCount)) {
-				throw PFSErr.create(pfsErrno(), "format");
+				throw PFSErr.createAndThrow(pfsErrno(), "format");
 			}
 			if (0 == (int) FILL_ROOT.invoke(root.eh)) {
-				throw PFSErr.create(pfsErrno(), "get the root");
+				throw PFSErr.createAndThrow(pfsErrno(), "get the root");
 			}
 		} catch (Throwable t) {
 			throw t(t);
@@ -396,7 +421,7 @@ public class NativePatrFileSys implements PFS {
 		try {
 			FS.set(ADDRESS, 0L, bm);
 			if (0 == (int) FILL_ROOT.invoke(root.eh)) {
-				throw PFSErr.create(pfsErrno(), "get the root");
+				throw PFSErr.createAndThrow(pfsErrno(), "get the root");
 			}
 			return root;
 		} catch (Throwable t) {
@@ -410,7 +435,7 @@ public class NativePatrFileSys implements PFS {
 			FS.set(ADDRESS, 0L, bm);
 			long blockCount = (long) BLOCK_COUNT.invoke(root.eh);
 			if ( -1L == blockCount) {
-				throw PFSErr.create(pfsErrno(), "get the block count");
+				throw PFSErr.createAndThrow(pfsErrno(), "get the block count");
 			}
 			return blockCount;
 		} catch (Throwable t) {
@@ -422,12 +447,12 @@ public class NativePatrFileSys implements PFS {
 	public int blockSize() throws PatrFileSysException {
 		try {
 			if (closed) {
-				throw PFSErr.create(PFSErr.PFS_ERR_CLOSED, "closed");
+				throw PFSErr.createAndThrow(PFSErr.PFS_ERR_CLOSED, "closed");
 			}
 			FS.set(ADDRESS, 0L, bm);
 			int blockCount = (int) BLOCK_SIZE.invoke();
 			if ( -1L == blockCount) {
-				throw PFSErr.create(pfsErrno(), "get the block size");
+				throw PFSErr.createAndThrow(pfsErrno(), "get the block size");
 			}
 			return blockCount;
 		} catch (Throwable t) {
@@ -435,7 +460,8 @@ public class NativePatrFileSys implements PFS {
 		}
 	}
 	
-	private static final MethodHandle G_CLOSE = LINKER.downcallHandle(FunctionDescriptor.of(JAVA_INT, ADDRESS));
+	private static final MethodHandle G_CLOSE =
+		LINKER.downcallHandle(FunctionDescriptor.of(JAVA_INT, ADDRESS));
 	
 	@Override
 	public void close() throws PatrFileSysException {
@@ -447,7 +473,7 @@ public class NativePatrFileSys implements PFS {
 			MemoryAddress closeBmAddr = bm.get(ADDRESS, OFFSET_CLOSE_BM);
 			NativeSymbol close_bm = NativeSymbol.ofAddress("close_bm", closeBmAddr, scope);
 			if (0 == (int) G_CLOSE.invoke(close_bm, bm)) {
-				throw PFSErr.create(pfsErrno(), "close");
+				throw PFSErr.createAndThrow(pfsErrno(), "close");
 			}
 			scope.close();
 		} catch (Throwable t) {

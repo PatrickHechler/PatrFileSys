@@ -9,6 +9,7 @@ module de.hechler.patrick.pfs {
 	exports de.hechler.patrick.pfs;
 	exports de.hechler.patrick.pfs.exceptions;
 	exports de.hechler.patrick.pfs.bm;
+	exports de.hechler.patrick.pfs.bm.impl;
 	exports de.hechler.patrick.pfs.element;
 	exports de.hechler.patrick.pfs.file;
 	exports de.hechler.patrick.pfs.folder;
