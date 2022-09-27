@@ -4,13 +4,13 @@ package de.hechler.patrick.pfs.other;
 public class Place implements Cloneable {
 	
 	public long block;
-	public int pos;
+	public int  pos;
 	
 	public Place(long block, int pos) {
 		this.block = block;
 		this.pos = pos;
 	}
-
+	
 	@Override
 	public int hashCode() {
 		final int prime = 31;
@@ -19,7 +19,7 @@ public class Place implements Cloneable {
 		result = prime * result + (int) (pos ^ (pos >>> 32));
 		return result;
 	}
-
+	
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj) return true;
