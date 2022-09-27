@@ -10,8 +10,20 @@ public class PatrFileSysConstants {
 		public static final int  OFF_ROOT_POS                = 16;
 		public static final int  OFF_BLOCK_SIZE              = 20;
 		public static final int  OFF_BLOCK_COUNT             = 24;
-		public static final int  OFF_BLOCK_TABLE_DIRST_BLOCK = 32;
+		public static final int  OFF_BLOCK_TABLE_FIRST_BLOCK = 32;
 		public static final int  SIZE                        = 40;
+		
+	}
+	
+	public static class BlockFlags {
+		
+		public static final long USED_BIT      = 0;
+		public static final long ENTRIES_BIT   = 1;
+		public static final long FILE_DATA_BIT = 2;
+		
+		public static final long USED      = 1;
+		public static final long ENTRIES   = 2;
+		public static final long FILE_DATA = 4;
 		
 	}
 	
@@ -39,13 +51,17 @@ public class PatrFileSysConstants {
 				public static final int OFF_FLAGS       = 24;
 				public static final int SIZE            = 28;
 				
-				public static final int UNMODIFIABLE_FLAGS    = 0x000000FF;
-				public static final int FLAGS_FOLDER          = 0x00000001;
-				public static final int FLAGS_FILE            = 0x00000002;
-				public static final int FLAGS_PIPE            = 0x00000004;
-				public static final int FLAGS_FILE_EXECUTABLE = 0x00000100;
-				public static final int FLAGS_FILE_ENCRYPTED  = 0x00000200;
-				public static final int FLAGS_HIDDEN          = 0x01000000;
+				public static class Flags {
+					
+					public static final int UNMODIFIABLE    = 0x000000FF;
+					public static final int FOLDER          = 0x00000001;
+					public static final int FILE            = 0x00000002;
+					public static final int PIPE            = 0x00000004;
+					public static final int FILE_EXECUTABLE = 0x00000100;
+					public static final int FILE_ENCRYPTED  = 0x00000200;
+					public static final int HIDDEN          = 0x01000000;
+					
+				}
 				
 			}
 			

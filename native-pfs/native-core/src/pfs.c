@@ -69,6 +69,7 @@ extern int pfs_format(i64 block_count) {
 		return 0;
 	}
 	if ((pfs->block_size & 7) != 0) {
+		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	if (block_count < 2) {
@@ -94,8 +95,8 @@ extern int pfs_format(i64 block_count) {
 	super_data->MAGIC = PFS_MAGIC_START;
 	super_data->root.block = 0L;
 	super_data->root.pos = sizeof(struct pfs_b0);
-	super_data->block_count = block_count;
 	super_data->block_size = pfs->block_size;
+	super_data->block_count = block_count;
 	if (pfs->block_flag_bits > 0) {
 		super_data->block_table_first_block = -1L;
 		if (!pfs->delete_all_flags(pfs)) {
@@ -211,12 +212,12 @@ i32 get_size_from_block_table(void *block_data, const i32 pos) {
 	max.pntr = block_data + pfs->block_size - 4;
 	min.pntr = block_data + *max.pntr;
 	max.val -= 8;
-	if ((max.val & ~3UL) != max.val) {
+/*	if ((max.val & ~3UL) != max.val) {
 		abort();
 	}
 	if ((max.val & ~7UL) == max.val) {
 		abort();
-	}
+	} */
 	while (1) {
 		if (min.val > max.val) {
 			abort();

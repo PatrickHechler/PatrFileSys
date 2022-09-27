@@ -12,34 +12,40 @@ import de.hechler.patrick.pfs.pipe.PFSPipe;
 
 @SuppressWarnings("exports")
 public class JavaPatrFileSysPipe extends JavaPatrFileSysElement implements PFSPipe {
-
+	
 	public JavaPatrFileSysPipe(JavaPatrFileSys pfs, Reference <JavaPatrFileSysFolder> parentRef,
-		Place element, Place parent, Place entry) {
-		super(pfs, parentRef, element, parent, entry);
+		Place element, Place parent, Place entry, int directParentPos) {
+		super(pfs, parentRef, element, parent, entry, directParentPos);
 	}
-
+	
 	@Override
 	public ByteBuffer read(int length) throws PatrFileSysException {
 		// TODO Auto-generated method stub
 		return null;
 	}
-
+	
 	@Override
 	public void read(ByteBuffer data, int length) throws PatrFileSysException {
 		// TODO Auto-generated method stub
 		
 	}
-
+	
 	@Override
 	public void append(ByteBuffer data, int length) throws PatrFileSysException {
 		// TODO Auto-generated method stub
 		
 	}
-
+	
 	@Override
 	public long length() throws PatrFileSysException {
 		// TODO Auto-generated method stub
 		return 0;
+	}
+
+	@Override
+	public void delete() throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		
 	}
 	
 }

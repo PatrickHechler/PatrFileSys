@@ -14,8 +14,8 @@ import de.hechler.patrick.pfs.other.Place;
 public class JavaPatrFileSysFile extends JavaPatrFileSysElement implements PFSFile {
 
 	public JavaPatrFileSysFile(JavaPatrFileSys pfs, Reference <JavaPatrFileSysFolder> parentRef,
-		Place element, Place parent, Place entry) {
-		super(pfs, parentRef, element, parent, entry);
+		Place element, Place parent, Place entry, int directParentPos) {
+		super(pfs, parentRef, element, parent, entry, directParentPos);
 	}
 
 	@Override
@@ -52,6 +52,12 @@ public class JavaPatrFileSysFile extends JavaPatrFileSysElement implements PFSFi
 	public long length() throws PatrFileSysException {
 		// TODO Auto-generated method stub
 		return 0;
+	}
+
+	@Override
+	public void delete() throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		
 	}
 
 }

@@ -2,6 +2,7 @@ package de.hechler.patrick.pfs.bm;
 
 import java.nio.ByteBuffer;
 
+import de.hechler.patrick.pfs.exceptions.PFSErr;
 import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.fs.PFS;
 
@@ -130,18 +131,18 @@ public interface BlockManager {
 	/**
 	 * returns the number of the first block which has no flags
 	 * <p>
-	 * if no flags are supported ({@link #flagsPerBlock()} returns {@code 0}) {@code -1} will be
+	 * if no flags are supported ({@link #flagsPerBlock()} returns {@code 0}) the operation will
+	 * fail
 	 * <p>
 	 * if the {@link BlockManager} has a maximum block number (like {@link PFS#blockCount()}) and
-	 * the first block without any flags would be out of the boundaries {@code -1} will be returned
-	 * returned
+	 * the first block without any flags would be out of the boundaries the operation will fail
 	 * 
 	 * @return the number of the first block which has no flags
 	 * @throws PatrFileSysException
 	 *             if an error occurred
 	 */
 	default long firstZeroFlaggedBlock() throws PatrFileSysException {
-		return -1L;
+		throw PFSErr.createAndThrow(PFSErr.PFS_ERR_OUT_OF_SPACE, "operation not supported");
 	}
 	
 	/**

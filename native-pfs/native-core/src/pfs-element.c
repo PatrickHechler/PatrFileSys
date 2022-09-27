@@ -79,42 +79,45 @@ extern int pfs_element_modify_flags(pfs_eh e, ui32 add_flags, ui32 rem_flags) {
 	return 1;
 }
 
-static i32 get_table_entry_size(i64 block, i32 pos) {
-	void *block_data = pfs->get(pfs, block);
-	// no NULL check needed (block already loaded)
-	i32 *table_end = block_data + (pfs->block_size - 4);
-	for (i32 *table = block_data + *table_end; 1; table += 2) {
-		if (table >= table_end) {
-			abort();
-		}
-		if (pos > *table) {
-			continue;
-		} else if (pos < *table) {
-			abort();
-		}
-		i64 name_len = table[1] - pos;
-		pfs->unget(pfs, block);
-		return name_len;
-	}
-}
+//static i32 get_size_from_block_table(i64 block, i32 pos) {
+//	void *block_data = pfs->get(pfs, block);
+//	if (block_data == NULL) {
+//		// block should already be loaded
+//		abort();
+//	}
+//	i32 *table_end = block_data + (pfs->block_size - 4);
+//	for (i32 *table = block_data + *table_end; 1; table += 2) {
+//		if (table >= table_end) {
+//			abort();
+//		}
+//		if (pos > *table) {
+//			continue;
+//		} else if (pos < *table) {
+//			abort();
+//		}
+//		i64 name_len = table[1] - pos;
+//		pfs->unget(pfs, block);
+//		return name_len;
+//	}
+//}
 
 extern i64 pfs_element_get_name_length(pfs_eh e) {
 	if (e->real_parent_place.block == -1) {
 		return 0; // root name is empty
 	}
 	get_entry0(entry, parent, block_data, -1L)
-	i32 len = get_table_entry_size(e->direct_parent_place.block, entry->name_pos);
+	i32 len = get_size_from_block_table(block_data, entry->name_pos);
 	pfs->unget(pfs, e->direct_parent_place.block);
 	return len;
 }
 
 extern int pfs_element_get_name(pfs_eh e, char **buffer, i64 *buffer_len) {
-	if (buffer_len < 0) {
+	if (*buffer_len < 0) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	if (e->real_parent_place.block == -1) { // root
-		if (buffer_len == 0) {
+		if (*buffer_len == 0) {
 			void *nb;
 			nb = malloc(1);
 			if (nb == NULL) {
@@ -198,7 +201,7 @@ extern int pfs_element_set_name(pfs_eh e, char *name) {
 			pcn_len = name_len;
 		} else {
 			pcn = new_block + new_parent->entries[i].name_pos;
-			pcn_len = get_table_entry_size(e->direct_parent_place.block,
+			pcn_len = get_size_from_block_table(e->direct_parent_place.block,
 			        new_parent->entries[i].name_pos);
 		}
 		i32 pcnp = add_name(dpplace.block, pcn, pcn_len);

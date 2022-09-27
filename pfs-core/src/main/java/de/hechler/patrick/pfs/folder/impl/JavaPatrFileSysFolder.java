@@ -17,10 +17,10 @@ import de.hechler.patrick.pfs.pipe.PFSPipe;
 
 @SuppressWarnings("exports")
 public class JavaPatrFileSysFolder extends JavaPatrFileSysElement implements PFSFolder {
-	
+
 	public JavaPatrFileSysFolder(JavaPatrFileSys pfs, Reference <JavaPatrFileSysFolder> parentRef,
-		Place element, Place parent, Place entry) {
-		super(pfs, parentRef, element, parent, entry);
+		Place element, Place parent, Place entry, int directParentPos) {
+		super(pfs, parentRef, element, parent, entry, directParentPos);
 	}
 
 	@Override
@@ -76,5 +76,10 @@ public class JavaPatrFileSysFolder extends JavaPatrFileSysElement implements PFS
 		// TODO Auto-generated method stub
 		return null;
 	}
-	
+
+	@Override
+	public void delete() throws PatrFileSysException {
+		// TODO Auto-generated method stub
+		
+	}
 }

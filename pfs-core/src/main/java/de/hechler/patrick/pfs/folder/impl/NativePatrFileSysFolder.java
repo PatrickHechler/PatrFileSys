@@ -5,8 +5,6 @@ import static de.hechler.patrick.pfs.fs.impl.NativePatrFileSys.t;
 import static de.hechler.patrick.pfs.other.NativePatrFileSysDefines.Constants.EH_SIZE;
 import static de.hechler.patrick.pfs.other.NativePatrFileSysDefines.Constants.FI_SIZE;
 import static de.hechler.patrick.pfs.other.NativePatrFileSysDefines.Constants.FLAGS_ESSENTIAL_FLAGS;
-import static de.hechler.patrick.pfs.other.NativePatrFileSysDefines.Constants.FLAGS_FILE;
-import static de.hechler.patrick.pfs.other.NativePatrFileSysDefines.Constants.FLAGS_FOLDER;
 import static de.hechler.patrick.pfs.other.NativePatrFileSysDefines.Element.GET_FLAGS;
 import static de.hechler.patrick.pfs.other.NativePatrFileSysDefines.FileSys.ERRNO;
 import static de.hechler.patrick.pfs.other.NativePatrFileSysDefines.Folder.CHILD_COUNT;
@@ -35,6 +33,7 @@ import de.hechler.patrick.pfs.folder.FolderIter;
 import de.hechler.patrick.pfs.folder.PFSFolder;
 import de.hechler.patrick.pfs.fs.impl.NativePatrFileSys;
 import de.hechler.patrick.pfs.other.NativePatrFileSysDefines.Errno;
+import de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.Flags;
 import de.hechler.patrick.pfs.pipe.PFSPipe;
 import de.hechler.patrick.pfs.pipe.impl.NativePatrFileSysPipe;
 import jdk.incubator.foreign.MemorySegment;
@@ -285,15 +284,15 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 		}
 		NativePatrFileSysElement result;
 		switch (flags & FLAGS_ESSENTIAL_FLAGS) {
-		case FLAGS_FOLDER:
+		case Flags.FOLDER:
 			result = new NativePatrFileSysFolder(pfs, ehSeg, new SoftReference <
 				NativePatrFileSysFolder>(NativePatrFileSysFolder.this));
 			break;
-		case FLAGS_FILE:
+		case Flags.FILE:
 			result = new NativePatrFileSysFile(pfs, ehSeg, new SoftReference <
 				NativePatrFileSysFolder>(NativePatrFileSysFolder.this));
 			break;
-		case PFS_FLAGS_PIPE:
+		case Flags.PIPE:
 			result = new NativePatrFileSysPipe(pfs, ehSeg, new SoftReference <
 				NativePatrFileSysFolder>(NativePatrFileSysFolder.this));
 			break;

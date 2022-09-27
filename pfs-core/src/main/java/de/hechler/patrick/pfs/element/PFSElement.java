@@ -1,12 +1,12 @@
 package de.hechler.patrick.pfs.element;
 
-import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.FLAGS_FILE;
-import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.FLAGS_FILE_ENCRYPTED;
-import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.FLAGS_FILE_EXECUTABLE;
-import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.FLAGS_FOLDER;
-import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.FLAGS_HIDDEN;
-import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.FLAGS_PIPE;
-import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.UNMODIFIABLE_FLAGS;
+import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.Flags.FILE;
+import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.Flags.FILE_ENCRYPTED;
+import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.Flags.FILE_EXECUTABLE;
+import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.Flags.FOLDER;
+import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.Flags.HIDDEN;
+import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.Flags.PIPE;
+import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.Flags.UNMODIFIABLE;
 
 import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.file.PFSFile;
@@ -157,12 +157,12 @@ public interface PFSElement {
 	
 	boolean isRoot();
 	
-	static int PFS_UNMODIFIABLE_FLAGS    = UNMODIFIABLE_FLAGS;
-	static int PFS_FLAGS_FOLDER          = FLAGS_FOLDER;
-	static int PFS_FLAGS_FILE            = FLAGS_FILE;
-	static int PFS_FLAGS_PIPE            = FLAGS_PIPE;
-	static int PFS_FLAGS_FILE_EXECUTABLE = FLAGS_FILE_EXECUTABLE;
-	static int PFS_FLAGS_FILE_ENCRYPTED  = FLAGS_FILE_ENCRYPTED;
-	static int PFS_FLAGS_HIDDEN          = FLAGS_HIDDEN;
+	static int PFS_UNMODIFIABLE_FLAGS    = UNMODIFIABLE;
+	static int PFS_FLAGS_FOLDER          = FOLDER;
+	static int PFS_FLAGS_FILE            = FILE;
+	static int PFS_FLAGS_PIPE            = PIPE;
+	static int PFS_FLAGS_FILE_EXECUTABLE = FILE_EXECUTABLE;
+	static int PFS_FLAGS_FILE_ENCRYPTED  = FILE_ENCRYPTED;
+	static int PFS_FLAGS_HIDDEN          = HIDDEN;
 	
 }
