@@ -18,7 +18,7 @@ import de.hechler.patrick.pfs.pipe.PFSPipe;
 @SuppressWarnings("exports")
 public class JavaPatrFileSysFolder extends JavaPatrFileSysElement implements PFSFolder {
 
-	public JavaPatrFileSysFolder(JavaPatrFileSys pfs, Reference <JavaPatrFileSysFolder> parentRef,
+	public JavaPatrFileSysFolder(JavaPatrFileSys pfs, JavaPatrFileSysFolder parentRef,
 		Place element, Place parent, Place entry, int directParentPos) {
 		super(pfs, parentRef, element, parent, entry, directParentPos);
 	}

@@ -18,6 +18,8 @@ import de.hechler.patrick.pfs.file.impl.JavaPatrFileSysFile;
 import de.hechler.patrick.pfs.folder.PFSFolder;
 import de.hechler.patrick.pfs.folder.impl.JavaPatrFileSysFolder;
 import de.hechler.patrick.pfs.fs.impl.JavaPatrFileSys;
+import de.hechler.patrick.pfs.other.PatrFileSysConstants.B0;
+import de.hechler.patrick.pfs.other.PatrFileSysConstants.BlockFlags;
 import de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder;
 import de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry;
 import de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.Flags;
@@ -31,15 +33,27 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 		JavaPatrFileSysFolder>(null, null);
 	
 	public final JavaPatrFileSys                            pfs;
-	public Reference <JavaPatrFileSysFolder>                parentRef;
+	/**
+	 * need strong reference to parent, otherwise an illegal state may occur:
+	 * <ol>
+	 * <li>folder A : any folder</li>
+	 * <li>folder B : child of A</li>
+	 * <li>element C : child of B</li>
+	 * <li>B gets Garbage-Collected</li>
+	 * <li>folder D : parent of C</li>
+	 * <li>folder E : corresponding child of A (same folder as D)</li>
+	 * <li>if D/E changes it's position only one will be updated and the other will be corrupted</li>
+	 * </ol>
+	 */
+	public JavaPatrFileSysFolder                            parentRef;
 	public Map <Object, Reference <JavaPatrFileSysElement>> childs = new HashMap <>();
 	
-	public Place element;
-	public Place parent;
-	public Place entry;
-	public int   directParentPos;
+	public final Place element;
+	public final Place parent;
+	public final Place entry;
+	public int         directParentPos;
 	
-	public JavaPatrFileSysElement(JavaPatrFileSys pfs, Reference <JavaPatrFileSysFolder> parentRef,
+	public JavaPatrFileSysElement(JavaPatrFileSys pfs, JavaPatrFileSysFolder parentRef,
 		Place element, Place parent, Place entry, int directParentPos) {
 		this.pfs = pfs;
 		this.parentRef = parentRef;
@@ -225,18 +239,46 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 		if (parent == null) {
 			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ROOT_FOLDER, "root folder has no parent");
 		}
-		// TODO Auto-generated method stub
-		return null;
+		return parentRef;
 	}
 	
 	@Override
 	public void parent(PFSFolder newParent) throws PatrFileSysException {
+		if (parent == null) {
+			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ROOT_FOLDER, "root folder has no parent");
+		}
+		if (! (newParent instanceof JavaPatrFileSysFolder)) {
+			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ILLEGAL_ARG, "parent is not from this file system");
+		}
+		JavaPatrFileSysFolder np = (JavaPatrFileSysFolder) newParent;
+		if (!pfs.equals(np.pfs)) {
+			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ILLEGAL_ARG, "parent is not from this file system");
+		}
+		for (JavaPatrFileSysFolder check = np; check != null; check = check.parentRef) {
+			if (check == this) {
+				throw PFSErr.createAndThrow(PFSErr.PFS_ERR_PARENT_IS_CHILD, "newParent is a ((in)direct) child from me");
+			}
+		}
 		// TODO Auto-generated method stub
-		
 	}
 	
 	@Override
 	public void move(PFSFolder newParent, String newName) throws PatrFileSysException {
+		if (parent == null) {
+			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ROOT_FOLDER, "root folder has no parent");
+		}
+		if (! (newParent instanceof JavaPatrFileSysFolder)) {
+			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ILLEGAL_ARG, "parent is not from this file system");
+		}
+		JavaPatrFileSysFolder np = (JavaPatrFileSysFolder) newParent;
+		if (!pfs.equals(np.pfs)) {
+			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ILLEGAL_ARG, "parent is not from this file system");
+		}
+		for (JavaPatrFileSysFolder check = np; check != null; check = check.parentRef) {
+			if (check == this) {
+				throw PFSErr.createAndThrow(PFSErr.PFS_ERR_PARENT_IS_CHILD, "newParent is a ((in)direct) child from me");
+			}
+		}
 		// TODO Auto-generated method stub
 		
 	}
@@ -274,6 +316,76 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 	@Override
 	public boolean isRoot() {
 		return this == pfs.root;
+	}
+	
+	public void moveFolderToNewBlock(Place place) throws PatrFileSysException {
+		long oldBlock = place.block;
+		ByteBuffer oldData = pfs.bm.get(oldBlock);
+		try {
+			long eblock = oldData.getLong(place.pos + Folder.OFF_ENTRY_BLOCK);
+			Place myEntryPlace;
+			boolean isRealParent;
+			if (eblock == -1L) {
+				myEntryPlace = new Place(0L, B0.OFF_ROOT_BLOCK);
+				isRealParent = true;
+			} else {
+				myEntryPlace = new Place(eblock, oldData.getInt(place.pos + Folder.OFF_ENTRY_POS)
+					+ Entry.OFF_CHILD_BLOCK);
+				isRealParent = myEntryPlace.block == oldData.getLong(place.pos
+					+ Folder.OFF_PARENT_BLOCK);
+			}
+			long newBlock = pfs.allocateBlock(BlockFlags.USED | BlockFlags.ENTRIES);
+			try {
+				ByteBuffer newData = pfs.bm.get(newBlock);
+				try {
+					int mySize = Folder.EMPTY_SIZE + oldData.getInt(place.pos
+						+ Folder.OFF_DIRECT_CHILD_COUNT) * Entry.SIZE;
+					initBlock(newBlock, mySize);
+					newData.put(0, oldData, place.pos, mySize);
+					for (int off = Folder.EMPTY_SIZE; off < mySize; off += Entry.SIZE) {
+						int flags = newData.getInt(off + Entry.OFF_FLAGS);
+						if ( (flags & Flags.FOLDER) != 0) {
+							long cfblock = newData.getLong(off + Entry.OFF_CHILD_BLOCK);
+							ByteBuffer cfdata = pfs.bm.get(cfblock);
+							try {
+								int cfpos = newData.getInt(off + Entry.OFF_CHILD_POS);
+								cfdata.putLong(cfpos + Folder.OFF_ENTRY_BLOCK, newBlock);
+								cfdata.putInt(cfpos + Folder.OFF_ENTRY_POS, off);
+								if (isRealParent) {
+									cfdata.putLong(cfpos + Folder.OFF_PARENT_BLOCK, newBlock);
+									cfdata.putLong(cfpos + Folder.OFF_PARENT_POS, 0);
+								}
+							} finally {
+								pfs.bm.set(cfblock);
+							}
+						}
+					}
+				} finally {
+					pfs.bm.set(newBlock);
+				}
+			} catch (Throwable t) {
+				pfs.freeBlock(newBlock);
+				throw t;
+			}
+			place.block = newBlock;
+			place.pos = 0;
+		} finally {
+			pfs.bm.set(oldBlock);
+		}
+	}
+	
+	private void initBlock(long block, int mySize) throws PatrFileSysException {
+		ByteBuffer data = pfs.bm.get(block);
+		try {
+			if (data.capacity() - mySize < 12) {
+				throw PFSErr.createAndThrow(PFSErr.PFS_ERR_OUT_OF_SPACE, null);
+			}
+			data.putInt(data.capacity() - 12, 0);
+			data.putInt(data.capacity() - 8, mySize);
+			data.putInt(data.capacity() - 4, data.capacity() - 12);
+		} finally {
+			pfs.bm.set(block);
+		}
 	}
 	
 	public int allocateInBlockTable(long block, int length, int tablePos, boolean copy)

@@ -13,7 +13,7 @@ import de.hechler.patrick.pfs.other.Place;
 @SuppressWarnings("exports")
 public class JavaPatrFileSysFile extends JavaPatrFileSysElement implements PFSFile {
 
-	public JavaPatrFileSysFile(JavaPatrFileSys pfs, Reference <JavaPatrFileSysFolder> parentRef,
+	public JavaPatrFileSysFile(JavaPatrFileSys pfs, JavaPatrFileSysFolder parentRef,
 		Place element, Place parent, Place entry, int directParentPos) {
 		super(pfs, parentRef, element, parent, entry, directParentPos);
 	}
