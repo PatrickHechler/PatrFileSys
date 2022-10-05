@@ -1,6 +1,7 @@
 package de.hechler.patrick.pfs.fs.impl;
 
-import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
+import java.io.IOException;
+
 import de.hechler.patrick.pfs.fs.PFS;
 import de.hechler.patrick.zeugs.check.anotations.Check;
 import de.hechler.patrick.zeugs.check.anotations.CheckClass;
@@ -9,7 +10,7 @@ import de.hechler.patrick.zeugs.check.anotations.CheckClass;
 class NativePatrFileSysChecker {
 	
 	@Check
-	private void simplecheck() throws PatrFileSysException {
+	private void simplecheck() throws IOException {
 		System.out.println("version: " + Runtime.version());
 		PFS pfs = NativePatrFileSys.create("testout/name.pfs", 1024, 4096);
 		System.out.println("created the pfs");

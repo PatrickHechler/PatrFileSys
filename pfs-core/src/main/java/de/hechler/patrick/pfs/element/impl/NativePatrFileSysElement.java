@@ -19,12 +19,12 @@ import static jdk.incubator.foreign.ValueLayout.ADDRESS;
 import static jdk.incubator.foreign.ValueLayout.JAVA_INT;
 import static jdk.incubator.foreign.ValueLayout.JAVA_LONG;
 
+import java.io.IOException;
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
 
 import de.hechler.patrick.pfs.element.PFSElement;
 import de.hechler.patrick.pfs.exceptions.PFSErr;
-import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.file.PFSFile;
 import de.hechler.patrick.pfs.folder.PFSFolder;
 import de.hechler.patrick.pfs.folder.impl.NativePatrFileSysFolder;
@@ -55,7 +55,7 @@ public abstract class NativePatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public int flags() throws PatrFileSysException {
+	public int flags() throws IOException {
 		try {
 			FS.set(ADDRESS, 0L, pfs.bm);
 			int flags = (int) GET_FLAGS.invoke(eh);
@@ -69,7 +69,7 @@ public abstract class NativePatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public void modifyFlags(int addFlags, int remFlags) throws PatrFileSysException {
+	public void modifyFlags(int addFlags, int remFlags) throws IOException {
 		try {
 			FS.set(ADDRESS, 0L, pfs.bm);
 			if (0 == (int) MODIFY_FLAGS.invoke(eh, addFlags, remFlags)) {
@@ -81,7 +81,7 @@ public abstract class NativePatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public String name() throws PatrFileSysException {
+	public String name() throws IOException {
 		try {
 			FS.set(ADDRESS, 0L, pfs.bm);
 			long len = (long) GET_NAME_LENGTH.invoke(eh);
@@ -107,7 +107,7 @@ public abstract class NativePatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public void name(String newName) throws PatrFileSysException {
+	public void name(String newName) throws IOException {
 		try {
 			if (newName == null) {
 				throw PFSErr.createAndThrow(Errno.ILLEGAL_ARG, "newName is null");
@@ -126,7 +126,7 @@ public abstract class NativePatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public long createTime() throws PatrFileSysException {
+	public long createTime() throws IOException {
 		try {
 			FS.set(ADDRESS, 0L, pfs.bm);
 			long time = (long) GET_CREATE_TIME.invoke(eh);
@@ -143,7 +143,7 @@ public abstract class NativePatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public void createTime(long ct) throws PatrFileSysException {
+	public void createTime(long ct) throws IOException {
 		try {
 			FS.set(ADDRESS, 0L, pfs.bm);
 			if (0 == (int) SET_CREATE_TIME.invoke(eh, ct)) {
@@ -155,7 +155,7 @@ public abstract class NativePatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public long lastModTime() throws PatrFileSysException {
+	public long lastModTime() throws IOException {
 		try {
 			FS.set(ADDRESS, 0L, pfs.bm);
 			long time = (long) GET_LAST_MOD_TIME.invoke(eh);
@@ -172,7 +172,7 @@ public abstract class NativePatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public void lastModTime(long lmt) throws PatrFileSysException {
+	public void lastModTime(long lmt) throws IOException {
 		try {
 			FS.set(ADDRESS, 0L, pfs.bm);
 			if (0 == (int) SET_CREATE_TIME.invoke(eh, lmt)) {
@@ -184,7 +184,7 @@ public abstract class NativePatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public void delete() throws PatrFileSysException {
+	public void delete() throws IOException {
 		try {
 			FS.set(ADDRESS, 0L, pfs.bm);
 			if (0 == (int) DELETE.invoke(eh)) {
@@ -196,7 +196,7 @@ public abstract class NativePatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public PFSFolder parent() throws PatrFileSysException {
+	public PFSFolder parent() throws IOException {
 		try {
 			NativePatrFileSysFolder p = parent.get();
 			if (p == null) {
@@ -216,18 +216,18 @@ public abstract class NativePatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public void parent(PFSFolder newParent) throws PatrFileSysException {
+	public void parent(PFSFolder newParent) throws IOException {
 		try {
 			if (newParent == null) {
-				throw new PatrFileSysException(Errno.ILLEGAL_ARG, "new parent is null");
+				throw PFSErr.createAndThrow(Errno.ILLEGAL_ARG, "new parent is null");
 			}
 			if ( ! (newParent instanceof NativePatrFileSysFolder)) {
-				throw new PatrFileSysException(Errno.ILLEGAL_ARG,
+				throw PFSErr.createAndThrow(Errno.ILLEGAL_ARG,
 					"new parent belongs to a diffrent file system");
 			}
 			NativePatrFileSysFolder np = (NativePatrFileSysFolder) newParent;
 			if (np.pfs != pfs) {
-				throw new PatrFileSysException(Errno.ILLEGAL_ARG,
+				throw PFSErr.createAndThrow(Errno.ILLEGAL_ARG,
 					"new parent belongs to a diffrent file system");
 			}
 			FS.set(ADDRESS, 0L, pfs.bm);
@@ -240,7 +240,7 @@ public abstract class NativePatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public void move(PFSFolder newParent, String newName) throws PatrFileSysException {
+	public void move(PFSFolder newParent, String newName) throws IOException {
 		try {
 			if (newParent == null) {
 				throw PFSErr.createAndThrow(Errno.ILLEGAL_ARG, "new parent is null");

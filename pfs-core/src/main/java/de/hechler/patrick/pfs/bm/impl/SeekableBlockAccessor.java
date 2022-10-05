@@ -11,7 +11,6 @@ import java.nio.file.StandardOpenOption;
 
 import de.hechler.patrick.pfs.bm.BlockAccessor;
 import de.hechler.patrick.pfs.exceptions.PFSErr;
-import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.fs.PFS;
 import de.hechler.patrick.pfs.other.NativePatrFileSysDefines;
 
@@ -45,11 +44,11 @@ public class SeekableBlockAccessor implements BlockAccessor {
 	 * @param channel
 	 *            the channel which should be used by the {@link BlockAccessor}
 	 * @return the new created {@link BlockAccessor}
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an error occurs
 	 */
 	public static SeekableBlockAccessor createFromPFS(SeekableByteChannel channel)
-		throws PatrFileSysException {
+		throws IOException {
 		try {
 			ByteBuffer buf = ByteBuffer.allocate(8);
 			read(channel, buf);
@@ -74,10 +73,10 @@ public class SeekableBlockAccessor implements BlockAccessor {
 	 * @param path
 	 *            the file where the Patr-File-System is saved
 	 * @return the new created {@link BlockAccessor}
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an error occurs
 	 */
-	public static SeekableBlockAccessor createFromPFS(Path path) throws PatrFileSysException {
+	public static SeekableBlockAccessor createFromPFS(Path path) throws IOException {
 		try {
 			SeekableByteChannel channel = Files.newByteChannel(path, StandardOpenOption.READ,
 				StandardOpenOption.WRITE);
@@ -99,11 +98,11 @@ public class SeekableBlockAccessor implements BlockAccessor {
 	 * @param blockSize
 	 *            the block size of the {@link BlockAccessor}
 	 * @return the new created {@link BlockAccessor}
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an error occurs
 	 */
 	public static SeekableBlockAccessor create(Path path, int blockSize)
-		throws PatrFileSysException {
+		throws IOException {
 		try {
 			SeekableByteChannel channel = Files.newByteChannel(path, StandardOpenOption.READ,
 				StandardOpenOption.WRITE);
@@ -114,7 +113,7 @@ public class SeekableBlockAccessor implements BlockAccessor {
 	}
 	
 	private static void read(SeekableByteChannel channel, ByteBuffer buf) throws IOException,
-		PatrFileSysException {
+		IOException {
 		while (true) {
 			int read = channel.read(buf);
 			if (read == -1) {
@@ -129,7 +128,7 @@ public class SeekableBlockAccessor implements BlockAccessor {
 	}
 	
 	@Override
-	public ByteBuffer loadBlock(long block) throws PatrFileSysException {
+	public ByteBuffer loadBlock(long block) throws IOException {
 		ByteBuffer data = direct ? ByteBuffer.allocateDirect(blockSize)
 			: ByteBuffer.allocate(blockSize);
 		try {
@@ -147,7 +146,7 @@ public class SeekableBlockAccessor implements BlockAccessor {
 	}
 	
 	@Override
-	public void saveBlock(ByteBuffer data, long block) throws PatrFileSysException {
+	public void saveBlock(ByteBuffer data, long block) throws IOException {
 		data.position(0);
 		data.limit(blockSize);
 		assert data.capacity() == blockSize;
@@ -164,10 +163,10 @@ public class SeekableBlockAccessor implements BlockAccessor {
 	}
 	
 	@Override
-	public void discardBlock(long block) throws PatrFileSysException {}
+	public void discardBlock(long block) throws IOException {}
 	
 	@Override
-	public void close() throws PatrFileSysException {
+	public void close() throws IOException {
 		try {
 			channel.close();
 		} catch (IOException e) {
@@ -176,7 +175,7 @@ public class SeekableBlockAccessor implements BlockAccessor {
 	}
 	
 	@Override
-	public void sync() throws PatrFileSysException {
+	public void sync() throws IOException {
 		if (channel instanceof FileChannel) {
 			try {
 				((FileChannel) channel).force(false);

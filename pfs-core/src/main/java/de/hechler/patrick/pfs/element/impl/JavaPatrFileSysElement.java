@@ -2,17 +2,16 @@ package de.hechler.patrick.pfs.element.impl;
 
 import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.OFF_LAST_MODIFY_TIME;
 
+import java.io.IOException;
 import java.lang.ref.PhantomReference;
 import java.lang.ref.Reference;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
 import de.hechler.patrick.pfs.element.PFSElement;
 import de.hechler.patrick.pfs.exceptions.PFSErr;
-import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.file.PFSFile;
 import de.hechler.patrick.pfs.file.impl.JavaPatrFileSysFile;
 import de.hechler.patrick.pfs.folder.PFSFolder;
@@ -32,7 +31,7 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 	public static final Reference <JavaPatrFileSysFolder> EMPTY_REF = new PhantomReference <
 		JavaPatrFileSysFolder>(null, null);
 	
-	public final JavaPatrFileSys                            pfs;
+	public final JavaPatrFileSys pfs;
 	/**
 	 * need strong reference to parent, otherwise an illegal state may occur:
 	 * <ol>
@@ -42,29 +41,27 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 	 * <li>B gets Garbage-Collected</li>
 	 * <li>folder D : parent of C</li>
 	 * <li>folder E : corresponding child of A (same folder as D)</li>
-	 * <li>if D/E changes it's position only one will be updated and the other will be corrupted</li>
+	 * <li>if D/E changes it's position only one will be updated and the other will be
+	 * corrupted</li>
 	 * </ol>
 	 */
-	public JavaPatrFileSysFolder                            parentRef;
-	public Map <Object, Reference <JavaPatrFileSysElement>> childs = new HashMap <>();
+	public JavaPatrFileSysFolder parentRef;
 	
 	public final Place element;
-	public final Place parent;
 	public final Place entry;
 	public int         directParentPos;
 	
 	public JavaPatrFileSysElement(JavaPatrFileSys pfs, JavaPatrFileSysFolder parentRef,
-		Place element, Place parent, Place entry, int directParentPos) {
+		Place element, Place entry, int directParentPos) {
 		this.pfs = pfs;
 		this.parentRef = parentRef;
 		this.element = element;
-		this.parent = parent;
 		this.entry = entry;
 		this.directParentPos = directParentPos;
 	}
 	
 	@Override
-	public int flags() throws PatrFileSysException {
+	public int flags() throws IOException {
 		if (entry == null) {
 			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ROOT_FOLDER, "root folder has no flags");
 		}
@@ -77,7 +74,7 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public void modifyFlags(int addFlags, int remFlags) throws PatrFileSysException {
+	public void modifyFlags(int addFlags, int remFlags) throws IOException {
 		if (entry == null) {
 			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ROOT_FOLDER, "root folder has no flags");
 		}
@@ -102,8 +99,8 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public String name() throws PatrFileSysException {
-		if (parent == null) {
+	public String name() throws IOException {
+		if (parentRef == null) {
 			return "";
 		}
 		ByteBuffer data = pfs.bm.get(entry.block);
@@ -119,7 +116,7 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public void name(String newName) throws PatrFileSysException {
+	public void name(String newName) throws IOException {
 		if (entry == null) {
 			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ROOT_FOLDER, "the root folder has no name!");
 		}
@@ -131,8 +128,11 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 				int newNamePos = resizeInBlockTable(entry.block, oldNamePos, name.length, false);
 				data.put(newNamePos, name);
 				data.putInt(entry.pos + Entry.OFF_NAME_POS, newNamePos);
-			} catch (PatrFileSysException e) {
-				if (e.pfs_errno != PFSErr.PFS_ERR_OUT_OF_SPACE) {
+			} catch (IOException e) {
+				if ( ! (e instanceof PFSErr)) {
+					throw e;
+				}
+				if ( ((PFSErr) e).pfs_errno() != PFSErr.PFS_ERR_OUT_OF_SPACE) {
 					throw e;
 				}
 				// TODO block change / helper folder
@@ -144,7 +144,7 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public long createTime() throws PatrFileSysException {
+	public long createTime() throws IOException {
 		if (entry == null) {
 			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ROOT_FOLDER,
 				"root folder has no create time");
@@ -158,7 +158,7 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public void createTime(long ct) throws PatrFileSysException {
+	public void createTime(long ct) throws IOException {
 		if (entry == null) {
 			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ROOT_FOLDER,
 				"root folder has no create time");
@@ -172,7 +172,7 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public long lastModTime() throws PatrFileSysException {
+	public long lastModTime() throws IOException {
 		ByteBuffer data = pfs.bm.get(element.block);
 		try {
 			return data.getLong(entry.pos + OFF_LAST_MODIFY_TIME);
@@ -182,7 +182,7 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public void lastModTime(long lmt) throws PatrFileSysException {
+	public void lastModTime(long lmt) throws IOException {
 		ByteBuffer data = pfs.bm.get(element.block);
 		try {
 			data.putLong(entry.pos + Entry.OFF_CREATE_TIME, lmt);
@@ -192,9 +192,10 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public abstract void delete() throws PatrFileSysException;
+	public abstract void delete() throws IOException;
 	
-	public void deleteFolderEntry(Place place, int folderPos) throws PatrFileSysException {
+	public void deleteFolderEntry(Place place, int folderPos) throws IOException {
+		final JavaPatrFileSysFolder me = (JavaPatrFileSysFolder) this;
 		ByteBuffer data = pfs.bm.get(place.block);
 		try {
 			int newSize = Folder.EMPTY_SIZE + ( (data.get(folderPos + Folder.OFF_DIRECT_CHILD_COUNT)
@@ -202,7 +203,7 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 			shrinkInBlockTable(place.block, folderPos, newSize);
 			data.put(place.pos, data, place.pos + Entry.SIZE, folderPos + newSize - Entry.SIZE
 				- place.pos);
-			for (Iterator <Map.Entry <Object, Reference <JavaPatrFileSysElement>>> iter = childs
+			for (Iterator <Map.Entry <Object, Reference <JavaPatrFileSysElement>>> iter = me.childs
 				.entrySet().iterator(); iter.hasNext();) {
 				Map.Entry <?, Reference <JavaPatrFileSysElement>> entry = iter.next();
 				JavaPatrFileSysElement val = entry.getValue().get();
@@ -235,48 +236,54 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 	}
 	
 	@Override
-	public PFSFolder parent() throws PatrFileSysException {
-		if (parent == null) {
+	public PFSFolder parent() throws IOException {
+		if (parentRef == null) {
 			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ROOT_FOLDER, "root folder has no parent");
 		}
 		return parentRef;
 	}
 	
 	@Override
-	public void parent(PFSFolder newParent) throws PatrFileSysException {
-		if (parent == null) {
+	public void parent(PFSFolder newParent) throws IOException {
+		if (parentRef == null) {
 			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ROOT_FOLDER, "root folder has no parent");
 		}
-		if (! (newParent instanceof JavaPatrFileSysFolder)) {
-			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ILLEGAL_ARG, "parent is not from this file system");
+		if ( ! (newParent instanceof JavaPatrFileSysFolder)) {
+			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ILLEGAL_ARG,
+				"parent is not from this file system");
 		}
 		JavaPatrFileSysFolder np = (JavaPatrFileSysFolder) newParent;
-		if (!pfs.equals(np.pfs)) {
-			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ILLEGAL_ARG, "parent is not from this file system");
+		if ( !pfs.equals(np.pfs)) {
+			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ILLEGAL_ARG,
+				"parent is not from this file system");
 		}
 		for (JavaPatrFileSysFolder check = np; check != null; check = check.parentRef) {
 			if (check == this) {
-				throw PFSErr.createAndThrow(PFSErr.PFS_ERR_PARENT_IS_CHILD, "newParent is a ((in)direct) child from me");
+				throw PFSErr.createAndThrow(PFSErr.PFS_ERR_PARENT_IS_CHILD,
+					"newParent is a ((in)direct) child from me");
 			}
 		}
 		// TODO Auto-generated method stub
 	}
 	
 	@Override
-	public void move(PFSFolder newParent, String newName) throws PatrFileSysException {
-		if (parent == null) {
+	public void move(PFSFolder newParent, String newName) throws IOException {
+		if (parentRef == null) {
 			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ROOT_FOLDER, "root folder has no parent");
 		}
-		if (! (newParent instanceof JavaPatrFileSysFolder)) {
-			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ILLEGAL_ARG, "parent is not from this file system");
+		if ( ! (newParent instanceof JavaPatrFileSysFolder)) {
+			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ILLEGAL_ARG,
+				"parent is not from this file system");
 		}
 		JavaPatrFileSysFolder np = (JavaPatrFileSysFolder) newParent;
-		if (!pfs.equals(np.pfs)) {
-			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ILLEGAL_ARG, "parent is not from this file system");
+		if ( !pfs.equals(np.pfs)) {
+			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ILLEGAL_ARG,
+				"parent is not from this file system");
 		}
 		for (JavaPatrFileSysFolder check = np; check != null; check = check.parentRef) {
 			if (check == this) {
-				throw PFSErr.createAndThrow(PFSErr.PFS_ERR_PARENT_IS_CHILD, "newParent is a ((in)direct) child from me");
+				throw PFSErr.createAndThrow(PFSErr.PFS_ERR_PARENT_IS_CHILD,
+					"newParent is a ((in)direct) child from me");
 			}
 		}
 		// TODO Auto-generated method stub
@@ -318,7 +325,7 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 		return this == pfs.root;
 	}
 	
-	public void moveFolderToNewBlock(Place place) throws PatrFileSysException {
+	public void moveFolderToNewBlock(Place place) throws IOException {
 		long oldBlock = place.block;
 		ByteBuffer oldData = pfs.bm.get(oldBlock);
 		try {
@@ -374,7 +381,7 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 		}
 	}
 	
-	private void initBlock(long block, int mySize) throws PatrFileSysException {
+	private void initBlock(long block, int mySize) throws IOException {
 		ByteBuffer data = pfs.bm.get(block);
 		try {
 			if (data.capacity() - mySize < 12) {
@@ -389,7 +396,7 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 	}
 	
 	public int allocateInBlockTable(long block, int length, int tablePos, boolean copy)
-		throws PatrFileSysException {
+		throws IOException {
 		ByteBuffer data = pfs.bm.get(block);
 		try {
 			int tableEnd = data.capacity() - 4;
@@ -437,7 +444,7 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 	}
 	
 	public int resizeInBlockTable(long block, int pos, int newLen, boolean copy)
-		throws PatrFileSysException {
+		throws IOException {
 		ByteBuffer data = pfs.bm.get(block);
 		try {
 			int tablePos = findInBlockTable(data, pos);
@@ -468,7 +475,7 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 		}
 	}
 	
-	public void shrinkInBlockTable(long block, int pos, int newLen) throws PatrFileSysException {
+	public void shrinkInBlockTable(long block, int pos, int newLen) throws IOException {
 		ByteBuffer data = pfs.bm.get(block);
 		try {
 			int tablePos = findInBlockTable(data, pos);
@@ -478,8 +485,7 @@ public abstract class JavaPatrFileSysElement implements PFSElement {
 		}
 	}
 	
-	public boolean removeFromBlockTable(long block, int pos, boolean freeBlock)
-		throws PatrFileSysException {
+	public boolean removeFromBlockTable(long block, int pos, boolean freeBlock) throws IOException {
 		ByteBuffer data = pfs.bm.get(block);
 		try {
 			int tablePos = findInBlockTable(data, pos);

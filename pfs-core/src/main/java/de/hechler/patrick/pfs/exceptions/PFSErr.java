@@ -1,5 +1,7 @@
 package de.hechler.patrick.pfs.exceptions;
 
+import java.io.IOException;
+
 public interface PFSErr {
 	
 	/**
@@ -92,11 +94,27 @@ public interface PFSErr {
 		}
 	}
 	
-	static PatrFileSysException createAndThrow(int pfs_errno, String msg)
-		throws PatrFileSysException {
+	static PatrFileSysIOException createAndThrow(int pfs_errno, String msg) throws IOException, RuntimeException {
 		switch (pfs_errno) {
+		case PFS_ERR_NONE:
+		case PFS_ERR_UNKNOWN_ERROR:
 		default:
-			throw new PatrFileSysException(pfs_errno, msg);
+			throw new PatrFileSysIOException(pfs_errno, msg);
+		case PFS_ERR_NO_MORE_ELEMNETS:
+			throw new PatrFileSysNoSuchElementException(pfs_errno, msg);
+		case PFS_ERR_ELEMENT_WRONG_TYPE:
+		case PFS_ERR_ELEMENT_NOT_EXIST:
+			throw new PatrFileSysNoSuchFileException(pfs_errno, msg);
+		case PFS_ERR_ELEMENT_ALREADY_EXIST:
+			throw new PatrFileSysFileAlreadyExistsException(pfs_errno, msg);
+		case PFS_ERR_OUT_OF_SPACE:
+		case PFS_ERR_IO_ERR:
+		case PFS_ERR_ILLEGAL_ARG:
+		case PFS_ERR_OUT_OF_MEMORY:
+		case PFS_ERR_ROOT_FOLDER:
+		case PFS_ERR_PARENT_IS_CHILD:
+		case PFS_ERR_CLOSED:
+			throw new PatrFileSysIOException(pfs_errno, msg);
 		}
 	}
 	

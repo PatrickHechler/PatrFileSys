@@ -164,18 +164,18 @@ extern int pfs_element_set_name(pfs_eh e, char *name) {
 		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
 		return 0;
 	}
-	get_entry0(entry, parent, block_data, 0)
+	get_entry0(entry, direct_parent, entry_block_data, 0)
 	i64 name_len = strlen(name);
 	i32 new_name_pos = reallocate_in_block_table(e->direct_parent_place.block, entry->name_pos,
 	        name_len, 0);
 	if (new_name_pos != -1) {
-		memcpy(block_data + new_name_pos, name, name_len);
+		memcpy(entry_block_data + new_name_pos, name, name_len);
 		pfs->set(pfs, e->direct_parent_place.block);
 		return 1;
 	}
 	struct pfs_place dpplace;
 	size_t parent_size = sizeof(struct pfs_folder)
-	        + (sizeof(struct pfs_folder_entry) * parent->direct_child_count);
+	        + (sizeof(struct pfs_folder_entry) * direct_parent->direct_child_count);
 	if (!allocate_new_entry(&dpplace, -1, parent_size)) {
 		pfs->unget(pfs, e->direct_parent_place.block);
 		pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
@@ -188,7 +188,7 @@ extern int pfs_element_set_name(pfs_eh e, char *name) {
 		return 0;
 	}
 	struct pfs_folder *new_parent = new_block + dpplace.pos;
-	memcpy(new_parent, parent, parent_size);
+	memcpy(new_parent, direct_parent, parent_size);
 	for (int i = 0; i < new_parent->direct_child_count; i++) {
 		if (new_parent->entries[i].name_pos == -1) {
 			assert(i == new_parent->helper_index);
@@ -201,8 +201,7 @@ extern int pfs_element_set_name(pfs_eh e, char *name) {
 			pcn_len = name_len;
 		} else {
 			pcn = new_block + new_parent->entries[i].name_pos;
-			pcn_len = get_size_from_block_table(e->direct_parent_place.block,
-			        new_parent->entries[i].name_pos);
+			pcn_len = get_size_from_block_table(entry_block_data, new_parent->entries[i].name_pos);
 		}
 		i32 pcnp = add_name(dpplace.block, pcn, pcn_len);
 		if (pcnp == -1) {

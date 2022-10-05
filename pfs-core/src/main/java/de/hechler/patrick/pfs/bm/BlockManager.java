@@ -1,9 +1,9 @@
 package de.hechler.patrick.pfs.bm;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import de.hechler.patrick.pfs.exceptions.PFSErr;
-import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.fs.PFS;
 
 public interface BlockManager {
@@ -20,10 +20,10 @@ public interface BlockManager {
 	 * @param block
 	 *            the block number
 	 * @return the data of the block
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an error occurs
 	 */
-	ByteBuffer get(long block) throws PatrFileSysException;
+	ByteBuffer get(long block) throws IOException;
 	
 	/**
 	 * tell the {@link BlockManager} that the block is no longer needed and no changes has been made
@@ -37,10 +37,10 @@ public interface BlockManager {
 	 * 
 	 * @param block
 	 *            the block number
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an error occurs
 	 */
-	void unget(long block) throws PatrFileSysException;
+	void unget(long block) throws IOException;
 	
 	/**
 	 * tell the {@link BlockManager} that the block is no longer needed and that there has been made
@@ -49,10 +49,10 @@ public interface BlockManager {
 	 * when a block is {@link #set(long)} at least once the {@link BlockManager} is not allowed to
 	 * just discard the changes and has to save all changes of the block in the underlying storage
 	 * 
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an error occurs
 	 */
-	void set(long block) throws PatrFileSysException;
+	void set(long block) throws IOException;
 	
 	/**
 	 * returns the size of each block
@@ -67,20 +67,20 @@ public interface BlockManager {
 	/**
 	 * synchronises all blocks, which are currently not in use
 	 * 
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an error occurs
 	 */
-	void sync() throws PatrFileSysException;
+	void sync() throws IOException;
 	
 	/**
 	 * closes the {@link BlockManager}
 	 * <p>
 	 * if there are currently any blocks used an exception should be thrown
 	 * 
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an error occurred
 	 */
-	void close() throws PatrFileSysException;
+	void close() throws IOException;
 	
 	/**
 	 * returns the number of flags each block can have
@@ -106,10 +106,10 @@ public interface BlockManager {
 	 * @param block
 	 *            the block number
 	 * @return the flags of the block
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an error occurred
 	 */
-	default long flags(long block) throws PatrFileSysException {
+	default long flags(long block) throws IOException {
 		return 0L;
 	}
 	
@@ -123,10 +123,10 @@ public interface BlockManager {
 	 *            the block number
 	 * @param flags
 	 *            the new flags of the block
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an error occurred
 	 */
-	default void flag(long block, long flags) throws PatrFileSysException {}
+	default void flag(long block, long flags) throws IOException {}
 	
 	/**
 	 * returns the number of the first block which has no flags
@@ -138,10 +138,10 @@ public interface BlockManager {
 	 * the first block without any flags would be out of the boundaries the operation will fail
 	 * 
 	 * @return the number of the first block which has no flags
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an error occurred
 	 */
-	default long firstZeroFlaggedBlock() throws PatrFileSysException {
+	default long firstZeroFlaggedBlock() throws IOException {
 		throw PFSErr.createAndThrow(PFSErr.PFS_ERR_OUT_OF_SPACE, "operation not supported");
 	}
 	
@@ -151,9 +151,9 @@ public interface BlockManager {
 	 * if no flags are supported ({@link #flagsPerBlock()} returns {@code 0}) this method will do
 	 * nothing
 	 * 
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an error occurs
 	 */
-	default void deleteAllFlags() throws PatrFileSysException {}
+	default void deleteAllFlags() throws IOException {}
 	
 }

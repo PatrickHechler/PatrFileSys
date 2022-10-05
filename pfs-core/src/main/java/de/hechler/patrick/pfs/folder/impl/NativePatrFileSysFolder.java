@@ -17,6 +17,7 @@ import static de.hechler.patrick.pfs.other.NativePatrFileSysDefines.Folder.ITER_
 import static de.hechler.patrick.pfs.other.NativePatrFileSysDefines.Folder.PIPE_CHILD_FROM_NAME;
 import static jdk.incubator.foreign.ValueLayout.JAVA_INT;
 
+import java.io.IOException;
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
 import java.util.HashMap;
@@ -26,7 +27,6 @@ import de.hechler.patrick.pfs.SoftRef;
 import de.hechler.patrick.pfs.element.PFSElement;
 import de.hechler.patrick.pfs.element.impl.NativePatrFileSysElement;
 import de.hechler.patrick.pfs.exceptions.PFSErr;
-import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.file.PFSFile;
 import de.hechler.patrick.pfs.file.impl.NativePatrFileSysFile;
 import de.hechler.patrick.pfs.folder.FolderIter;
@@ -52,7 +52,7 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 	}
 	
 	@Override
-	public FolderIter iterator(boolean showHidden) throws PatrFileSysException {
+	public FolderIter iterator(boolean showHidden) throws IOException {
 		try {
 			MemorySegment ehSeg = pfs.alloc.allocate(EH_SIZE);
 			MemorySegment fiSeg = pfs.alloc.allocate(FI_SIZE);
@@ -79,7 +79,7 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 		}
 		
 		@Override
-		public PFSElement getNext() throws PatrFileSysException {
+		public PFSElement getNext() throws IOException {
 			try {
 				if (0 == (int) ITER_NEXT.invoke(fi)) {
 					int errno = pfsErrno();
@@ -98,7 +98,7 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 		}
 		
 		@Override
-		public boolean hasNextElement() throws PatrFileSysException {
+		public boolean hasNextElement() throws IOException {
 			next = getNext();
 			return next != null;
 		}
@@ -106,7 +106,7 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 	}
 	
 	@Override
-	public long childCount() throws PatrFileSysException {
+	public long childCount() throws IOException {
 		try {
 			long val = (long) CHILD_COUNT.invoke(eh);
 			if (val == -1L) {
@@ -119,7 +119,7 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 	}
 	
 	@Override
-	public PFSElement element(String childName) throws PatrFileSysException {
+	public PFSElement element(String childName) throws IOException {
 		try {
 			try (ResourceScope scope = ResourceScope.newConfinedScope()) {
 				SegmentAllocator alloc = SegmentAllocator.nativeAllocator(scope);
@@ -137,7 +137,7 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 	}
 	
 	@Override
-	public PFSFolder folder(String childName) throws PatrFileSysException {
+	public PFSFolder folder(String childName) throws IOException {
 		try {
 			try (ResourceScope scope = ResourceScope.newConfinedScope()) {
 				SegmentAllocator alloc = SegmentAllocator.nativeAllocator(scope);
@@ -157,7 +157,7 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 	}
 	
 	@Override
-	public PFSFile file(String childName) throws PatrFileSysException {
+	public PFSFile file(String childName) throws IOException {
 		try {
 			try (ResourceScope scope = ResourceScope.newConfinedScope()) {
 				SegmentAllocator alloc = SegmentAllocator.nativeAllocator(scope);
@@ -177,7 +177,7 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 	}
 	
 	@Override
-	public PFSPipe pipe(String childName) throws PatrFileSysException {
+	public PFSPipe pipe(String childName) throws IOException {
 		try {
 			try (ResourceScope scope = ResourceScope.newConfinedScope()) {
 				SegmentAllocator alloc = SegmentAllocator.nativeAllocator(scope);
@@ -197,7 +197,7 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 	}
 	
 	@Override
-	public PFSFolder addFolder(String newChildName) throws PatrFileSysException {
+	public PFSFolder addFolder(String newChildName) throws IOException {
 		try {
 			try (ResourceScope scope = ResourceScope.newConfinedScope()) {
 				SegmentAllocator alloc = SegmentAllocator.nativeAllocator(scope);
@@ -219,7 +219,7 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 	}
 	
 	@Override
-	public PFSFile addFile(String newChildName) throws PatrFileSysException {
+	public PFSFile addFile(String newChildName) throws IOException {
 		try {
 			try (ResourceScope scope = ResourceScope.newConfinedScope()) {
 				SegmentAllocator alloc = SegmentAllocator.nativeAllocator(scope);
@@ -241,7 +241,7 @@ public class NativePatrFileSysFolder extends NativePatrFileSysElement implements
 	}
 	
 	@Override
-	public PFSPipe addPipe(String newChildName) throws PatrFileSysException {
+	public PFSPipe addPipe(String newChildName) throws IOException {
 		try {
 			try (ResourceScope scope = ResourceScope.newConfinedScope()) {
 				SegmentAllocator alloc = SegmentAllocator.nativeAllocator(scope);

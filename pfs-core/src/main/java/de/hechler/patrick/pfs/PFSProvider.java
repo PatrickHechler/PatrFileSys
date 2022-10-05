@@ -1,13 +1,13 @@
 package de.hechler.patrick.pfs;
 
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.ServiceLoader;
 
 import de.hechler.patrick.pfs.bm.BlockManager;
-import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.fs.NativePFSProvider;
 import de.hechler.patrick.pfs.fs.PFS;
 
@@ -33,9 +33,9 @@ public abstract class PFSProvider {
 	 * @param pfsFile
 	 *            the file which stores the {@link PFS}
 	 * @return the newly loaded {@link PFS} from the file
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 */
-	public static PFS load(String pfsFile) throws PatrFileSysException {
+	public static PFS load(String pfsFile) throws IOException {
 		if (defaultProv == null) {
 			load();
 		}
@@ -52,9 +52,9 @@ public abstract class PFSProvider {
 	 * @param blockSize
 	 *            the sieze of each block
 	 * @return
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 */
-	public static PFS create(String pfsFile, long blockCount, int blockSize) throws PatrFileSysException {
+	public static PFS create(String pfsFile, long blockCount, int blockSize) throws IOException {
 		if (defaultProv == null) {
 			load();
 		}
@@ -69,9 +69,9 @@ public abstract class PFSProvider {
 	 * @param bm
 	 *            the underlying {@link BlockManager}
 	 * @return the newly loaded {@link PFS} from the file
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 */
-	public static PFS load(BlockManager bm) throws PatrFileSysException {
+	public static PFS load(BlockManager bm) throws IOException {
 		if (defaultProv == null) {
 			load();
 		}
@@ -88,10 +88,10 @@ public abstract class PFSProvider {
 	 * @param blockCount
 	 *            the number of blocks which will be available for the {@link PFS}
 	 * @return the newly created {@link PFS}
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an error occurs
 	 */
-	public static PFS create(BlockManager bm, long blockCount) throws PatrFileSysException {
+	public static PFS create(BlockManager bm, long blockCount) throws IOException {
 		if (defaultProv == null) {
 			load();
 		}
@@ -147,13 +147,13 @@ public abstract class PFSProvider {
 		providers = Collections.unmodifiableMap(provs);
 	}
 	
-	public abstract PFS loadPFS(String pfsFile) throws PatrFileSysException;
+	public abstract PFS loadPFS(String pfsFile) throws IOException;
 	
-	public abstract PFS createPFS(String pfsFile, long blockCount, int blockSize) throws PatrFileSysException;
+	public abstract PFS createPFS(String pfsFile, long blockCount, int blockSize) throws IOException;
 	
-	public abstract PFS loadPFS(BlockManager bm) throws PatrFileSysException;
+	public abstract PFS loadPFS(BlockManager bm) throws IOException;
 	
-	public abstract PFS createPFS(BlockManager bm, long blockCount) throws PatrFileSysException;
+	public abstract PFS createPFS(BlockManager bm, long blockCount) throws IOException;
 	
 	public final String identifier() {
 		return identifier;

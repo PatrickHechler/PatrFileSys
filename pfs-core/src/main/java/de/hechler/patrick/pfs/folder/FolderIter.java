@@ -1,10 +1,10 @@
 package de.hechler.patrick.pfs.folder;
 
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 import de.hechler.patrick.pfs.element.PFSElement;
-import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 
 public interface FolderIter extends Iterator <PFSElement> {
 	
@@ -12,7 +12,7 @@ public interface FolderIter extends Iterator <PFSElement> {
 	default PFSElement next() throws NoSuchElementException {
 		try {
 			return nextElement();
-		} catch (PatrFileSysException e) {
+		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
 	}
@@ -21,21 +21,21 @@ public interface FolderIter extends Iterator <PFSElement> {
 	 * returns the next {@link PFSElement} or <code>null</code> if there are no more elements
 	 * 
 	 * @return the next {@link PFSElement} or <code>null</code> if there are no more elements
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an error occurs
 	 */
-	PFSElement getNext() throws PatrFileSysException;
+	PFSElement getNext() throws IOException;
 	
 	/**
 	 * returns the next {@link PFSElement}
 	 * 
 	 * @return the next {@link PFSElement}
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an error occurs
 	 * @throws NoSuchElementException
 	 *             if there are no more {@link PFSElement elements}
 	 */
-	default PFSElement nextElement() throws PatrFileSysException, NoSuchElementException {
+	default PFSElement nextElement() throws IOException, NoSuchElementException {
 		PFSElement val = getNext();
 		if (val != null) {
 			return val;
@@ -47,7 +47,7 @@ public interface FolderIter extends Iterator <PFSElement> {
 	default boolean hasNext() {
 		try {
 			return hasNextElement();
-		} catch (PatrFileSysException e) {
+		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
 	}
@@ -56,8 +56,8 @@ public interface FolderIter extends Iterator <PFSElement> {
 	 * returns <code>true</code> if there are more elements, which can be received by calling {@link #getNext()}, {@link #nextElement()} and {@link #next()} and <code>false</code> if not
 	 * 
 	 * @return <code>true</code> if there are more elements and <code>false</code> if not
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 */
-	boolean hasNextElement() throws PatrFileSysException;
+	boolean hasNextElement() throws IOException;
 	
 }

@@ -1,9 +1,10 @@
 package de.hechler.patrick.pfs.bm;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 
-import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.fs.PFS;
 
 public interface BlockAccessor extends Closeable {
@@ -26,10 +27,10 @@ public interface BlockAccessor extends Closeable {
 	 * @param block
 	 *            the position of the block returned
 	 * @return the value of the block
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an IO error occurs during the operation
 	 */
-	ByteBuffer loadBlock(long block) throws PatrFileSysException;
+	ByteBuffer loadBlock(long block) throws IOException;
 	
 	/**
 	 * saves the block after changing it.<br>
@@ -41,10 +42,10 @@ public interface BlockAccessor extends Closeable {
 	 *            the data of the block
 	 * @param block
 	 *            the position of the block
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an IO error occurs during the operation
 	 */
-	void saveBlock(ByteBuffer data, long block) throws PatrFileSysException;
+	void saveBlock(ByteBuffer data, long block) throws IOException;
 	
 	/**
 	 * unloads the given block without saving it.<br>
@@ -52,10 +53,10 @@ public interface BlockAccessor extends Closeable {
 	 * before or the block has been unloaded already using the {@link #saveBlock(byte[], long)} or
 	 * {@link #discardBlock(long)} method.
 	 * 
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an IO error occurs during the operation
 	 */
-	void discardBlock(long block) throws PatrFileSysException;
+	void discardBlock(long block) throws IOException;
 	
 	/**
 	 * discards all loaded blocks without saving them. If they should be saved use
@@ -65,21 +66,21 @@ public interface BlockAccessor extends Closeable {
 	 * <p>
 	 * If the {@link BlockAccessor} is already closed then invoking this method has no effect.
 	 * 
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an IO error occurs during the operation
 	 */
 	@Override
-	void close() throws PatrFileSysException;
+	void close() throws IOException;
 	
 	/**
 	 * synchronises all blocks, if any changes has been made with
 	 * {@link #saveBlock(ByteBuffer, long)} they are ensured to be saved on the underlying storage
 	 * and not in any buffer
 	 * 
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an error occurred
 	 */
-	void sync() throws PatrFileSysException;
+	void sync() throws IOException;
 	
 	/**
 	 * returns the number of flags each block can have
@@ -105,10 +106,10 @@ public interface BlockAccessor extends Closeable {
 	 * @param block
 	 *            the block number
 	 * @return the flags of the block
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an error occurred
 	 */
-	default long flags(long block) throws PatrFileSysException {
+	default long flags(long block) throws IOException {
 		return 0L;
 	}
 	
@@ -122,10 +123,10 @@ public interface BlockAccessor extends Closeable {
 	 *            the block number
 	 * @param flags
 	 *            the new flags of the block
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an error occurred
 	 */
-	default void flag(long block, long flags) throws PatrFileSysException {}
+	default void flag(long block, long flags) throws IOException {}
 	
 	/**
 	 * returns the number of the first block which has no flags
@@ -137,10 +138,10 @@ public interface BlockAccessor extends Closeable {
 	 * returned
 	 * 
 	 * @return the number of the first block which has no flags
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an error occurred
 	 */
-	default long firstZeroFlaggedBlock() throws PatrFileSysException {
+	default long firstZeroFlaggedBlock() throws IOException {
 		return -1L;
 	}
 	
@@ -150,10 +151,10 @@ public interface BlockAccessor extends Closeable {
 	 * if no flags are supported ({@link #flagsPerBlock()} returns {@code 0}) this method will do
 	 * nothing
 	 * 
-	 * @throws PatrFileSysException
+	 * @throws IOException
 	 *             if an error occurs
 	 */
-	default void deleteAllFlags() throws PatrFileSysException {}
+	default void deleteAllFlags() throws IOException {}
 	
 	
 }

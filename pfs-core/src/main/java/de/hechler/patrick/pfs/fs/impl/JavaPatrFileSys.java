@@ -12,11 +12,11 @@ import static de.hechler.patrick.pfs.other.PatrFileSysConstants.BlockFlags.USED;
 import static de.hechler.patrick.pfs.other.PatrFileSysConstants.BlockFlags.USED_BIT;
 import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.OFF_LAST_MODIFY_TIME;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import de.hechler.patrick.pfs.bm.BlockManager;
 import de.hechler.patrick.pfs.exceptions.PFSErr;
-import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.folder.PFSFolder;
 import de.hechler.patrick.pfs.folder.impl.JavaPatrFileSysFolder;
 import de.hechler.patrick.pfs.fs.PFS;
@@ -31,11 +31,11 @@ public class JavaPatrFileSys implements PFS {
 	
 	private JavaPatrFileSys(BlockManager bm) {
 		this.bm = bm;
-		this.root = new JavaPatrFileSysFolder(this, null, new Place( -1L, -1), null, null, -1);
+		this.root = new JavaPatrFileSysFolder(this, null, new Place( -1L, -1), null, -1);
 	}
 	
 	@Override
-	public void format(long blockCount) throws PatrFileSysException {
+	public void format(long blockCount) throws IOException {
 		if (bm.blockSize() < (SIZE + Folder.EMPTY_SIZE + (Folder.Entry.SIZE * 2) + 30)) {
 			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_ILLEGAL_ARG, "block size is too small");
 		}
@@ -91,7 +91,7 @@ public class JavaPatrFileSys implements PFS {
 	}
 	
 	@Override
-	public PFSFolder root() throws PatrFileSysException {
+	public PFSFolder root() throws IOException {
 		ByteBuffer b0 = bm.get(0L);
 		try {
 			root.element.block = b0.getLong(OFF_ROOT_BLOCK);
@@ -103,7 +103,7 @@ public class JavaPatrFileSys implements PFS {
 	}
 	
 	@Override
-	public long blockCount() throws PatrFileSysException {
+	public long blockCount() throws IOException {
 		ByteBuffer b0 = bm.get(0L);
 		try {
 			return b0.getLong(OFF_BLOCK_COUNT);
@@ -113,7 +113,7 @@ public class JavaPatrFileSys implements PFS {
 	}
 	
 	@Override
-	public int blockSize() throws PatrFileSysException {
+	public int blockSize() throws IOException {
 		ByteBuffer b0 = bm.get(0L);
 		try {
 			return b0.getInt(OFF_BLOCK_SIZE);
@@ -123,11 +123,11 @@ public class JavaPatrFileSys implements PFS {
 	}
 	
 	@Override
-	public void close() throws PatrFileSysException {
+	public void close() throws IOException {
 		bm.close();
 	}
 	
-	public long allocateBlock(long flags) throws PatrFileSysException {
+	public long allocateBlock(long flags) throws IOException {
 		ByteBuffer b0 = bm.get(0L);
 		try {
 			long blockCount = b0.getLong(OFF_BLOCK_COUNT);
@@ -188,14 +188,14 @@ public class JavaPatrFileSys implements PFS {
 		}
 	}
 	
-	private static void blockLimitCheck(long blockCount, long block) throws PatrFileSysException {
+	private static void blockLimitCheck(long blockCount, long block) throws IOException {
 		if (block >= blockCount) {
 			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_OUT_OF_SPACE,
 				"reached block limit (increase block count to allocate more blocks)");
 		}
 	}
 	
-	public void freeBlock(long block) throws PatrFileSysException {
+	public void freeBlock(long block) throws IOException {
 		ByteBuffer b0 = bm.get(0L);
 		try {
 			long btfb = b0.getLong(OFF_BLOCK_TABLE_FIRST_BLOCK);
@@ -219,7 +219,7 @@ public class JavaPatrFileSys implements PFS {
 		}
 	}
 	
-	public Place find(long firstBlock, long length) throws PatrFileSysException {
+	public Place find(long firstBlock, long length) throws IOException {
 		Place current = new Place(firstBlock, 0);
 		int dataLen = bm.blockSize() - 8;
 		while (true) {

@@ -1,22 +1,22 @@
 package de.hechler.patrick.pfs.file;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import de.hechler.patrick.pfs.element.PFSElement;
-import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 
 public interface PFSFile extends PFSElement {
 	
-	ByteBuffer read(long position, int length) throws PatrFileSysException;
+	ByteBuffer read(long position, int length) throws IOException;
 	
-	void read(long position, ByteBuffer data, int length) throws PatrFileSysException;
+	void read(long position, ByteBuffer data, int length) throws IOException;
 	
-	void overwrite(long position, ByteBuffer data, int length) throws PatrFileSysException;
+	void overwrite(long position, ByteBuffer data, int length) throws IOException;
 	
-	void append(ByteBuffer data, int length) throws PatrFileSysException;
+	void append(ByteBuffer data, int length) throws IOException;
 	
-	void truncate(long newLength) throws PatrFileSysException;
+	void truncate(long newLength) throws IOException;
 	
-	long length() throws PatrFileSysException;
+	long length() throws IOException;
 	
 }

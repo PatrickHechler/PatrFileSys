@@ -6,12 +6,12 @@ import static de.hechler.patrick.pfs.other.NativePatrFileSysDefines.Pipe.APPEND;
 import static de.hechler.patrick.pfs.other.NativePatrFileSysDefines.Pipe.LENGTH;
 import static de.hechler.patrick.pfs.other.NativePatrFileSysDefines.Pipe.READ;
 
+import java.io.IOException;
 import java.lang.ref.Reference;
 import java.nio.ByteBuffer;
 
 import de.hechler.patrick.pfs.element.impl.NativePatrFileSysElement;
 import de.hechler.patrick.pfs.exceptions.PFSErr;
-import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.folder.impl.NativePatrFileSysFolder;
 import de.hechler.patrick.pfs.fs.impl.NativePatrFileSys;
 import de.hechler.patrick.pfs.other.NativePatrFileSysDefines.Errno;
@@ -27,7 +27,7 @@ public class NativePatrFileSysPipe extends NativePatrFileSysElement implements P
 	}
 	
 	@Override
-	public ByteBuffer read(int length) throws PatrFileSysException {
+	public ByteBuffer read(int length) throws IOException {
 		try {
 			ByteBuffer res = ByteBuffer.allocateDirect(length);
 			MemorySegment seg = MemorySegment.ofByteBuffer(res);
@@ -41,7 +41,7 @@ public class NativePatrFileSysPipe extends NativePatrFileSysElement implements P
 	}
 	
 	@Override
-	public void read(ByteBuffer data, int length) throws PatrFileSysException {
+	public void read(ByteBuffer data, int length) throws IOException {
 		try {
 			if (data.capacity() < length) {
 				throw PFSErr.createAndThrow(Errno.ILLEGAL_ARG, "buffer length is not large enugh");
@@ -59,7 +59,7 @@ public class NativePatrFileSysPipe extends NativePatrFileSysElement implements P
 	}
 	
 	@Override
-	public void append(ByteBuffer data, int length) throws PatrFileSysException {
+	public void append(ByteBuffer data, int length) throws IOException {
 		try {
 			if (data.capacity() < length) {
 				throw PFSErr.createAndThrow(Errno.ILLEGAL_ARG, "buffer length is not large enugh");
@@ -77,7 +77,7 @@ public class NativePatrFileSysPipe extends NativePatrFileSysElement implements P
 	}
 	
 	@Override
-	public long length() throws PatrFileSysException {
+	public long length() throws IOException {
 		try {
 			long len = (long) LENGTH.invoke(eh);
 			if (len == -1L) {

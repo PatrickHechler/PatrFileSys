@@ -1,5 +1,6 @@
 package de.hechler.patrick.pfs.bm.impl;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
@@ -7,7 +8,6 @@ import java.util.Map;
 import de.hechler.patrick.pfs.bm.BlockAccessor;
 import de.hechler.patrick.pfs.bm.BlockManager;
 import de.hechler.patrick.pfs.exceptions.PFSErr;
-import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 
 public class BlockManagerImpl implements BlockManager {
 	
@@ -26,7 +26,7 @@ public class BlockManagerImpl implements BlockManager {
 	}
 	
 	@Override
-	public ByteBuffer get(long block) throws PatrFileSysException {
+	public ByteBuffer get(long block) throws IOException {
 		synchronized (blocks) {
 			ensureOpen();
 			LoadedBlock lb = blocks.get(block);
@@ -42,7 +42,7 @@ public class BlockManagerImpl implements BlockManager {
 	}
 	
 	@Override
-	public void unget(long block) throws IllegalStateException, PatrFileSysException {
+	public void unget(long block) throws IllegalStateException, IOException {
 		synchronized (blocks) {
 			ensureOpen();
 			Long blockObj = (Long) block;
@@ -65,7 +65,7 @@ public class BlockManagerImpl implements BlockManager {
 	}
 	
 	@Override
-	public void set(long block) throws PatrFileSysException, IllegalStateException {
+	public void set(long block) throws IOException, IllegalStateException {
 		synchronized (blocks) {
 			ensureOpen();
 			Long blockObj = (Long) block;
@@ -85,7 +85,7 @@ public class BlockManagerImpl implements BlockManager {
 	}
 	
 	@Override
-	public void close() throws PatrFileSysException {
+	public void close() throws IOException {
 		synchronized (blocks) {
 			if (closed) {
 				return;
@@ -94,34 +94,34 @@ public class BlockManagerImpl implements BlockManager {
 		}
 	}
 	
-	public void ensureOpen() throws PatrFileSysException {
+	public void ensureOpen() throws IOException {
 		if (closed) {
 			throw PFSErr.createAndThrow(PFSErr.PFS_ERR_CLOSED, "block manager is closed");
 		}
 	}
 	
 	@Override
-	public void sync() throws PatrFileSysException {
+	public void sync() throws IOException {
 		ba.sync();
 	}
 	
 	@Override
-	public long flags(long block) throws PatrFileSysException {
+	public long flags(long block) throws IOException {
 		return ba.flags(block);
 	}
 	
 	@Override
-	public void flag(long block, long flags) throws PatrFileSysException {
+	public void flag(long block, long flags) throws IOException {
 		ba.flag(block, flags);
 	}
 	
 	@Override
-	public long firstZeroFlaggedBlock() throws PatrFileSysException {
+	public long firstZeroFlaggedBlock() throws IOException {
 		return ba.firstZeroFlaggedBlock();
 	}
 	
 	@Override
-	public void deleteAllFlags() throws PatrFileSysException {
+	public void deleteAllFlags() throws IOException {
 		ba.deleteAllFlags();
 	}
 	

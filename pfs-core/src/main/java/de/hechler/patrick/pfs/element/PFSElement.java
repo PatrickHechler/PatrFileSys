@@ -8,7 +8,9 @@ import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.E
 import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.Flags.PIPE;
 import static de.hechler.patrick.pfs.other.PatrFileSysConstants.Element.Folder.Entry.Flags.UNMODIFIABLE;
 
-import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
+import java.io.IOException;
+
+import de.hechler.patrick.pfs.exceptions.PatrFileSysIOException;
 import de.hechler.patrick.pfs.file.PFSFile;
 import de.hechler.patrick.pfs.folder.PFSFolder;
 import de.hechler.patrick.pfs.pipe.PFSPipe;
@@ -21,10 +23,10 @@ public interface PFSElement {
 	 * note that the root folder has no flags
 	 * 
 	 * @return the flags of the {@link PFSElement}
-	 * @throws PatrFileSysException
-	 *             if an error occurs
+	 * @throws PatrFileSysIOException,
+	 *             PatrFileSysClosedChannelException if an error occurs
 	 */
-	int flags() throws PatrFileSysException;
+	int flags() throws IOException;
 	
 	/**
 	 * modify the flags of the {@link PFSElement}
@@ -41,10 +43,10 @@ public interface PFSElement {
 	 *            the flags to add to this {@link PFSElement}
 	 * @param remFlags
 	 *            the flags to remove from this {@link PFSElement}
-	 * @throws PatrFileSysException
-	 *             if an error occurs
+	 * @throws PatrFileSysIOException,
+	 *             PatrFileSysClosedChannelException if an error occurs
 	 */
-	void modifyFlags(int addFlags, int remFlags) throws PatrFileSysException;
+	void modifyFlags(int addFlags, int remFlags) throws IOException;
 	
 	/**
 	 * returns the name of this element
@@ -52,10 +54,10 @@ public interface PFSElement {
 	 * note that the root folder has no name
 	 * 
 	 * @return the name of this element
-	 * @throws PatrFileSysException
-	 *             if an error occurs
+	 * @throws PatrFileSysIOException,
+	 *             PatrFileSysClosedChannelException if an error occurs
 	 */
-	String name() throws PatrFileSysException;
+	String name() throws IOException;
 	
 	/**
 	 * changes the name of the element
@@ -64,10 +66,10 @@ public interface PFSElement {
 	 * 
 	 * @param newName
 	 *            the new name of this element
-	 * @throws PatrFileSysException
-	 *             if an error occurs
+	 * @throws PatrFileSysIOException,
+	 *             PatrFileSysClosedChannelException if an error occurs
 	 */
-	void name(String newName) throws PatrFileSysException;
+	void name(String newName) throws IOException;
 	
 	/**
 	 * returns the create time of this element
@@ -77,10 +79,10 @@ public interface PFSElement {
 	 * note that times are saved in seconds since the epoch
 	 * 
 	 * @return the create time of this element
-	 * @throws PatrFileSysException
-	 *             if an error occurs
+	 * @throws PatrFileSysIOException,
+	 *             PatrFileSysClosedChannelException if an error occurs
 	 */
-	long createTime() throws PatrFileSysException;
+	long createTime() throws IOException;
 	
 	/**
 	 * sets the create time of this element
@@ -91,10 +93,10 @@ public interface PFSElement {
 	 * 
 	 * @param ct
 	 *            the new create time of this element
-	 * @throws PatrFileSysException
-	 *             if an error occurs
+	 * @throws PatrFileSysIOException,
+	 *             PatrFileSysClosedChannelException if an error occurs
 	 */
-	void createTime(long ct) throws PatrFileSysException;
+	void createTime(long ct) throws IOException;
 	
 	/**
 	 * returns the last modify time of this element
@@ -102,10 +104,10 @@ public interface PFSElement {
 	 * note that times are saved in seconds since the epoch
 	 * 
 	 * @return the last modify time of this element
-	 * @throws PatrFileSysException
-	 *             if an error occurs
+	 * @throws PatrFileSysIOException,
+	 *             PatrFileSysClosedChannelException if an error occurs
 	 */
-	long lastModTime() throws PatrFileSysException;
+	long lastModTime() throws IOException;
 	
 	/**
 	 * sets the last modify time of this element
@@ -114,10 +116,10 @@ public interface PFSElement {
 	 * 
 	 * @param lmt
 	 *            the new last modify time of this element
-	 * @throws PatrFileSysException
-	 *             if an error occurs
+	 * @throws PatrFileSysIOException,
+	 *             PatrFileSysClosedChannelException if an error occurs
 	 */
-	void lastModTime(long lmt) throws PatrFileSysException;
+	void lastModTime(long lmt) throws IOException;
 	
 	/**
 	 * deletes the element
@@ -127,21 +129,23 @@ public interface PFSElement {
 	 * <p>
 	 * note that the root folder can not be deleted
 	 * 
-	 * @throws PatrFileSysException
-	 *             if an error occurs
+	 * @throws PatrFileSysIOException,
+	 *             PatrFileSysClosedChannelException if an error occurs
 	 */
-	void delete() throws PatrFileSysException;
+	void delete() throws IOException;
 	
 	/**
 	 * returns the parent element of this element
+	 * 
 	 * @return
-	 * @throws PatrFileSysException
+	 * @throws PatrFileSysIOException,
+	 *             PatrFileSysClosedChannelException
 	 */
-	PFSFolder parent() throws PatrFileSysException;
+	PFSFolder parent() throws IOException;
 	
-	void parent(PFSFolder newParent) throws PatrFileSysException;
+	void parent(PFSFolder newParent) throws IOException;
 	
-	void move(PFSFolder newParent, String newName) throws PatrFileSysException;
+	void move(PFSFolder newParent, String newName) throws IOException;
 	
 	PFSFolder toFolder() throws IllegalStateException;
 	

@@ -35,6 +35,7 @@ import static jdk.incubator.foreign.ValueLayout.ADDRESS;
 import static jdk.incubator.foreign.ValueLayout.JAVA_INT;
 import static jdk.incubator.foreign.ValueLayout.JAVA_LONG;
 
+import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
@@ -43,7 +44,6 @@ import java.nio.ByteBuffer;
 
 import de.hechler.patrick.pfs.bm.BlockManager;
 import de.hechler.patrick.pfs.exceptions.PFSErr;
-import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.folder.PFSFolder;
 import de.hechler.patrick.pfs.folder.impl.NativePatrFileSysFolder;
 import de.hechler.patrick.pfs.fs.PFS;
@@ -79,19 +79,19 @@ public class NativePatrFileSys implements PFS {
 		this.root = new NativePatrFileSysFolder(this, root, null);
 	}
 	
-	public static RuntimeException t(Throwable t) throws PatrFileSysException {
+	public static RuntimeException t(Throwable t) throws IOException {
 		if (t instanceof Error) {
 			throw (Error) t;
 		} else if (t instanceof RuntimeException) {
 			throw (RuntimeException) t;
-		} else if (t instanceof PatrFileSysException) {
-			throw (PatrFileSysException) t;
+		} else if (t instanceof IOException) {
+			throw (IOException) t;
 		} else {
 			throw new RuntimeException(t);
 		}
 	}
 	
-	public static NativePatrFileSys load(String pfsFile) throws PatrFileSysException {
+	public static NativePatrFileSys load(String pfsFile) throws IOException {
 		try {
 			return newImpl(pfsFile, -1L, -1);
 		} catch (Throwable t) {
@@ -100,7 +100,7 @@ public class NativePatrFileSys implements PFS {
 	}
 	
 	public static NativePatrFileSys create(String pfsFile, long blockCount, int blockSize)
-		throws PatrFileSysException {
+		throws IOException {
 		try {
 			if (blockCount == -1L) {
 				throw PFSErr.createAndThrow(ILLEGAL_ARG, "blockCount is -1");
@@ -111,7 +111,7 @@ public class NativePatrFileSys implements PFS {
 		}
 	}
 	
-	public static NativePatrFileSys load(BlockManager bm) throws PatrFileSysException {
+	public static NativePatrFileSys load(BlockManager bm) throws IOException {
 		try {
 			return newImpl(bm, -1L);
 		} catch (Throwable t) {
@@ -119,8 +119,7 @@ public class NativePatrFileSys implements PFS {
 		}
 	}
 	
-	public static NativePatrFileSys create(BlockManager bm, long blockCount)
-		throws PatrFileSysException {
+	public static NativePatrFileSys create(BlockManager bm, long blockCount) throws IOException {
 		try {
 			if (blockCount == -1L) {
 				throw PFSErr.createAndThrow(ILLEGAL_ARG, "blockCount is -1");
@@ -195,8 +194,8 @@ public class NativePatrFileSys implements PFS {
 			try {
 				ByteBuffer bb = jbm.get(block);
 				return MemorySegment.ofByteBuffer(bb);
-			} catch (PatrFileSysException e) {
-				ERRNO.set(JAVA_INT, 0L, e.pfs_errno);
+			} catch (IOException e) {
+				setErrno(e);
 				return MemoryAddress.NULL;
 			}
 		}
@@ -206,8 +205,8 @@ public class NativePatrFileSys implements PFS {
 			try {
 				jbm.unget(block);
 				return 1;
-			} catch (PatrFileSysException e) {
-				ERRNO.set(JAVA_INT, 0L, e.pfs_errno);
+			} catch (IOException e) {
+				setErrno(e);
 				return 0;
 			}
 		}
@@ -217,8 +216,8 @@ public class NativePatrFileSys implements PFS {
 			try {
 				jbm.set(block);
 				return 1;
-			} catch (PatrFileSysException e) {
-				ERRNO.set(JAVA_INT, 0L, e.pfs_errno);
+			} catch (IOException e) {
+				setErrno(e);
 				return 0;
 			}
 		}
@@ -228,8 +227,8 @@ public class NativePatrFileSys implements PFS {
 			try {
 				jbm.sync();
 				return 1;
-			} catch (PatrFileSysException e) {
-				ERRNO.set(JAVA_INT, 0L, e.pfs_errno);
+			} catch (IOException e) {
+				setErrno(e);
 				return 0;
 			}
 		}
@@ -239,8 +238,8 @@ public class NativePatrFileSys implements PFS {
 			try {
 				jbm.sync();
 				return 1;
-			} catch (PatrFileSysException e) {
-				ERRNO.set(JAVA_INT, 0L, e.pfs_errno);
+			} catch (IOException e) {
+				setErrno(e);
 				return 0;
 			}
 		}
@@ -249,8 +248,8 @@ public class NativePatrFileSys implements PFS {
 			checkAddr(addr);
 			try {
 				return jbm.flags(block);
-			} catch (PatrFileSysException e) {
-				ERRNO.set(JAVA_INT, 0L, e.pfs_errno);
+			} catch (IOException e) {
+				setErrno(e);
 				return 0;
 			}
 		}
@@ -260,8 +259,8 @@ public class NativePatrFileSys implements PFS {
 			try {
 				jbm.flag(block, flags);
 				return 1;
-			} catch (PatrFileSysException e) {
-				ERRNO.set(JAVA_INT, 0L, e.pfs_errno);
+			} catch (IOException e) {
+				setErrno(e);
 				return 0;
 			}
 		}
@@ -270,8 +269,8 @@ public class NativePatrFileSys implements PFS {
 			checkAddr(addr);
 			try {
 				return jbm.firstZeroFlaggedBlock();
-			} catch (PatrFileSysException e) {
-				ERRNO.set(JAVA_INT, 0L, e.pfs_errno);
+			} catch (IOException e) {
+				setErrno(e);
 				return -1;
 			}
 		}
@@ -281,10 +280,15 @@ public class NativePatrFileSys implements PFS {
 			try {
 				jbm.deleteAllFlags();
 				return 1;
-			} catch (PatrFileSysException e) {
-				ERRNO.set(JAVA_INT, 0L, e.pfs_errno);
+			} catch (IOException e) {
+				setErrno(e);
 				return 0;
 			}
+		}
+		
+		private void setErrno(IOException e) {
+			ERRNO.set(JAVA_INT, 0L, e instanceof PFSErr ? ((PFSErr) e).pfs_errno()
+				: PFSErr.PFS_ERR_UNKNOWN_ERROR);
 		}
 		
 		private void checkAddr(MemoryAddress addr) {
@@ -392,17 +396,17 @@ public class NativePatrFileSys implements PFS {
 	}
 	
 	public static void read32(MemorySegment mem, MethodHandle readHandle, int fd)
-		throws PatrFileSysException, Throwable {
+		throws IOException, Throwable {
 		read(mem, readHandle, fd, 4);
 	}
 	
 	public static void read64(MemorySegment mem, MethodHandle readHandle, int fd)
-		throws PatrFileSysException, Throwable {
+		throws IOException, Throwable {
 		read(mem, readHandle, fd, 8);
 	}
 	
 	public static void read(MemorySegment mem, MethodHandle readHandle, int fd, long len)
-		throws Throwable, PatrFileSysException {
+		throws Throwable, IOException {
 		MemoryAddress addr = mem.address();
 		for (long reat = 0; reat < len;) {
 			long r = (long) readHandle.invoke(fd, addr.addOffset(reat), 8L - reat);
@@ -414,7 +418,7 @@ public class NativePatrFileSys implements PFS {
 	}
 	
 	@Override
-	public void format(long blockCount) throws PatrFileSysException {
+	public void format(long blockCount) throws IOException {
 		try {
 			FS.set(ADDRESS, 0L, bm);
 			if (0 == (int) FORMAT.invoke(blockCount)) {
@@ -429,7 +433,7 @@ public class NativePatrFileSys implements PFS {
 	}
 	
 	@Override
-	public PFSFolder root() throws PatrFileSysException {
+	public PFSFolder root() throws IOException {
 		try {
 			FS.set(ADDRESS, 0L, bm);
 			if (0 == (int) FILL_ROOT.invoke(root.eh)) {
@@ -442,7 +446,7 @@ public class NativePatrFileSys implements PFS {
 	}
 	
 	@Override
-	public long blockCount() throws PatrFileSysException {
+	public long blockCount() throws IOException {
 		try {
 			FS.set(ADDRESS, 0L, bm);
 			long blockCount = (long) BLOCK_COUNT.invoke(root.eh);
@@ -456,7 +460,7 @@ public class NativePatrFileSys implements PFS {
 	}
 	
 	@Override
-	public int blockSize() throws PatrFileSysException {
+	public int blockSize() throws IOException {
 		try {
 			if (closed) {
 				throw PFSErr.createAndThrow(PFSErr.PFS_ERR_CLOSED, "closed");
@@ -476,7 +480,7 @@ public class NativePatrFileSys implements PFS {
 		JAVA_INT, ADDRESS));
 	
 	@Override
-	public void close() throws PatrFileSysException {
+	public void close() throws IOException {
 		try {
 			if (closed) {
 				return;

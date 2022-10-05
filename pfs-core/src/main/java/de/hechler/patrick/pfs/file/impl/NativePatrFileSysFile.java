@@ -7,12 +7,12 @@ import static de.hechler.patrick.pfs.other.NativePatrFileSysDefines.File.LENGTH;
 import static de.hechler.patrick.pfs.other.NativePatrFileSysDefines.File.READ;
 import static de.hechler.patrick.pfs.other.NativePatrFileSysDefines.File.WRITE;
 
+import java.io.IOException;
 import java.lang.ref.Reference;
 import java.nio.ByteBuffer;
 
 import de.hechler.patrick.pfs.element.impl.NativePatrFileSysElement;
 import de.hechler.patrick.pfs.exceptions.PFSErr;
-import de.hechler.patrick.pfs.exceptions.PatrFileSysException;
 import de.hechler.patrick.pfs.file.PFSFile;
 import de.hechler.patrick.pfs.folder.impl.NativePatrFileSysFolder;
 import de.hechler.patrick.pfs.fs.impl.NativePatrFileSys;
@@ -29,7 +29,7 @@ public class NativePatrFileSysFile extends NativePatrFileSysElement implements P
 	}
 	
 	@Override
-	public ByteBuffer read(long position, int length) throws PatrFileSysException {
+	public ByteBuffer read(long position, int length) throws IOException {
 		try {
 			ByteBuffer res = ByteBuffer.allocateDirect(length);
 			MemorySegment seg = MemorySegment.ofByteBuffer(res);
@@ -43,7 +43,7 @@ public class NativePatrFileSysFile extends NativePatrFileSysElement implements P
 	}
 	
 	@Override
-	public void read(long position, ByteBuffer data, int length) throws PatrFileSysException {
+	public void read(long position, ByteBuffer data, int length) throws IOException {
 		try {
 			if (data.capacity() < length) {
 				throw PFSErr.createAndThrow(Errno.ILLEGAL_ARG, "buffer length is not large enugh");
@@ -61,7 +61,7 @@ public class NativePatrFileSysFile extends NativePatrFileSysElement implements P
 	}
 	
 	@Override
-	public void overwrite(long position, ByteBuffer data, int length) throws PatrFileSysException {
+	public void overwrite(long position, ByteBuffer data, int length) throws IOException {
 		try {
 			if (data.capacity() < length) {
 				throw PFSErr.createAndThrow(Errno.ILLEGAL_ARG, "buffer length is not large enugh");
@@ -79,7 +79,7 @@ public class NativePatrFileSysFile extends NativePatrFileSysElement implements P
 	}
 	
 	@Override
-	public void append(ByteBuffer data, int length) throws PatrFileSysException {
+	public void append(ByteBuffer data, int length) throws IOException {
 		try {
 			if (data.capacity() < 0) {
 				throw PFSErr.createAndThrow(Errno.ILLEGAL_ARG, "array length is not large enugh");
@@ -97,7 +97,7 @@ public class NativePatrFileSysFile extends NativePatrFileSysElement implements P
 	}
 	
 	@Override
-	public void truncate(long newLength) throws PatrFileSysException {
+	public void truncate(long newLength) throws IOException {
 		try {
 			if (0 == (int) LENGTH.invoke(eh)) {
 				throw PFSErr.createAndThrow(pfsErrno(), "truncate file");
@@ -108,7 +108,7 @@ public class NativePatrFileSysFile extends NativePatrFileSysElement implements P
 	}
 	
 	@Override
-	public long length() throws PatrFileSysException {
+	public long length() throws IOException {
 		try {
 			long len = (long) LENGTH.invoke(eh);
 			if (len == -1L) {
