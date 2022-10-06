@@ -48,10 +48,11 @@ struct pfs_element {
 } __attribute__((packed));
 
 struct pfs_folder_entry {
+	i32 name_pos; // for correct alignment of the place
 	struct pfs_place child_place;
-	i32 name_pos;
 	i64 create_time;
 	ui32 flags;
+	// i32 padding; // no padding done here every second entry is miss-alinged
 } __attribute__((packed));
 
 struct pfs_folder {

@@ -287,8 +287,16 @@ public class NativePatrFileSys implements PFS {
 		}
 		
 		private void setErrno(IOException e) {
-			ERRNO.set(JAVA_INT, 0L, e instanceof PFSErr ? ((PFSErr) e).pfs_errno()
-				: PFSErr.PFS_ERR_UNKNOWN_ERROR);
+			if ( ! (e instanceof PFSErr)) {
+				// a throw would cause the VM to print the stack trace and exit (with a non-zero
+				// value)
+				System.err.println("my block manager threw a non PFSErr exception!");
+				System.err.println("block manager: (class) " + bm.getClass().getName());
+				System.err.println("block manager: (toString) " + bm);
+				e.printStackTrace();
+				System.exit(1);
+			}
+			ERRNO.set(JAVA_INT, 0L, ((PFSErr) e).pfs_errno());
 		}
 		
 		private void checkAddr(MemoryAddress addr) {

@@ -25,11 +25,11 @@ SOURCE = $(PROJECT_ROOT)src/
 
 EXP = $(PROJECT_ROOT)exports/
 
-TEST_LIBS = -L $(BINARY) -l pfs
+TEST_LIBS = -L $(BINARY) -l pfs-core
 
-TARGET_A = $(BINARY)libpfs.a
+TARGET_A = $(BINARY)libpfs-core.a
 
-TARGET_SO = $(BINARY)libpfs.so
+TARGET_SO = $(BINARY)libpfs-core.so
 
 TEST_TARGET = $(BINARY)pfs_tests
 
@@ -39,17 +39,15 @@ OBJS = $(BINARY)hashset.o $(BINARY)pfs.o $(BINARY)bm.o $(BINARY)pfs-element.o $(
 HDRS = $(SOURCE)bm.h $(SOURCE)hashset.h $(SOURCE)pfs-element.h $(SOURCE)pfs-folder.h $(SOURCE)pfs-file.h $(SOURCE)pfs-pipe.h
 
 # general headers without a .c file + HDRS
-HEADERS = $(SOURCE)pfs.h $(SOURCE)pfs-err.h $(SOURCE)patr-file-sys.h $(SOURCE)pfs-constants.h
+HEADERS = $(SOURCE)pfs.h $(SOURCE)pfs-err.h $(SOURCE)patr-file-sys.h $(SOURCE)pfs-constants.h $(HDRS)
 
-all:	INIT_MKDIR $(TEST_TARGET) $(TARGET_A) $(TARGET_SO)
+all:	INIT $(TEST_TARGET) $(TARGET_A) $(TARGET_SO)
 	$(TEST_TARGET)
 	cp -t $(EXP) $(TARGET_A) $(TARGET_SO)
-	cp -t $(EXP)include/ $(HEADERS) $(HDRS)
-	cp -t ../../pfs-core/lib/ $(TARGET_SO)
+	cp -t $(EXP)include/ $(HEADERS)
 
-INIT_MKDIR:
+INIT:
 	mkdir -p $(BINARY)
-	mkdir -p $(PROJECT_ROOT)testout/fs-root/
 
 $(TEST_TARGET): $(TARGET_A) $(TEST_TARGET).o
 	$(CC) -o $(TEST_TARGET) $(TEST_TARGET).o  $(TEST_LIBS)

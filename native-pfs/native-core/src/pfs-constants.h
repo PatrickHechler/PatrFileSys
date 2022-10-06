@@ -13,8 +13,6 @@
 #define PFS_EH_SIZE 44
 #define PFS_FI_SIZE 40
 
-#define PFS_NO_TIME -1L
-
 #ifdef PFS_INTERN_H_
 static_assert(PFS_EH_SIZE == sizeof(struct pfs_element_handle), "error!");
 static_assert(PFS_FI_SIZE == sizeof(struct pfs_folder_iter), "error!");
@@ -35,11 +33,10 @@ static_assert(PFS_B0_OFFSET_BLOCK_SIZE == offsetof(struct pfs_b0, block_size), "
 #define	PFS_FLAGS_FILE            0x00000002U
 #define	PFS_FLAGS_PIPE            0x00000004U
 /* not yet supported
-#define	PFS_FLAGS_SYM_LINK        0x00000008U
-#define	PFS_FLAGS_HARD_LINK       0x00000010U
-*/
+ #define	PFS_FLAGS_SYM_LINK        0x00000008U
+ #define	PFS_FLAGS_HARD_LINK       0x00000010U
+ */
 #define	PFS_FLAGS_HELPER_FOLDER   0x00000080U
-
 
 // these flags meaning are different for flags and folders/pipes
 #define	PFS_FLAGS_TYPE_SPECIFIC   0x0000FF00U
@@ -47,5 +44,11 @@ static_assert(PFS_B0_OFFSET_BLOCK_SIZE == offsetof(struct pfs_b0, block_size), "
 #define	PFS_FLAGS_FILE_ENCRYPTED  0x00000200U
 
 #define	PFS_FLAGS_HIDDEN          0x01000000U
+
+#define PFS_SO_NOT_CREATE   0x00000000 /* fail if the file/pipe does not exist already (this is the default create option) */
+#define PFS_SO_ONLY_CREATE  0x00000100 /* fail if the file/pipe exist already */
+#define PFS_SO_ALSO_CREATE  0x00000200 /* create the file/pipe if it does not exist, but do not fail if the file/pipe exist already */
+#define PFS_SO_FILE_TRUNC   0x00010000 /* truncate the files content */
+#define PFS_SO_FILE_EOF     0x00020000 /* set the position initially to the end of the file not the start */
 
 #endif /* PFS_CONSTANTS_H_ */

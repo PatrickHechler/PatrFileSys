@@ -21,7 +21,7 @@ public class NativePatrFileSysDefines {
 	
 	static {
 		try {
-			System.load(Paths.get("./lib/libpfs.so").toAbsolutePath().normalize().toString());
+			System.load(Paths.get("./lib/libpfs-core.so").toAbsolutePath().normalize().toString());
 		} catch (UnsatisfiedLinkError e) {
 			try {
 				System.loadLibrary("pfs");

@@ -272,9 +272,9 @@ extern int pfs_element_set_name(pfs_eh e, char *name) {
 extern i64 pfs_element_get_create_time(pfs_eh e) {
 	if (e->direct_parent_place.block == -1) {
 		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
-		return PFS_NO_TIME;
+		return -1;
 	}
-	get_entry(PFS_NO_TIME);
+	get_entry(-1);
 	i64 ct = entry->create_time;
 	pfs->unget(pfs, e->direct_parent_place.block);
 	return ct;
@@ -285,7 +285,7 @@ extern int pfs_element_set_create_time(pfs_eh e, i64 new_time) {
 		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
 		return 0;
 	}
-	get_entry(PFS_NO_TIME);
+	get_entry(-1);
 	entry->create_time = new_time;
 	pfs->set(pfs, e->direct_parent_place.block);
 	return 1;
