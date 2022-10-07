@@ -8,11 +8,15 @@
 #ifndef HASHSET_H_
 #define HASHSET_H_
 
-#ifdef I_AM_HASH_SET
-char illegal;
-#else
-extern char illegal;
+#ifndef I_AM_HASH_SET
+extern
 #endif
+/*
+ * used to mark an removed entry
+ * when iterating over all entries a non-NULL
+ * check and a non-illegal check has to be made
+ */
+char illegal;
 
 struct hashset {
 	int entrycount;

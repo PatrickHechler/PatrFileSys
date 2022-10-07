@@ -19,38 +19,46 @@ else
     $(error Build mode $(BUILD_MODE) not supported by this Makefile)
 endif
 
-BINARY = $(PROJECT_ROOT)bin/$(BUILD_MODE)/
+BIN = $(PROJECT_ROOT)bin/$(BUILD_MODE)/
 
-SOURCE = $(PROJECT_ROOT)src/
+CORE_BIN = $(BIN)core/
+
+API_BIN = $(BIN)api/
+
+ROOT_SOURCE = $(PROJECT_ROOT)src/
+
+INTSOURCE = $(ROOT_SOURCE)core/
+
+APISOURCE = $(ROOT_SOURCE)api/
+
+EXPSOURCE = $(ROOT_SOURCE)include/
 
 EXP = $(PROJECT_ROOT)exports/
 
-TEST_LIBS = -L $(BINARY) -l pfs-core
+TEST_LIBS = -L $(CORE_BIN) -l pfs-core
 
-TARGET_A = $(BINARY)libpfs-core.a
+TARGET_A = $(CORE_BIN)libpfs-core.a
 
-TARGET_SO = $(BINARY)libpfs-core.so
+TARGET_SO = $(CORE_BIN)libpfs-core.so
 
-TEST_TARGET = $(BINARY)pfs_tests
+TEST_TARGET = $(CORE_BIN)pfs_tests
 
-OBJS = $(BINARY)hashset.o $(BINARY)pfs.o $(BINARY)bm.o $(BINARY)pfs-element.o $(BINARY)pfs-folder.o $(BINARY)pfs-file.o
+CORE_OBJS = $(CORE_BIN)pfs.o $(CORE_BIN)pfs-element.o $(CORE_BIN)pfs-folder.o $(CORE_BIN)pfs-file.o
 
-# headers with a .c file
-HDRS = $(SOURCE)bm.h $(SOURCE)hashset.h $(SOURCE)pfs-element.h $(SOURCE)pfs-folder.h $(SOURCE)pfs-file.h $(SOURCE)pfs-pipe.h
-
-# general headers without a .c file + HDRS
-HEADERS = $(SOURCE)pfs.h $(SOURCE)pfs-err.h $(SOURCE)patr-file-sys.h $(SOURCE)pfs-constants.h $(HDRS)
+OBJS = $(CORE_OBJS) $(API_BIN)hashset.o $(API_BIN)bm.o $(API_BIN)pfs.o $(API_BIN)pfs-element.o $(API_BIN)pfs-folder.o $(API_BIN)pfs-file.o $(API_BIN)pfs-pipe.o $(API_BIN)pfs-stream.o $(API_BIN)pfs-iter.o
 
 all:	INIT $(TEST_TARGET) $(TARGET_A) $(TARGET_SO)
 	$(TEST_TARGET)
-	cp -t $(EXP) $(TARGET_A) $(TARGET_SO)
-	cp -t $(EXP)include/ $(HEADERS)
+	cp -r -t $(EXP) $(TARGET_A) $(TARGET_SO) $(EXPSOURCE)
 
 INIT:
-	mkdir -p $(BINARY)
+	mkdir -p $(CORE_BIN)
+	mkdir -p $(API_BIN)
+	mkdir -p $(PROJECT_ROOT)testout/fs-root/
+	mkdir -p $(EXP)
 
-$(TEST_TARGET): $(TARGET_A) $(TEST_TARGET).o
-	$(CC) -o $(TEST_TARGET) $(TEST_TARGET).o  $(TEST_LIBS)
+$(TEST_TARGET): $(TEST_TARGET).o $(CORE_OBJS) $(API_BIN)hashset.o $(API_BIN)bm.o
+	$(CC) -o $(TEST_TARGET) $(TEST_TARGET).o $(CORE_OBJS) $(API_BIN)hashset.o $(API_BIN)bm.o
 
 $(TARGET_SO):	$(OBJS)
 	$(CC) -shared -o $@ $(LDFLAGS) $^
@@ -58,11 +66,15 @@ $(TARGET_SO):	$(OBJS)
 $(TARGET_A):	$(OBJS)
 	$(AR) -rc $@ $^
 
-$(BINARY)%.o:	$(SOURCE)%.cpp
-	$(CXX) -c $(CFLAGS) $(CXXFLAGS) $(CPPFLAGS) -o $@ $<
-
-$(BINARY)%.o:	$(SOURCE)%.c
+$(CORE_BIN)%.o:	$(INTSOURCE)%.c
 	$(CC) -x c -c $(CFLAGS) -o $@ $<
 
+$(API_BIN)%.o:	$(APISOURCE)%.c
+	$(CC) -x c -c $(CFLAGS) -o $@ $<
+
+# # no c++ support
+#$(CORE_BIN)%.o:	$(SOURCE)%.cpp
+#	$(CXX) -c $(CFLAGS) $(CXXFLAGS) $(CPPFLAGS) -o $@ $<
+
 clean:
-	rm -frd $(BINARY) ./testout/
+	rm -frd $(CORE_BIN) $(PROJECT_ROOT)testout/ $(PROJECT_ROOT)exports/

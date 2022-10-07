@@ -8,8 +8,8 @@
 #ifndef BM_H_
 #define BM_H_
 
-#include "patr-file-sys.h"
 #include "hashset.h"
+#include "patr-file-sys.h"
 
 /**
  * block manager structure used by the patr-file-system
