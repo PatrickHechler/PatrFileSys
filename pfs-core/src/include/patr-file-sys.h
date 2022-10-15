@@ -8,6 +8,7 @@
 #ifndef PATR_FILE_SYS_H_
 #define PATR_FILE_SYS_H_
 
+#define _GNU_SOURCE
 #define _LARGEFILE64_SOURCE
 #define _FILE_OFFSET_BITS 64
 //#define __USE_TIME_BITS64

@@ -10,16 +10,25 @@
 
 /*
  * loads the PFS from the specified block manager
+ *
+ * the current working directory will be set to cwd
+ * cwd will always be considered as absolute path
+ *
+ * when cwd is NULL the current working directory will be set to the root folder
  */
-extern int pfs_load(struct bm_block_manager *bm);
+extern int pfs_load(struct bm_block_manager *bm, const char *cwd);
 
 /*
  * formats and loads the PFS from the specified block manager
+ *
+ * this function sets the current working directory to the root folder
  */
 extern int pfs_load_and_format(struct bm_block_manager *bm, i64 block_count);
 
 /*
  * formats the currently loaded PFS
+ *
+ * this function sets the current working directory to the root folder
  */
 extern int pfs_format(i64 block_count);
 
