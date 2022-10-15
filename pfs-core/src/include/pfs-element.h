@@ -8,22 +8,72 @@
 #ifndef SRC_INCLUDE_PFS_ELEMENT_H_
 #define SRC_INCLUDE_PFS_ELEMENT_H_
 
+/*
+ * closes the given element handle
+ *
+ * after this operation the eh-ID may be reused by the system when a new handle is opened
+ *
+ * on success 1 and on error 0 is returned
+ */
 extern int pfs_element_close(int eh);
 
+/*
+ * returns a handle for the parent folder of the given handle
+ * on error -1 is returned
+ */
 extern int pfs_element_parent(int eh);
 
+/*
+ * deletes the element of the given handle
+ *
+ * this operation automatically closes the element handle
+ *
+ * after this operation the eh-ID may be reused by the system when a new handle is opened
+ *
+ * on success 1 and on error 0 is returned
+ */
 extern int pfs_element_delete(int eh);
 
+/*
+ * returns the flags of the element
+ * on error -1 is returned
+ */
 extern i32 pfs_element_get_flags(int eh);
 
+/*
+ * modifies the flags of the given element
+ *
+ * - rem_flags and add_flags are not allowed to contain common bits
+ *     (rem_flags & add_flags) has to be zero
+ * - rem_flags and add_flags are not allowed to contain unmodifiable bits
+ *     ((rem_flags | add_flags) & PFS_UNMODIFIABLE_FLAGS) has to be zero
+ *
+ * on success 1 and on error 0 is returned
+ */
 extern i32 pfs_element_modify_flags(int eh, i32 rem_flags, i32 add_flags);
 
+/*
+ * returns the create time of the given element
+ * on error -1 is returned
+ */
 extern i64 pfs_element_get_create_time(int eh);
 
+/*
+ * returns the last modify time of the given element
+ * on error -1 is returned
+ */
 extern i64 pfs_element_get_last_modify_time(int eh);
 
+/*
+ * sets the create time of the given element
+ * on success 1 and on error 0 is returned
+ */
 extern int pfs_element_set_create_time(int eh, i64 ct);
 
+/*
+ * sets the last modify time of the given element
+ * on success 1 and on error 0 is returned
+ */
 extern int pfs_element_set_last_modify_time(int eh, i64 lmt);
 
 #endif /* SRC_INCLUDE_PFS_ELEMENT_H_ */

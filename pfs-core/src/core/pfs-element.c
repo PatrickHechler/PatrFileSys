@@ -222,7 +222,7 @@ extern int pfsc_element_set_name(pfs_eh e, char *name) {
 	pfe->child_place = dpplace;
 	pfs->set(pfs, new_parent->folder_entry.block);
 	for (int i = 0; i < new_parent->direct_child_count; i++) {
-		if ((new_parent->entries[i].flags & PFS_FLAGS_FOLDER) != 0) {
+		if ((new_parent->entries[i].flags & PFS_F_FOLDER) != 0) {
 			void *sb_data = pfs->get(pfs, new_parent->entries[i].child_place.block);
 			if (sb_data == NULL) {
 				void *pfs_block = pfs->get(pfs, new_parent->folder_entry.block);
@@ -232,7 +232,7 @@ extern int pfsc_element_set_name(pfs_eh e, char *name) {
 				pfe = pfs_block + new_parent->folder_entry.pos;
 				pfe->child_place = e->direct_parent_place;
 				for (i--; i >= 0; i--) {
-					if ((new_parent->entries[i].flags & PFS_FLAGS_FOLDER) != 0) {
+					if ((new_parent->entries[i].flags & PFS_F_FOLDER) != 0) {
 						sb_data = pfs->get(pfs, new_parent->entries[i].child_place.block);
 						if (sb_data == NULL) {
 							abort();

@@ -440,7 +440,7 @@ void set_parent_place_from_childs(struct pfs_place e, struct pfs_place real_pare
 	}
 	struct pfs_folder *f = block_data + e.pos;
 	for (i32 i = 0; i < f->direct_child_count; i++) {
-		if ((f->entries[i].flags & PFS_FLAGS_FOLDER) != 0) {
+		if ((f->entries[i].flags & PFS_F_FOLDER) != 0) {
 			void *child_block_data = pfs->get(pfs, f->entries[i].child_place.block);
 			if (child_block_data == NULL) {
 				abort();
@@ -453,7 +453,7 @@ void set_parent_place_from_childs(struct pfs_place e, struct pfs_place real_pare
 			if (child->folder_entry.pos != ((i64) &f->entries[i]) - (i64) block_data) {
 				abort();
 			}
-			if ((f->entries[i].flags & PFS_FLAGS_HELPER_FOLDER) != 0) {
+			if ((f->entries[i].flags & PFS_F_HELPER_FOLDER) != 0) {
 				if (i != f->helper_index) {
 					abort();
 				}

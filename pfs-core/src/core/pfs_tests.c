@@ -172,18 +172,18 @@ static int print_folder(struct pfs_place fp, const char *name, struct pfs_place 
 				"%s%d]:     flags: %lu : %s [E]\n"
 				"%s%d]:     create_time=%ld [F]\n", start, deep, i, name_pos == -1 ? '<' : '"',
 		        name, name_pos == -1 ? '>' : '"', start, deep, f->entries[i].flags,
-		        (PFS_FLAGS_FOLDER & f->entries[i].flags) ? "folder" :
-		                ((PFS_FLAGS_FILE & f->entries[i].flags) ? "file" : "invalid"), start, deep,
+		        (PFS_F_FOLDER & f->entries[i].flags) ? "folder" :
+		                ((PFS_F_FILE & f->entries[i].flags) ? "file" : "invalid"), start, deep,
 		        f->entries[i].create_time);
-		if ((f->entries[i].flags & (PFS_FLAGS_FILE | PFS_FLAGS_FOLDER)) == 0) {
+		if ((f->entries[i].flags & (PFS_F_FILE | PFS_F_FOLDER)) == 0) {
 			res++;
 		}
-		if ((f->entries[i].flags & (PFS_FLAGS_FILE | PFS_FLAGS_FOLDER))
-		        == (PFS_FLAGS_FILE | PFS_FLAGS_FOLDER)) {
+		if ((f->entries[i].flags & (PFS_F_FILE | PFS_F_FOLDER))
+		        == (PFS_F_FILE | PFS_F_FOLDER)) {
 			res++;
 		}
-		if ((f->entries[i].flags & (PFS_FLAGS_FILE | PFS_FLAGS_HELPER_FOLDER))
-		        == (PFS_FLAGS_FILE | PFS_FLAGS_HELPER_FOLDER)) {
+		if ((f->entries[i].flags & (PFS_F_FILE | PFS_FLAGS_HELPER_FOLDER))
+		        == (PFS_F_FILE | PFS_FLAGS_HELPER_FOLDER)) {
 			res++;
 		}
 		if ((f->entries[i].flags & PFS_FLAGS_HELPER_FOLDER) != 0) {
@@ -193,7 +193,7 @@ static int print_folder(struct pfs_place fp, const char *name, struct pfs_place 
 		} else if (f->entries[i].name_pos == -1) {
 			res++;
 		}
-		if ((f->entries[i].flags & PFS_FLAGS_FOLDER) != 0) {
+		if ((f->entries[i].flags & PFS_F_FOLDER) != 0) {
 			struct pfs_place cur_pos;
 			cur_pos.block = fp.block;
 			cur_pos.pos = fp.pos + sizeof(struct pfs_folder) + i * sizeof(struct pfs_folder_entry);
@@ -1036,7 +1036,7 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 		*name_size += cur_len;
 		*name -= cur_len;
 		ui64 flags = pfsc_element_get_flags(f);
-		if (flags & PFS_FLAGS_FILE) {
+		if (flags & PFS_F_FILE) {
 			void *buf = malloc(1 << 15);
 			int fd = open64(*name, O_WRONLY | O_CREAT | O_TRUNC, USED_MODE);
 			if (fd == -1) {
@@ -1071,7 +1071,7 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 			}
 			close(fd);
 			free(buf);
-		} else if (flags & PFS_FLAGS_FOLDER) {
+		} else if (flags & PFS_F_FOLDER) {
 			if (mkdir(*name, USED_MODE) == -1) {
 				switch (errno) {
 				case EEXIST:
@@ -1364,7 +1364,7 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		printf("%scould get the create time! [D]\n", start);
 		exit(EXIT_FAILURE);
 	}
-	if ((pfsc_element_get_flags(e) & PFS_FLAGS_ENCRYPTED) != 0) {
+	if ((pfsc_element_get_flags(e) & PFS_F_ENCRYPTED) != 0) {
 		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
 			printf("%sthe flags have an unexpected value! (%s) [E]\n", start, pfs_error());
 			exit(EXIT_FAILURE);
@@ -1373,7 +1373,7 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		printf("%scould get the flags! (%s) [E.2]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
-	if (!pfsc_element_modify_flags(e, PFS_FLAGS_ENCRYPTED, 0)) {
+	if (!pfsc_element_modify_flags(e, PFS_F_ENCRYPTED, 0)) {
 		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
 			printf("%scould not modify the flags! [F]\n", start);
 			exit(EXIT_FAILURE);
@@ -1383,7 +1383,7 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		printf("%scould get the flags! [10]\n", start);
 		exit(EXIT_FAILURE);
 	}
-	if ((pfsc_element_get_flags(e) & PFS_FLAGS_ENCRYPTED) == 0) {
+	if ((pfsc_element_get_flags(e) & PFS_F_ENCRYPTED) == 0) {
 		printf("%sthe flags have an unexpected value! [11]\n", start);
 		exit(EXIT_FAILURE);
 	} else if ((!is_not_root && pfs_errno != PFS_ERRNO_ROOT_FOLDER)
@@ -1392,7 +1392,7 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		exit(EXIT_FAILURE);
 	}
 	pfs_errno = 0;
-	if ((pfsc_element_get_flags(e) & PFS_FLAGS_ENCRYPTED) == 0) {
+	if ((pfsc_element_get_flags(e) & PFS_F_ENCRYPTED) == 0) {
 		printf("%sthe flags have an unexpected value! [13]\n", start);
 		exit(EXIT_FAILURE);
 	} else if ((!is_not_root && pfs_errno != PFS_ERRNO_ROOT_FOLDER)
@@ -1400,7 +1400,7 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		printf("%serror! (%s) [14]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
-	if (!pfsc_element_modify_flags(e, 0, PFS_FLAGS_ENCRYPTED)) {
+	if (!pfsc_element_modify_flags(e, 0, PFS_F_ENCRYPTED)) {
 		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
 			printf("%scould not modify the flags! [15]\n", start);
 			exit(EXIT_FAILURE);
@@ -1410,7 +1410,7 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		printf("%scould get the flags! [16]\n", start);
 		exit(EXIT_FAILURE);
 	}
-	if ((pfsc_element_get_flags(e) & PFS_FLAGS_ENCRYPTED) != 0
+	if ((pfsc_element_get_flags(e) & PFS_F_ENCRYPTED) != 0
 	        && pfsc_element_get_flags(e) != -1) {
 		printf("%scould not modify the flags! (%s) [17]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
@@ -1419,7 +1419,7 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		printf("%serror! (%s) [18]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
-	if (pfsc_element_modify_flags(e, PFS_FLAGS_FILE, 0)) {
+	if (pfsc_element_modify_flags(e, PFS_F_FILE, 0)) {
 		printf("%scould modify the flags! [19]\n", start);
 		exit(EXIT_FAILURE);
 	} else if (pfs_errno != PFS_ERRNO_ILLEGAL_ARG) {
@@ -1429,7 +1429,7 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		}
 	}
 	pfs_errno = 0;
-	if (pfsc_element_modify_flags(e, 0, PFS_FLAGS_FOLDER)) {
+	if (pfsc_element_modify_flags(e, 0, PFS_F_FOLDER)) {
 		printf("%scould modify the flags! [1B]\n", start);
 		exit(EXIT_FAILURE);
 	} else if (pfs_errno != PFS_ERRNO_ILLEGAL_ARG) {
@@ -1439,7 +1439,7 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		}
 	}
 	pfs_errno = 0;
-	if (pfsc_element_modify_flags(e, PFS_FLAGS_EXECUTABLE, PFS_FLAGS_EXECUTABLE)) {
+	if (pfsc_element_modify_flags(e, PFS_F_EXECUTABLE, PFS_F_EXECUTABLE)) {
 		printf("%scould modify the flags! [1D]\n", start);
 		exit(EXIT_FAILURE);
 	} else if (pfs_errno != PFS_ERRNO_ILLEGAL_ARG) {

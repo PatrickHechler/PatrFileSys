@@ -31,16 +31,24 @@ struct iter_handle {
 
 #ifndef I_AM_API_PFS
 #define EXT extern
+#define INIT(val)
 #else
 #define EXT
+#define INIT(val) = val
 #endif
 
-EXT struct element_handle *ehs;
-EXT struct stream_handle *shs;
-EXT struct iter_handle *ihs;
+EXT struct element_handle *ehs INIT(NULL);
+EXT struct stream_handle *shs INIT(NULL);
+EXT struct iter_handle *ihs INIT(NULL);
 
-EXT i64 eh_size;
-EXT i64 sh_size;
-EXT i64 ih_size;
+EXT i64 eh_size INIT(0L);
+EXT i64 sh_size INIT(0L);
+EXT i64 ih_size INIT(0L);
+
+EXT struct element_handle *root INIT(NULL);
+EXT struct element_handle *cwd INIT(NULL);
+
+#undef EXT
+#undef INIT
 
 #endif /* SRC_API_PFS_H_ */

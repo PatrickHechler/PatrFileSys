@@ -49,13 +49,14 @@ OBJS = $(CORE_OBJS) $(API_BIN)hashset.o $(API_BIN)bm.o $(API_BIN)pfs.o $(API_BIN
 
 all:	INIT $(CORE_TEST_TARGET) $(TARGET_A) $(TARGET_SO)
 	$(CORE_TEST_TARGET)
-	cp -r -t $(EXP) $(TARGET_A) $(TARGET_SO) $(EXPSOURCE)
+	cp -r -t $(EXP) $(TARGET_A) $(TARGET_SO)
 
 INIT:
 	mkdir -p $(CORE_BIN)
 	mkdir -p $(API_BIN)
 	mkdir -p $(PROJECT_ROOT)testout/fs-root/
 	mkdir -p $(EXP)
+	ln -sf -T $(EXPSOURCE) $(EXP)include
 
 $(CORE_TEST_TARGET): $(CORE_TEST_TARGET).o $(CORE_OBJS) $(API_BIN)hashset.o $(API_BIN)bm.o
 	$(CC) -o $(CORE_TEST_TARGET) $(CORE_TEST_TARGET).o $(CORE_OBJS) $(API_BIN)hashset.o $(API_BIN)bm.o
