@@ -20,15 +20,19 @@ struct element_handle {
 struct stream_handle {
 	struct element_handle *element;
 	i64 pos;
-	struct pfs_place place;
+	ui32 flags;
 	int is_file;
-	i32 flags;
+	struct pfs_place place;
 };
 
 struct iter_handle {
 	struct pfs_folder_iter handle;
+	struct pfs_element_handle ieh;
 	struct element_handle *folder;
 };
+
+static_assert((offsetof(struct iter_handle, ieh) % 8) == 0, "err");
+static_assert((offsetof(struct iter_handle, folder) % 8) == 0, "err");
 
 #ifndef I_AM_API_PFS
 #define EXT extern

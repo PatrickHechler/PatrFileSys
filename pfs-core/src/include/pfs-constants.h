@@ -31,7 +31,7 @@ static_assert(PFS_B0_OFFSET_BLOCK_SIZE == offsetof(struct pfs_b0, block_size), "
 #define	PFS_F_HIDDEN     0x01000000U
 
 #define PFS_SO_ONLY_CREATE  0x00000001U /* fail if the file/pipe exist already */
-#define PFS_SO_ALSO_CREATE  0x00000002U /* create the file/pipe if it does not exist, but do not fail if the file/pipe exist already */
+#define PFS_SO_ALSO_CREATE  0x00000002U /* create the file/pipe if it does not exist, but do not fail if the file/pipe exist already (overwritten by PFS_SO_ONLY_CREATE) */
 #define PFS_SO_FILE         0x00000004U /* fail if the element is a pipe and if CREATE is set create a file */
 #define PFS_SO_PIPE         0x00000008U /* fail if the element is a file and if CREATE is set create a pipe */
 #define PFS_SO_READ         0x00000100U /* open the stream for read access */

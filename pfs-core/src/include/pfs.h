@@ -54,6 +54,8 @@ extern i32 pfs_block_size();
  * if the path starts with a slash ('/') it is considered absolute
  * otherwise the path is considered relative to the current working directory
  *
+ * if the path is empty (directly points to a null ('\0') character) this operation fails
+ *
  * the path segments are separated by slashes ('/')
  *
  * empty path segments are ignored
