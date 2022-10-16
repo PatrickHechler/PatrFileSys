@@ -50,7 +50,7 @@ extern i32 pfs_element_get_flags(int eh);
  *
  * on success 1 and on error 0 is returned
  */
-extern i32 pfs_element_modify_flags(int eh, i32 rem_flags, i32 add_flags);
+extern int pfs_element_modify_flags(int eh, i32 add_flags, i32 rem_flags);
 
 /*
  * returns the create time of the given element

@@ -60,7 +60,7 @@ i64 pfsc_folder_child_count(pfs_eh f);
  *
  * on success a non-zero value will be returned and on error zero
  */
-int pfsc_folder_child_from_name(pfs_eh f, char *name);
+int pfsc_folder_child_from_name(pfs_eh f, const char *name);
 
 /**
  * get the child folder with the given name
@@ -70,7 +70,7 @@ int pfsc_folder_child_from_name(pfs_eh f, char *name);
  *
  * on success a non-zero value will be returned and on error zero
  */
-int pfsc_folder_folder_child_from_name(pfs_eh f, char *name);
+int pfsc_folder_folder_child_from_name(pfs_eh f, const char *name);
 
 /**
  * get the child file with the given name
@@ -80,7 +80,7 @@ int pfsc_folder_folder_child_from_name(pfs_eh f, char *name);
  *
  * on success a non-zero value will be returned and on error zero
  */
-int pfsc_folder_file_child_from_name(pfs_eh f, char *name);
+int pfsc_folder_file_child_from_name(pfs_eh f, const char *name);
 
 /**
  * get the child pipe with the given name
@@ -90,7 +90,7 @@ int pfsc_folder_file_child_from_name(pfs_eh f, char *name);
  *
  * on success a non-zero value will be returned and on error zero
  */
-int pfsc_folder_pipe_child_from_name(pfs_eh f, char *name);
+int pfsc_folder_pipe_child_from_name(pfs_eh f, const char *name);
 
 /**
  * adds a new child folder to this folder

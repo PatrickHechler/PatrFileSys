@@ -1491,7 +1491,7 @@ static void pipe_check() {
 		printf("%scould not create the folder! (%s) [1]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
-	if (pfs_pipe_length(p) != 0) {
+	if (pfsc_pipe_length(p) != 0) {
 		printf("%spipe is no empty! (%s) [2]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
@@ -1507,10 +1507,10 @@ static void pipe_check() {
 		exit(EXIT_FAILURE);
 	}
 	// pipe: write[0..1000]
-	res = pfs_pipe_length(p);
+	res = pfsc_pipe_length(p);
 	if (res != 1000) {
 		printf("%spipe has not the expected length! (len=%ld (%s)) [5]\n", start,
-		        pfs_pipe_length(p), pfs_error());
+		        pfsc_pipe_length(p), pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	res = pfsc_pipe_read(p, read_buf, 500);
@@ -1520,10 +1520,10 @@ static void pipe_check() {
 	}
 	// read: write[0..500]
 	// pipe: write[500..1000]
-	res = pfs_pipe_length(p);
+	res = pfsc_pipe_length(p);
 	if (res != 500) {
 		printf("%spipe has not the expected length! (len=%ld (%s)) [7]\n", start,
-		        pfs_pipe_length(p), pfs_error());
+		        pfsc_pipe_length(p), pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	res = memcmp(write_buf, read_buf, 500);
@@ -1538,7 +1538,7 @@ static void pipe_check() {
 		printf("%scould not read form the pipe! [9]\n", start);
 		exit(EXIT_FAILURE);
 	}
-	res = pfs_pipe_length(p);
+	res = pfsc_pipe_length(p);
 	if (res != 244) {
 		printf("%spipe has not the expected length! [A]\n", start);
 		exit(EXIT_FAILURE);
@@ -1562,7 +1562,7 @@ static void pipe_check() {
 		printf("%scould not read form the pipe! [D]\n", start);
 		exit(EXIT_FAILURE);
 	}
-	res = pfs_pipe_length(p);
+	res = pfsc_pipe_length(p);
 	if (res != 756) {
 		printf("%spipe has not the expected length! [E]\n", start);
 		exit(EXIT_FAILURE);

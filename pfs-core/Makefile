@@ -19,7 +19,9 @@ else
     $(error Build mode $(BUILD_MODE) not supported by this Makefile)
 endif
 
-BIN = $(PROJECT_ROOT)binary/$(BUILD_MODE)/
+BIN_ROOT = $(PROJECT_ROOT)binary/
+
+BIN = $(BIN_ROOT)$(BUILD_MODE)/
 
 CORE_BIN = $(BIN)core/
 
@@ -52,6 +54,7 @@ all:	INIT $(CORE_TEST_TARGET) $(TARGET_A) $(TARGET_SO)
 	cp -r -t $(EXP) $(TARGET_A) $(TARGET_SO)
 
 INIT:
+	echo build mode: $(BUILD_MODE)
 	mkdir -p $(CORE_BIN)
 	mkdir -p $(API_BIN)
 	mkdir -p $(PROJECT_ROOT)testout/fs-root/
@@ -78,4 +81,4 @@ $(API_BIN)%.o:	$(APISOURCE)%.c
 #	$(CXX) -c $(CFLAGS) $(CXXFLAGS) $(CPPFLAGS) -o $@ $<
 
 clean:
-	rm -frd $(CORE_BIN) $(PROJECT_ROOT)testout/ $(PROJECT_ROOT)exports/
+	rm -frd $(PROJECT_ROOT)testout/ $(PROJECT_ROOT)exports/ $(BIN_ROOT)

@@ -13,7 +13,7 @@
  *
  * returns on success the folder iterator handle and on error -1
  */
-extern int pfs_folder_open_iter(int eh);
+extern int pfs_folder_open_iter(int eh, int show_hidden);
 
 /*
  * returns the child count of the given folder

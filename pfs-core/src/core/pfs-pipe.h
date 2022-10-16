@@ -14,6 +14,6 @@ int pfsc_pipe_read(pfs_eh p, void *buffer, i64 length);
 
 int __REDIRECT(pfsc_pipe_append, (pfs_eh p, void *data, i64 length), pfsc_file_append);
 
-i64 pfs_pipe_length(pfs_eh p);
+i64 pfsc_pipe_length(pfs_eh p);
 
 #endif /* SRC_CORE_PFS_PIPE_H_ */

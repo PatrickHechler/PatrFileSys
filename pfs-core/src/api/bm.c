@@ -39,10 +39,8 @@ struct bm_flag_ram {
 	ui8 *flags;
 };
 
-static_assert(offsetof(struct bm_ram, bm)
-== 0, "error!");
-static_assert(offsetof(struct bm_file, bm)
-== 0, "error!");
+static_assert(offsetof(struct bm_ram, bm) == 0, "error!");
+static_assert(offsetof(struct bm_file, bm) == 0, "error!");
 static_assert(offsetof(struct bm_flag_ram, bm) == 0, "error!");
 
 static void* bm_ram_get(struct bm_block_manager *bm, i64 block);
@@ -103,7 +101,7 @@ extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count, i32 bl
 		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
 		return NULL;
 	}
-	return &bm->bm;
+	return &(bm->bm);
 }
 
 extern struct bm_block_manager* bm_new_file_block_manager(int fd, i32 block_size) {
@@ -119,7 +117,7 @@ extern struct bm_block_manager* bm_new_file_block_manager(int fd, i32 block_size
 	bm->bm.loaded.hashmaker = bm_hash;
 	setNoFlagVals(file)
 	bm->file = fd;
-	return &bm->bm;
+	return &(bm->bm);
 }
 
 extern struct bm_block_manager* bm_new_flaggable_ram_block_manager(i64 block_count, i32 block_size) {
@@ -148,7 +146,7 @@ extern struct bm_block_manager* bm_new_flaggable_ram_block_manager(i64 block_cou
 		return NULL;
 	}
 	bm->block_count = block_count;
-	return &bm->bm.bm;
+	return &(bm->bm.bm);
 }
 
 static int bm_equal(const void *a, const void *b) {

@@ -182,7 +182,7 @@ i64 pfsc_file_length(pfs_eh f) {
 	return len;
 }
 
-i64 pfs_pipe_length(pfs_eh p) {
+i64 pfsc_pipe_length(pfs_eh p) {
 	get_pipe(-1)
 	i64 len = pipe->file.file_length - pipe->start_offset;
 	pfs->unget(pfs, p->element_place.block);

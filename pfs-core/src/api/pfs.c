@@ -18,18 +18,13 @@ static void free_old() {
 	}
 }
 
-static int childset_equal(const void *a, const void *b) {
+int childset_equal(const void *a, const void *b) {
 	const struct element_handle *ha = a, *hb = b;
 	return ha->handle.element_place.block == hb->handle.element_place.block
 			&& ha->handle.element_place.pos == hb->handle.element_place.pos;
 }
 
-static inline unsigned int eh_hash(const struct element_handle *a) {
-	return ((unsigned) a->handle.element_place.block)
-			^ ((unsigned) a->handle.element_place.pos);
-}
-
-static unsigned int childset_hash(const void *a) {
+unsigned int childset_hash(const void *a) {
 	return eh_hash(a);
 }
 
@@ -45,7 +40,7 @@ static inline int has_refs(struct element_handle *eh) {
 	return 0;
 }
 
-static inline void free_eh(struct element_handle *feh) {
+static inline void release_eh(struct element_handle *feh) {
 	feh->load_count--;
 	for (struct element_handle *a = feh, *b; a != NULL && has_refs(a); a = b) {
 		b = a->parent;
@@ -105,7 +100,7 @@ static inline struct element_handle* open_eh(const char *path,
 		}
 		struct element_handle *neh = malloc(sizeof(struct element_handle));
 		if (!neh) {
-			free_eh(eh);
+			release_eh(eh);
 			pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
 			return 0;
 		}
@@ -118,12 +113,12 @@ static inline struct element_handle* open_eh(const char *path,
 						(*parent_on_err)->load_count++;
 					}
 				}
-				free_eh(eh);
+				release_eh(eh);
 				free(buf);
 				return 0;
 			}
 		} else if (!pfsc_folder_child_from_name(&neh->handle, buf)) {
-			free_eh(eh);
+			release_eh(eh);
 			free(buf);
 			return 0;
 		}
@@ -314,23 +309,6 @@ extern int pfs_handle(const char *path) {
 	return eh_len++;
 }
 
-#define return_handle(len, hs, h) \
-	for (int i = 0; i < len; i++) { \
-		if (hs[i]) { \
-			continue; \
-		} \
-		hs[i] = h; \
-		return i; \
-	} \
-	void *nhs = realloc(hs, len + 1); \
-	if (!nhs) { \
-		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY; \
-		return -1; \
-	} \
-	hs = nhs; \
-	hs[len] = h; \
-	return len++;
-
 static inline int handle(const char *path, ui32 flag) {
 	struct element_handle *eh = open_eh(path, root, 1, NULL);
 	if (!eh) {
@@ -360,23 +338,16 @@ extern int pfs_handle_pipe(const char *path) {
 }
 
 extern int pfs_cwd(int eh) {
-	if (eh >= eh_len) {
-		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
-		return 0;
-	}
-	if (!ehs[eh]) {
-		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
-		return 0;
-	}
+	eh(0)
 	ui32 flags = pfsc_element_get_flags(&ehs[eh]->handle);
 	if (flags == -1) {
-		return -1;
+		return 0;
 	}
 	if ((flags & PFS_F_FOLDER) != 0) {
 		pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
-		return -1;
+		return 0;
 	}
-	free_eh(cwd);
+	release_eh(cwd);
 	cwd = ehs[eh];
 	cwd->load_count++;
 	return 1;
@@ -395,7 +366,7 @@ extern int pfs_change_working_directoy(char *path) {
 		pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 		return -1;
 	}
-	free_eh(cwd);
+	release_eh(cwd);
 	cwd = eh;
 	return 1;
 }
@@ -415,6 +386,108 @@ extern int pfs_delete(const char *path) {
 				ehs[i] = NULL;
 			}
 		}
+	}
+	return res;
+}
+
+static inline int open_sh(struct element_handle *eh, ui32 stream_flags) {
+	struct stream_handle *sh = malloc(sizeof(struct stream_handle));
+	if (!sh) {
+		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
+		release_eh(eh);
+		return -1;
+	}
+	sh->element = eh;
+	sh->pos = 0;
+	sh->flags = stream_flags;
+	void *block_data = pfs->get(pfs, eh->handle.direct_parent_place.block);
+	if (!block_data) {
+		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
+		free(sh);
+		release_eh(eh);
+		return -1;
+	}
+	struct pfs_folder_entry *e = block_data + eh->handle.entry_pos;
+	sh->is_file = (e->flags & PFS_F_FILE) != 0;
+	if (!sh->is_file) {
+		sh->pos = -1;
+		if ((e->flags & PFS_F_PIPE) == 0) {
+			pfs->unget(pfs, eh->handle.direct_parent_place.block);
+			pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+			free(sh);
+			release_eh(eh);
+			return -1;
+		}
+	}
+	pfs->unget(pfs, eh->handle.direct_parent_place.block);
+	if (sh->is_file) {
+		if (stream_flags & PFS_SO_PIPE) {
+			pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+			free(sh);
+			release_eh(eh);
+			return -1;
+		}
+	} else if (stream_flags & PFS_SO_FILE) {
+		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+		free(sh);
+		release_eh(eh);
+		return -1;
+	}
+	block_data = pfs->get(pfs, eh->handle.element_place.block);
+	if (!block_data) {
+		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
+		free(sh);
+		release_eh(eh);
+		return -1;
+	}
+	struct pfs_file *f = block_data + eh->handle.element_place.pos;
+	sh->place.block = f->first_block;
+	sh->place.pos = 0;
+	if (stream_flags & PFS_SO_FILE_TRUNC) {
+		if (sh->is_file) {
+			pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+			free(sh);
+			release_eh(eh);
+			return -1;
+		}
+		if (!pfsc_file_truncate(&eh->handle, 0)) {
+			free(sh);
+			release_eh(eh);
+			return -1;
+		}
+	}
+	if (stream_flags & PFS_SO_FILE_EOF) {
+		if (sh->is_file) {
+			pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+			free(sh);
+			release_eh(eh);
+			return -1;
+		}
+		sh->pos = pfsc_file_length(&eh->handle);
+		if (sh->pos == -1) {
+			free(sh);
+			release_eh(eh);
+			return -1;
+		}
+		sh->place = find_place(sh->place.block, sh->pos);
+		if (sh->place.block == -1) {
+			free(sh);
+			release_eh(eh);
+			return -1;
+		}
+	}
+	return_handle(sh_len, shs, sh);
+}
+
+extern int pfs_open_stream(int eh, i32 stream_flags) {
+	eh(0)
+	if (stream_flags & PFS_SO_ONLY_CREATE) {
+		pfs_errno = PFS_ERRNO_ELEMENT_ALREADY_EXIST;
+		return 0;
+	}
+	int res = open_sh(ehs[eh], stream_flags);
+	if (res) {
+		ehs[eh]->load_count++;
 	}
 	return res;
 }
@@ -459,119 +532,122 @@ extern int pfs_stream(const char *path, i32 stream_flags) {
 		}
 		return -1;
 	} else if (stream_flags & PFS_SO_ONLY_CREATE) {
-		free_eh(eh);
+		release_eh(eh);
 		return -1;
 	}
-	struct stream_handle *sh = malloc(sizeof(struct stream_handle));
-	if (!sh) {
+	return open_sh(eh, stream_flags);
+}
+
+extern int pfs_folder_open_iter(int eh, int show_hidden) {
+	eh(-1)
+	c_h(ehs[eh], -1, PFS_F_FOLDER)
+	ehs[eh]->load_count++;
+	struct iter_handle *ih = malloc(sizeof(struct iter_handle));
+	if (!ih) {
 		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
-		free_eh(eh);
+		release_eh(ehs[eh]);
+		pfs->unget(pfs, ehs[eh]->handle.direct_parent_place.block);
 		return -1;
 	}
-	sh->element = eh;
-	sh->pos = 0;
-	sh->flags = stream_flags;
-	void *block_data = pfs->get(pfs, eh->handle.direct_parent_place.block);
-	if (!block_data) {
+	ih->ieh = ehs[eh]->handle;
+	if (!pfsc_folder_fill_iterator(&ih->ieh, &ih->handle, show_hidden)) {
 		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
-		free(sh);
-		free_eh(eh);
+		release_eh(ehs[eh]);
+		pfs->unget(pfs, ehs[eh]->handle.direct_parent_place.block);
 		return -1;
 	}
-	struct pfs_folder_entry *e = block_data + eh->handle.entry_pos;
-	sh->is_file = (e->flags & PFS_F_FILE) != 0;
-	if (!sh->is_file) {
-		if ((e->flags & PFS_F_PIPE) == 0) {
-			pfs->unget(pfs, eh->handle.direct_parent_place.block);
-			pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
-			free(sh);
-			free_eh(eh);
-			return -1;
-		}
-	}
-	pfs->unget(pfs, eh->handle.direct_parent_place.block);
-	if (sh->is_file) {
-		if (stream_flags & PFS_SO_PIPE) {
-			pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
-			free(sh);
-			free_eh(eh);
-			return -1;
-		}
-	} else if (stream_flags & PFS_SO_FILE) {
-		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
-		free(sh);
-		free_eh(eh);
+	if (!pfs->unget(pfs, ehs[eh]->handle.direct_parent_place.block)) {
+		release_eh(ehs[eh]);
 		return -1;
 	}
-	block_data = pfs->get(pfs, eh->handle.element_place.block);
-	if (!block_data) {
-		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
-		free(sh);
-		free_eh(eh);
-		return -1;
-	}
-	struct pfs_file *f = block_data + eh->handle.element_place.pos;
-	sh->place.block = f->first_block;
-	sh->place.pos = sh->is_file ? 0 : ((struct pfs_pipe*) f)->start_offset;
-	if (stream_flags & PFS_SO_FILE_TRUNC) {
-		if (sh->is_file) {
-			pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
-			free(sh);
-			free_eh(eh);
-			return -1;
-		}
-		if (!pfsc_file_truncate(&eh->handle, 0)) {
-			free(sh);
-			free_eh(eh);
-			return -1;
-		}
-	}
-	if (stream_flags & PFS_SO_FILE_EOF) {
-		if (sh->is_file) {
-			pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
-			free(sh);
-			free_eh(eh);
-			return -1;
-		}
-		sh->pos = pfsc_file_length(&eh->handle);
-		if (sh->pos == -1) {
-			free(sh);
-			free_eh(eh);
-			return -1;
-		}
-		sh->place = find_place(sh->place.block, sh->pos);
-		if (sh->place.block == -1) {
-			free(sh);
-			free_eh(eh);
-			return -1;
-		}
-	}
-	return_handle(sh_len, shs, sh);
+	ih->folder = ehs[eh];
+	return_handle(ih_len, ihs, ih);
 }
 
 extern int pfs_iter(const char *path, int show_hidden) {
 	struct element_handle *eh = open_eh(path, root, 1, NULL);
+	if (!pfs->get(pfs, eh->handle.direct_parent_place.block)) {
+		return -1;
+	}
 	ui32 flags = pfsc_element_get_flags(&eh->handle);
 	if (flags == -1) {
+		release_eh(eh);
+		pfs->unget(pfs, eh->handle.direct_parent_place.block);
 		return -1;
 	}
 	if ((flags & PFS_F_FOLDER) == 0) {
 		pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
-		free_eh(eh);
+		release_eh(eh);
+		pfs->unget(pfs, eh->handle.direct_parent_place.block);
 		return -1;
 	}
 	struct iter_handle *ih = malloc(sizeof(struct iter_handle));
 	if (!ih) {
 		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
-		free_eh(eh);
+		release_eh(eh);
+		pfs->unget(pfs, eh->handle.direct_parent_place.block);
 		return -1;
 	}
 	ih->ieh = eh->handle;
 	if (!pfsc_folder_fill_iterator(&ih->ieh, &ih->handle, show_hidden)) {
 		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
-		free_eh(eh);
+		release_eh(eh);
+		pfs->unget(pfs, eh->handle.direct_parent_place.block);
+		return -1;
+	}
+	if (!pfs->unget(pfs, eh->handle.direct_parent_place.block)) {
+		release_eh(eh);
 		return -1;
 	}
 	ih->folder = eh;
 	return_handle(ih_len, ihs, ih);
+}
+
+extern int pfs_iter_next(int ih) {
+	ih(-1)
+	if (!pfsc_folder_iter_next(&ihs[ih]->handle)) {
+		return -1;
+	}
+	struct element_handle *c = hashset_get(&ihs[ih]->folder->children,
+			eh_hash(&ihs[ih]->ieh), &ihs[ih]->ieh);
+	if (!c) {
+		c->load_count++;
+	} else {
+		struct element_handle *nc = malloc(sizeof(struct element_handle));
+		if (!nc) {
+			pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
+			return -1;
+		}
+		nc->children.entries = NULL;
+		nc->children.entrycount = 0;
+		nc->children.equalizer = childset_equal;
+		nc->children.hashmaker = childset_hash;
+		nc->handle = c->handle;
+		nc->load_count = 1;
+		nc->parent = ihs[ih]->folder;
+		hashset_put(&ihs[ih]->folder->children, eh_hash(&ihs[ih]->ieh),
+				&ihs[ih]->ieh);
+	}
+	return_handle(eh_len, ehs, c)
+}
+
+extern int pfs_element_close(int eh) {
+	eh(0)
+	release_eh(ehs[eh]);
+	ehs[eh] = NULL;
+	return 1;
+}
+
+extern int pfs_iter_close(int ih) {
+	ih(0)
+	release_eh(ihs[ih]->folder);
+	ihs[ih] = NULL;
+	return 1;
+}
+
+extern int pfs_stream_close(int sh) {
+	sh(0)
+	release_eh(shs[sh]->element);
+	shs[sh] = NULL;
+	return 1;
 }

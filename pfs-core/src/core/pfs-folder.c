@@ -168,7 +168,7 @@ i64 pfsc_folder_child_count(pfs_eh f) {
 	return count_children(&f->element_place);
 }
 
-static int pfs_folder_child_from_name_impl(pfs_eh f, char *name, int is_helper, ui32 neededflag) {
+static int pfs_folder_child_from_name_impl(pfs_eh f, const char *name, int is_helper, ui32 neededflag) {
 	const i64 old_block_num = f->element_place.block;
 	const i64 name_len = strlen(name);
 	get_folder
@@ -202,19 +202,19 @@ static int pfs_folder_child_from_name_impl(pfs_eh f, char *name, int is_helper, 
 	return 0;
 }
 
-int pfsc_folder_child_from_name(pfs_eh f, char *name) {
+int pfsc_folder_child_from_name(pfs_eh f, const char *name) {
 	return pfs_folder_child_from_name_impl(f, name, 0, -1);
 }
 
-int pfsc_folder_folder_child_from_name(pfs_eh f, char *name) {
+int pfsc_folder_folder_child_from_name(pfs_eh f, const char *name) {
 	return 1 == pfs_folder_child_from_name_impl(f, name, 0, PFS_F_FOLDER);
 }
 
-int pfsc_folder_file_child_from_name(pfs_eh f, char *name) {
+int pfsc_folder_file_child_from_name(pfs_eh f, const char *name) {
 	return 1 == pfs_folder_child_from_name_impl(f, name, 0, PFS_F_FILE);
 }
 
-int pfsc_folder_pipe_child_from_name(pfs_eh f, char *name) {
+int pfsc_folder_pipe_child_from_name(pfs_eh f, const char *name) {
 	return 1 == pfs_folder_child_from_name_impl(f, name, 0, PFS_F_PIPE);
 }
 

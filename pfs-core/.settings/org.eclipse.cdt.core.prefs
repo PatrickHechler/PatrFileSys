@@ -24,3 +24,13 @@ environment/project/cdt.managedbuild.toolchain.gnu.base.295165483/BUILD_MODE/ope
 environment/project/cdt.managedbuild.toolchain.gnu.base.295165483/BUILD_MODE/value=debug
 environment/project/cdt.managedbuild.toolchain.gnu.base.295165483/append=true
 environment/project/cdt.managedbuild.toolchain.gnu.base.295165483/appendContributed=true
+environment/project/cdt.managedbuild.toolchain.gnu.base.595087395.580266079/BUILD_MODE/delimiter=\:
+environment/project/cdt.managedbuild.toolchain.gnu.base.595087395.580266079/BUILD_MODE/operation=replace
+environment/project/cdt.managedbuild.toolchain.gnu.base.595087395.580266079/BUILD_MODE/value=run
+environment/project/cdt.managedbuild.toolchain.gnu.base.595087395.580266079/append=true
+environment/project/cdt.managedbuild.toolchain.gnu.base.595087395.580266079/appendContributed=true
+environment/project/cdt.managedbuild.toolchain.gnu.base.595087395/BUILD_MODE/delimiter=\:
+environment/project/cdt.managedbuild.toolchain.gnu.base.595087395/BUILD_MODE/operation=replace
+environment/project/cdt.managedbuild.toolchain.gnu.base.595087395/BUILD_MODE/value=debug
+environment/project/cdt.managedbuild.toolchain.gnu.base.595087395/append=true
+environment/project/cdt.managedbuild.toolchain.gnu.base.595087395/appendContributed=true
