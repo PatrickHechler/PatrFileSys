@@ -28,18 +28,6 @@ unsigned int childset_hash(const void *a) {
 	return eh_hash(a);
 }
 
-static inline int has_refs(struct element_handle *eh) {
-	if (eh->load_count > 0) {
-		return 1;
-	} else if (eh->load_count < 0) {
-		abort();
-	}
-	if (eh->children.entrycount != 0) {
-		return 1;
-	}
-	return 0;
-}
-
 static inline void release_eh(struct element_handle *feh) {
 	feh->load_count--;
 	for (struct element_handle *a = feh, *b; a != NULL && has_refs(a); a = b) {
@@ -441,10 +429,8 @@ static inline int open_sh(struct element_handle *eh, ui32 stream_flags) {
 		return -1;
 	}
 	struct pfs_file *f = block_data + eh->handle.element_place.pos;
-	sh->place.block = f->first_block;
-	sh->place.pos = 0;
 	if (stream_flags & PFS_SO_FILE_TRUNC) {
-		if (sh->is_file) {
+		if (!sh->is_file) {
 			pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 			free(sh);
 			release_eh(eh);
@@ -457,24 +443,13 @@ static inline int open_sh(struct element_handle *eh, ui32 stream_flags) {
 		}
 	}
 	if (stream_flags & PFS_SO_FILE_EOF) {
-		if (sh->is_file) {
+		if (!sh->is_file) {
 			pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 			free(sh);
 			release_eh(eh);
 			return -1;
 		}
-		sh->pos = pfsc_file_length(&eh->handle);
-		if (sh->pos == -1) {
-			free(sh);
-			release_eh(eh);
-			return -1;
-		}
-		sh->place = find_place(sh->place.block, sh->pos);
-		if (sh->place.block == -1) {
-			free(sh);
-			release_eh(eh);
-			return -1;
-		}
+		sh->pos = f->file_length;
 	}
 	return_handle(sh_len, shs, sh);
 }

@@ -8,6 +8,8 @@
 #ifndef SRC_API_PFS_H_
 #define SRC_API_PFS_H_
 
+#define has_refs(eh) ( ( (eh)->load_count > 0) ? 1 : ( (eh)->children.entrycount != 0) )
+
 #define get_handle(err_ret, h_len, hs, h_num) \
 	if (h_num >= h_len) { \
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG; \
@@ -80,7 +82,6 @@ struct stream_handle {
 	i64 pos;
 	ui32 flags;
 	int is_file;
-	struct pfs_place place;
 };
 
 struct iter_handle {

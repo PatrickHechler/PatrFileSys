@@ -30,23 +30,17 @@ extern i64 pfs_stream_write(int sh, void *data, i64 len) {
 	i64 wrote = 0;
 	struct pfs_file *f = my_block_data
 			+ shs[sh]->element->handle.element_place.pos;
-	if (shs[sh]->pos == -1) {
-		shs[sh]->place = find_place(f->first_block, f->file_length);
-		shs[sh]->pos = f->file_length;
-	} else if ((shs[sh]->flags & PFS_SO_APPEND) || (!shs[sh]->is_file)) {
+	struct pfs_place place;
+	if ((!shs[sh]->is_file) || (shs[sh]->flags & PFS_SO_APPEND)) {
 		if (shs[sh]->is_file) {
-			if (shs[sh]->pos >= f->file_length) {
-				shs[sh]->pos = 0;
-				shs[sh]->place.block = f->first_block;
-				shs[sh]->place.pos = 0;
-			}
+			shs[sh]->pos = f->file_length;
 		}
-		shs[sh]->place = find_place(shs[sh]->place.block,
-				f->file_length - shs[sh]->pos + shs[sh]->place.pos);
+		place = find_place(f->first_block, f->file_length);
 	} else if (f->file_length < shs[sh]->pos) {
-		void *write_block_data = pfs->get(pfs, shs[sh]->place.block);
+		place = find_place(f->first_block, f->file_length);
+		void *write_block_data = pfs->get(pfs, place.block);
 		i64 last_block_num = -1L;
-		i64 len2 = shs[sh]->place.pos - f->file_length;
+		i64 len2 = place.pos - f->file_length;
 		for (; 1;) {
 			if (!write_block_data) {
 				break;
@@ -55,33 +49,33 @@ extern i64 pfs_stream_write(int sh, void *data, i64 len) {
 			if (cpy > len2) {
 				cpy = len2;
 			}
-			memset(write_block_data + shs[sh]->place.pos, 0, cpy);
-			last_block_num = shs[sh]->place.block;
+			memset(write_block_data + place.pos, 0, cpy);
+			last_block_num = place.block;
 			len2 -= cpy;
+			data += cpy;
 			f->file_length += cpy;
-			shs[sh]->place.pos = 0;
+			place.pos = 0;
 			if (len2 <= 0) {
 				break;
 			}
-			i64 last_block_num = shs[sh]->place.block;
+			i64 last_block_num = place.block;
 			if (-1 != *(i64*) (write_block_data + pfs->block_size - 8)) {
-				shs[sh]->place.block = *(i64*) (write_block_data
-						+ pfs->block_size - 8);
+				place.block = *(i64*) (write_block_data + pfs->block_size - 8);
 			} else {
-				shs[sh]->place.block = allocate_block(
-				/*			*/BLOCK_FLAG_USED | BLOCK_FLAG_FILE_DATA);
-				*(i64*) (write_block_data + pfs->block_size - 8) =
-						shs[sh]->place.block;
+				place.block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
+				*(i64*) (write_block_data + pfs->block_size - 8) = place.block;
 			}
 			pfs->set(pfs, last_block_num);
-			write_block_data = pfs->get(pfs, shs[sh]->place.block);
+			write_block_data = pfs->get(pfs, place.block);
 		}
-		pfs->set(pfs, shs[sh]->place.block);
+		pfs->set(pfs, place.block);
 		if (f->file_length != shs[sh]->pos) {
 			abort();
 		}
+	} else {
+		place = find_place(f->first_block, shs[sh]->pos);
 	}
-	void *write_block_data = pfs->get(pfs, shs[sh]->place.block);
+	void *write_block_data = pfs->get(pfs, place.block);
 	for (; 1;) { // write and append
 		if (!write_block_data) {
 			break;
@@ -90,29 +84,30 @@ extern i64 pfs_stream_write(int sh, void *data, i64 len) {
 		if (cpy > len) {
 			cpy = len;
 		}
-		memcpy(write_block_data + shs[sh]->place.pos, data, cpy);
+		memcpy(write_block_data + place.pos, data, cpy);
 		len -= cpy;
 		wrote += cpy;
+		data += cpy;
 		shs[sh]->pos += cpy;
-		f->file_length += cpy;
-		shs[sh]->place.pos = 0;
+		if (shs[sh]->pos > f->file_length) {
+			f->file_length = shs[sh]->pos;
+		}
+		place.pos = 0;
 		if (len <= 0) {
 			break;
 		}
-		i64 last_block_num = shs[sh]->place.block;
+		i64 last_block_num = place.block;
 		if (-1 != *(i64*) (write_block_data + pfs->block_size - 8)) {
-			shs[sh]->place.block = *(i64*) (write_block_data + pfs->block_size
-					- 8);
+			place.block = *(i64*) (write_block_data + pfs->block_size - 8);
 		} else {
-			shs[sh]->place.block = allocate_block(
-			/*			*/BLOCK_FLAG_USED | BLOCK_FLAG_FILE_DATA);
-			*(i64*) (write_block_data + pfs->block_size - 8) =
-					shs[sh]->place.block;
+			place.block = allocate_block(
+			/*			*/BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
+			*(i64*) (write_block_data + pfs->block_size - 8) = place.block;
 		}
 		pfs->set(pfs, last_block_num);
-		write_block_data = pfs->get(pfs, shs[sh]->place.block);
+		write_block_data = pfs->get(pfs, place.block);
 	}
-	pfs->set(pfs, shs[sh]->place.block);
+	pfs->set(pfs, place.block);
 	pfs->set(pfs, shs[sh]->element->handle.element_place.block);
 	if (len < 0) {
 		abort();
@@ -122,7 +117,7 @@ extern i64 pfs_stream_write(int sh, void *data, i64 len) {
 
 extern i64 pfs_stream_read(int sh, void *buffer, i64 len) {
 	sh(0)
-	if ((shs[sh] & PFS_SO_READ) == 0) {
+	if ((shs[sh]->flags & PFS_SO_READ) == 0) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
@@ -140,4 +135,111 @@ extern i64 pfs_stream_read(int sh, void *buffer, i64 len) {
 	i64 reat = 0L;
 	struct pfs_file *f = my_block_data
 			+ shs[sh]->element->handle.element_place.pos;
+	if (f->file_length <= shs[sh]->pos) {
+		return 0;
+	}
+	struct pfs_place place = find_place(f->first_block, shs[sh]->pos);
+	for (; len > 0;) {
+		i64 block_num = shs[sh]->is_file ? place.block : f->first_block;
+		i32 pos_in_block =
+				shs[sh]->is_file ?
+						place.pos : ((struct pfs_pipe*) f)->start_offset;
+		void *block_data = pfs->get(pfs, block_num);
+		if (!block_data) {
+			pfs->set(pfs, shs[sh]->element->handle.element_place.block);
+			return reat;
+		}
+		i64 cpy = pfs->block_size - pos_in_block - 8;
+		if (cpy > len) {
+			cpy = len;
+		}
+		if ((f->file_length - shs[sh]->pos) < (cpy + pos_in_block)) {
+			cpy = f->file_length - shs[sh]->pos;
+		}
+		memcpy(buffer, block_data + pos_in_block, cpy);
+		len -= cpy;
+		buffer += cpy;
+		reat += cpy;
+		if (shs[sh]->is_file) {
+			shs[sh]->pos += cpy;
+			if (cpy < pfs->block_size - pos_in_block - 8) {
+				place.pos += cpy;
+			} else {
+				place.block = *(i64*) (block_data + pfs->block_size - 8);
+				place.pos = 0;
+				if (place.block == -1) {
+					if (shs[sh]->pos < f->file_length) {
+						abort();
+					}
+					len = 0;
+					place.block = block_num;
+					place.pos = pfs->block_size - 8;
+				}
+			}
+		} else if (cpy < pfs->block_size - pos_in_block - 8) {
+			((struct pfs_pipe*) f)->start_offset += cpy;
+		} else {
+			((struct pfs_pipe*) f)->start_offset = 0;
+			f->file_length -= pfs->block_size - 8;
+			f->first_block = *(i64*) (block_data + pfs->block_size - 8);
+		}
+		pfs->unget(pfs, block_num);
+	}
+	pfs->unget(pfs, shs[sh]->element->handle.element_place.block);
+	return reat;
+}
+
+extern i64 pfs_stream_get_pos(int sh) {
+	sh(-1)
+	if (!shs[sh]->is_file) {
+		pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+		return -1L;
+	}
+	return shs[sh]->pos;
+}
+
+extern int pfs_stream_set_pos(int sh, i64 pos) {
+	sh(0)
+	if (!shs[sh]->is_file) {
+		pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+		return 0;
+	}
+	if (pos < 0L) {
+		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+		return 0;
+	}
+	shs[sh]->pos = pos;
+	return 1;
+}
+
+extern i64 pfs_stream_add_pos(int sh, i64 add) {
+	sh(-1)
+	if (!shs[sh]->is_file) {
+		pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+		return -1;
+	}
+	i64 new = shs[sh]->pos + add;
+	if (new < 0L) {
+		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+		return -1;
+	}
+	return shs[sh]->pos = new;
+}
+
+extern i64 pfs_stream_seek_eof(int sh) {
+	sh(-1)
+	if (!shs[sh]->is_file) {
+		pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+		return -1;
+	}
+	void *block_data = pfs->get(pfs,
+			shs[sh]->element->handle.element_place.block);
+	if (!block_data) {
+		return -1;
+	}
+	struct pfs_file *f = block_data
+			+ shs[sh]->element->handle.element_place.pos;
+	shs[sh]->pos = f->file_length;
+	pfs->unget(pfs, shs[sh]->element->handle.element_place.block);
+	return shs[sh]->pos;
 }

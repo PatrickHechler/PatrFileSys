@@ -56,14 +56,26 @@ extern i64 pfs_stream_get_pos(int sh);
  *
  * when the given stream is a pipe stream this function fails
  *
- * on success the new position and on error -1 is returned
+ * note that it is allowed to set the position behind the end of
+ * the file. pfs_stream_write will append zeros to the file when the
+ * position is greater then the file length.
+ *
+ * on success 1 on error 0 is returned
  */
-extern i64 pfs_stream_set_pos(int sh, i64 pos);
+extern int pfs_stream_set_pos(int sh, i64 pos);
 
 /*
  * adds the given value to the position of the given file stream
  *
  * when the given stream is a pipe stream this function fails
+ *
+ * this function works like:
+ *   i64 pos = pfs_stream_get_pos(sh);
+ *   if (pfs_stream_set_pos(sh, pos + add)) {
+ *     return pos + add;
+ *   } else {
+ *     return -1;
+ *   }
  *
  * on success the new position and on error -1 is returned
  */

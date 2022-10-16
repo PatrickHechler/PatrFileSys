@@ -18,13 +18,13 @@
 // the bit number of the used block flag
 #define BLOCK_FLAG_USED_BIT      0
 // the bit number of the file data block flag
-#define BLOCK_FLAG_FILE_DATA_BIT 1
+#define BLOCK_FLAG_DATA_BIT 1
 // the bit number of the file system entries block flag
 #define BLOCK_FLAG_ENTRIES_BIT   2
 // this flag indicates that the block is used by the file system
 #define BLOCK_FLAG_USED         (1UL << BLOCK_FLAG_USED_BIT)
-// this flag indicates that the block is used by a file and stores file data
-#define BLOCK_FLAG_FILE_DATA    (1UL << BLOCK_FLAG_FILE_DATA_BIT)
+// this flag indicates that the block is used by a file/pipe and stores file/pipe data
+#define BLOCK_FLAG_DATA         (1UL << BLOCK_FLAG_DATA_BIT)
 // this flag indicates that the block is used and stores file system entries
 #define BLOCK_FLAG_ENTRIES      (1UL << BLOCK_FLAG_ENTRIES_BIT)
 

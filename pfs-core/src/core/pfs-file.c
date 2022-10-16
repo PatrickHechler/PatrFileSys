@@ -48,7 +48,7 @@ i64 pfsc_file_append(pfs_eh f, void *data, i64 length) {
 	file->element.last_mod_time = time(NULL);
 	struct pfs_place file_end;
 	if (file->file_length == 0) {
-		file->first_block = file_end.block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_FILE_DATA);
+		file->first_block = file_end.block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
 		file_end.pos = 0;
 	} else {
 		file_end = find_place(file->first_block, file->file_length);
@@ -71,7 +71,7 @@ i64 pfsc_file_append(pfs_eh f, void *data, i64 length) {
 		appended += cpy;
 		i64 next_block;
 		if (length > 0) {
-			next_block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_FILE_DATA);
+			next_block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
 			if (next_block == -1) {
 				pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
 			}
@@ -119,7 +119,7 @@ static inline int truncate_grow(i64 new_length, pfs_eh f) {
 	struct pfs_place file_end = find_place(file->first_block, old_length);
 	if (old_length == 0) {
 		file->first_block = file_end.block = allocate_block(
-		BLOCK_FLAG_USED | BLOCK_FLAG_FILE_DATA);
+		BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
 		if (file_end.block == -1L) {
 			pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
 			pfs->unget(pfs, f->element_place.block);
@@ -142,7 +142,7 @@ static inline int truncate_grow(i64 new_length, pfs_eh f) {
 		}
 		const i64 current_block_num = file_end.block;
 		*(i64*) (current_block + pfs->block_size - 8) = file_end.block = allocate_block(
-		BLOCK_FLAG_USED | BLOCK_FLAG_FILE_DATA);
+		BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
 		file_end.pos = 0;
 		pfs->set(pfs, current_block_num);
 		if (file_end.block == -1L) {

@@ -663,7 +663,7 @@ void ensure_block_is_file_data(i64 block) {
 	if (btfb != -1L) return;
 	if (pfs->block_flag_bits > BLOCK_FLAG_USED_BIT) {
 		ui64 block_flags = pfs->get_flags(pfs, block);
-		if ((block_flags & BLOCK_FLAG_FILE_DATA) == 0) {
+		if ((block_flags & BLOCK_FLAG_DATA) == 0) {
 			abort();
 		}
 		if ((block_flags & BLOCK_FLAG_ENTRIES) != 0) {
@@ -683,7 +683,7 @@ void ensure_block_is_entry(i64 block) {
 		abort();
 	}
 	if (pfs->block_flag_bits > BLOCK_FLAG_USED_BIT) {
-		if ((block_flags & BLOCK_FLAG_FILE_DATA) != 0) {
+		if ((block_flags & BLOCK_FLAG_DATA) != 0) {
 			abort();
 		}
 		if ((block_flags & BLOCK_FLAG_ENTRIES) == 0) {
