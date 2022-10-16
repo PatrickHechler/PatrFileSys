@@ -17,18 +17,18 @@ static_assert(PFS_B0_OFFSET_BLOCK_SIZE == offsetof(struct pfs_b0, block_size), "
 #endif
 
 #define PFS_ESSENTIAL_FLAGS (PFS_F_FILE | PFS_F_FOLDER | PFS_F_PIPE)
-#define PFS_UNMODIFIABLE_FLAGS    0x000000FFU /* these flags are not allowed to be changed */
-#define PFS_F_FOLDER          0x00000001U
-#define PFS_F_FILE            0x00000002U
-#define PFS_F_PIPE            0x00000004U
+#define PFS_UNMODIFIABLE_FLAGS  0x000000FFU /* these flags are not allowed to be changed */
+#define PFS_F_FOLDER            0x00000001U
+#define PFS_F_FILE              0x00000002U
+#define PFS_F_PIPE              0x00000004U
 /* not yet supported
  #define PFS_FLAGS_SYM_LINK        0x00000008U
  */
-#define	PFS_F_HELPER_FOLDER   0x00000080U /* folders with this flag should not be passed to the outside */
+#define	PFS_F_HELPER_FOLDER     0x00000080U /* folders with this flag should not be passed to the outside */
 
-#define	PFS_F_EXECUTABLE 0x00000100U
-#define	PFS_F_ENCRYPTED  0x00000200U
-#define	PFS_F_HIDDEN     0x01000000U
+#define	PFS_F_EXECUTABLE        0x00000100U
+#define	PFS_F_ENCRYPTED         0x00000200U
+#define	PFS_F_HIDDEN            0x01000000U
 
 #define PFS_SO_ONLY_CREATE  0x00000001U /* fail if the file/pipe exist already */
 #define PFS_SO_ALSO_CREATE  0x00000002U /* create the file/pipe if it does not exist, but do not fail if the file/pipe exist already (overwritten by PFS_SO_ONLY_CREATE) */

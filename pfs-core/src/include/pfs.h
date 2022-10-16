@@ -8,6 +8,9 @@
 #ifndef SRC_INCLUDE_PFS_H_
 #define SRC_INCLUDE_PFS_H_
 
+#include "patr-file-sys.h"
+#include "bm.h"
+
 /*
  * loads the PFS from the specified block manager
  *

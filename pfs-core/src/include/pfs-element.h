@@ -8,6 +8,8 @@
 #ifndef SRC_INCLUDE_PFS_ELEMENT_H_
 #define SRC_INCLUDE_PFS_ELEMENT_H_
 
+#include "patr-file-sys.h"
+
 /*
  * closes the given element handle
  *

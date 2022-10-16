@@ -8,6 +8,8 @@
 #ifndef SRC_INCLUDE_PFS_ITER_H_
 #define SRC_INCLUDE_PFS_ITER_H_
 
+#include "patr-file-sys.h"
+
 /*
  * closes the given folder iterator handle
  *

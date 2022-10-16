@@ -8,6 +8,8 @@
 #ifndef SRC_INCLUDE_PFS_FOLDER_H_
 #define SRC_INCLUDE_PFS_FOLDER_H_
 
+#include "patr-file-sys.h"
+
 /*
  * opens a new folder iterator handle for the given folder
  *

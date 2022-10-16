@@ -8,6 +8,8 @@
 #ifndef SRC_INCLUDE_PFS_PIPE_H_
 #define SRC_INCLUDE_PFS_PIPE_H_
 
+#include "patr-file-sys.h"
+
 /*
  * opens a stream handle for the file/pipe
  *   note that this function works also for files
