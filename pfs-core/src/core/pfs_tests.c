@@ -313,24 +313,34 @@ static void checks() {
 	print_pfs();
 #endif // PRINT_PFS
 	printf("%sstart simple_check [1]\n", start);
+	fflush(NULL);
 	simple_check();
 	printf("%sstart file_check [2]\n", start);
+	fflush(NULL);
 	file_check();
 	printf("%sstart read_write_file_check [3]\n", start);
+	fflush(NULL);
 	read_write_file_check();
 	printf("%sstart append_file_check [4]\n", start);
+	fflush(NULL);
 	append_file_check();
 	printf("%sstart folder_check [5]\n", start);
+	fflush(NULL);
 	folder_check();
 	printf("%sstart deep_folder_check [6]\n", start);
+	fflush(NULL);
 	deep_folder_check();
 	printf("%sstart real_file_sys_check [7]\n", start);
+	fflush(NULL);
 	real_file_sys_check();
 	printf("%sstart meta_check [8]\n", start);
+	fflush(NULL);
 	meta_check();
 	printf("%sstart pipe_check [9]\n", start);
+	fflush(NULL);
 	pipe_check();
 	printf("%sall checks executed [A]\n", start);
+	fflush(NULL);
 }
 
 static void simple_check() {
@@ -893,6 +903,7 @@ static void read_from(DIR *dir, pfs_eh f, char **name, i64 *name_size) {
 		printf("%serrno has not the expected value! [0]\n", start);
 		exit(1);
 	}
+	fflush(NULL);
 	i64 cur_len = strlen(*name);
 	(*name)[cur_len++] = '/';
 	pfs_duplicate_handle(f, f2)
@@ -911,6 +922,8 @@ static void read_from(DIR *dir, pfs_eh f, char **name, i64 *name_size) {
 		}
 		ensurelen(name, name_size, cur_len + strlen(entry->d_name), 1);
 		strcpy((*name) + cur_len, entry->d_name);
+		printf("%s  name=%s [1.5]\n", start, *name);
+		fflush(NULL);
 		switch (entry->d_type) {
 		case DT_UNKNOWN: {
 			struct stat buf;
@@ -1275,11 +1288,13 @@ static void real_file_sys_check() {
 		exit(EXIT_FAILURE);
 	}
 	read_from(dir, root, &name, &name_size);
+	fflush(NULL);
 	if (!pfsc_fill_root(root)) {
 		printf("%scould not get the root! (pfs_errno=%s) [3]\n", start, pfs_error);
 		exit(EXIT_FAILURE);
 	}
 	write_to(root, &name2, &name2_size);
+	fflush(NULL);
 	dir = opendir("./testin/");
 	if (dir == NULL) {
 		printf("%scould not open the ./testin/ directory! [4]\n", start);

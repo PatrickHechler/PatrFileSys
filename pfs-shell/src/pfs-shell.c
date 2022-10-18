@@ -11,6 +11,7 @@
 #include <pfs.h>
 #include <unistd.h>
 #include <readline/readline.h>
+#include <readline/history.h>
 
 static enum debug_lebel_enum {
 	dl_none, dl_warn, dl_default = dl_warn, dl_all,
@@ -121,40 +122,81 @@ static void setup(int argc, char **argv) {
 const char *cd;
 const char *name;
 
-static void prompt(void) {
-	printf("[pfs-shell: %s]$ ", name);
-	fflush(stderr);
-}
-
-static void buildin_info(const char *name) {
-	printf("buildin %s (use /bin/%s for the non-builtin)\n", name, name);
-	fflush(stdout);
-}
-
-static char** args(void) {
-	char *line = readline(NULL);
-	// TODO parse args
-}
+static inline void execute(void);
+static inline void prompt(void);
+static inline void buildin_info(const char *name);
+static inline char** args(void);
 
 int main(int argc, char **argv) {
 	setup(argc, argv);
+	int last_exit = 0;
 	for (prompt(); 1; prompt()) {
 		char **child_args = args();
 		if (!strcmp("exit", *args)) {
 			printf("goodbye\n");
-			return EXIT_SUCCESS;
-		} else if (!strcmp("ls", *args)) {
-			buildin_info("ls");
-
-		} else if (!strcmp("cp", *args)) {
-			buildin_info("cp");
-
-		} else if (!strcmp("cat", *args)) {
-			buildin_info("cat");
-
-		} else {
-
+			return last_exit;
 		}
+		last_exit = execute(child_args);
 	}
 }
 
+static inline int execute(char **args) {
+	if (!strcmp("help", *args)) {
+		buildin_info("help");
+
+	} else if (!strcmp("mkfs.pfs", *args)) {
+		buildin_info("mkfs.pfs");
+
+	} else if (!strcmp("mount.pfs", *args)) {
+		buildin_info("mount.pfs");
+
+	} else if (!strcmp("umount.pfs", *args)) {
+		buildin_info("umount.pfs");
+
+	} else if (!strcmp("ls", *args)) {
+		buildin_info("ls");
+
+	} else if (!strcmp("cat", *args)) {
+		buildin_info("cat");
+
+	} else if (!strcmp("cp", *args)) {
+		buildin_info("cp");
+
+	} else if (!strcmp("mkdir", *args)) {
+		buildin_info("mkdir");
+
+	} else if (!strcmp("rmdir", *args)) {
+		buildin_info("rmdir");
+
+	} else if (!strcmp("rm", *args)) {
+		buildin_info("rm");
+
+	} else {
+		int argc = 1;
+		while (args[args]) {
+			argc++;
+		}
+		pid_t cpid = vfork();
+		if (cpid) {
+			int cen;
+			waitpid(cpid, &cen, 0);
+			return cen;
+		}
+		execv(*args, args);
+	}
+}
+
+static inline void prompt(void) {
+	printf("[pfs-shell: %s]$ ", name);
+	fflush(stderr);
+}
+
+static inline void buildin_info(const char *name) {
+	printf("buildin %s (use /bin/%s for the non-builtin)\n", name, name);
+	fflush(stdout);
+}
+
+static inline char** args(void) {
+	char *line = readline(NULL);
+	// TODO parse args
+}
