@@ -5,7 +5,7 @@
  *      Author: pat
  */
 
-#undef PRINT_PFS
+#define PRINT_PFS
 
 #include "pfs.h"
 
@@ -182,11 +182,11 @@ static int print_folder(struct pfs_place fp, const char *name, struct pfs_place 
 		        == (PFS_F_FILE | PFS_F_FOLDER)) {
 			res++;
 		}
-		if ((f->entries[i].flags & (PFS_F_FILE | PFS_FLAGS_HELPER_FOLDER))
-		        == (PFS_F_FILE | PFS_FLAGS_HELPER_FOLDER)) {
+		if ((f->entries[i].flags & (PFS_F_FILE | PFS_F_HELPER_FOLDER))
+		        == (PFS_F_FILE | PFS_F_HELPER_FOLDER)) {
 			res++;
 		}
-		if ((f->entries[i].flags & PFS_FLAGS_HELPER_FOLDER) != 0) {
+		if ((f->entries[i].flags & PFS_F_HELPER_FOLDER) != 0) {
 			if (f->entries[i].name_pos != -1) {
 				res++;
 			}
@@ -248,8 +248,9 @@ int main(int argc, char **argv) {
 	const char *test_file = "./testout/testfile.pfs";
 	if (argc > 1) {
 		if (argc != 2) {
-			printf("%sinvalid argument count (Usage: %s [OPTIONAL_TESTFILE]) [2]\n", start,
-			        argv[0]);
+			printf(
+					"%sinvalid argument count (Usage: %s [OPTIONAL_TESTFILE]) [2]\n",
+					start, argv[0]);
 			exit(EXIT_FAILURE);
 		}
 		test_file = argv[1];
@@ -271,30 +272,40 @@ int main(int argc, char **argv) {
 	new_file_pfs(fd, exit(EXIT_FAILURE);)
 	checks();
 	pfs->close_bm(pfs);
-	printf("%sstart checks with block-flaggable ram block manager [6]\n", start);
+	printf("%sstart checks with block-flaggable ram block manager [6]\n",
+			start);
 	pfs = bm_new_flaggable_ram_block_manager(1L << 20, 1024);
 	checks();
 	pfs->close_bm(pfs);
-	printf("%sstart checks with block-one-bit-flaggable ram block manager [7]\n", start);
+	printf(
+			"%sstart checks with block-one-bit-flaggable ram block manager [7]\n",
+			start);
 	pfs = bm_new_flaggable_ram_block_manager(1L << 20, 1024);
 	other_set_flags = pfs->set_flags;
-	*((int (**)(struct bm_block_manager*, i64, i64)) &pfs->set_flags) = my_set_flags;
+	*((int (**)(struct bm_block_manager*, i64, i64)) &pfs->set_flags) =
+			my_set_flags;
 	*((int*) &pfs->block_flag_bits) = 1;
 	flag_and = 1;
 	checks();
 	pfs->close_bm(pfs);
-	printf("%sstart checks with block-two-bit-flaggable ram block manager [8]\n", start);
+	printf(
+			"%sstart checks with block-two-bit-flaggable ram block manager [8]\n",
+			start);
 	pfs = bm_new_flaggable_ram_block_manager(1L << 20, 1024);
 	other_set_flags = pfs->set_flags;
-	*((int (**)(struct bm_block_manager*, i64, i64)) &pfs->set_flags) = my_set_flags;
+	*((int (**)(struct bm_block_manager*, i64, i64)) &pfs->set_flags) =
+			my_set_flags;
 	*((int*) &pfs->block_flag_bits) = 2;
 	flag_and = 3;
 	checks();
 	pfs->close_bm(pfs);
-	printf("%sstart checks with block-three-bit-flaggable ram block manager [9]\n", start);
+	printf(
+			"%sstart checks with block-three-bit-flaggable ram block manager [9]\n",
+			start);
 	pfs = bm_new_flaggable_ram_block_manager(1L << 20, 1024);
 	other_set_flags = pfs->set_flags;
-	*((int (**)(struct bm_block_manager*, i64, i64)) &pfs->set_flags) = my_set_flags;
+	*((int (**)(struct bm_block_manager*, i64, i64)) &pfs->set_flags) =
+			my_set_flags;
 	*((int*) &pfs->block_flag_bits) = 3;
 	flag_and = 7;
 	checks();
@@ -376,12 +387,14 @@ static void simple_check() {
 static void* random_data(const char *start, i64 size) {
 	void *data = malloc(size);
 	if (data == NULL) {
-		printf("%could not allocate enough memory (size=%ld) [0]\n", start, size);
+		printf("%could not allocate enough memory (size=%ld) [0]\n", start,
+				size);
 		exit(EXIT_FAILURE);
 	}
 	int urnd = open("/dev/urandom", O_RDONLY);
 	if (urnd == -1) {
-		printf("%could not open a read stream of file /dev/urandom [1]\n", start);
+		printf("%could not open a read stream of file /dev/urandom [1]\n",
+				start);
 		exit(EXIT_FAILURE);
 	}
 	for (i64 remain = size, reat; remain > 0;) {
@@ -390,9 +403,11 @@ static void* random_data(const char *start, i64 size) {
 			if (errno == EAGAIN) {
 				continue;
 			}
+			perror("read");
 			printf("%serror at reading from /dev/urandom errno=%d [2]\n", start,
-			errno);
-			abort();
+			/*			*/errno);
+			fflush(NULL);
+			exit(1);
 		} else if (reat == 0) {
 			printf("%swarning: reached EOF at file /dev/urandom [3]\n", start);
 			break;
@@ -406,7 +421,8 @@ static void* random_data(const char *start, i64 size) {
 // should actually be named truncate_file_check
 static void file_check() {
 	const char *start = "[main.checks.file_check]:                             ";
-	const char *rd_start = "[main.checks.file_check.random_data]:                 ";
+	const char *rd_start =
+			"[main.checks.file_check.random_data]:                 ";
 	pfs_eh file = pfsc_root();
 	if (file == NULL) {
 		printf("%scould not get the root element [0]\n", start);
@@ -430,7 +446,8 @@ static void file_check() {
 	void *data = random_data(rd_start, 1016);
 	res = pfsc_file_append(file, data, 1016);
 	if (res != 1016) {
-		printf("%scould not append to the file (appended: %ld) [4]\n", start, res);
+		printf("%scould not append to the file (appended: %ld) [4]\n", start,
+				res);
 		exit(EXIT_FAILURE);
 	}
 	length = pfsc_file_length(file);
@@ -480,7 +497,8 @@ static void file_check() {
 	}
 	res = pfsc_file_append(file, data, 1016);
 	if (res != 1016) {
-		printf("%scould not append to the file (appended: %ld) [E]\n", start, res);
+		printf("%scould not append to the file (appended: %ld) [E]\n", start,
+				res);
 		exit(EXIT_FAILURE);
 	}
 	length = pfsc_file_length(file);
@@ -502,8 +520,10 @@ static void file_check() {
 
 static void read_write_file_check() {
 	const char *start = "[main.checks.read_write_file_check]:                  ";
-	const char *rd0_start = "[main.checks.read_write_file_check.random_data[0]:   ";
-	const char *rd1_start = "[main.checks.read_write_file_check.random_data[1]:   ";
+	const char *rd0_start =
+			"[main.checks.read_write_file_check.random_data[0]:   ";
+	const char *rd1_start =
+			"[main.checks.read_write_file_check.random_data[1]:   ";
 	pfs_eh file = pfsc_root();
 	if (file == NULL) {
 		printf("%scould not get the root element [0]\n", start);
@@ -518,7 +538,8 @@ static void read_write_file_check() {
 	memcpy(data, rnd, 4098);
 	i64 res = pfsc_file_append(file, rnd, 4098);
 	if (res != 4098) {
-		printf("%scould not append the random data file (appended=%ld) [2]\n", start, res);
+		printf("%scould not append the random data file (appended=%ld) [2]\n",
+				start, res);
 		exit(EXIT_FAILURE);
 	}
 	void *reat = malloc(4098);
@@ -599,14 +620,17 @@ static void read_write_file_check() {
 	if (memcmp(data, reat, 4098) != 0) {
 		printf("%sdid not reat the expected data! [13]\n", start);
 		for (int i = 0; i < 4098; i++) {
-			if ((*(unsigned char*) (data + i)) != (*(unsigned char*) (reat + i))) {
+			if ((*(unsigned char*) (data + i))
+					!= (*(unsigned char*) (reat + i))) {
 				if (i != 0
-				        && ((*(unsigned char*) (data + i - 1)) != (*(unsigned char*) (reat + i - 1)))) {
+						&& ((*(unsigned char*) (data + i - 1))
+								!= (*(unsigned char*) (reat + i - 1)))) {
 					continue;
 				}
 				printf("%sdiff at index=%d [14]\n", start, i);
 			} else if (i != 0
-			        && ((*(unsigned char*) (data + i - 1)) != (*(unsigned char*) (reat + i - 1)))) {
+					&& ((*(unsigned char*) (data + i - 1))
+							!= (*(unsigned char*) (reat + i - 1)))) {
 				printf("%ssame at index=%d [15]\n", start, i);
 			}
 		}
@@ -618,7 +642,8 @@ static void read_write_file_check() {
 
 static void append_file_check() {
 	const char *start = "[main.checks.append_file_check]:                      ";
-	const char *rd0_start = "[main.checks.append_file_check.random_data[0]:       ";
+	const char *rd0_start =
+			"[main.checks.append_file_check.random_data[0]:       ";
 	pfs_eh file = pfsc_root();
 	if (file == NULL) {
 		printf("%scould not get the root element [0]\n", start);
@@ -720,7 +745,7 @@ static void folder_check() {
 	}
 	const char *n0 = "first_folder", *n1 = "the-file";
 	pfs_duplicate_handle0(root, child,
-	        printf("%scould not duplicate the handle! [2]\n", start); exit(EXIT_FAILURE););
+			printf("%scould not duplicate the handle! [2]\n", start); exit(EXIT_FAILURE););
 	if (!pfsc_folder_create_folder(child, root, n0)) {
 		printf("%scould not create the folder %s [3]\n", start, n0);
 		exit(EXIT_FAILURE);
@@ -747,7 +772,8 @@ static void folder_check() {
 		exit(EXIT_FAILURE);
 	}
 	if (strcmp(n0, name) != 0) {
-		printf("%sgot not the expected element from the iter! (name=%s) [8]\n", start, name);
+		printf("%sgot not the expected element from the iter! (name=%s) [8]\n",
+				start, name);
 		exit(EXIT_FAILURE);
 	}
 	if (!pfsc_folder_iter_next(fi)) {
@@ -759,7 +785,8 @@ static void folder_check() {
 		exit(EXIT_FAILURE);
 	}
 	if (strcmp(n1, name) != 0) {
-		printf("%sgot not the expected element from the iter! (name=%s) [A]\n", start, name);
+		printf("%sgot not the expected element from the iter! (name=%s) [A]\n",
+				start, name);
 		exit(EXIT_FAILURE);
 	}
 	if (pfsc_folder_iter_next(fi)) {
@@ -767,8 +794,9 @@ static void folder_check() {
 		exit(EXIT_FAILURE);
 	}
 	if (pfs_errno != PFS_ERRNO_NO_MORE_ELEMNETS) {
-		printf("%spfs_errno has not the expected value (no-more-elements, but: %s)! [C]\n", start,
-		        pfs_error());
+		printf(
+				"%spfs_errno has not the expected value (no-more-elements, but: %s)! [C]\n",
+				start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	pfs_errno = PFS_ERRNO_NONE;
@@ -782,7 +810,7 @@ static void deep_folder_check() {
 		exit(EXIT_FAILURE);
 	}
 	pfs_duplicate_handle0(parent, child,
-	        printf("%scould not duplicate the handle! [1]\n", start); exit(EXIT_FAILURE););
+			printf("%scould not duplicate the handle! [1]\n", start); exit(EXIT_FAILURE););
 	if (!pfsc_folder_create_folder(child, NULL, "folder-name")) {
 		printf("%scould not create a child folder [2]\n", start);
 		exit(EXIT_FAILURE);
@@ -876,7 +904,8 @@ static void deep_folder_check() {
 		exit(EXIT_FAILURE);
 	}
 	if (pfs_errno != PFS_ERRNO_ELEMENT_ALREADY_EXIST) {
-		printf("%spfs_errno has not the expected value! (pfs_errno=%s) [18]\n", start, pfs_error());
+		printf("%spfs_errno has not the expected value! (pfs_errno=%s) [18]\n",
+				start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	pfs_errno = PFS_ERRNO_NONE;
@@ -890,20 +919,21 @@ static void ensurelen(char **name, i64 *len, i64 min_len, int from_read_dir) {
 	if (min_len <= ((*len) - 1)) {
 		*name = realloc(*name, min_len + 128);
 		if (*name == NULL) {
-			printf("%scould not realloc the name buffer! len=%ld needed=%ld [0]\n", start, *len,
-			        min_len);
+			printf(
+					"%scould not realloc the name buffer! len=%ld needed=%ld [0]\n",
+					start, *len, min_len);
 		}
 	}
 }
 
 static void read_from(DIR *dir, pfs_eh f, char **name, i64 *name_size) {
-	const char *start = "[main.checks.real_file_sys_check.read_from]:            ";
+	const char *start =
+			"[main.checks.real_file_sys_check.read_from]:            ";
 	if (errno != 0) {
 		perror("I don't know");
 		printf("%serrno has not the expected value! [0]\n", start);
 		exit(1);
 	}
-	fflush(NULL);
 	i64 cur_len = strlen(*name);
 	(*name)[cur_len++] = '/';
 	pfs_duplicate_handle(f, f2)
@@ -914,6 +944,9 @@ static void read_from(DIR *dir, pfs_eh f, char **name, i64 *name_size) {
 				closedir(dir);
 				free(f2);
 				(*name)[--cur_len] = '\0';
+				printf("%sfinish with readdir name_len=%ld name=%s [0.5]\n",
+						start, cur_len, *name);
+				fflush(NULL);
 				return;
 			}
 			perror("readdir");
@@ -922,7 +955,8 @@ static void read_from(DIR *dir, pfs_eh f, char **name, i64 *name_size) {
 		}
 		ensurelen(name, name_size, cur_len + strlen(entry->d_name), 1);
 		strcpy((*name) + cur_len, entry->d_name);
-		printf("%s  name=%s [1.5]\n", start, *name);
+		printf("%s  name_len=%ld, name=%s [1.5]\n", start, strlen(*name),
+				*name);
 		fflush(NULL);
 		switch (entry->d_type) {
 		case DT_UNKNOWN: {
@@ -945,7 +979,8 @@ static void read_from(DIR *dir, pfs_eh f, char **name, i64 *name_size) {
 		case DT_REG: {
 			reg_file_entry: ;
 			if (!pfsc_folder_create_file(f2, f, entry->d_name)) {
-				printf("%scould not create the child file '%s'! [4]\n", start, *name);
+				printf("%scould not create the child file '%s'! [4]\n", start,
+						*name);
 				exit(1);
 			}
 			int fd = open64(*name, O_RDONLY);
@@ -972,15 +1007,17 @@ static void read_from(DIR *dir, pfs_eh f, char **name, i64 *name_size) {
 						continue;
 					default:
 						perror("read");
-						printf("%serror while reading from the file [7]\n", start);
+						printf("%serror while reading from the file [7]\n",
+								start);
 						exit(1);
 					}
 				}
 				i64 appended = pfsc_file_append(f2, buf, reat);
 				cnt++;
 				if (appended != reat) {
-					printf("%scould not append to the file (pfs_errno=%s, cnt=%d) [8]\n", start,
-					        pfs_error(), cnt);
+					printf(
+							"%scould not append to the file (pfs_errno=%s, cnt=%d) [8]\n",
+							start, pfs_error(), cnt);
 					exit(1);
 				}
 			}
@@ -991,16 +1028,20 @@ static void read_from(DIR *dir, pfs_eh f, char **name, i64 *name_size) {
 		}
 		case DT_DIR: {
 			dir_entry: ;
-			if ((strcmp(".", entry->d_name) == 0) || (strcmp("..", entry->d_name) == 0)) {
+			if ((strcmp(".", entry->d_name) == 0)
+					|| (strcmp("..", entry->d_name) == 0)) {
 				break;
 			}
 			if (!pfsc_folder_create_folder(f2, f, entry->d_name)) {
-				printf("%scould not create the child folder '%s'! [9]\n", start, *name);
+				printf("%scould not create the child folder '%s'! [9]\n", start,
+						*name);
 				exit(1);
 			}
 			DIR *sub = opendir(*name);
 			if (sub == NULL) {
-				printf("%scould not open a dir stream for the child folder! [A]\n", start, *name);
+				printf(
+						"%scould not open a dir stream for the child folder! [A]\n",
+						start, *name);
 				exit(1);
 			}
 			read_from(sub, f2, name, name_size);
@@ -1019,8 +1060,9 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 	pfs_fi iter = pfsc_folder_iterator(f, 0);
 	i64 cur_len = strlen(*name);
 	if (iter == NULL) {
-		printf("%sfailed to get a iterator for the folder! (pfs_errno=%s) [0]\n", start,
-		        pfs_error());
+		printf(
+				"%sfailed to get a iterator for the folder! (pfs_errno=%s) [0]\n",
+				start, pfs_error());
 		exit(1);
 	}
 	(*name)[cur_len++] = '/';
@@ -1028,8 +1070,8 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 		if (!pfsc_folder_iter_next(iter)) {
 			if (pfs_errno != PFS_ERRNO_NO_MORE_ELEMNETS) {
 				printf(
-				        "%sfailed to get the next element from the folder iter! (pfs_errno=%s) [1]\n",
-				        start, pfs_error);
+						"%sfailed to get the next element from the folder iter! (pfs_errno=%s) [1]\n",
+						start, pfs_error);
 				exit(1);
 			}
 			free(iter);
@@ -1042,8 +1084,9 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 		if (!pfsc_element_get_name(f, name, name_size)) {
 			*name_size += cur_len;
 			*name -= cur_len;
-			printf("%scould not get the name of the element (pfs_errno=%s) [2]\n", start,
-			        pfs_error);
+			printf(
+					"%scould not get the name of the element (pfs_errno=%s) [2]\n",
+					start, pfs_error);
 			exit(1);
 		}
 		*name_size += cur_len;
@@ -1063,8 +1106,9 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 					cpy = len;
 				}
 				if (!pfsc_file_read(f, pos, buf, cpy)) {
-					printf("%scould not read from my file %s (pfs_errno=%s) [3]\n", start, *name,
-					        pfs_error);
+					printf(
+							"%scould not read from my file %s (pfs_errno=%s) [3]\n",
+							start, *name, pfs_error);
 					exit(1);
 				}
 				cpy = write(fd, buf, cpy);
@@ -1075,7 +1119,8 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 						errno = 0;
 						continue;
 					default:
-						printf("%scould not write to the file %s [4]\n", start, *name);
+						printf("%scould not write to the file %s [4]\n", start,
+								*name);
 						exit(1);
 					}
 				}
@@ -1095,7 +1140,8 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 							break;
 						default:
 							perror("rmdir");
-							printf("%scould not remove dir %s [5]\n", start, *name);
+							printf("%scould not remove dir %s [5]\n", start,
+									*name);
 							exit(1);
 						}
 						break;
@@ -1139,8 +1185,9 @@ static void compare(DIR *dir, DIR *dir2, char *name, char *name2) {
 			if (errno == 0) {
 				closedir(dir);
 				if ((entry = readdir(dir2)) != NULL) {
-					printf("%scould read the next directory entry in dir2! (%s/%s) [1]\n", start,
-					        name, entry->d_name);
+					printf(
+							"%scould read the next directory entry in dir2! (%s/%s) [1]\n",
+							start, name, entry->d_name);
 					exit(1);
 				}
 				if (errno == 0) {
@@ -1163,8 +1210,8 @@ static void compare(DIR *dir, DIR *dir2, char *name, char *name2) {
 		}
 		printf("%sread dir: %s [5]\n", start, entry2->d_name);
 		if (strcmp(entry->d_name, entry2->d_name) != 0) {
-			printf("%sgot different entries '%s' and '%s'! [6]\n", start, entry->d_name,
-			        entry2->d_name);
+			printf("%sgot different entries '%s' and '%s'! [6]\n", start,
+					entry->d_name, entry2->d_name);
 			exit(1);
 		}
 		strcpy(name2 + cur2_len, entry->d_name);
@@ -1207,8 +1254,8 @@ static void compare(DIR *dir, DIR *dir2, char *name, char *name2) {
 			int fd2 = open64(name2, O_RDONLY);
 			if (fd == -1 || fd2 == -1) {
 				perror("open64");
-				printf("%scould not open the files (%d:%s | %d:%s)! [C]\n", start, fd, name, fd2,
-				        name2);
+				printf("%scould not open the files (%d:%s | %d:%s)! [C]\n",
+						start, fd, name, fd2, name2);
 				exit(1);
 			}
 			while (1) {
@@ -1228,8 +1275,9 @@ static void compare(DIR *dir, DIR *dir2, char *name, char *name2) {
 				i64 reat2 = read(fd2, buf2, 1 << 15);
 				if (reat != reat2) {
 					perror("read");
-					printf("%sread retuned different values! (%ld and %ld) [E]\n", start, reat,
-					        reat2);
+					printf(
+							"%sread retuned different values! (%ld and %ld) [E]\n",
+							start, reat, reat2);
 					exit(1);
 				}
 				if (reat == 0) {
@@ -1247,7 +1295,8 @@ static void compare(DIR *dir, DIR *dir2, char *name, char *name2) {
 			break;
 		case DT_DIR:
 			dir: ;
-			if ((strcmp(".", entry->d_name) == 0) || (strcmp("..", entry->d_name) == 0)) {
+			if ((strcmp(".", entry->d_name) == 0)
+					|| (strcmp("..", entry->d_name) == 0)) {
 				break;
 			}
 			DIR *d = opendir(name);
@@ -1290,9 +1339,13 @@ static void real_file_sys_check() {
 	read_from(dir, root, &name, &name_size);
 	fflush(NULL);
 	if (!pfsc_fill_root(root)) {
-		printf("%scould not get the root! (pfs_errno=%s) [3]\n", start, pfs_error);
+		printf("%scould not get the root! (pfs_errno=%s) [3]\n", start,
+				pfs_error);
 		exit(EXIT_FAILURE);
 	}
+#ifdef  PRINT_PFS
+	print_pfs();
+#endif // PRINT_PFS
 	write_to(root, &name2, &name2_size);
 	fflush(NULL);
 	dir = opendir("./testin/");
@@ -1302,7 +1355,8 @@ static void real_file_sys_check() {
 	}
 	DIR *dir2 = opendir("./testout/fs-root/");
 	if (dir2 == NULL) {
-		printf("%scould not open the ./testout/fs-root/ directory! [5]\n", start);
+		printf("%scould not open the ./testout/fs-root/ directory! [5]\n",
+				start);
 		exit(EXIT_FAILURE);
 	}
 	compare(dir, dir2, name, name2);
@@ -1313,7 +1367,8 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 	i64 ct = pfsc_element_get_create_time(e);
 	if (pfs_errno != 0) {
 		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%scould not get the create time! (%s) [0]\n", start, pfs_error());
+			printf("%scould not get the create time! (%s) [0]\n", start,
+					pfs_error());
 			exit(EXIT_FAILURE);
 		}
 		pfs_errno = 0;
@@ -1328,11 +1383,13 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 	}
 	i64 lmt = pfsc_element_get_last_mod_time(e);
 	if (pfs_errno != 0) {
-		printf("%scould not get the last modified time! (%s) [3]\n", start, pfs_error());
+		printf("%scould not get the last modified time! (%s) [3]\n", start,
+				pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	if (ct > lmt) {
-		printf("%screate time is greater than last modified time! [4]\n", start);
+		printf("%screate time is greater than last modified time! [4]\n",
+				start);
 		exit(EXIT_FAILURE);
 	}
 	if (lmt > t1) {
@@ -1381,7 +1438,8 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 	}
 	if ((pfsc_element_get_flags(e) & PFS_F_ENCRYPTED) != 0) {
 		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%sthe flags have an unexpected value! (%s) [E]\n", start, pfs_error());
+			printf("%sthe flags have an unexpected value! (%s) [E]\n", start,
+					pfs_error());
 			exit(EXIT_FAILURE);
 		}
 	} else if (!is_not_root) {
@@ -1402,7 +1460,7 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		printf("%sthe flags have an unexpected value! [11]\n", start);
 		exit(EXIT_FAILURE);
 	} else if ((!is_not_root && pfs_errno != PFS_ERRNO_ROOT_FOLDER)
-	        || (is_not_root && pfs_errno != PFS_ERRNO_NONE)) {
+			|| (is_not_root && pfs_errno != PFS_ERRNO_NONE)) {
 		printf("%serror! (%s) [11.2]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
@@ -1411,7 +1469,7 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		printf("%sthe flags have an unexpected value! [13]\n", start);
 		exit(EXIT_FAILURE);
 	} else if ((!is_not_root && pfs_errno != PFS_ERRNO_ROOT_FOLDER)
-	        || (is_not_root && pfs_errno != PFS_ERRNO_NONE)) {
+			|| (is_not_root && pfs_errno != PFS_ERRNO_NONE)) {
 		printf("%serror! (%s) [14]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
@@ -1426,11 +1484,11 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		exit(EXIT_FAILURE);
 	}
 	if ((pfsc_element_get_flags(e) & PFS_F_ENCRYPTED) != 0
-	        && pfsc_element_get_flags(e) != -1) {
+			&& pfsc_element_get_flags(e) != -1) {
 		printf("%scould not modify the flags! (%s) [17]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	} else if ((!is_not_root && pfs_errno != PFS_ERRNO_ROOT_FOLDER)
-	        || (is_not_root && pfs_errno != PFS_ERRNO_NONE)) {
+			|| (is_not_root && pfs_errno != PFS_ERRNO_NONE)) {
 		printf("%serror! (%s) [18]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
@@ -1439,7 +1497,8 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		exit(EXIT_FAILURE);
 	} else if (pfs_errno != PFS_ERRNO_ILLEGAL_ARG) {
 		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%spfs_errno has an unexpected value (%s)! [1A]\n", start, pfs_error());
+			printf("%spfs_errno has an unexpected value (%s)! [1A]\n", start,
+					pfs_error());
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -1449,7 +1508,8 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		exit(EXIT_FAILURE);
 	} else if (pfs_errno != PFS_ERRNO_ILLEGAL_ARG) {
 		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%spfs_errno has an unexpected value (%s)! [1C]\n", start, pfs_error());
+			printf("%spfs_errno has an unexpected value (%s)! [1C]\n", start,
+					pfs_error());
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -1459,7 +1519,8 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		exit(EXIT_FAILURE);
 	} else if (pfs_errno != PFS_ERRNO_ILLEGAL_ARG) {
 		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%spfs_errno has an unexpected value (%s)! [1E]\n", start, pfs_error());
+			printf("%spfs_errno has an unexpected value (%s)! [1E]\n", start,
+					pfs_error());
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -1470,7 +1531,8 @@ static void meta_check() { // TODO (move|set(name|parent))checks
 	const char *start = "[main.checks.meta_check]:                             ";
 	pfs_eh e = pfsc_root();
 	if (e == NULL) {
-		printf("%scould not get the root directory! (%s) [0]\n", start, pfs_error());
+		printf("%scould not get the root directory! (%s) [0]\n", start,
+				pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	sub_meta_check(e, 0);
@@ -1480,7 +1542,8 @@ static void meta_check() { // TODO (move|set(name|parent))checks
 	}
 	sub_meta_check(e, 1);
 	if (!pfsc_fill_root(e)) {
-		printf("%scould not get the root directory! (%s) [2]\n", start, pfs_error());
+		printf("%scould not get the root directory! (%s) [2]\n", start,
+				pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	if (!pfsc_folder_create_folder(e, NULL, "meta-checking-folder")) {
@@ -1489,17 +1552,20 @@ static void meta_check() { // TODO (move|set(name|parent))checks
 	}
 	sub_meta_check(e, 1);
 	if (!pfsc_fill_root(e)) {
-		printf("%scould not get the root directory! (%s) [4]\n", start, pfs_error());
+		printf("%scould not get the root directory! (%s) [4]\n", start,
+				pfs_error());
 		exit(EXIT_FAILURE);
 	}
 }
 
 static void pipe_check() {
 	const char *start = "[main.checks.pipe_check]:                             ";
-	const char *rnd_start = "[main.checks.pipe_check.random_data]:                 ";
+	const char *rnd_start =
+			"[main.checks.pipe_check.random_data]:                 ";
 	pfs_eh p = pfsc_root();
 	if (p == NULL) {
-		printf("%scould not get the root directory! (%s) [0]\n", start, pfs_error());
+		printf("%scould not get the root directory! (%s) [0]\n", start,
+				pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	if (!pfsc_folder_create_pipe(p, NULL, "check-pipe")) {
@@ -1524,8 +1590,8 @@ static void pipe_check() {
 	// pipe: write[0..1000]
 	res = pfsc_pipe_length(p);
 	if (res != 1000) {
-		printf("%spipe has not the expected length! (len=%ld (%s)) [5]\n", start,
-		        pfsc_pipe_length(p), pfs_error());
+		printf("%spipe has not the expected length! (len=%ld (%s)) [5]\n",
+				start, pfsc_pipe_length(p), pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	res = pfsc_pipe_read(p, read_buf, 500);
@@ -1537,8 +1603,8 @@ static void pipe_check() {
 	// pipe: write[500..1000]
 	res = pfsc_pipe_length(p);
 	if (res != 500) {
-		printf("%spipe has not the expected length! (len=%ld (%s)) [7]\n", start,
-		        pfsc_pipe_length(p), pfs_error());
+		printf("%spipe has not the expected length! (len=%ld (%s)) [7]\n",
+				start, pfsc_pipe_length(p), pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	res = memcmp(write_buf, read_buf, 500);
@@ -1587,7 +1653,8 @@ static void pipe_check() {
 		printf("%scould read form the pipe! [F]\n", start);
 		exit(EXIT_FAILURE);
 	} else if (pfs_errno != PFS_ERRNO_ILLEGAL_ARG) {
-		printf("%spfs_errno has not the expected value (%s)! [10]\n", start, pfs_error());
+		printf("%spfs_errno has not the expected value (%s)! [10]\n", start,
+				pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	pfs_errno = PFS_ERRNO_NONE;
