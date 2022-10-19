@@ -16,6 +16,7 @@ static_assert(PFS_B0_OFFSET_BLOCK_COUNT == offsetof(struct pfs_b0, block_count),
 static_assert(PFS_B0_OFFSET_BLOCK_SIZE == offsetof(struct pfs_b0, block_size), "error!");
 #endif
 
+#define	PFS_INTERN_ENTRY_FLAGS (PFS_F_HELPER_FOLDER) /* entries with one of these flags are not allowed to be passed to the outside */
 #define PFS_ESSENTIAL_FLAGS (PFS_F_FILE | PFS_F_FOLDER | PFS_F_PIPE)
 #define PFS_UNMODIFIABLE_FLAGS  0x000000FFU /* these flags are not allowed to be changed */
 #define PFS_F_FOLDER            0x00000001U

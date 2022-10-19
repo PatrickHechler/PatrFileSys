@@ -210,7 +210,7 @@ i32 get_size_from_block_table(void *block_data, const i32 pos) {
 	union pov max, min, mid;
 	max.pntr = block_data + pfs->block_size - 4;
 	min.pntr = block_data + *max.pntr;
-	max.val -= 8;
+	max.val -= 4;
 /*	if ((max.val & ~3UL) != max.val) {
 		abort();
 	}
@@ -227,8 +227,8 @@ i32 get_size_from_block_table(void *block_data, const i32 pos) {
 		} else if (pos < *mid.pntr) {
 			max.val = mid.val - 4;
 		} else {
-			mid.val = mid.val | 4;
-			if (pos != *mid.pntr) {
+			mid.val = mid.val | 4; // if end of entry before got the hit
+			if (pos != *mid.pntr) {// (every entry is i32-aligned and never i64-aligned)
 				abort();
 			}
 			i32 res = mid.pntr[1] - mid.pntr[0];

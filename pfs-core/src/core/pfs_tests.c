@@ -20,6 +20,8 @@
 
 #define USED_MODE (S_IRWXU | S_IRWXG | S_IRWXG)
 
+#define BLOCK_COUNT (1L << 20)
+
 static void checks();
 
 static void simple_check();
@@ -33,6 +35,111 @@ static void meta_check();
 static void pipe_check();
 
 #ifdef PRINT_PFS
+
+void pfs_simple_print(i64 max_depth, pfs_eh folder, char **buf, i64 *len) {
+	if (max_depth < 0) {
+		return;
+	}
+	int is_root = 0;
+	if (!folder) {
+		is_root = 1;
+		folder = pfsc_root();
+		buf = malloc(sizeof(void*) * 2);
+		len = ((void*) buf) + sizeof(void*);
+		*buf = malloc(1024);
+		*len = 1024;
+		(*buf)[0] = '/';
+		(*buf)[1] = '\0';
+	}
+	i64 nl = strlen(*buf);
+	pfs_fi iter = pfsc_folder_iterator(folder, 1);
+	while (1) {
+		if (!pfsc_folder_iter_next(iter)) {
+			(*buf)[nl] = '\0';
+			if (is_root) {
+				free(folder);
+				free(*buf);
+				free(buf);
+			}
+			if (pfs_errno == PFS_ERRNO_NO_MORE_ELEMNETS) {
+				free(iter);
+				return;
+			} else {
+				pfs_perror("folder iter next");
+				free(iter);
+				return;
+			}
+		}
+		i64 cnl = pfsc_element_get_name_length(folder);
+		if (cnl == -1) {
+			pfs_perror("get name length");
+			free(iter);
+			return;
+		}
+		while (*len - nl - 16 <= cnl) {
+			*buf = realloc(*buf, *len += 1024);
+		}
+		char *cs = *buf + nl;
+		if (!pfsc_element_get_name(folder, &cs, len)) {
+			pfs_perror("get name");
+			free(iter);
+			return;
+		}
+		ui32 flags = pfsc_element_get_flags(folder);
+		if (flags & PFS_F_FILE) {
+			(*buf)[nl + cnl] = ' ';
+			(*buf)[nl + cnl + 1] = '<';
+			(*buf)[nl + cnl + 2] = 'F';
+			(*buf)[nl + cnl + 3] = 'I';
+			(*buf)[nl + cnl + 4] = 'L';
+			(*buf)[nl + cnl + 5] = 'E';
+			(*buf)[nl + cnl + 6] = '>';
+			(*buf)[nl + cnl + 7] = '\n';
+			(*buf)[nl + cnl + 8] = '\0';
+		} else if (flags & PFS_F_PIPE) {
+			(*buf)[nl + cnl] = ' ';
+			(*buf)[nl + cnl + 1] = '<';
+			(*buf)[nl + cnl + 2] = 'P';
+			(*buf)[nl + cnl + 3] = 'I';
+			(*buf)[nl + cnl + 4] = 'P';
+			(*buf)[nl + cnl + 5] = 'E';
+			(*buf)[nl + cnl + 6] = '>';
+			(*buf)[nl + cnl + 7] = '\n';
+			(*buf)[nl + cnl + 8] = '\0';
+		} else if (flags & PFS_F_FOLDER) {
+			(*buf)[nl + cnl] = '/';
+			(*buf)[nl + cnl + 1] = ' ';
+			(*buf)[nl + cnl + 2] = '<';
+			(*buf)[nl + cnl + 3] = 'F';
+			(*buf)[nl + cnl + 4] = 'O';
+			(*buf)[nl + cnl + 5] = 'L';
+			(*buf)[nl + cnl + 6] = 'D';
+			(*buf)[nl + cnl + 7] = 'E';
+			(*buf)[nl + cnl + 8] = 'R';
+			(*buf)[nl + cnl + 9] = '>';
+			(*buf)[nl + cnl + 10] = '\n';
+			(*buf)[nl + cnl + 11] = '\0';
+		} else {
+			(*buf)[nl + cnl] = ' ';
+			(*buf)[nl + cnl + 1] = '<';
+			(*buf)[nl + cnl + 2] = 'U';
+			(*buf)[nl + cnl + 3] = 'N';
+			(*buf)[nl + cnl + 4] = 'K';
+			(*buf)[nl + cnl + 5] = 'N';
+			(*buf)[nl + cnl + 6] = 'O';
+			(*buf)[nl + cnl + 7] = 'W';
+			(*buf)[nl + cnl + 8] = 'N';
+			(*buf)[nl + cnl + 9] = '>';
+			(*buf)[nl + cnl + 10] = '\n';
+			(*buf)[nl + cnl + 11] = '\0';
+		}
+		fputs(*buf, stdout);
+		if (flags & PFS_F_FOLDER) {
+			(*buf)[nl + cnl + 1] = '\0';
+			pfs_simple_print(max_depth - 1, folder, buf, len);
+		}
+	}
+}
 
 static int print_block_table0(i64 block, int long_start) {
 	const char *start = "[[…].print_block_table0]:                             ";
@@ -57,8 +164,9 @@ static int print_block_table0(i64 block, int long_start) {
 	i32 last = 0;
 	int res = 0;
 	for (int i = 0; (table_start + i) < table_end; i += 2) {
-		printf("%s    [%d]: %d..%d [5]\n", start, (i64) (table_start + i) - (i64) block_data,
-		        table_start[i], table_start[i + 1]);
+		printf("%s    [%d]: %d..%d [5]\n", start,
+				(i64) (table_start + i) - (i64) block_data, table_start[i],
+				table_start[i + 1]);
 		if (last > table_start[i]) {
 			printf("%s      [WARN]: invalid table! [6]\n", start);
 			res++;
@@ -74,56 +182,67 @@ static int print_block_table0(i64 block, int long_start) {
 	return res;
 }
 
-static int print_folder(struct pfs_place fp, const char *name, struct pfs_place real_parent,
-        struct pfs_place folder_entry, int is_helper, int deep) {
-	const char *start = "[[…].print_pfs.print_folder]:                           [DEEP=";
+static int print_folder(struct pfs_place fp, const char *name,
+		struct pfs_place real_parent, struct pfs_place folder_entry,
+		int is_helper, int deep) {
+	const char *start =
+			"[[…].print_pfs.print_folder]:                           [DEEP=";
 	void *block_data = pfs->get(pfs, fp.block);
 	if (block_data == NULL) {
-		printf("%s%d]: [WARN]: block_data is NULL (block=%ld)! [0]\n", start, deep, fp.block);
+		printf("%s%d]: [WARN]: block_data is NULL (block=%ld)! [0]\n", start,
+				deep, fp.block);
 		return 1;
 	}
 	int res = 0;
 	struct pfs_folder *f = block_data + fp.pos;
 	printf("%s%d]: block=%ld; pos=%d [1]\n"
 			"%s%d]: child_count=%d [2]\n"
-			"%s%d]: helper: %d [3]\n", start, deep, fp.block, fp.pos, start, deep,
-	        f->direct_child_count, start, deep, f->helper_index);
+			"%s%d]: helper: %d [3]\n", start, deep, fp.block, fp.pos, start,
+			deep, f->direct_child_count, start, deep, f->helper_index);
 	if (f->real_parent.block != real_parent.block) {
-		printf("%s%d]: real_parent.block does not match (expected: %ld got: %ld) [4]\n", start,
-		        deep, real_parent.block, f->real_parent.block);
+		printf(
+				"%s%d]: real_parent.block does not match (expected: %ld got: %ld) [4]\n",
+				start, deep, real_parent.block, f->real_parent.block);
 		res++;
 	}
 	if (f->real_parent.pos != real_parent.pos) {
-		printf("%s%d]: real_parent.pos does not match (expected: %d got: %d) [5]\n", start, deep,
-		        real_parent.pos, f->real_parent.pos);
+		printf(
+				"%s%d]: real_parent.pos does not match (expected: %d got: %d) [5]\n",
+				start, deep, real_parent.pos, f->real_parent.pos);
 		res++;
 	}
 	if (f->folder_entry.block != folder_entry.block) {
-		printf("%s%d]: folder_entry.block does not match (expected: %ld got: %ld) [6]\n", start,
-		        deep, folder_entry.block, f->folder_entry.block);
+		printf(
+				"%s%d]: folder_entry.block does not match (expected: %ld got: %ld) [6]\n",
+				start, deep, folder_entry.block, f->folder_entry.block);
 		res++;
 	}
 	if (f->folder_entry.pos != folder_entry.pos) {
-		printf("%s%d]: folder_entry.pos does not match (expected: %d got: %d) [7]\n", start, deep,
-		        folder_entry.pos, f->folder_entry.pos);
+		printf(
+				"%s%d]: folder_entry.pos does not match (expected: %d got: %d) [7]\n",
+				start, deep, folder_entry.pos, f->folder_entry.pos);
 		res++;
 	}
 	i64 my_size = sizeof(struct pfs_folder)
-	        + (f->direct_child_count * sizeof(struct pfs_folder_entry));
-	for (i32 *table = block_data + *(i32*) (block_data + pfs->block_size - 4); 1; table += 2) {
+			+ (f->direct_child_count * sizeof(struct pfs_folder_entry));
+	for (i32 *table = block_data + *(i32*) (block_data + pfs->block_size - 4);
+			1; table += 2) {
 		if (table >= (i32*) (block_data + pfs->block_size - 4)) {
-			printf("%s%d]: pos not in table! (pos=%d) [8]\n", start, deep, fp.pos);
+			printf("%s%d]: pos not in table! (pos=%d) [8]\n", start, deep,
+					fp.pos);
 			res++;
 		} else if (fp.pos > *table) {
 			continue;
 		} else if (fp.pos < *table) {
-			printf("%s%d]: pos not in table! (pos=%d) [9]\n", start, deep, fp.pos);
+			printf("%s%d]: pos not in table! (pos=%d) [9]\n", start, deep,
+					fp.pos);
 			res++;
 		} else {
 			i32 allocated = table[1] - table[0];
 			if (allocated != my_size) {
-				printf("%s%d]: my_size (%ld) and my_allocated_sizes (%d) does not match! [A]\n",
-				        start, deep, my_size, allocated);
+				printf(
+						"%s%d]: my_size (%ld) and my_allocated_sizes (%d) does not match! [A]\n",
+						start, deep, my_size, allocated);
 				res++;
 			}
 		}
@@ -145,16 +264,19 @@ static int print_folder(struct pfs_place fp, const char *name, struct pfs_place 
 				printf("helper has a name!");
 			}
 			name = block_data + f->entries[i].name_pos;
-			for (i32 *table = block_data + *(i32*) (block_data + pfs->block_size - 4); 1; table +=
-			        2) {
+			for (i32 *table = block_data
+					+ *(i32*) (block_data + pfs->block_size - 4); 1; table +=
+					2) {
 				if (table >= (i32*) (block_data + pfs->block_size - 4)) {
-					printf("%s%d]: name not in table! (name_pos=%d) [B]\n", start, deep, name_pos);
+					printf("%s%d]: name not in table! (name_pos=%d) [B]\n",
+							start, deep, name_pos);
 					res++;
 					res += print_block_table0(fp.block, 1);
 				} else if (f->entries[i].name_pos > *table) {
 					continue;
 				} else if (f->entries[i].name_pos < *table) {
-					printf("%s%d]: name not in table! (name_pos=%d) [C]\n", start, deep, name_pos);
+					printf("%s%d]: name not in table! (name_pos=%d) [C]\n",
+							start, deep, name_pos);
 					res++;
 					res += print_block_table0(fp.block, 1);
 				} else {
@@ -170,20 +292,22 @@ static int print_folder(struct pfs_place fp, const char *name, struct pfs_place 
 		}
 		printf("%s%d]:   [%d]: %c%s%c [D]\n"
 				"%s%d]:     flags: %lu : %s [E]\n"
-				"%s%d]:     create_time=%ld [F]\n", start, deep, i, name_pos == -1 ? '<' : '"',
-		        name, name_pos == -1 ? '>' : '"', start, deep, f->entries[i].flags,
-		        (PFS_F_FOLDER & f->entries[i].flags) ? "folder" :
-		                ((PFS_F_FILE & f->entries[i].flags) ? "file" : "invalid"), start, deep,
-		        f->entries[i].create_time);
+				"%s%d]:     create_time=%ld [F]\n", start, deep, i,
+				name_pos == -1 ? '<' : '"', name, name_pos == -1 ? '>' : '"',
+				start, deep, f->entries[i].flags,
+				(PFS_F_FOLDER & f->entries[i].flags) ?
+						"folder" :
+						((PFS_F_FILE & f->entries[i].flags) ? "file" : "invalid"),
+				start, deep, f->entries[i].create_time);
 		if ((f->entries[i].flags & (PFS_F_FILE | PFS_F_FOLDER)) == 0) {
 			res++;
 		}
 		if ((f->entries[i].flags & (PFS_F_FILE | PFS_F_FOLDER))
-		        == (PFS_F_FILE | PFS_F_FOLDER)) {
+				== (PFS_F_FILE | PFS_F_FOLDER)) {
 			res++;
 		}
 		if ((f->entries[i].flags & (PFS_F_FILE | PFS_F_HELPER_FOLDER))
-		        == (PFS_F_FILE | PFS_F_HELPER_FOLDER)) {
+				== (PFS_F_FILE | PFS_F_HELPER_FOLDER)) {
 			res++;
 		}
 		if ((f->entries[i].flags & PFS_F_HELPER_FOLDER) != 0) {
@@ -196,9 +320,11 @@ static int print_folder(struct pfs_place fp, const char *name, struct pfs_place 
 		if ((f->entries[i].flags & PFS_F_FOLDER) != 0) {
 			struct pfs_place cur_pos;
 			cur_pos.block = fp.block;
-			cur_pos.pos = fp.pos + sizeof(struct pfs_folder) + i * sizeof(struct pfs_folder_entry);
-			res += print_folder(f->entries[i].child_place, name, is_helper ? real_parent : fp,
-			        cur_pos, name_pos == -1, deep + 1);
+			cur_pos.pos = fp.pos + sizeof(struct pfs_folder)
+					+ i * sizeof(struct pfs_folder_entry);
+			res += print_folder(f->entries[i].child_place, name,
+					is_helper ? real_parent : fp, cur_pos, name_pos == -1,
+					deep + 1);
 		}
 	}
 	pfs->unget(pfs, fp.block);
@@ -241,7 +367,7 @@ static int my_set_flags(struct bm_block_manager *bm, i64 block, i64 flags) {
 int main(int argc, char **argv) {
 	const char *start = "[main]:                                               ";
 	printf("%sstart checks with a ram block manager [0]\n", start);
-	pfs = bm_new_ram_block_manager(1L << 20, 1024);
+	pfs = bm_new_ram_block_manager(BLOCK_COUNT, 1024);
 	checks();
 	pfs->close_bm(pfs);
 	printf("%sstart checks with a file block manager [1]\n", start);
@@ -274,13 +400,13 @@ int main(int argc, char **argv) {
 	pfs->close_bm(pfs);
 	printf("%sstart checks with block-flaggable ram block manager [6]\n",
 			start);
-	pfs = bm_new_flaggable_ram_block_manager(1L << 20, 1024);
+	pfs = bm_new_flaggable_ram_block_manager(BLOCK_COUNT, 1024);
 	checks();
 	pfs->close_bm(pfs);
 	printf(
 			"%sstart checks with block-one-bit-flaggable ram block manager [7]\n",
 			start);
-	pfs = bm_new_flaggable_ram_block_manager(1L << 20, 1024);
+	pfs = bm_new_flaggable_ram_block_manager(BLOCK_COUNT, 1024);
 	other_set_flags = pfs->set_flags;
 	*((int (**)(struct bm_block_manager*, i64, i64)) &pfs->set_flags) =
 			my_set_flags;
@@ -291,7 +417,7 @@ int main(int argc, char **argv) {
 	printf(
 			"%sstart checks with block-two-bit-flaggable ram block manager [8]\n",
 			start);
-	pfs = bm_new_flaggable_ram_block_manager(1L << 20, 1024);
+	pfs = bm_new_flaggable_ram_block_manager(BLOCK_COUNT, 1024);
 	other_set_flags = pfs->set_flags;
 	*((int (**)(struct bm_block_manager*, i64, i64)) &pfs->set_flags) =
 			my_set_flags;
@@ -302,7 +428,7 @@ int main(int argc, char **argv) {
 	printf(
 			"%sstart checks with block-three-bit-flaggable ram block manager [9]\n",
 			start);
-	pfs = bm_new_flaggable_ram_block_manager(1L << 20, 1024);
+	pfs = bm_new_flaggable_ram_block_manager(BLOCK_COUNT, 1024);
 	other_set_flags = pfs->set_flags;
 	*((int (**)(struct bm_block_manager*, i64, i64)) &pfs->set_flags) =
 			my_set_flags;
@@ -316,7 +442,7 @@ int main(int argc, char **argv) {
 
 static void checks() {
 	const char *start = "[main.checks]:                                        ";
-	if (!pfsc_format(1L << 20)) {
+	if (!pfsc_format(BLOCK_COUNT)) {
 		printf("%scould not format the file system! [0]\n", start);
 		exit(EXIT_FAILURE);
 	}
@@ -734,7 +860,7 @@ static void append_file_check() {
 
 static void folder_check() {
 	const char *start = "[main.checks.folder_check]:                           ";
-	if (!pfsc_format(1L << 20)) {
+	if (!pfsc_format(BLOCK_COUNT)) {
 		printf("%scould not format the file system! [0]\n");
 		exit(EXIT_FAILURE);
 	}
@@ -1316,7 +1442,7 @@ static void compare(DIR *dir, DIR *dir2, char *name, char *name2) {
 
 static void real_file_sys_check() {
 	const char *start = "[main.checks.real_file_sys_check]:                    ";
-	if (!pfsc_format(1L << 20)) {
+	if (!pfsc_format(BLOCK_COUNT)) {
 		printf("%scould not format the pfs! [0]\n", start);
 		exit(EXIT_FAILURE);
 	}
@@ -1337,6 +1463,9 @@ static void real_file_sys_check() {
 		exit(EXIT_FAILURE);
 	}
 	read_from(dir, root, &name, &name_size);
+#ifdef PRINT_PFS
+	pfs_simple_print(0, NULL, NULL, NULL);
+#endif // PRINT_PFS
 	fflush(NULL);
 	if (!pfsc_fill_root(root)) {
 		printf("%scould not get the root! (pfs_errno=%s) [3]\n", start,
@@ -1532,6 +1661,16 @@ static void meta_check() { // TODO (move|set(name|parent))checks
 	pfs_eh e = pfsc_root();
 	if (e == NULL) {
 		printf("%scould not get the root directory! (%s) [0]\n", start,
+				pfs_error());
+		exit(EXIT_FAILURE);
+	}
+	if (!pfsc_format(BLOCK_COUNT)) {
+		printf("%scould not format the PFS! (%s) [0.3333333333]\n", start,
+				pfs_error());
+		exit(EXIT_FAILURE);
+	}
+	if (!pfsc_fill_root(e)) {
+		printf("%scould not fill the root! (%s) [0.6666666666]\n", start,
 				pfs_error());
 		exit(EXIT_FAILURE);
 	}

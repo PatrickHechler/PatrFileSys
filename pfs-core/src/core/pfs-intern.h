@@ -128,7 +128,7 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size
 		if (new_pos == -1) { \
 			abort(); \
 		}\
-		if (new_pos == place.pos) { \
+		if (new_pos != place.pos) { \
 			abort(); /*shrink reallocate should always be in place */ \
 		} \
 	}

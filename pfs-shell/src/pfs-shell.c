@@ -6,6 +6,7 @@
  */
 
 #include <pfs.h>
+#include <sys/wait.h>
 #include <errno.h>
 #include <linux/sched.h>
 #include <sched.h>
@@ -24,6 +25,14 @@ static enum debug_lebel_enum {
 	dl_none, dl_warn, dl_default = dl_warn, dl_all,
 } debug_level;
 static int color;
+
+const char *cd;
+const char *name;
+
+static inline void execute(char **args);
+//static inline char* prompt(void);
+static inline void buildin_info(const char *name);
+static inline char** args(void);
 
 #define invalid_args fprintf(stderr, "invalid arg: '%s'\n%s", *argv, help_msg); exit(1);
 
@@ -126,71 +135,39 @@ static void setup(int argc, char **argv) {
 
 #undef invalid_args
 
-const char *cd;
-const char *name;
-
-static inline void execute(void);
-static inline void prompt(void);
-static inline void buildin_info(const char *name);
-static inline char** args(void);
-
 int main(int argc, char **argv) {
 	setup(argc, argv);
 	int last_exit = 0;
-	for (prompt(); 1; prompt()) {
+	for (; 1;) {
 		char **child_args = args();
-		if (!strcmp("exit", *args)) {
+		if (!strcmp("exit", *child_args)) {
 			printf("goodbye\n");
 			return last_exit;
 		}
-		int cpid;
-		void *stack = mmap(NULL, 1024L, PROT_EXEC,
-		/*		*/MAP_ANONYMOUS | MAP_STACK | MAP_SHARED, -1, 0);
-		struct clone_args ca = { //
-				/*			*/.flags = CLONE_VFORK | CLONE_PARENT_SETTID /* may want to comment CLONE_VM out*/
-				/*			*/| CLONE_VM //
-				/*			*/,//
-						/*	*/.parent_tid = &cpid, //
-						/*	*/.exit_signal = SIGCHLD, //
-						/*	*/.stack = stack, //
-						/*	*/.stack_size = 1024L, //
-				};
-		long l = syscall(SYS_clone3, &ca, sizeof(struct clone_args));
-		if (l == -1) {
-			perror("clone");
+		int cpid = vfork();
+//		void *stack = mmap(NULL, 1024L, PROT_EXEC,
+//		/*		*/MAP_ANONYMOUS | MAP_STACK | MAP_SHARED, -1, 0);
+//		struct clone_args ca = { //
+//				/*			*/.flags = CLONE_VFORK | CLONE_PARENT_SETTID /* may want to comment CLONE_VM out*/
+//				/*			*/| CLONE_VM //
+//				/*			*/,//
+//						/*	*/.parent_tid = (i64) &cpid, //
+//						/*	*/.exit_signal = SIGCHLD, //
+//						/*	*/.stack = (i64) stack, //
+//						/*	*/.stack_size = 1024L, //
+//				};
+//		long l = syscall(SYS_clone3, &ca, sizeof(struct clone_args));
+		if (cpid == -1) {
+			perror("vfork");
 			last_exit = 1;
 		}
-		if (l) {
-			waitpid(l, &last_exit, 0);
+		if (cpid) {
+			waitpid(cpid, &last_exit, 0);
 		} else {
 			execute(child_args);
 		}
 	}
 }
-
-static const char const *msg_help_all = "";
-static const char const *msg_help_exit = "";
-static const char const *msg_help_help = "";
-static const char const *msg_help_mkfs = "";
-static const char const *msg_help_mount = "";
-static const char const *msg_help_umount = "";
-static const char const *msg_help_ls = "";
-static const char const *msg_help_cat = "";
-static const char const *msg_help_cp = "";
-static const char const *msg_help_mkdir = "";
-static const char const *msg_help_rm = "";
-static const char const *msg_help_rmdir = "";
-
-static inline void bc_help(char **args);
-static inline void bc_mkfs(char **args);
-static inline void bc_mount(char **args);
-static inline void bc_umount(char **args);
-static inline void bc_ls(char **args);
-static inline void bc_cat(char **args);
-static inline void bc_cp(char **args);
-static inline void bc_mkdir(char **args);
-static inline void bc_rm(char **args);
-static inline void bc_rmdir(char **args);
 
 static inline void execute(char **args) {
 	if (!strcmp("help", *args)) {
@@ -227,73 +204,80 @@ static inline void execute(char **args) {
 		execv(*args, args);
 		switch (errno) {
 		case E2BIG:
-			fpritnf(stderr, "could not execute the process!\n"
+			fprintf(stderr, "could not execute the process!\n"
 					"the environment is too large!\n");
 			exit(1);
 		case EACCES:
-			fpritnf(stderr,
+			fprintf(stderr,
 					"could access the file to execute! (or the file is not executable)\n");
 			exit(1);
 		case EAGAIN:
-			fpritnf(stderr, "resource limit reached!\n");
+			fprintf(stderr, "resource limit reached!\n");
 			exit(1);
 		case EFAULT:
-			fpritnf(stderr, "segmentation fault an execve!\n");
+			fprintf(stderr, "segmentation fault an execve!\n");
 			fflush(NULL);
 			abort();
 		case EINVAL:
-			fpritnf(stderr, "the ELF has too many interpreters!\n");
+			fprintf(stderr, "the ELF has too many interpreters!\n");
 			exit(1);
 		case EIO:
-			fpritnf(stderr, "an io error occured on starting the process!\n");
+			fprintf(stderr, "an io error occured on starting the process!\n");
 			exit(1);
 		case EISDIR:
-			fpritnf(stderr, "directories ar no interpreters!\n");
+			fprintf(stderr, "directories ar no interpreters!\n");
 			exit(1);
 		case ELIBBAD:
-			fpritnf(stderr, "unknown ELF interpreter!\n");
+			fprintf(stderr, "unknown ELF interpreter!\n");
 			exit(1);
 		case ELOOP:
-			fpritnf(stderr,
+			fprintf(stderr,
 					"too many symlinks in the path of the executable or too many interpreters should interpret each other!\n");
 			exit(1);
 		case EMFILE:
-			fpritnf(stderr,
+			fprintf(stderr,
 					"too many open files (this may be a bug (or is the limit set to a very low number))!\n");
 			exit(1);
 		case ENAMETOOLONG:
-			fpritnf(stderr, "the (path)name of the executable is too long!\n");
+			fprintf(stderr, "the (path)name of the executable is too long!\n");
 			exit(1);
 		case ENFILE:
-			fpritnf(stderr, "too many open files on the system!\n");
+			fprintf(stderr, "too many open files on the system!\n");
 			exit(1);
 		case ENOENT:
-			fpritnf(stderr, "interpreter not found!\n");
+			fprintf(stderr, "interpreter not found!\n");
 			exit(1);
 		case ENOEXEC:
-			fpritnf(stderr,
+			fprintf(stderr,
 					"the system could not execute the executable (wrong arch or whatever)!\n");
 			exit(1);
 		case ENOMEM:
-			fpritnf(stderr, "the kernel runs out of memory!\n");
+			fprintf(stderr, "the kernel runs out of memory!\n");
 			exit(1);
 		case ENOTDIR:
-			fpritnf(stderr,
+			fprintf(stderr,
 					"there was a non-directory in the path which was expected to be a directory!\n");
 			exit(1);
 		case EPERM:
-			fpritnf(stderr, "permission things!\n");
+			fprintf(stderr, "permission things!\n");
 			exit(1);
 		case ETXTBSY:
-			fpritnf(stderr, "there writes someone to my executable!\n");
+			fprintf(stderr, "there writes someone to my executable!\n");
 			exit(1);
 		}
 	}
 }
 
-static inline void prompt(void) {
-	printf("[pfs-shell: %s]$ ", name);
-	fflush(stderr);
+static inline char* gen_prompt(void) {
+	i64 addlen = strlen(name);
+	char *result = malloc(16 + addlen);
+	memcpy(result, "[pfs-shell: ", 12);
+	memcpy(result + 12, name, addlen);
+	result[12 + addlen] = ']';
+	result[12 + addlen + 1] = '$';
+	result[12 + addlen + 2] = ' ';
+	result[12 + addlen + 3] = '\0';
+	return result;
 }
 
 static inline void buildin_info(const char *name) {
@@ -302,6 +286,46 @@ static inline void buildin_info(const char *name) {
 }
 
 static inline char** args(void) {
-	char *line = readline(NULL);
-// TODO parse args
+	int argc = 1;
+	char **args = malloc((argc + 1) * sizeof(void*));
+	*args = malloc(16);
+	char *p = gen_prompt();
+	char *line = readline(p);
+	free(p);
+	for (int li = 0, al = 16, an = 0, ai = 0; 1;) {
+		switch (line[li]) {
+		case '\0':
+			args[an] = realloc(args[an], ai + 1);
+			args[an][ai] = '\0';
+			return args;
+		case '\\':
+			li++;
+			if (line[li] == '\0') {
+				args[an][ai++] = '\n';
+				li = 0;
+				line = readline("> ");
+			} else {
+				args[an][ai++] = line[li++];
+			}
+			break;
+		case '$': // TODO
+			break;
+		case '\'':// TODO
+		case '"': // TODO
+			break;
+		case ' ':
+		case '\t':
+			space: ;
+			args[an] = realloc(args[an], ai + 1);
+			args[an][ai] = '\0';
+			argc++;
+			args = realloc(args, (argc + 1) * sizeof(void*));
+			break;
+		default:
+			if (isspace(line[li])) {
+				goto space;
+			}
+			args[an][ai++] = line[li++];
+		}
+	}
 }
