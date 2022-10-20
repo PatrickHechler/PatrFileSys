@@ -22,17 +22,20 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
+#include "buildins.h"
+
 static enum debug_lebel_enum {
 	dl_none, dl_warn, dl_default = dl_warn, dl_all,
 } debug_level;
 static int color;
 
-const char *cwd;
-const char *name;
+char *mount = NULL;
 
-static inline void execute(char **args);
+char *cwd;
+char *name;
+
+static inline void execute(char **args) __attribute__ ((__noreturn__));
 //static inline char* prompt(void);
-static inline void buildin_info(const char *name);
 static inline char** read_args(void);
 
 #define invalid_args fprintf(stderr, "invalid arg: '%s'\n%s", *argv, help_msg); exit(1);
@@ -41,7 +44,7 @@ static void setup(int argc, char **argv) {
 	const char const *help_msg =
 	/*            */"Usage: pfs-shell [OPTIONS]\n"
 	/*            */"\n"
-			/*            */"Options:\n"
+			/*    */"Options:\n"
 			/*    */"  --help\n"
 			/*    */"      print a simple help message and exit\n"
 			/*    */"  --version\n"
@@ -56,6 +59,22 @@ static void setup(int argc, char **argv) {
 			/*    */"      set the debug level\n"
 			/*    */"      (overwrites previous --debug=)\n";
 	const char const *vers_msg = "pfs-shell 1.0.0\n";
+	{
+		char *home = getenv("HOME");
+		if (!home) {
+			home = "/";
+		}
+		i64 len = strlen(home);
+		cwd = malloc((len + 128) & ~127);
+		memcpy(cwd, home, len);
+		cwd[len] = '\0';
+		name = strrchr(cwd, '/');
+		if (!name) {
+			name = cwd;
+		} else {
+			name++;
+		}
+	}
 	debug_level = dl_default;
 	color = 1;
 	int do_exit = 0;
@@ -142,11 +161,13 @@ int main(int argc, char **argv) {
 	setup(argc, argv);
 	for (; 1;) {
 		char **child_args = read_args();
-		if (!strcmp("exit", *child_args)) {
-			printf("goodbye\n");
-			return last_exit;
+		if (!*child_args) {
+			continue;
 		}
-		int cpid = vfork();
+		if (!strcmp("exit", *child_args)) {
+			bc_exit(child_args);
+		}
+		int cpid = fork();
 		if (cpid == -1) {
 			perror("vfork");
 			last_exit = 1;
@@ -172,6 +193,9 @@ static inline void execute(char **args) {
 	} else if (!strcmp("umount.pfs", *args)) {
 		buildin_info("umount.pfs");
 		bc_umount(args);
+	} else if (!strcmp("lsm.pfs", *args)) {
+		buildin_info("lsm.pfs");
+		bc_lsm(args);
 	} else if (!strcmp("ls", *args)) {
 		buildin_info("ls");
 		bc_ls(args);
@@ -254,6 +278,10 @@ static inline void execute(char **args) {
 		case ETXTBSY:
 			fprintf(stderr, "there writes someone to my executable!\n");
 			exit(1);
+		default:
+			fprintf(stderr, "error on execv call (cmd='%s')\n", *args);
+			perror("execv");
+			exit(1);
 		}
 	}
 }
@@ -276,17 +304,18 @@ static inline void buildin_info(const char *name) {
 }
 
 static inline char** read_args(void) {
-	int argc = 1;
 	char *p = gen_prompt();
 	char *line = readline(p);
 	free(p);
-	char **args = malloc((argc + 1) * sizeof(void*));
-	*args = malloc(128);
-	for (int li = 0, al = 128, an = 0, ai = 0; 1;) {
+	char **args = malloc(2 * sizeof(void*));
+	*args = NULL;
+	for (int li = 0, al = 0, an = 0, ai = 0; 1;) {
 		switch (line[li]) {
 		case '\0':
-			args[an] = realloc(args[an], ai + 1);
-			args[an][ai] = '\0';
+			if (args[an]) {
+				args[an] = realloc(args[an], ai + 1);
+				args[an][ai] = '\0';
+			}
 			return args;
 		case '\\':
 			if (al <= ai) {
@@ -355,12 +384,25 @@ static inline char** read_args(void) {
 			break;
 		}
 		case '\'':
-#define read_string(end) \
+#define read_string(identy, end) \
 			for (; 1;) { \
 				if (line[li] == end) { \
 					li++; \
 					break; \
+				} else if (line[li] == '\\') { \
+					if (al <= ai) { \
+						args[an] = realloc(args[an], al += 128); \
+					} \
+					if (line[++li] == '\0') { \
+						goto identy##_new_line; \
+					} \
+					args[an][ai++] = line[li++]; \
 				} else if (line[li] == '\0') { \
+					if (al <= ai) { \
+						args[an] = realloc(args[an], al += 128); \
+					} \
+					identy##_new_line: \
+					args[an][ai++] = '\n'; \
 					li = 0; \
 					line = readline("> "); \
 					continue; \
@@ -370,18 +412,24 @@ static inline char** read_args(void) {
 				} \
 				args[an][ai++] = line[li++]; \
 			}
-			read_string('\'')
+			read_string(rs0, '\'')
 			break;
 		case '"':
-			read_string('"')
+			read_string(rs1, '"')
 			break;
 		case ' ':
 		case '\t':
 			space: ;
-			args[an] = realloc(args[an], ai + 1);
-			args[an][ai] = '\0';
-			argc++;
-			args = realloc(args, (argc + 1) * sizeof(void*));
+			if (args[an]) {
+				args[an] = realloc(args[an], ai + 1);
+				args[an][ai] = '\0';
+				args = realloc(args, (an + 2) * sizeof(void*));
+				an++;
+				args[an] = NULL;
+				ai = 0;
+				al = 0;
+			}
+			li++;
 			break;
 		default:
 			if (isspace(line[li])) {
@@ -394,3 +442,90 @@ static inline char** read_args(void) {
 		}
 	}
 }
+
+static inline void bc_exit(char **args) {
+	if (args[1]) {
+		char *end;
+		last_exit = strtol(args[1], &end, 10);
+		if (*end) {
+			fprintf(stderr, "could not parse argument to a number: '%s'",
+					args[1]);
+			fflush(stderr);
+			if (last_exit == 0) {
+				last_exit = 1;
+			}
+		}
+	}
+	exit(last_exit);
+}
+
+static inline void bc_help(char **args) {
+	if (!args[1]) {
+		fputs(msg_help_all, stdout);
+	} else {
+		for (args++; *args; args++) {
+			if (strcmp("exit", *args)) {
+				fputs(msg_help_exit, stdout);
+			} else if (strcmp("help", *args)) {
+				fputs(msg_help_help, stdout);
+			} else if (strcmp("mkfs.pfs", *args)) {
+				fputs(msg_help_mkfs, stdout);
+			} else if (strcmp("mount.pfs", *args)) {
+				fputs(msg_help_mount, stdout);
+			} else if (strcmp("umount.pfs", *args)) {
+				fputs(msg_help_umount, stdout);
+			} else if (strcmp("lsm.pfs", *args)) {
+				fputs(msg_help_lsm, stdout);
+			} else if (strcmp("ls", *args)) {
+				fputs(msg_help_ls, stdout);
+			} else if (strcmp("cat", *args)) {
+				fputs(msg_help_cat, stdout);
+			} else if (strcmp("cp", *args)) {
+				fputs(msg_help_cp, stdout);
+			} else if (strcmp("mkdir", *args)) {
+				fputs(msg_help_mkdir, stdout);
+			} else if (strcmp("rm", *args)) {
+				fputs(msg_help_rm, stdout);
+			} else if (strcmp("rmdir", *args)) {
+				fputs(msg_help_rmdir, stdout);
+			} else {
+				fprintf(stderr, "unknown buildin-command: '%s'\n", args[1]);
+				fflush(stderr);
+				exit(1);
+			}
+		}
+	}
+	fflush(stdout);
+	exit(0);
+}
+
+static inline void bc_mkfs(char **args) {
+}
+
+static inline void bc_mount(char **args) {
+}
+
+static inline void bc_umount(char **args) {
+}
+
+static inline void bc_lsm(char **args) {
+}
+
+static inline void bc_ls(char **args) {
+}
+
+static inline void bc_cat(char **args) {
+}
+
+static inline void bc_cp(char **args) {
+}
+
+static inline void bc_mkdir(char **args) {
+}
+
+static inline void bc_rm(char **args) {
+}
+
+static inline void bc_rmdir(char **args) {
+}
+

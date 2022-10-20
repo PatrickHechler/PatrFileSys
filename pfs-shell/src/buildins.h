@@ -40,10 +40,16 @@ static const char const *msg_help_all = //
 				"mount.pfs [FILE] [FOLDER]\n"//
 				"  mounts a patr-file-system from file to\n"//
 				"  the given folder\n"//
+				"  currently there is only one mount-point\n"//
+				"  at a time allowed. to change it use\n"//
+				"  umount.pfs before\n"//
 				"\n"//
 				"umount.pfs [FILE|FOLDER]\n"//
 				"  unmounts a patr-file-system from the given\n"//
 				"  mountpoint or mounted device\n"//
+				"\n"//
+				"lsm.pfs\n"//
+				"  list all patr-file-system mount points\n"//
 				"\n"//
 				"ls\n"//
 				"  prints the content of the current working\n"//
@@ -100,11 +106,18 @@ static const char const *msg_help_mount = //
 		/*	  */"mount.pfs [FILE] [FOLDER]\n"//
 				"  mounts a patr-file-system from file to\n"//
 				"  the given folder\n"//
+				"  currently there is only one mount-point\n"//
+				"  at a time allowed. to change it use\n"//
+				"  umount.pfs before\n"//
 ;
 static const char const *msg_help_umount = //
 		/*	  */"umount.pfs [FILE|FOLDER]\n"//
 				"  unmounts a patr-file-system from the given\n"//
 				"  mountpoint or mounted device\n"//
+;
+static const char const *msg_help_lsm = //
+		/*	  */"lsm.pfs\n"//
+				"  list all patr-file-system mount points\n"//
 ;
 static const char const *msg_help_ls = //
 		/*	  */"ls\n"//
@@ -139,14 +152,17 @@ static const char const *msg_help_rmdir = //
 				"  rmdir fails if the given folder is not empty\n"//
 ;
 
-static inline void bc_help(char **args);
-static inline void bc_mkfs(char **args);
-static inline void bc_mount(char **args);
-static inline void bc_umount(char **args);
-static inline void bc_ls(char **args);
-static inline void bc_cat(char **args);
-static inline void bc_cp(char **args);
-static inline void bc_mkdir(char **args);
-static inline void bc_rm(char **args);
-static inline void bc_rmdir(char **args);
+static inline void buildin_info(const char *name);
 
+static inline void bc_exit(char **args)__attribute__ ((__noreturn__));
+static inline void bc_help(char **args)__attribute__ ((__noreturn__));
+static inline void bc_mkfs(char **args)__attribute__ ((__noreturn__));
+static inline void bc_mount(char **args)__attribute__ ((__noreturn__));
+static inline void bc_umount(char **args)__attribute__ ((__noreturn__));
+static inline void bc_lsm(char **args)__attribute__ ((__noreturn__));
+static inline void bc_ls(char **args)__attribute__ ((__noreturn__));
+static inline void bc_cat(char **args)__attribute__ ((__noreturn__));
+static inline void bc_cp(char **args)__attribute__ ((__noreturn__));
+static inline void bc_mkdir(char **args)__attribute__ ((__noreturn__));
+static inline void bc_rm(char **args)__attribute__ ((__noreturn__));
+static inline void bc_rmdir(char **args)__attribute__ ((__noreturn__));
