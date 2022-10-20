@@ -91,7 +91,10 @@ static const char const *msg_help_mkfs = //
 				"        default=1024\n"//
 				"    --block-count=[BLOCK_COUNT]\n"//
 				"        set the number of available blocks\n"//
-				"        WARN: default=I64_MAX_VALUE\n"//
+				"        WARN: default=9223372036854775807\n"//
+				"            Set the value when using  a device\n"//
+				"            with limited size\n"//
+				"mkfs.pfs fails when FILE already exists\n"//
 ;
 static const char const *msg_help_mount = //
 		/*	  */"mount.pfs [FILE] [FOLDER]\n"//

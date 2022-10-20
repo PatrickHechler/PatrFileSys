@@ -6,6 +6,7 @@
  */
 
 #include <pfs.h>
+#include <stdlib.h>
 #include <sys/wait.h>
 #include <errno.h>
 #include <linux/sched.h>
@@ -26,13 +27,13 @@ static enum debug_lebel_enum {
 } debug_level;
 static int color;
 
-const char *cd;
+const char *cwd;
 const char *name;
 
 static inline void execute(char **args);
 //static inline char* prompt(void);
 static inline void buildin_info(const char *name);
-static inline char** args(void);
+static inline char** read_args(void);
 
 #define invalid_args fprintf(stderr, "invalid arg: '%s'\n%s", *argv, help_msg); exit(1);
 
@@ -135,28 +136,17 @@ static void setup(int argc, char **argv) {
 
 #undef invalid_args
 
+static int last_exit = 0;
+
 int main(int argc, char **argv) {
 	setup(argc, argv);
-	int last_exit = 0;
 	for (; 1;) {
-		char **child_args = args();
+		char **child_args = read_args();
 		if (!strcmp("exit", *child_args)) {
 			printf("goodbye\n");
 			return last_exit;
 		}
 		int cpid = vfork();
-//		void *stack = mmap(NULL, 1024L, PROT_EXEC,
-//		/*		*/MAP_ANONYMOUS | MAP_STACK | MAP_SHARED, -1, 0);
-//		struct clone_args ca = { //
-//				/*			*/.flags = CLONE_VFORK | CLONE_PARENT_SETTID /* may want to comment CLONE_VM out*/
-//				/*			*/| CLONE_VM //
-//				/*			*/,//
-//						/*	*/.parent_tid = (i64) &cpid, //
-//						/*	*/.exit_signal = SIGCHLD, //
-//						/*	*/.stack = (i64) stack, //
-//						/*	*/.stack_size = 1024L, //
-//				};
-//		long l = syscall(SYS_clone3, &ca, sizeof(struct clone_args));
 		if (cpid == -1) {
 			perror("vfork");
 			last_exit = 1;
@@ -285,20 +275,23 @@ static inline void buildin_info(const char *name) {
 	fflush(stdout);
 }
 
-static inline char** args(void) {
+static inline char** read_args(void) {
 	int argc = 1;
-	char **args = malloc((argc + 1) * sizeof(void*));
-	*args = malloc(16);
 	char *p = gen_prompt();
 	char *line = readline(p);
 	free(p);
-	for (int li = 0, al = 16, an = 0, ai = 0; 1;) {
+	char **args = malloc((argc + 1) * sizeof(void*));
+	*args = malloc(128);
+	for (int li = 0, al = 128, an = 0, ai = 0; 1;) {
 		switch (line[li]) {
 		case '\0':
 			args[an] = realloc(args[an], ai + 1);
 			args[an][ai] = '\0';
 			return args;
 		case '\\':
+			if (al <= ai) {
+				args[an] = realloc(args[an], al += 128);
+			}
 			li++;
 			if (line[li] == '\0') {
 				args[an][ai++] = '\n';
@@ -308,10 +301,79 @@ static inline char** args(void) {
 				args[an][ai++] = line[li++];
 			}
 			break;
-		case '$': // TODO
+		case '$': {
+			i64 len = 128;
+			char *c = malloc(128);
+			int i = 0;
+			for (; 1;) {
+				if (line[li] < 'A') {
+					inval: ;
+					if (isspace(line[li])) {
+						li++;
+						if (i == 3 && c[0] == 'P' && c[1] == 'W'
+								&& c[2] == 'D') {
+							free(c);
+							c = cwd;
+						} else {
+							if (i >= len) {
+								c = realloc(c, len = i + 1);
+							}
+							c[i] = '\0';
+							char *cs = getenv(c);
+							free(c);
+							c = cs;
+						}
+						len = strlen(c);
+						while (al - len <= ai) {
+							args[an] = realloc(args[an], al += 128);
+						}
+						memcpy(args[an] + ai, c, len);
+						ai += len;
+					} else if (line[li] == '_') {
+						goto good;
+					} else {
+						fprintf(stderr, "invalid character %c at char %d\n",
+								line[li], li);
+						return NULL;
+					}
+				}
+				if (line[li] <= 'Z') {
+					good: ;
+					if (i >= len) {
+						c = realloc(c, len += 128);
+					}
+					c[i++] = line[li++];
+				}
+				if (line[li] < 'a') {
+					goto inval;
+				}
+				if (line[li] <= 'z') {
+					goto good;
+				}
+				goto inval;
+			}
 			break;
-		case '\'':// TODO
-		case '"': // TODO
+		}
+		case '\'':
+#define read_string(end) \
+			for (; 1;) { \
+				if (line[li] == end) { \
+					li++; \
+					break; \
+				} else if (line[li] == '\0') { \
+					li = 0; \
+					line = readline("> "); \
+					continue; \
+				} \
+				if (al <= ai) { \
+					args[an] = realloc(args[an], al += 128); \
+				} \
+				args[an][ai++] = line[li++]; \
+			}
+			read_string('\'')
+			break;
+		case '"':
+			read_string('"')
 			break;
 		case ' ':
 		case '\t':
@@ -324,6 +386,9 @@ static inline char** args(void) {
 		default:
 			if (isspace(line[li])) {
 				goto space;
+			}
+			if (al <= ai) {
+				args[an] = realloc(args[an], al += 128);
 			}
 			args[an][ai++] = line[li++];
 		}
