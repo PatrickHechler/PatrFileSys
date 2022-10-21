@@ -11,11 +11,11 @@
 #define has_refs(eh) ( ( (eh)->load_count > 0) ? 1 : ( (eh)->children.entrycount != 0) )
 
 #define get_handle(err_ret, h_len, hs, h_num) \
-	if (h_num >= h_len) { \
+	if (h_num >= pfs_##h_len) { \
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG; \
 		return err_ret; \
 	} \
-	if (!hs[h_num]) { \
+	if (!pfs_##hs[h_num]) { \
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG; \
 		return err_ret; \
 	}
@@ -56,7 +56,7 @@
 	struct pfs_folder_entry *my_entry = direct_parent_block_data + e->handle.entry_pos; \
 	if ((my_entry->flags & flag) == 0) { \
 		pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE; \
-		pfs->unget(pfs, ehs[eh]->handle.direct_parent_place.block); \
+		pfs->unget(pfs, pfs_ehs[eh]->handle.direct_parent_place.block); \
 		return err_ret; \
 	} \
 
@@ -90,9 +90,8 @@ struct iter_handle {
 	struct element_handle *folder;
 };
 
-static_assert((offsetof(struct iter_handle, ieh)
-% 8) == 0, "err");
-static_assert((offsetof(struct iter_handle, folder) % 8) == 0, "err");
+static_assert((offsetof(struct iter_handle, ieh) & 7) == 0, "err");
+static_assert((offsetof(struct iter_handle, folder) & 7) == 0, "err");
 
 #ifndef I_AM_API_PFS
 #define EXT extern
@@ -102,16 +101,16 @@ static_assert((offsetof(struct iter_handle, folder) % 8) == 0, "err");
 #define INIT(val) = val
 #endif
 
-EXT struct element_handle **ehs INIT(NULL);
-EXT struct stream_handle **shs INIT(NULL);
-EXT struct iter_handle **ihs INIT(NULL);
+EXT struct element_handle **pfs_ehs INIT(NULL);
+EXT struct stream_handle **pfs_shs INIT(NULL);
+EXT struct iter_handle **pfs_ihs INIT(NULL);
 
-EXT i64 eh_len INIT(0L);
-EXT i64 sh_len INIT(0L);
-EXT i64 ih_len INIT(0L);
+EXT i64 pfs_eh_len INIT(0L);
+EXT i64 pfs_sh_len INIT(0L);
+EXT i64 pfs_ih_len INIT(0L);
 
-EXT struct element_handle *root INIT(NULL);
-EXT struct element_handle *cwd INIT(NULL);
+EXT struct element_handle *pfs_root INIT(NULL);
+EXT struct element_handle *pfs_cwd INIT(NULL);
 
 #undef EXT
 #undef INIT

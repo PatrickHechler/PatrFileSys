@@ -8,13 +8,13 @@
 #include "pfs.h"
 #include "../include/pfs.h"
 
-static void free_old() {
-	if (ehs) {
-		free(ehs);
-		free(shs);
-		free(ihs);
-		free(root);
-		free(cwd);
+static inline void free_old() {
+	if (pfs_ehs) {
+		free(pfs_ehs);
+		free(pfs_shs);
+		free(pfs_ihs);
+		free(pfs_root);
+		free(pfs_cwd);
 	}
 }
 
@@ -51,7 +51,7 @@ static inline struct element_handle* open_eh(const char *path,
 		return NULL;
 	}
 	struct element_handle *eh =
-			(allow_relative ? (*path == '/') : 0) ? rot : cwd;
+			(allow_relative ? (*path == '/') : 0) ? rot : pfs_cwd;
 	for (const char *cur = path, *end; *cur; cur = end) {
 		end = strchrnul(cur, '/');
 		i64 len = ((i64) end) - ((i64) cur);
@@ -192,20 +192,20 @@ extern int pfs_load(struct bm_block_manager *bm, const char *cur_work_dir) {
 		}
 	} else {
 		nrot->load_count++;
-		ncwd = root;
+		ncwd = pfs_root;
 	}
 	free_old();
-	ehs = nehs;
-	shs = nshs;
-	ihs = nihs;
-	eh_len = 1;
-	sh_len = 1;
-	ih_len = 1;
-	root = nrot;
-	cwd = ncwd;
-	shs[0] = NULL;
-	ehs[0] = NULL;
-	ihs[0] = NULL;
+	pfs_ehs = nehs;
+	pfs_shs = nshs;
+	pfs_ihs = nihs;
+	pfs_eh_len = 1;
+	pfs_sh_len = 1;
+	pfs_ih_len = 1;
+	pfs_root = nrot;
+	pfs_cwd = ncwd;
+	pfs_shs[0] = NULL;
+	pfs_ehs[0] = NULL;
+	pfs_ihs[0] = NULL;
 	return 1;
 }
 
@@ -259,46 +259,63 @@ extern int pfs_format(i64 block_count) {
 	nrot->children.hashmaker = childset_hash;
 	nrot->children.entries = NULL;
 	free_old();
-	ehs = nehs;
-	shs = nshs;
-	ihs = nihs;
-	eh_len = 1;
-	sh_len = 1;
-	ih_len = 1;
-	root = nrot;
-	cwd = nrot;
-	shs[0] = NULL;
-	ehs[0] = NULL;
-	ihs[0] = NULL;
+	pfs_ehs = nehs;
+	pfs_shs = nshs;
+	pfs_ihs = nihs;
+	pfs_eh_len = 1;
+	pfs_sh_len = 1;
+	pfs_ih_len = 1;
+	pfs_root = nrot;
+	pfs_cwd = nrot;
+	pfs_shs[0] = NULL;
+	pfs_ehs[0] = NULL;
+	pfs_ihs[0] = NULL;
+	return 1;
+}
+
+extern int pfs_close() {
+	if (pfs) {
+		if (!pfs->close_bm(pfs)) {
+			return 0;
+		}
+	}
+	if (pfs_ehs) {
+		free_old();
+		pfs_ehs = NULL;
+		pfs_shs = NULL;
+		pfs_ihs = NULL;
+		pfs_root = NULL;
+		pfs_cwd = NULL;
+	}
 	return 1;
 }
 
 // block_count and block_size are implemented in core/pfs.c
 
 extern int pfs_handle(const char *path) {
-	struct element_handle *eh = open_eh(path, root, 1, NULL);
+	struct element_handle *eh = open_eh(path, pfs_root, 1, NULL);
 	if (!eh) {
 		return -1;
 	}
-	for (int i = 0; i < eh_len; i++) {
-		if (ehs[i]) {
+	for (int i = 0; i < pfs_eh_len; i++) {
+		if (pfs_ehs[i]) {
 			continue;
 		}
-		ehs[i] = eh;
+		pfs_ehs[i] = eh;
 		return i;
 	}
-	void *nehs = realloc(ehs, eh_len + 1);
+	void *nehs = realloc(pfs_ehs, pfs_eh_len + 1);
 	if (!nehs) {
 		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
 		return -1;
 	}
-	ehs = nehs;
-	ehs[eh_len] = eh;
-	return eh_len++;
+	pfs_ehs = nehs;
+	pfs_ehs[pfs_eh_len] = eh;
+	return pfs_eh_len++;
 }
 
 static inline int handle(const char *path, ui32 flag) {
-	struct element_handle *eh = open_eh(path, root, 1, NULL);
+	struct element_handle *eh = open_eh(path, pfs_root, 1, NULL);
 	if (!eh) {
 		return -1;
 	}
@@ -310,7 +327,7 @@ static inline int handle(const char *path, ui32 flag) {
 		pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 		return -1;
 	}
-	return_handle(eh_len, ehs, eh);
+	return_handle(pfs_eh_len, pfs_ehs, eh);
 }
 
 extern int pfs_handle_folder(const char *path) {
@@ -325,9 +342,9 @@ extern int pfs_handle_pipe(const char *path) {
 	return handle(path, PFS_F_FOLDER);
 }
 
-extern int pfs_cwd(int eh) {
+extern int pfs_change_dir(int eh) {
 	eh(0)
-	ui32 flags = pfsc_element_get_flags(&ehs[eh]->handle);
+	ui32 flags = pfsc_element_get_flags(&pfs_ehs[eh]->handle);
 	if (flags == -1) {
 		return 0;
 	}
@@ -335,14 +352,14 @@ extern int pfs_cwd(int eh) {
 		pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 		return 0;
 	}
-	release_eh(cwd);
-	cwd = ehs[eh];
-	cwd->load_count++;
+	release_eh(pfs_cwd);
+	pfs_cwd = pfs_ehs[eh];
+	pfs_cwd->load_count++;
 	return 1;
 }
 
 extern int pfs_change_working_directoy(char *path) {
-	struct element_handle *eh = open_eh(path, root, 1, NULL);
+	struct element_handle *eh = open_eh(path, pfs_root, 1, NULL);
 	if (!eh) {
 		return -1;
 	}
@@ -354,24 +371,24 @@ extern int pfs_change_working_directoy(char *path) {
 		pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 		return -1;
 	}
-	release_eh(cwd);
-	cwd = eh;
+	release_eh(pfs_cwd);
+	pfs_cwd = eh;
 	return 1;
 }
 
 extern int pfs_delete(const char *path) {
-	struct element_handle *eh = open_eh(path, root, 1, NULL);
+	struct element_handle *eh = open_eh(path, pfs_root, 1, NULL);
 	if (!eh) {
 		return -1;
 	}
 	int res = pfsc_element_delete(&eh->handle);
 	if (res) {
-		if (eh == cwd) {
-			cwd = root;
+		if (eh == pfs_cwd) {
+			pfs_cwd = pfs_root;
 		}
-		for (int i = 0; i < eh_len; i++) {
-			if (eh == ehs[i]) {
-				ehs[i] = NULL;
+		for (int i = 0; i < pfs_eh_len; i++) {
+			if (eh == pfs_ehs[i]) {
+				pfs_ehs[i] = NULL;
 			}
 		}
 	}
@@ -451,7 +468,7 @@ static inline int open_sh(struct element_handle *eh, ui32 stream_flags) {
 		}
 		sh->pos = f->file_length;
 	}
-	return_handle(sh_len, shs, sh);
+	return_handle(pfs_sh_len, pfs_shs, sh);
 }
 
 extern int pfs_open_stream(int eh, i32 stream_flags) {
@@ -460,16 +477,16 @@ extern int pfs_open_stream(int eh, i32 stream_flags) {
 		pfs_errno = PFS_ERRNO_ELEMENT_ALREADY_EXIST;
 		return 0;
 	}
-	int res = open_sh(ehs[eh], stream_flags);
+	int res = open_sh(pfs_ehs[eh], stream_flags);
 	if (res) {
-		ehs[eh]->load_count++;
+		pfs_ehs[eh]->load_count++;
 	}
 	return res;
 }
 
 extern int pfs_stream(const char *path, i32 stream_flags) {
 	struct element_handle *peh;
-	struct element_handle *eh = open_eh(path, root, 1, &peh);
+	struct element_handle *eh = open_eh(path, pfs_root, 1, &peh);
 	if (!eh) {
 		if ((stream_flags & (PFS_SO_ONLY_CREATE | PFS_SO_ALSO_CREATE)) != 0) {
 			if (peh) {
@@ -515,32 +532,32 @@ extern int pfs_stream(const char *path, i32 stream_flags) {
 
 extern int pfs_folder_open_iter(int eh, int show_hidden) {
 	eh(-1)
-	c_h(ehs[eh], -1, PFS_F_FOLDER)
-	ehs[eh]->load_count++;
+	c_h(pfs_ehs[eh], -1, PFS_F_FOLDER)
+	pfs_ehs[eh]->load_count++;
 	struct iter_handle *ih = malloc(sizeof(struct iter_handle));
 	if (!ih) {
 		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
-		release_eh(ehs[eh]);
-		pfs->unget(pfs, ehs[eh]->handle.direct_parent_place.block);
+		release_eh(pfs_ehs[eh]);
+		pfs->unget(pfs, pfs_ehs[eh]->handle.direct_parent_place.block);
 		return -1;
 	}
-	ih->ieh = ehs[eh]->handle;
+	ih->ieh = pfs_ehs[eh]->handle;
 	if (!pfsc_folder_fill_iterator(&ih->ieh, &ih->handle, show_hidden)) {
 		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
-		release_eh(ehs[eh]);
-		pfs->unget(pfs, ehs[eh]->handle.direct_parent_place.block);
+		release_eh(pfs_ehs[eh]);
+		pfs->unget(pfs, pfs_ehs[eh]->handle.direct_parent_place.block);
 		return -1;
 	}
-	if (!pfs->unget(pfs, ehs[eh]->handle.direct_parent_place.block)) {
-		release_eh(ehs[eh]);
+	if (!pfs->unget(pfs, pfs_ehs[eh]->handle.direct_parent_place.block)) {
+		release_eh(pfs_ehs[eh]);
 		return -1;
 	}
-	ih->folder = ehs[eh];
-	return_handle(ih_len, ihs, ih);
+	ih->folder = pfs_ehs[eh];
+	return_handle(pfs_ih_len, pfs_ihs, ih);
 }
 
 extern int pfs_iter(const char *path, int show_hidden) {
-	struct element_handle *eh = open_eh(path, root, 1, NULL);
+	struct element_handle *eh = open_eh(path, pfs_root, 1, NULL);
 	if (!pfs->get(pfs, eh->handle.direct_parent_place.block)) {
 		return -1;
 	}
@@ -575,16 +592,16 @@ extern int pfs_iter(const char *path, int show_hidden) {
 		return -1;
 	}
 	ih->folder = eh;
-	return_handle(ih_len, ihs, ih);
+	return_handle(pfs_ih_len, pfs_ihs, ih);
 }
 
 extern int pfs_iter_next(int ih) {
 	ih(-1)
-	if (!pfsc_folder_iter_next(&ihs[ih]->handle)) {
+	if (!pfsc_folder_iter_next(&pfs_ihs[ih]->handle)) {
 		return -1;
 	}
-	struct element_handle *c = hashset_get(&ihs[ih]->folder->children,
-			eh_hash(&ihs[ih]->ieh), &ihs[ih]->ieh);
+	struct element_handle *c = hashset_get(&pfs_ihs[ih]->folder->children,
+			eh_hash(&pfs_ihs[ih]->ieh), &pfs_ihs[ih]->ieh);
 	if (!c) {
 		c->load_count++;
 	} else {
@@ -599,30 +616,30 @@ extern int pfs_iter_next(int ih) {
 		nc->children.hashmaker = childset_hash;
 		nc->handle = c->handle;
 		nc->load_count = 1;
-		nc->parent = ihs[ih]->folder;
-		hashset_put(&ihs[ih]->folder->children, eh_hash(&ihs[ih]->ieh),
-				&ihs[ih]->ieh);
+		nc->parent = pfs_ihs[ih]->folder;
+		hashset_put(&pfs_ihs[ih]->folder->children, eh_hash(&pfs_ihs[ih]->ieh),
+				&pfs_ihs[ih]->ieh);
 	}
-	return_handle(eh_len, ehs, c)
+	return_handle(pfs_eh_len, pfs_ehs, c)
 }
 
 extern int pfs_element_close(int eh) {
 	eh(0)
-	release_eh(ehs[eh]);
-	ehs[eh] = NULL;
+	release_eh(pfs_ehs[eh]);
+	pfs_ehs[eh] = NULL;
 	return 1;
 }
 
 extern int pfs_iter_close(int ih) {
 	ih(0)
-	release_eh(ihs[ih]->folder);
-	ihs[ih] = NULL;
+	release_eh(pfs_ihs[ih]->folder);
+	pfs_ihs[ih] = NULL;
 	return 1;
 }
 
 extern int pfs_stream_close(int sh) {
 	sh(0)
-	release_eh(shs[sh]->element);
-	shs[sh] = NULL;
+	release_eh(pfs_shs[sh]->element);
+	pfs_shs[sh] = NULL;
 	return 1;
 }

@@ -78,4 +78,28 @@ extern int pfs_element_set_create_time(int eh, i64 ct);
  */
 extern int pfs_element_set_last_modify_time(int eh, i64 lmt);
 
+/*
+ * get the name of the given element
+ * on success 1 and on error 0 is returned
+ */
+extern int pfs_element_get_name(int eh, char **name_buf, i64 *buf_len);
+
+/*
+ * set the name of the given element
+ * on success 1 and on error 0 is returned
+ */
+extern int pfs_element_set_name(int eh, char *name);
+
+/*
+ * set the parent of the given element
+ * on success 1 and on error 0 is returned
+ */
+extern int pfs_element_set_parent(int eh, int parenteh);
+
+/*
+ * sets the name and the parent of the element
+ * on success 1 and on error 0 is returned
+ */
+extern int pfs_element_move(int eh, int parenteh, char* name);
+
 #endif /* SRC_INCLUDE_PFS_ELEMENT_H_ */

@@ -37,11 +37,9 @@ EXPSOURCE = $(ROOT_SOURCE)include/
 
 EXP = $(PROJECT_ROOT)exports/
 
-TEST_LIBS = -L $(CORE_BIN) -l pfs-core
+TARGET_A = $(CORE_BIN)libpfscore.a
 
-TARGET_A = $(CORE_BIN)libpfs-core.a
-
-TARGET_SO = $(CORE_BIN)libpfs-core.so
+TARGET_SO = $(CORE_BIN)libpfscore.so
 
 CORE_TEST_TARGET = $(CORE_BIN)pfs_tests
 
@@ -51,7 +49,20 @@ OBJS = $(CORE_OBJS) $(API_BIN)hashset.o $(API_BIN)bm.o $(API_BIN)pfs.o $(API_BIN
 
 all:	INIT $(CORE_TEST_TARGET) $(TARGET_A) $(TARGET_SO)
 	$(CORE_TEST_TARGET)
-	cp -r -t $(EXP) $(TARGET_A) $(TARGET_SO)
+	cp -r -t $(EXP)/shared/ $(TARGET_SO)
+	cp -r -t $(EXP)/static/ $(TARGET_A)
+
+static: INIT $(TARGET_A)
+	cp -r -t $(EXP)/static/ $(TARGET_A)
+
+shared: INIT $(TARGET_SO)
+	cp -r -t $(EXP)/shared/ $(TARGET_SO)
+
+INIT_SO:
+	mkdir -p $(EXP)shared/
+
+INIT_A:
+	mkdir -p $(EXP)static/
 
 INIT:
 	echo build mode: $(BUILD_MODE)
@@ -64,11 +75,11 @@ INIT:
 $(CORE_TEST_TARGET): $(CORE_TEST_TARGET).o $(CORE_OBJS) $(API_BIN)hashset.o $(API_BIN)bm.o
 	$(CC) -o $(CORE_TEST_TARGET) $(CORE_TEST_TARGET).o $(CORE_OBJS) $(API_BIN)hashset.o $(API_BIN)bm.o
 
-$(TARGET_SO):	$(OBJS)
-	$(CC) -shared -o $@ $(LDFLAGS) $^
+$(TARGET_SO):	INIT_SO $(OBJS)
+	$(CC) -shared -o $@ $(LDFLAGS) $(OBJS)
 
-$(TARGET_A):	$(OBJS)
-	$(AR) -rc $@ $^
+$(TARGET_A):	INIT_A $(OBJS)
+	$(AR) -rc $@ $(OBJS)
 
 $(CORE_BIN)%.o:	$(INTSOURCE)%.c
 	$(CC) -x c -c $(CFLAGS) -o $@ $<

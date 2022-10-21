@@ -42,10 +42,7 @@ extern const char* pfs_error() {
 }
 
 extern void pfs_perror(const char *msg) {
-	if (msg == NULL) {
-		msg = "pfs-error";
-	}
-	fprintf(stderr, "%s: %s\n", msg, pfs_error());
+	fprintf(stderr, "%s: %s\n", msg ? msg : "pfs-error", pfs_error());
 }
 
 int pfsc_format(i64 block_count) {

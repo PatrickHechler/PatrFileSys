@@ -1,6 +1,10 @@
 PROJECT_ROOT = $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
-LDFLAGS = -L/usr/lib/ -lreadline
+PFS_LIB_FOLDER = $(PROJECT_ROOT)../pfs-core/exports/static/
+
+PFS_LIB_FILE = $(PFS_LIB_FOLDER)libpfscore.a
+
+LDFLAGS = -lreadline
 
 CC = gcc
 
@@ -27,7 +31,7 @@ SOURCE = $(PROJECT_ROOT)src/
 
 TARGET = $(BIN)pfs-shell
 
-OBJS = $(BIN)pfs-shell.o
+OBJS = $(BIN)pfs-shell.o $(PFS_LIB_FILE)
 
 all:	INIT $(TARGET)
 
@@ -35,18 +39,14 @@ INIT:
 	echo build mode: $(BUILD_MODE)
 	mkdir -p $(BIN)
 
-$(TARGET): $(PROJECT_ROOT)../pfs-core/exports/libpfs-core.a $(OBJS)
-	$(CC) $(LDFLAGS) -o $(TARGET) $(PROJECT_ROOT)../pfs-core/exports/libpfs-core.a $(OBJS)
+$(TARGET): $(OBJS)
+	$(CC) $(LDFLAGS) -o $(TARGET) $(OBJS)
 
-$(PROJECT_ROOT)../pfs-core/exports/libpfs-core.a: 
-	make -C $(PROJECT_ROOT)../pfs-core/ all
+$(PFS_LIB_FILE): 
+	make -C $(PROJECT_ROOT)../pfs-core/ static
 
 $(BIN)%.o:	$(SOURCE)%.c
 	$(CC) -x c -c $(CFLAGS) -o $@ $<
-
-# # no c++ support
-#$(BIN)%.o:	$(SOURCE)%.cpp
-#	$(CXX) -c $(CFLAGS) $(CXXFLAGS) $(CPPFLAGS) -o $@ $<
 
 clean:
 	rm -frd $(BIN_ROOT)

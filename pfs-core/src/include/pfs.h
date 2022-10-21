@@ -36,6 +36,11 @@ extern int pfs_load_and_format(struct bm_block_manager *bm, i64 block_count);
 extern int pfs_format(i64 block_count);
 
 /*
+ * closes the file system
+ */
+extern int pfs_close();
+
+/*
  * returns the block count available to the current PFS
  *
  * on error -1 is returned
@@ -116,7 +121,7 @@ extern int pfs_handle_pipe(const char *path);
 /*
  * changes the current working directory to the given folder
  */
-extern int pfs_cwd(int eh);
+extern int pfs_change_dir(int eh);
 
 /*
  * changes the current working directory to the given folder

@@ -39,7 +39,7 @@ extern i64 pfs_stream_write(int sh, void *data, i64 len);
  *
  * returns the number of bytes actually read
  *   - note that reaching end of file/pipe is not considered an error
- *     so when zero is returned and len is not zero the end of the
+ *     so when a value less than len is returned the end of the
  *     pipe/file has been reached
  */
 extern i64 pfs_stream_read(int sh, void *buffer, i64 len);

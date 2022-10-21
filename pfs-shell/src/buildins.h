@@ -28,6 +28,7 @@ static const char const *msg_help_all = //
 				"\n"//
 				"mkfs.pfs [OPTIONS] [FILE]\n"//
 				"  makes a new patr-file-system\n"//
+				"  this command will fail if there is already a PFS mount-point\n"//
 				"\n"//
 				"  Options:\n"//
 				"    --block-size=[BLOCK_SIZE]\n"//
@@ -35,7 +36,13 @@ static const char const *msg_help_all = //
 				"        default=1024\n"//
 				"    --block-count=[BLOCK_COUNT]\n"//
 				"        set the number of available blocks\n"//
-				"        WARN: default=I64_MAX_VALUE\n"//
+				"        WARN: default=9223372036854775807\n"//
+				"            Set the value when using  a device\n"//
+				"            with limited size\n"//
+				"    --force\n"//
+				"        do not fail if FILE already exists\n"//
+				"    --no-auto-mount\n"//
+				"        do not automatically mount the created PFS\n"//
 				"\n"//
 				"mount.pfs [FILE] [FOLDER]\n"//
 				"  mounts a patr-file-system from file to\n"//
@@ -44,9 +51,11 @@ static const char const *msg_help_all = //
 				"  at a time allowed. to change it use\n"//
 				"  umount.pfs before\n"//
 				"\n"//
-				"umount.pfs [FILE|FOLDER]\n"//
-				"  unmounts a patr-file-system from the given\n"//
-				"  mountpoint or mounted device\n"//
+				"umount.pfs [FOLDER]\n"//
+				"  un-mounts a patr-file-system from the given\n"//
+				"  PFS-mount-point\n"//
+				"  when the mount-point is not given this command\n"//
+				"  un-mounts all mounted patr-file-systems"//
 				"\n"//
 				"lsm.pfs\n"//
 				"  list all patr-file-system mount points\n"//
@@ -90,6 +99,7 @@ static const char const *msg_help_help = //
 static const char const *msg_help_mkfs = //
 		/*	  */"mkfs.pfs [OPTIONS] [FILE]\n"//
 				"  makes a new patr-file-system\n"//
+				"  this command will fail if there is already a PFS mount-point\n"//
 				"\n"//
 				"  Options:\n"//
 				"    --block-size=[BLOCK_SIZE]\n"//
@@ -100,7 +110,10 @@ static const char const *msg_help_mkfs = //
 				"        WARN: default=9223372036854775807\n"//
 				"            Set the value when using  a device\n"//
 				"            with limited size\n"//
-				"mkfs.pfs fails when FILE already exists\n"//
+				"    --force\n"//
+				"        do not fail if FILE already exists\n"//
+				"    --auto-mount=[FOLDER]\n"//
+				"        automatically mount the created PFS to FOLDER\n"//
 ;
 static const char const *msg_help_mount = //
 		/*	  */"mount.pfs [FILE] [FOLDER]\n"//
@@ -111,9 +124,11 @@ static const char const *msg_help_mount = //
 				"  umount.pfs before\n"//
 ;
 static const char const *msg_help_umount = //
-		/*	  */"umount.pfs [FILE|FOLDER]\n"//
-				"  unmounts a patr-file-system from the given\n"//
-				"  mountpoint or mounted device\n"//
+		/*	  */"umount.pfs [FOLDER]\n"//
+				"  un-mounts a patr-file-system from the given\n"//
+				"  PFS-mount-point\n"//
+				"  when the mount-point is not given this command\n"//
+				"  un-mounts all mounted patr-file-systems"//
 ;
 static const char const *msg_help_lsm = //
 		/*	  */"lsm.pfs\n"//
@@ -152,9 +167,11 @@ static const char const *msg_help_rmdir = //
 				"  rmdir fails if the given folder is not empty\n"//
 ;
 
+static inline char* gen_prompt(void);
 static inline void buildin_info(const char *name);
 
 static inline void bc_exit(char **args)__attribute__ ((__noreturn__));
+static inline void bc_cd(char **args);
 static inline void bc_help(char **args)__attribute__ ((__noreturn__));
 static inline void bc_mkfs(char **args)__attribute__ ((__noreturn__));
 static inline void bc_mount(char **args)__attribute__ ((__noreturn__));

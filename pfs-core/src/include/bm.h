@@ -111,7 +111,7 @@ extern struct bm_block_manager* bm_new_file_block_manager(int file, i32 block_si
 	{ \
 		void *_pntr = buf; \
 		for (i64 _cnt = count; _cnt > 0; ) { \
-			i64 _reat = read(fd, buf, _cnt); \
+			i64 _reat = read(fd, _pntr, _cnt); \
 			if (_reat <= 0) { \
 				if (_reat == 0) { \
 					error \
