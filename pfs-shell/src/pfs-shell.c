@@ -203,13 +203,21 @@ int main(int argc, char **argv) {
 		if (!child_args) {
 			return 0;
 		}
-		// exit and cd has to be made in the same process
+		// exit, cd, mount and umount has to be made in the same process
 		// all other buildins are made after the fork
 		if (!strcmp("exit", *child_args)) {
 			bc_exit((char**) child_args);
 		}
 		if (!strcmp("cd", *child_args)) {
 			bc_cd((char**) child_args);
+			continue;
+		}
+		if (!strcmp("mount.pfs", *child_args)) {
+			bc_mount((char**) child_args);
+			continue;
+		}
+		if (!strcmp("umount.pfs", *child_args)) {
+			bc_umount((char**) child_args);
 			continue;
 		}
 		cpid = fork();
@@ -220,7 +228,7 @@ int main(int argc, char **argv) {
 			waitpid(cpid, &last_exit, 0);
 		} else {
 			if (debug_child) {
-				printf("cpid=%d\n", cpid);
+				printf("cpid=%d\n", getpid());
 				fflush(stdout);
 				sleep(5);
 			}
@@ -304,12 +312,6 @@ static inline void execute(char **args) {
 	} else if (!strcmp("mkfs.pfs", *args)) {
 		buildin_info(mkfs.pfs);
 		bc_mkfs((char**) args);
-	} else if (!strcmp("mount.pfs", *args)) {
-		buildin_info(mount.pfs);
-		bc_mount((char**) args);
-	} else if (!strcmp("umount.pfs", *args)) {
-		buildin_info(umount.pfs);
-		bc_umount((char**) args);
 	} else if (!strcmp("lsm.pfs", *args)) {
 		buildin_info(lsm.pfs);
 		bc_lsm((char**) args);
@@ -506,7 +508,7 @@ static inline char** read_args(void) {
 			break;
 		}
 	}
-	free(prompt); // TODO uncomment
+//	free(prompt); // why?
 	add_history(line);
 	char **args = malloc(2 * sizeof(void*));
 	*args = NULL;
@@ -575,7 +577,9 @@ static inline char** read_args(void) {
 						if (i == 0) {
 							li++;
 							c = realloc(c, 64);
-							int wrote = snprintf(c, 64, "%d", last_exit);
+							int wrote = snprintf(c, 64, "%d",
+									(((ui32) last_exit) >> 8)
+											| (((ui32) last_exit) << 8));
 							if (wrote == -1 || wrote >= 64) {
 								perror("error on snprintf");
 								return NULL;
@@ -618,7 +622,7 @@ static inline char** read_args(void) {
 			case '\t':
 			space: ;
 			if (args[an]) {
-				args[an] = realloc(args[an], (an + 1) * sizeof(char*));
+				args[an] = realloc(args[an], (ai + 1) * sizeof(char*));
 				args[an][ai] = '\0';
 				args = realloc(args, (an + 2) * sizeof(void*));
 				an++;
@@ -684,19 +688,17 @@ static char* extract_path(const char *p) {
 		char *end = strchrnul(p, '/');
 		switch (end - p) {
 		case 0:
-			if (*end) {
-				break;
+			if (*end) { // *end == '/' && p == end
+				goto end0;
 			}
 			goto rend;
 		case 1:
-			goto rend;
-		case 2:
-			if (p[1] == '.') {
+			if (p[0] == '.') {
 				goto end0;
 			}
 			break;
-		case 3:
-			if (p[1] == '.' && p[2] == '.') {
+		case 2:
+			if (p[0] == '.' && p[1] == '.') {
 				char *lst = strrchr(result, '/');
 				if (!lst) {
 					fprintf(stderr, "on my shell the root has no parent!");
@@ -706,18 +708,17 @@ static char* extract_path(const char *p) {
 				}
 				*lst = '\0';
 				index = lst - result;
-				if (!*end) {
-					goto rend;
-				}
-				continue;
+				goto end0;
 			}
+			break;
 		}
-		i64 cpy = p - end + 1;
+		i64 cpy = end - p;
 		while (cpy >= len - index) {
 			result = realloc(result, len += 128);
 		}
 		result[index++] = '/';
 		memcpy(result + index, p, cpy);
+		index += cpy;
 		end0: p = end + 1;
 		rend: ;
 		if (!*end) {
@@ -728,7 +729,7 @@ static char* extract_path(const char *p) {
 		result = realloc(result, 2);
 		result[index++] = '/';
 	} else {
-		result = realloc(result, index);
+		result = realloc(result, index + 1);
 	}
 	result[index] = '\0';
 	return result;
@@ -786,6 +787,7 @@ static inline void bc_cd(char **args) {
 	} else if (name[1]) {
 		name++;
 	}
+	last_exit = 0;
 }
 
 static inline void bc_help(char **args) {
@@ -965,15 +967,18 @@ static inline void bc_mkfs(char **args) {
 static inline void bc_mount(char **args) {
 	if (mount) {
 		fprintf(stderr, "there is already a PFS-mount-point\n", *args);
-		exit(1);
+		last_exit = 1;
+		return;
 	}
 	if (!args[1] || !args[2]) {
 		fprintf(stderr, "not enugh args\n");
-		exit(1);
+		last_exit = 1;
+		return;
 	}
 	if (args[3]) {
 		fprintf(stderr, "too many args\n");
-		exit(1);
+		last_exit = 1;
+		return;
 	}
 	char *mount_device = extract_path(args[1]);
 	char *mount_folder = extract_path(args[2]);
@@ -981,6 +986,7 @@ static inline void bc_mount(char **args) {
 	while (1) {
 		fd = open(mount_device, O_CLOEXEC | O_RDWR,
 		/*		*/S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
+		free(mount_device);
 		if (fd == -1) {
 			switch (errno) {
 			case EACCES:
@@ -1022,14 +1028,17 @@ static inline void bc_mount(char **args) {
 				break;
 			}
 			perror("open");
-			exit(1);
+			errno = 0;
+			last_exit = 1;
+			return;
 		}
 		break;
 	}
 	if (lseek(fd, PFS_B0_OFFSET_BLOCK_SIZE,
-	SEEK_SET) != PFS_B0_OFFSET_BLOCK_SIZE) {
+	/*		*/SEEK_SET) != PFS_B0_OFFSET_BLOCK_SIZE) {
 		perror("lseek");
-		exit(1);
+		last_exit = 1;
+		return;
 	}
 	i32 block_size;
 	sread(fd, &block_size, 4,
@@ -1039,39 +1048,49 @@ static inline void bc_mount(char **args) {
 		fprintf(stderr, "the block manager could not be created (%s)\n",
 				pfs_error());
 		pfs_errno = 0;
-		exit(1);
+		last_exit = 1;
+		return;
 	}
 	if (!pfs_load(bm, NULL)) {
 		fprintf(stderr, "PFS-load failed (%s)\n", pfs_error());
-		pfs_errno = 0;
-		exit(1);
 		bm->close_bm(bm);
+		pfs_errno = 0;
+		last_exit = 1;
+		return;
 	}
 	mount = mount_folder;
-	exit(0);
+	last_exit = 0;
+	return;
 }
 
 static inline void bc_umount(char **args) {
 	if (!args[1]) {
 		fprintf(stderr, "not enugh args\n");
-		exit(1);
+		last_exit = 1;
+		return;
 	}
 	if (args[2]) {
 		fprintf(stderr, "too many args\n");
-		exit(1);
+		last_exit = 1;
+		return;
 	}
 	char *unmount = extract_path(args[1]);
 	if (strcmp(unmount, mount)) {
 		fprintf(stderr, "there is no such PFS-mountpoint (%s)\n", unmount);
-		exit(1);
+		last_exit = 1;
+		return;
 	}
+	free(unmount);
 	if (!pfs_close()) {
 		fprintf(stderr, "failed to close the PFS (%s)\n", pfs_error());
 		pfs_errno = 0;
-		exit(1);
+		last_exit = 1;
+		return;
 	}
+	free(mount);
 	mount = NULL;
-	exit(0);
+	last_exit = 0;
+	return;
 }
 
 static inline void bc_lsm(char **args) {
@@ -1094,9 +1113,9 @@ static inline void bc_ls(char **args) {
 		fprintf(stderr, "too many args\n");
 		exit(1);
 	}
-	char *pfs_dir = extract_pfs_path(path);
-	if (pfs_dir) {
-		int iter = pfs_iter(pfs_dir, 1);
+	char *pfs_path = extract_pfs_path(path);
+	if (pfs_path) {
+		int iter = pfs_iter(*pfs_path ? pfs_path : "/", 1);
 		if (iter == -1) {
 			fprintf(stderr, "could not open the pfs-iter (%s)\n", pfs_error());
 			pfs_errno = 0;
@@ -1285,8 +1304,8 @@ static inline int PFS_open(char *path, i32 flags) {
 	return s;
 }
 
-static inline int LFS_open(char *path, int flags) {
-	int fd = open(path, flags);
+static inline int LFS_open(char *path, int flags, int mode) {
+	int fd = open(path, flags, mode);
 	if (fd == -1) {
 		perror("open");
 		fprintf(stderr, "could not open the file!\n");
@@ -1319,7 +1338,7 @@ static inline void bc_cat(char **args) {
 			}
 		}
 	} else {
-		int fd = LFS_open(path, O_RDONLY);
+		int fd = LFS_open(path, O_RDONLY, 0);
 		free(path);
 		while (1) {
 			int r = LFS_read(fd, buf, 1024);
@@ -1375,7 +1394,7 @@ static inline void bc_cp(char **args) {
 		}
 		pfs_stream_close(ts);
 	} else {
-		int tfd = PFS_open(target_path, O_WRONLY | O_CREAT | O_TRUNC,
+		int tfd = LFS_open(target_path, O_WRONLY | O_CREAT | O_TRUNC,
 		/*  		*/S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
 		free(target_path);
 		if (source_pfs_path) {
@@ -1423,8 +1442,13 @@ static inline void bc_mkdir(char **args) {
 			fprintf(stderr, "invalid argument path! (%s)\n", args[1]);
 			exit(1);
 		}
-		*last = '\0';
-		int f = pfs_handle_folder(pfs_path);
+		int f;
+		if (last == pfs_path) {
+			f = pfs_handle_folder("/");
+		} else {
+			*last = '\0';
+			f = pfs_handle_folder(pfs_path);
+		}
 		if (f == -1) {
 			fprintf(stderr,
 					"could not open the handle for the parent folder (%s)\n",
@@ -1432,7 +1456,7 @@ static inline void bc_mkdir(char **args) {
 			pfs_errno = 0;
 			exit(1);
 		}
-		if (!pfs_folder_create_folder(f, f + 1)) {
+		if (!pfs_folder_create_folder(f, last + 1)) {
 			fprintf(stderr, "could not create the child folder (%s)\n",
 					pfs_error());
 			pfs_errno = 0;
@@ -1531,7 +1555,7 @@ static inline void bc_rmdir(char **args) {
 	char *path = extract_path(args[1]);
 	char *pfs_path = extract_pfs_path(path);
 	if (pfs_path) {
-		int e = pfs_handle_folder(pfs_path);
+		int e = pfs_handle_folder(*pfs_path ? pfs_path : "/");
 		free(path);
 		if (e == -1) {
 			fprintf(stderr,

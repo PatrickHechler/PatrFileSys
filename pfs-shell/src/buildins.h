@@ -19,7 +19,7 @@ static const char const *msg_help_all = //
 				"  (when no command has been executed 0)\n"//
 				"  if the exit number can not be parsed\n"//
 				"  exit with 1 instead\n"//
-				"\n"
+				"\n"//
 				"help [BUILDIN]\n"//
 				"  if buildin is set a help message for the\n"//
 				"  given buildin command is printed.\n"//
@@ -29,7 +29,6 @@ static const char const *msg_help_all = //
 				"mkfs.pfs [OPTIONS] [FILE]\n"//
 				"  makes a new patr-file-system\n"//
 				"  this command will fail if there is already a PFS mount-point\n"//
-				"\n"//
 				"  Options:\n"//
 				"    --block-size=[BLOCK_SIZE]\n"//
 				"        set the size of the blocks\n"//
@@ -55,7 +54,7 @@ static const char const *msg_help_all = //
 				"  un-mounts a patr-file-system from the given\n"//
 				"  PFS-mount-point\n"//
 				"  when the mount-point is not given this command\n"//
-				"  un-mounts all mounted patr-file-systems"//
+				"  un-mounts all mounted patr-file-systems\n"//
 				"\n"//
 				"lsm.pfs\n"//
 				"  list all patr-file-system mount points\n"//
@@ -174,8 +173,8 @@ static inline void bc_exit(char **args)__attribute__ ((__noreturn__));
 static inline void bc_cd(char **args);
 static inline void bc_help(char **args)__attribute__ ((__noreturn__));
 static inline void bc_mkfs(char **args)__attribute__ ((__noreturn__));
-static inline void bc_mount(char **args)__attribute__ ((__noreturn__));
-static inline void bc_umount(char **args)__attribute__ ((__noreturn__));
+static inline void bc_mount(char **args);
+static inline void bc_umount(char **args);
 static inline void bc_lsm(char **args)__attribute__ ((__noreturn__));
 static inline void bc_ls(char **args)__attribute__ ((__noreturn__));
 static inline void bc_cat(char **args)__attribute__ ((__noreturn__));

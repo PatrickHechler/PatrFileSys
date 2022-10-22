@@ -30,8 +30,11 @@ unsigned int childset_hash(const void *a) {
 
 static inline void release_eh(struct element_handle *feh) {
 	feh->load_count--;
-	for (struct element_handle *a = feh, *b; a != NULL && has_refs(a); a = b) {
+	for (struct element_handle *a = feh, *b; a != NULL && !has_refs(a); a = b) {
 		b = a->parent;
+		if (!b) { // root
+			abort();
+		}
 		hashset_remove(&b->children, eh_hash(a), a);
 		free(a);
 	}
@@ -52,7 +55,7 @@ static inline struct element_handle* open_eh(const char *path,
 	}
 	struct element_handle *eh =
 			(allow_relative ? (*path == '/') : 0) ? rot : pfs_cwd;
-	for (const char *cur = path, *end; *cur; cur = end) {
+	for (const char *cur = path, *end; *(cur - 1); cur = end + 1) {
 		end = strchrnul(cur, '/');
 		i64 len = ((i64) end) - ((i64) cur);
 		if (len >= buf_len) {
@@ -62,6 +65,8 @@ static inline struct element_handle* open_eh(const char *path,
 		memcpy(buf, cur, len);
 		buf[len] = '\0';
 		switch (len) {
+		case 0:
+			continue;
 		case 1:
 			if ('.' != *cur) {
 				break;
