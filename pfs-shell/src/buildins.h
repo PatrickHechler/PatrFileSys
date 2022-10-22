@@ -167,8 +167,8 @@ static const char const *msg_help_rmdir = //
 				"  rmdir fails if the given folder is not empty\n"//
 ;
 
+static inline void set_signal_handlers(void);
 static inline char* gen_prompt(void);
-static inline void buildin_info(const char *name);
 
 static inline void bc_exit(char **args)__attribute__ ((__noreturn__));
 static inline void bc_cd(char **args);

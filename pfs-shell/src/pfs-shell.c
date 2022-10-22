@@ -10,6 +10,8 @@
 #include <pfs-constants.h>
 #include <pfs-stream.h>
 #include <pfs-element.h>
+#include <pfs-file.h>
+#include <pfs-folder.h>
 #include <pfs-iter.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -26,6 +28,7 @@
 #include <sys/syscall.h>
 #include <sys/mman.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <linux/sched.h>
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -68,13 +71,20 @@ static inline void setup(int argc, char **argv) {
 			/*    */"      (overwrites previous --debug=)\n";
 	const char const *vers_msg = "pfs-shell 1.0.0\n";
 	{
-		char *home = getenv("HOME");
-		if (!home) {
-			home = "/";
+		set_signal_handlers();
+		char *pwd = getenv("PWD");
+		if (!pwd) {
+			pwd = getenv("HOME");
+			if (!pwd) {
+				pwd = "/";
+			}
 		}
-		i64 len = strlen(home);
+		i64 len = strlen(pwd);
+		if (pwd[len - 1] == '/') {
+			len--;
+		}
 		cwd = malloc((len + 128) & ~127);
-		memcpy(cwd, home, len);
+		memcpy(cwd, pwd, len);
 		cwd[len] = '\0';
 		name = strrchr(cwd, '/');
 		if (!name) {
@@ -184,17 +194,17 @@ static inline void set_signal_handlers(void) {
 	sigaction(SIGTERM, &act, NULL);
 }
 
+static volatile int debug_child = 0;
+
 int main(int argc, char **argv) {
 	setup(argc, argv);
-	set_signal_handlers();
 	for (; 1;) {
 		char **child_args = read_args();
 		if (!child_args) {
-			continue;
+			return 0;
 		}
-		if (!*child_args) {
-			continue;
-		}
+		// exit and cd has to be made in the same process
+		// all other buildins are made after the fork
 		if (!strcmp("exit", *child_args)) {
 			bc_exit((char**) child_args);
 		}
@@ -202,13 +212,18 @@ int main(int argc, char **argv) {
 			bc_cd((char**) child_args);
 			continue;
 		}
-		cpid = vfork();
+		cpid = fork();
 		if (cpid == -1) {
-			perror("vfork");
+			perror("fork");
 			last_exit = 1;
 		} else if (cpid) {
 			waitpid(cpid, &last_exit, 0);
 		} else {
+			if (debug_child) {
+				printf("cpid=%d\n", cpid);
+				fflush(stdout);
+				sleep(5);
+			}
 			execute(child_args);
 		}
 		for (int i = 0; child_args[i]; i++) {
@@ -222,39 +237,99 @@ int main(int argc, char **argv) {
 	}
 }
 
+#define buildin_info(name) fputs("buildin " #name " (use /bin/" #name " for the non-buildin (if there is one))\n", stdout);
+
+#ifdef NO_COLOR
+
+#define ANSI(act) ""
+
+#else
+
+#define ANSI(act) (color ? (ANSI_ESC act ANSI_END) : "")
+
+#define ANSI_ESC "\033["
+#define ANSI_SEP ";"
+#define ANSI_END "m"
+
+#define ANSI_RESET              "0"
+#define ANSI_UNDERLINE          "4"
+#define ANSI_BLINK_ON           "5"
+#define ANSI_REVERSE_COLORS_ON  "7"
+#define ANSI_LETTER_RESET       "22" /* reset bold or faint */
+#define ANSI_BLINK_OFF          "25"
+#define ANSI_REVERSE_COLORS_OFF "27"
+#define ANSI_F_RESET            "39"
+#define ANSI_B_RESET            "49"
+#define ANSI_F_BLACK            "30"
+#define ANSI_F_RED              "31"
+#define ANSI_F_GREEN            "32"
+#define ANSI_F_YELLOW           "33"
+#define ANSI_F_BLUE             "34"
+#define ANSI_F_MAGENTA          "35"
+#define ANSI_F_CYAN             "36"
+#define ANSI_F_WHITE            "37"
+#define ANSI_B_BLACK            "40"
+#define ANSI_B_RED              "41"
+#define ANSI_B_GREEN            "42"
+#define ANSI_B_YELLOW           "43"
+#define ANSI_B_BLUE             "44"
+#define ANSI_B_MAGENTA          "45"
+#define ANSI_B_CYAN             "46"
+#define ANSI_B_WHITE            "47"
+#define ANSI_F_B_BLACK          "90"
+#define ANSI_F_B_RED            "91"
+#define ANSI_F_B_GREEN          "92"
+#define ANSI_F_B_YELLOW         "93"
+#define ANSI_F_B_BLUE           "94"
+#define ANSI_F_B_MAGENTA        "95"
+#define ANSI_F_B_CYAN           "96"
+#define ANSI_F_B_WHITE          "97"
+#define ANSI_B_B_BLACK          "100"
+#define ANSI_B_B_RED            "101"
+#define ANSI_B_B_GREEN          "102"
+#define ANSI_B_B_YELLOW         "103"
+#define ANSI_B_B_BLUE           "104"
+#define ANSI_B_B_MAGENTA        "105"
+#define ANSI_B_B_CYAN           "106"
+#define ANSI_B_B_WHITE          "107"
+#define ANSI_F_RGB(r, g, b)     "38;2;" r ";" g ";" b
+#define ANSI_B_RGB(r, g, b)     "48;2;" r ";" g ";" b
+
+#endif // !defined(NO_COLOR)
+
 static inline void execute(char **args) {
 	if (!strcmp("help", *args)) {
-		buildin_info("help");
+		buildin_info(help);
 		bc_help((char**) args);
 	} else if (!strcmp("mkfs.pfs", *args)) {
-		buildin_info("mkfs.pfs");
+		buildin_info(mkfs.pfs);
 		bc_mkfs((char**) args);
 	} else if (!strcmp("mount.pfs", *args)) {
-		buildin_info("mount.pfs");
+		buildin_info(mount.pfs);
 		bc_mount((char**) args);
 	} else if (!strcmp("umount.pfs", *args)) {
-		buildin_info("umount.pfs");
+		buildin_info(umount.pfs);
 		bc_umount((char**) args);
 	} else if (!strcmp("lsm.pfs", *args)) {
-		buildin_info("lsm.pfs");
+		buildin_info(lsm.pfs);
 		bc_lsm((char**) args);
 	} else if (!strcmp("ls", *args)) {
-		buildin_info("ls");
+		buildin_info(ls);
 		bc_ls((char**) args);
 	} else if (!strcmp("cat", *args)) {
-		buildin_info("cat");
+		buildin_info(cat);
 		bc_cat((char**) args);
 	} else if (!strcmp("cp", *args)) {
-		buildin_info("cp");
+		buildin_info(cp);
 		bc_cp((char**) args);
 	} else if (!strcmp("mkdir", *args)) {
-		buildin_info("mkdir");
+		buildin_info(mkdir);
 		bc_mkdir((char**) args);
 	} else if (!strcmp("rm", *args)) {
-		buildin_info("rm");
+		buildin_info(rm);
 		bc_rm((char**) args);
 	} else if (!strcmp("rmdir", *args)) {
-		buildin_info("rmdir");
+		buildin_info(rmdir);
 		bc_rmdir((char**) args);
 	} else {
 		char *binary = (char*) *args;
@@ -346,34 +421,92 @@ static inline void execute(char **args) {
 
 static inline char* gen_prompt(void) {
 	i64 addlen = strlen(name);
-	char *result;
-	if (last_exit != 0) {
-		result = malloc(23 + addlen);
-		sprintf(result, "%d%s%s%s", last_exit, "): [pfs-shell: ", name, "]$ ");
+	if (last_exit) {
+		addlen += 128;
+		char *result = malloc(addlen);
+		int len;
+		while (1) {
+			if (WIFEXITED(last_exit)) {
+				len = snprintf(result, addlen, "%s%.2X%s): [pfs-shell: %s]$ ",
+						ANSI(ANSI_F_B_RED), WEXITSTATUS(last_exit),
+						ANSI(ANSI_F_RESET), name);
+			} else if (WIFSIGNALED(last_exit)) {
+				len = snprintf(result, addlen, "%s%d:%s%s): [pfs-shell: %s]$ ",
+						ANSI(ANSI_F_B_RED), WTERMSIG(last_exit),
+						sigabbrev_np(WTERMSIG(last_exit)), ANSI(ANSI_F_RESET),
+						name);
+			} else {
+				len = snprintf(result, addlen, "<%s%.4X%s> [pfs-shell: %s]$ ",
+						ANSI(ANSI_F_B_RED), (ui32) last_exit,
+						ANSI(ANSI_F_RESET), name);
+			}
+			if (len >= addlen) {
+				addlen = len + 1L;
+				result = realloc(result, addlen);
+				continue;
+			}
+			return result;
+		}
 	} else {
-		result = malloc(16 + addlen);
+		char *result = malloc(16 + addlen);
 		memcpy(result, "[pfs-shell: ", 12);
 		memcpy(result + 12, name, addlen);
 		result[12 + addlen] = ']';
 		result[12 + addlen + 1] = '$';
 		result[12 + addlen + 2] = ' ';
 		result[12 + addlen + 3] = '\0';
+		return result;
 	}
-	return result;
 }
 
-static inline void buildin_info(const char *name) {
-	printf("buildin %s (use /bin/%s for the non-builtin)\n", name, name);
-	fflush(stdout);
+static inline void read_string(char **line, char **args, int *li, int an,
+		int *ai, int *al, char end) {
+	for (; 1;) {
+		if ((*line)[(*li)] == end) {
+			(*li)++;
+			break;
+		} else if ((*line)[(*li)] == '\\') {
+			if ((*al) <= (*ai)) {
+				args[an] = realloc(args[an], (*al) += 128);
+			}
+			if ((*line)[++(*li)] == '\0') {
+				goto new_line;
+			}
+			args[an][(*ai)++] = (*line)[(*li)++];
+		} else if ((*line)[(*li)] == '\0') {
+			if ((*al) <= (*ai)) {
+				args[an] = realloc(args[an], (*al) += 128);
+			}
+			new_line: args[an][(*ai)++] = '\n';
+			(*li) = 0;
+			(*line) = readline("> ");
+			if (!(*line)) {
+				fprintf(stderr,
+						"reached end of file in the middle of a command!");
+				exit(1);
+			}
+			add_history((*line));
+			continue;
+		}
+		if ((*al) <= (*ai)) {
+			args[an] = realloc(args[an], (*al) += 128);
+		}
+		args[an][(*ai)++] = (*line)[(*li)++];
+	}
 }
 
 static inline char** read_args(void) {
 	char *prompt = gen_prompt();
-	char *line = readline(prompt);
-	if (!line) {
-		exit(0);
+	char *line;
+	while (1) {
+		line = readline(prompt);
+		if (!line) {
+			return NULL;
+		} else if (*line) {
+			break;
+		}
 	}
-	free(prompt);
+	free(prompt); // TODO uncomment
 	add_history(line);
 	char **args = malloc(2 * sizeof(void*));
 	*args = NULL;
@@ -415,22 +548,16 @@ static inline char** read_args(void) {
 					switch (line[li]) {
 					default: {
 						end: ;
-						if (i == 3 && c[0] == 'P' && c[1] == 'W'
-								&& c[2] == 'D') {
-							free(c);
-							c = cwd;
+						if (i >= len) {
+							c = realloc(c, len = i + 1);
+						}
+						c[i] = '\0';
+						char *cs = getenv(c);
+						free(c);
+						if (cs) {
+							c = cs;
 						} else {
-							if (i >= len) {
-								c = realloc(c, len = i + 1);
-							}
-							c[i] = '\0';
-							char *cs = getenv(c);
-							free(c);
-							if (cs) {
-								c = cs;
-							} else {
-								c = "";
-							}
+							c = "";
 						}
 						end0: ;
 						len = strlen(c);
@@ -474,47 +601,19 @@ static inline char** read_args(void) {
 					}
 					goto inval;
 				}
+				big_break: ;
 				break;
 			}
 			case '\'':
-#define read_string(identy, end) \
-			for (; 1;) { \
-				if (line[li] == end) { \
-					li++; \
-					break; \
-				} else if (line[li] == '\\') { \
-					if (al <= ai) { \
-						args[an] = realloc(args[an], al += 128); \
-					} \
-					if (line[++li] == '\0') { \
-						goto identy##_new_line; \
-					} \
-					args[an][ai++] = line[li++]; \
-				} else if (line[li] == '\0') { \
-					if (al <= ai) { \
-						args[an] = realloc(args[an], al += 128); \
-					} \
-					identy##_new_line: \
-					args[an][ai++] = '\n'; \
-					li = 0; \
-					line = readline("> "); \
-					if (!line) { \
-						fprintf(stderr, "reached end of file in the middle of a command!"); \
-						exit(1); \
-					} \
-					add_history(line); \
-					continue; \
-				} \
-				if (al <= ai) { \
-					args[an] = realloc(args[an], al += 128); \
-				} \
-				args[an][ai++] = line[li++]; \
+			{
+				read_string(&line, args, &li, an, &ai, &al, '\'');
+				break;
 			}
-			read_string(rs0, '\'')
-			break;
 			case '"':
-			read_string(rs1, '"')
-			break;
+			{
+				read_string(&line, args, &li, an, &ai, &al, '"');
+				break;
+			}
 			case ' ':
 			case '\t':
 			space: ;
@@ -539,7 +638,6 @@ static inline char** read_args(void) {
 			args[an][ai++] = line[li++];
 		}
 		}
-		big_break: ;
 	}
 }
 
@@ -549,7 +647,7 @@ static char* extract_path(const char *p) {
 	i64 index;
 	switch (p[0]) {
 	case '~':
-		if (p[1] != '/') {
+		if (p[1] != '/' && p[1] != '\0') {
 			index = 0;
 			break;
 		}
@@ -564,11 +662,10 @@ static char* extract_path(const char *p) {
 			}
 			memcpy(result, home, slen);
 			index = slen;
-			p += slen;
 		} else {
 			index = 0;
-			p++;
 		}
+		p++;
 		break;
 	case '/':
 		index = 0;
@@ -586,8 +683,13 @@ static char* extract_path(const char *p) {
 	while (1) {
 		char *end = strchrnul(p, '/');
 		switch (end - p) {
+		case 0:
+			if (*end) {
+				break;
+			}
+			goto rend;
 		case 1:
-			goto end0;
+			goto rend;
 		case 2:
 			if (p[1] == '.') {
 				goto end0;
@@ -605,7 +707,7 @@ static char* extract_path(const char *p) {
 				*lst = '\0';
 				index = lst - result;
 				if (!*end) {
-					goto end0;
+					goto rend;
 				}
 				continue;
 			}
@@ -617,11 +719,17 @@ static char* extract_path(const char *p) {
 		result[index++] = '/';
 		memcpy(result + index, p, cpy);
 		end0: p = end + 1;
+		rend: ;
 		if (!*end) {
 			break;
 		}
 	}
-	result = realloc(result, index + 1);
+	if (index == 0) {
+		result = realloc(result, 2);
+		result[index++] = '/';
+	} else {
+		result = realloc(result, index);
+	}
 	result[index] = '\0';
 	return result;
 }
@@ -670,7 +778,14 @@ static inline void bc_cd(char **args) {
 	char *path = extract_path(args[1]);
 	chdir(path);
 	setenv("PWD", path, 1);
+	free(cwd);
 	cwd = path;
+	name = strrchr(path, '/');
+	if (name == NULL) {
+		name = cwd;
+	} else if (name[1]) {
+		name++;
+	}
 }
 
 static inline void bc_help(char **args) {
@@ -1092,6 +1207,95 @@ static inline void bc_ls(char **args) {
 	exit(0);
 }
 
+static inline void LFS_write(int fd, void *buf, i64 cnt) {
+	for (; cnt;) {
+		i64 wrote = write(fd, buf, cnt);
+		if (wrote == -1) {
+			switch (errno) {
+			case EAGAIN:
+			case EINTR:
+				errno = 0;
+				continue;
+			default:
+				perror("write");
+				fprintf(stderr, "error while writing!\n");
+				errno = 0;
+				exit(1);
+			}
+		}
+		cnt -= wrote;
+		buf += wrote;
+	}
+}
+
+static inline void PFS_write(int s, void *buf, i64 cnt) {
+	i64 wrote = pfs_stream_write(s, buf, cnt);
+	if (wrote < cnt) {
+		fprintf(stderr, "error while writing! (%s)\n", pfs_error());
+		pfs_errno = 0;
+		exit(1);
+	}
+}
+
+static inline i64 LFS_read(int fd, void *buf, i64 cnt) {
+	i64 reat;
+	for (reat = 0; cnt;) {
+		i64 r = read(fd, buf, cnt);
+		if (r == -1) {
+			switch (errno) {
+			case EAGAIN:
+			case EINTR:
+				errno = 0;
+				continue;
+			default:
+				perror("read");
+				fprintf(stderr, "error while reading!\n");
+				errno = 0;
+				exit(1);
+			}
+		} else if (r) {
+			cnt -= r;
+			buf += r;
+			reat += r;
+		} else {
+			return reat;
+		}
+	}
+	return reat;
+}
+
+static inline int PFS_read(int s, void *buf, i64 cnt) {
+	i64 reat = pfs_stream_read(s, buf, cnt);
+	if (reat < cnt && pfs_errno) {
+		fprintf(stderr, "error while reading! (%s)\n", pfs_error());
+		pfs_errno = 0;
+		exit(1);
+	}
+	return reat;
+}
+
+static inline int PFS_open(char *path, i32 flags) {
+	int s = pfs_stream(path, flags);
+	if (s == -1) {
+		fprintf(stderr, "error while opening the stream (%s)! (%s)\n", path,
+				pfs_error());
+		pfs_errno = 0;
+		exit(1);
+	}
+	return s;
+}
+
+static inline int LFS_open(char *path, int flags) {
+	int fd = open(path, flags);
+	if (fd == -1) {
+		perror("open");
+		fprintf(stderr, "could not open the file!\n");
+		errno = 0;
+		exit(1);
+	}
+	return fd;
+}
+
 static inline void bc_cat(char **args) {
 	if (!args[1]) {
 		fprintf(stderr, "not enough args\n");
@@ -1102,64 +1306,26 @@ static inline void bc_cat(char **args) {
 		exit(1);
 	}
 	char *path = extract_path(args[1]);
-	fflush(stdout);
-	void *buf = malloc(1024);
 	char *pfs_dir = extract_pfs_path(path);
+	void *buf = malloc(1024);
 	if (pfs_dir) {
-		int s = pfs_stream(pfs_dir, PFS_SO_READ);
-		if (s == -1) {
-			fprintf(stderr, "could not open the file (%s)!\n", pfs_error());
-			pfs_errno = 0;
-			exit(1);
-		}
+		int s = PFS_open(pfs_dir, PFS_SO_READ);
+		free(path);
 		while (1) {
-			i64 reat = pfs_stream_read(s, buf, 1024);
-			if (pfs_errno) {
-				fprintf(stderr, "error while reading (%s)!\n", pfs_error());
-				pfs_errno = 0;
-				exit(1);
-			}
-			for (i64 remain = reat; remain;) {
-				i64 wrote = write(STDOUT_FILENO, buf, remain);
-				if (wrote == -1) {
-					fprintf(stderr, "error while writing!\n");
-					perror("write");
-					errno = 0;
-					exit(1);
-				}
-				remain -= wrote;
-			}
-			if (reat < 1024) {
+			i64 r = PFS_read(s, buf, 1024);
+			LFS_write(STDOUT_FILENO, buf, r);
+			if (r < 1024) {
 				break;
 			}
 		}
 	} else {
-		int fd = open(path, O_RDONLY);
-		if (fd == -1) {
-			fprintf(stderr, "could not open the file!\n");
-			perror("open");
-			errno = 0;
-			exit(1);
-		}
+		int fd = LFS_open(path, O_RDONLY);
+		free(path);
 		while (1) {
-			i64 reat = read(fd, buf, 1024);
-			if (reat == -1) {
-				fprintf(stderr, "error while reading!\n");
-				perror("read");
-				errno = 0;
-				exit(1);
-			} else if (reat == 0) {
+			int r = LFS_read(fd, buf, 1024);
+			LFS_write(STDOUT_FILENO, buf, r);
+			if (r < 1024) {
 				break;
-			}
-			for (i64 remain = reat; remain;) {
-				i64 wrote = write(STDOUT_FILENO, buf, remain);
-				if (wrote == -1) {
-					fprintf(stderr, "error while writing!\n");
-					perror("write");
-					errno = 0;
-					exit(1);
-				}
-				remain -= wrote;
 			}
 		}
 	}
@@ -1167,18 +1333,242 @@ static inline void bc_cat(char **args) {
 }
 
 static inline void bc_cp(char **args) {
-	abort();
+	if (!args[1] || !args[2]) {
+		fprintf(stderr, "not enough args\n");
+		exit(1);
+	}
+	if (args[3]) {
+		fprintf(stderr, "too many args\n");
+		exit(1);
+	}
+	void *buf = malloc(1024);
+	char *source_path = extract_path(args[1]);
+	char *target_path = extract_path(args[2]);
+	char *source_pfs_path = extract_pfs_path(source_path);
+	char *target_pfs_path = extract_pfs_path(target_path);
+	if (target_pfs_path) {
+		int ts = PFS_open(target_pfs_path,
+		PFS_SO_WRITE | PFS_SO_ALSO_CREATE | PFS_SO_FILE_TRUNC);
+		free(target_path);
+		if (source_pfs_path) {
+			int ss = PFS_open(source_pfs_path, PFS_SO_READ);
+			free(source_path);
+			while (1) {
+				i64 r = PFS_read(ss, buf, 1024);
+				PFS_write(ts, buf, r);
+				if (r < 1024) {
+					break;
+				}
+			}
+			pfs_stream_close(ss);
+		} else {
+			int sfd = PFS_open(source_path, O_RDONLY);
+			free(source_path);
+			while (1) {
+				i64 r = LFS_read(sfd, buf, 1024);
+				PFS_write(ts, buf, r);
+				if (r < 1024) {
+					break;
+				}
+			}
+			close(sfd);
+		}
+		pfs_stream_close(ts);
+	} else {
+		int tfd = PFS_open(target_path, O_WRONLY | O_CREAT | O_TRUNC,
+		/*  		*/S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
+		free(target_path);
+		if (source_pfs_path) {
+			int ss = PFS_open(source_pfs_path, PFS_SO_READ);
+			free(source_path);
+			while (1) {
+				i64 r = PFS_read(ss, buf, 1024);
+				LFS_write(tfd, buf, r);
+				if (r < 1024) {
+					break;
+				}
+			}
+			pfs_stream_close(ss);
+		} else {
+			int sfd = PFS_open(source_path, O_RDONLY);
+			free(source_path);
+			while (1) {
+				i64 r = LFS_read(sfd, buf, 1024);
+				LFS_write(tfd, buf, r);
+				if (r < 1024) {
+					break;
+				}
+			}
+			close(sfd);
+		}
+		close(tfd);
+	}
+	exit(0);
 }
 
 static inline void bc_mkdir(char **args) {
-	abort();
+	if (!args[1]) {
+		fprintf(stderr, "not enough args\n");
+		exit(1);
+	}
+	if (args[2]) {
+		fprintf(stderr, "too many args\n");
+		exit(1);
+	}
+	char *path = extract_path(args[1]);
+	char *pfs_path = extract_pfs_path(path);
+	if (pfs_path) {
+		char *last = strrchr(pfs_path, '/');
+		if (last == NULL) {
+			fprintf(stderr, "invalid argument path! (%s)\n", args[1]);
+			exit(1);
+		}
+		*last = '\0';
+		int f = pfs_handle_folder(pfs_path);
+		if (f == -1) {
+			fprintf(stderr,
+					"could not open the handle for the parent folder (%s)\n",
+					pfs_error());
+			pfs_errno = 0;
+			exit(1);
+		}
+		if (!pfs_folder_create_folder(f, f + 1)) {
+			fprintf(stderr, "could not create the child folder (%s)\n",
+					pfs_error());
+			pfs_errno = 0;
+			exit(1);
+		}
+		pfs_element_close(f);
+	} else {
+		if (mkdir(path, S_IRWXU | S_IRGRP | S_IWGRP | S_IROTH) == -1) {
+			perror("mkdir");
+			fprintf(stderr, "mkdir failed\n");
+			exit(1);
+		}
+	}
+	free(path);
+	exit(0);
 }
 
 static inline void bc_rm(char **args) {
-	abort();
+	if (!args[1]) {
+		fprintf(stderr, "not enough args\n");
+		exit(1);
+	}
+	if (args[2]) {
+		fprintf(stderr, "too many args\n");
+		exit(1);
+	}
+	char *path = extract_path(args[1]);
+	char *pfs_path = extract_pfs_path(path);
+	if (pfs_path) {
+		int e = pfs_handle_folder(pfs_path);
+		free(path);
+		if (e == -1) {
+			fprintf(stderr,
+					"could not open the handle for the file/pipe (%s)\n",
+					pfs_error());
+			pfs_errno = 0;
+			exit(1);
+		}
+		ui32 flags = pfs_element_get_flags(e);
+		if (flags == -1 || (flags & (PFS_F_FILE | PFS_F_PIPE))) {
+			if (flags == -1) {
+				fprintf(stderr, "could not get the flags (%s)\n", pfs_error());
+				pfs_errno = 0;
+			} else {
+				fprintf(stderr, "I won't delete a folder!\n");
+			}
+			exit(1);
+		}
+		pfs_element_delete(e);
+	} else {
+		struct stat s;
+		if (stat(path, &s) == -1) {
+			perror("stat");
+			errno = 0;
+			exit(1);
+		}
+		switch (s.st_mode) {
+		case S_IFREG: // file
+		case S_IFIFO: // fi-fo
+		case S_IFLNK: // sym-link
+			break;
+		case S_IFDIR:
+			fprintf(stderr, "I won't delete a folder!\n");
+			exit(1);
+		case S_IFSOCK:
+			fprintf(stderr, "I won't delete a socket!\n");
+			exit(1);
+		case S_IFBLK:
+			fprintf(stderr, "I won't delete a block device!\n");
+			exit(1);
+		case S_IFCHR:
+			fprintf(stderr, "I won't delete a character device!\n");
+			exit(1);
+		default:
+			fprintf(stderr, "I don't even know what this is!\n");
+			exit(1);
+		}
+		if (unlink(path) == -1) {
+			perror("unlink");
+			fprintf(stderr, "error on unlink!\n");
+			exit(1);
+		}
+	}
+	exit(0);
 }
 
 static inline void bc_rmdir(char **args) {
-	abort();
+	if (!args[1]) {
+		fprintf(stderr, "not enough args\n");
+		exit(1);
+	}
+	if (args[2]) {
+		fprintf(stderr, "too many args\n");
+		exit(1);
+	}
+	char *path = extract_path(args[1]);
+	char *pfs_path = extract_pfs_path(path);
+	if (pfs_path) {
+		int e = pfs_handle_folder(pfs_path);
+		free(path);
+		if (e == -1) {
+			fprintf(stderr,
+					"could not open the handle for the file/pipe (%s)\n",
+					pfs_error());
+			pfs_errno = 0;
+			exit(1);
+		}
+		ui32 flags = pfs_element_get_flags(e);
+		if (flags == -1 || (flags & (PFS_F_FOLDER))) {
+			if (flags == -1) {
+				fprintf(stderr, "could not get the flags (%s)\n", pfs_error());
+				pfs_errno = 0;
+			} else {
+				fprintf(stderr, "this is no folder!\n");
+			}
+			exit(1);
+		}
+		pfs_element_delete(e);
+	} else {
+		struct stat s;
+		if (stat(path, &s) == -1) {
+			perror("stat");
+			errno = 0;
+			exit(1);
+		}
+		if (s.st_mode != S_IFDIR) {
+			fprintf(stderr, "this is no folder!\n");
+			exit(1);
+		}
+		if (rmdir(path) == -1) {
+			perror("rmdir");
+			errno = 0;
+			fprintf(stderr, "error on rmdir!\n");
+			exit(1);
+		}
+	}
+	exit(0);
 }
 
