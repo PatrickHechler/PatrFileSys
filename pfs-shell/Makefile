@@ -29,7 +29,7 @@ BIN = $(BIN_ROOT)$(BUILD_MODE)/
 
 SOURCE = $(PROJECT_ROOT)src/
 
-TARGET = $(BIN)pfs-shell
+TARGET = $(BIN_ROOT)pfs-shell
 
 OBJS = $(BIN)pfs-shell.o $(PFS_LIB_FILE)
 

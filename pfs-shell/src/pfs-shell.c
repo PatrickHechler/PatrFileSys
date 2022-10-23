@@ -194,6 +194,7 @@ static inline void set_signal_handlers(void) {
 	sigaction(SIGTERM, &act, NULL);
 }
 
+// for debugging
 static volatile int debug_child = 0;
 
 int main(int argc, char **argv) {
@@ -233,9 +234,6 @@ int main(int argc, char **argv) {
 				sleep(5);
 			}
 			execute(child_args);
-		}
-		for (int i = 0; child_args[i]; i++) {
-			free(child_args[i]);
 		}
 		free(child_args);
 		if (errno != 0) {
@@ -1106,12 +1104,11 @@ static inline void bc_ls(char **args) {
 	char *path;
 	if (!args[1]) {
 		path = extract_path(".");
-	} else {
-		path = extract_path(args[1]);
-	}
-	if (args[2]) {
+	} else if (args[2]) {
 		fprintf(stderr, "too many args\n");
 		exit(1);
+	} else {
+		path = extract_path(args[1]);
 	}
 	char *pfs_path = extract_pfs_path(path);
 	if (pfs_path) {
@@ -1134,6 +1131,7 @@ static inline void bc_ls(char **args) {
 					exit(1);
 				}
 				pfs_errno = 0;
+				break;
 			}
 			if (!pfs_element_get_name(e, &name_buf, &buf_len)) {
 				fprintf(stderr, "could not get the elements name (%s)\n",

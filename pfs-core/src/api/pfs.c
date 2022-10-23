@@ -563,20 +563,22 @@ extern int pfs_folder_open_iter(int eh, int show_hidden) {
 
 extern int pfs_iter(const char *path, int show_hidden) {
 	struct element_handle *eh = open_eh(path, pfs_root, 1, NULL);
-	if (!pfs->get(pfs, eh->handle.direct_parent_place.block)) {
-		return -1;
-	}
-	ui32 flags = pfsc_element_get_flags(&eh->handle);
-	if (flags == -1) {
-		release_eh(eh);
-		pfs->unget(pfs, eh->handle.direct_parent_place.block);
-		return -1;
-	}
-	if ((flags & PFS_F_FOLDER) == 0) {
-		pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
-		release_eh(eh);
-		pfs->unget(pfs, eh->handle.direct_parent_place.block);
-		return -1;
+	if (eh->handle.direct_parent_place.block != -1L) {
+		if (!pfs->get(pfs, eh->handle.direct_parent_place.block)) {
+			return -1;
+		}
+		ui32 flags = pfsc_element_get_flags(&eh->handle);
+		if (flags == -1) {
+			release_eh(eh);
+			pfs->unget(pfs, eh->handle.direct_parent_place.block);
+			return -1;
+		}
+		if ((flags & PFS_F_FOLDER) == 0) {
+			pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+			release_eh(eh);
+			pfs->unget(pfs, eh->handle.direct_parent_place.block);
+			return -1;
+		}
 	}
 	struct iter_handle *ih = malloc(sizeof(struct iter_handle));
 	if (!ih) {
@@ -592,9 +594,11 @@ extern int pfs_iter(const char *path, int show_hidden) {
 		pfs->unget(pfs, eh->handle.direct_parent_place.block);
 		return -1;
 	}
-	if (!pfs->unget(pfs, eh->handle.direct_parent_place.block)) {
-		release_eh(eh);
-		return -1;
+	if (eh->handle.direct_parent_place.block != -1L) {
+		if (!pfs->unget(pfs, eh->handle.direct_parent_place.block)) {
+			release_eh(eh);
+			return -1;
+		}
 	}
 	ih->folder = eh;
 	return_handle(pfs_ih_len, pfs_ihs, ih);
@@ -607,21 +611,21 @@ extern int pfs_iter_next(int ih) {
 	}
 	struct element_handle *c = hashset_get(&pfs_ihs[ih]->folder->children,
 			eh_hash(&pfs_ihs[ih]->ieh), &pfs_ihs[ih]->ieh);
-	if (!c) {
+	if (c) {
 		c->load_count++;
 	} else {
-		struct element_handle *nc = malloc(sizeof(struct element_handle));
-		if (!nc) {
+		c = malloc(sizeof(struct element_handle));
+		if (!c) {
 			pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
 			return -1;
 		}
-		nc->children.entries = NULL;
-		nc->children.entrycount = 0;
-		nc->children.equalizer = childset_equal;
-		nc->children.hashmaker = childset_hash;
-		nc->handle = c->handle;
-		nc->load_count = 1;
-		nc->parent = pfs_ihs[ih]->folder;
+		c->children.entries = NULL;
+		c->children.entrycount = 0;
+		c->children.equalizer = childset_equal;
+		c->children.hashmaker = childset_hash;
+		c->handle = pfs_ihs[ih]->ieh;
+		c->load_count = 1;
+		c->parent = pfs_ihs[ih]->folder;
 		hashset_put(&pfs_ihs[ih]->folder->children, eh_hash(&pfs_ihs[ih]->ieh),
 				&pfs_ihs[ih]->ieh);
 	}
