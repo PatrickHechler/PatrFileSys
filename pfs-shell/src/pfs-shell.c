@@ -749,18 +749,28 @@ static char* extract_pfs_path(char *path) {
 static inline void bc_exit(char **args) {
 	if (args[1]) {
 		char *end;
-		last_exit = strtol(args[1], &end, 10);
+		int exit_num = strtol(args[1], &end, 10);
 		if (*end || errno != 0) {
 			errno = 0;
 			fprintf(stderr, "could not parse argument to a number: '%s'\n",
 					args[1]);
-			fflush(stderr);
-			if (last_exit == 0) {
-				last_exit = 1;
-			}
+			fflush(NULL);
+			exit_num = 1;
+			exit(exit_num);
 		}
 	}
-	exit(last_exit);
+	if (last_exit) {
+		if (WIFEXITED(last_exit)) {
+			exit(WEXITSTATUS(last_exit));
+		} else if (WIFSIGNALED(last_exit)) {
+			exit(WTERMSIG(last_exit) + 128);
+		} else {
+			fprintf(stderr, "unknown last_exit value: %X\n", last_exit);
+			fflush(NULL);
+			exit(1);
+		}
+	}
+	exit(0);
 }
 
 static inline void bc_cd(char **args) {
