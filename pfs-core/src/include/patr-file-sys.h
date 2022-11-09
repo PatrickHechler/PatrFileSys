@@ -28,6 +28,8 @@ typedef uint64_t ui64;
 typedef uint32_t ui32;
 typedef uint8_t ui8;
 
+#define export __attribute__ ((visibility ("default"))) export
+
 static_assert(CHAR_BIT == 8, "Error!");
 static_assert(sizeof(__time_t) == 8, "Error!");
 static_assert(sizeof(i64) == 8, "Error!");
