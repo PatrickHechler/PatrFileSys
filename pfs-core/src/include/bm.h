@@ -10,6 +10,9 @@
 
 #include "hashset.h"
 #include "patr-file-sys.h"
+#include "pfs-constants.h"
+
+#include <unistd.h>
 
 /**
  * block manager structure used by the patr-file-system
