@@ -19,3 +19,14 @@ extern i64 pfs_file_length(int eh) {
 	cr(-1)
 	return res;
 }
+
+extern int pfs_file_truncate(int eh, i64 length) {
+	if (length < 0) {
+		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+		return 0;
+	}
+	ch(0)
+	int res = pfsc_file_truncate(&pfs_ehs[eh]->handle, length);
+	cr(0)
+	return res;
+}

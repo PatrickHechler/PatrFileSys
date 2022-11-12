@@ -25,4 +25,14 @@ extern int pfs_open_stream(int eh, i32 stream_flags);
  */
 extern i64 pfs_file_length(int eh);
 
+/*
+ * truncates the files length
+ * if length is greater than the current length, there are
+ * zeros appended until the files length is equal to length.
+ * if length is less than the current length the files content
+ * after the length's byte are removed from the file
+ * on success 1 and on error 0 is returned
+ */
+extern int pfs_file_truncate(int eh, i64 length);
+
 #endif /* SRC_INCLUDE_PFS_FILE_H_ */
