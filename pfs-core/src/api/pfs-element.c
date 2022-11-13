@@ -88,3 +88,9 @@ extern int pfs_element_move(int eh, int parenteh, char* name) {
 	get_eh(0, parenteh)
 	return pfsc_element_move(&pfs_ehs[eh]->handle, &pfs_ehs[parenteh]->handle, name);
 }
+
+extern int pfs_element_same(int aeh, int beh) {
+	get_eh(-1, aeh)
+	get_eh(-1, beh)
+	return (pfs_ehs[aeh] == pfs_ehs[beh]) ? 1 : 0;
+}

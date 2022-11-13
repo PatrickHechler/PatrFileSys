@@ -37,9 +37,9 @@ EXPSOURCE = $(ROOT_SOURCE)include/
 
 EXP = $(PROJECT_ROOT)exports/
 
-TARGET_A = $(CORE_BIN)libpfscore.a
+TARGET_A = $(CORE_BIN)libpfs-core.a
 
-TARGET_SO = $(CORE_BIN)libpfscore.so
+TARGET_SO = $(CORE_BIN)libpfs-core.so
 
 CORE_TEST_TARGET = $(CORE_BIN)pfs_tests
 

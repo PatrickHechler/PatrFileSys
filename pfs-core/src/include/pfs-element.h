@@ -100,6 +100,13 @@ extern int pfs_element_set_parent(int eh, int parenteh);
  * sets the name and the parent of the element
  * on success 1 and on error 0 is returned
  */
-extern int pfs_element_move(int eh, int parenteh, char* name);
+extern int pfs_element_move(int eh, int parenteh, char *name);
+
+/*
+ * returns 1 if both element handles are valid and refer to the same element
+ * returns 0 if both element handles are valid, but do not refer to the same element
+ * returns -1 if at least one not a valid element handle
+ */
+extern int pfs_element_same(int aeh, int beh);
 
 #endif /* SRC_INCLUDE_PFS_ELEMENT_H_ */

@@ -1,13 +1,14 @@
 package de.hechler.patrick.zeugs.pfs.interfaces;
 
+import java.io.IOException;
+import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 
-import de.hechler.patrick.zeugs.pfs.records.StreamOptions;
-import jdk.incubator.foreign.MemorySegment;
+import de.hechler.patrick.zeugs.pfs.opts.StreamOpenOptions;
 
 /**
- * a {@link WriteStream} is a stream with the {@link StreamOptions#write()} set
- * to <code>true</code>
+ * a {@link WriteStream} is a stream with the {@link StreamOpenOptions#write()}
+ * set to <code>true</code>
  * <p>
  * a {@link WriteStream} provides methods to write data to the {@link Stream}
  * with different types (byte[], {@link ByteBuffer} and {@link MemorySegment})
@@ -20,10 +21,12 @@ public interface WriteStream extends Stream {
 	 * write the next data.length bytes from the array to the {@link Stream}
 	 * 
 	 * @param data the buffer which holds the data for the {@link Stream}
+	 * @return the number of bytes actually written, may be less than the array
+	 *         length, because of an error
 	 */
-	default void write(byte[] data) {
+	default int write(byte[] data) throws IOException {
 		// if write(byte[], int, int) is overwritten
-		write(data, 0, data.length);
+		return write(data, 0, data.length);
 	}
 
 	/**
@@ -33,10 +36,12 @@ public interface WriteStream extends Stream {
 	 * @param data the buffer which holds the data for the {@link Stream}
 	 * @param off  the offset of the data inside the array
 	 * @param len  the number of bytes to write
+	 * @return the number of bytes actually written, may be less than the given len,
+	 *         because of an error
 	 */
-	default void write(byte[] data, int off, int len) {
+	default int write(byte[] data, int off, int len) throws IOException {
 		MemorySegment seg = MemorySegment.ofArray(data);
-		write(seg.asSlice((long) off, (long) len));
+		return (int) write(seg.asSlice((long) off, (long) len));
 	}
 
 	/**
@@ -45,10 +50,12 @@ public interface WriteStream extends Stream {
 	 * 
 	 * @param data the {@link ByteBuffer} which holds the data for the
 	 *             {@link Stream}
+	 * @return the number of bytes actually written, may be less than the buffers
+	 *         size, because of an error
 	 */
-	default void write(ByteBuffer data) {
-		MemorySegment seg = MemorySegment.ofByteBuffer(data);
-		write(seg);
+	default int write(ByteBuffer data) throws IOException {
+		MemorySegment seg = MemorySegment.ofBuffer(data);
+		return (int) write(seg);
 	}
 
 	/**
@@ -57,7 +64,9 @@ public interface WriteStream extends Stream {
 	 * 
 	 * @param seg the {@link MemorySegment} which holds the data for the
 	 *            {@link Stream}
+	 * @return the number of bytes actually written, may be less than the segments
+	 *         size, because of an error
 	 */
-	void write(MemorySegment seg);
+	long write(MemorySegment seg) throws IOException;
 
 }

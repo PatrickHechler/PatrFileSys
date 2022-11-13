@@ -1,4 +1,4 @@
-package de.hechler.patrick.zeugs.pfs.objects.misc;
+package de.hechler.patrick.zeugs.pfs.misc;
 
 import java.util.Map.Entry;
 

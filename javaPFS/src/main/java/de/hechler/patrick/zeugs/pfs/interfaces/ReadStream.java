@@ -1,13 +1,14 @@
 package de.hechler.patrick.zeugs.pfs.interfaces;
 
+import java.io.IOException;
+import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 
-import de.hechler.patrick.zeugs.pfs.records.StreamOptions;
-import jdk.incubator.foreign.MemorySegment;
+import de.hechler.patrick.zeugs.pfs.opts.StreamOpenOptions;
 
 /**
- * a {@link ReadStream} is a stream with the {@link StreamOptions#read()} set to
- * <code>true</code>
+ * a {@link ReadStream} is a stream with the {@link StreamOpenOptions#read()}
+ * set to <code>true</code>
  * <p>
  * a {@link ReadStream} provides methods to read data from the {@link Stream}
  * with different types (byte[], {@link ByteBuffer} and {@link MemorySegment})
@@ -21,9 +22,10 @@ public interface ReadStream extends Stream {
 	 * array
 	 * 
 	 * @param data the buffer which should be filled with the Stream data
-	 * @return the number of bytes actually read
+	 * @return the number of bytes actually read may be less because of an error or
+	 *         end of file
 	 */
-	default int read(byte[] data) {
+	default int read(byte[] data) throws IOException {
 		// if read(byte[], int, int) is overwritten
 		return read(data, 0, data.length);
 	}
@@ -35,9 +37,10 @@ public interface ReadStream extends Stream {
 	 * @param data the buffer which should be filled with the Stream data
 	 * @param off  the offset of the data inside the array
 	 * @param len  the number of bytes which should be read
-	 * @return the number of bytes actually read
+	 * @return the number of bytes actually read may be less because of an error or
+	 *         end of file
 	 */
-	default int read(byte[] data, int off, int len) {
+	default int read(byte[] data, int off, int len) throws IOException {
 		MemorySegment seg = MemorySegment.ofArray(data);
 		return (int) read(seg.asSlice((long) off, (long) len));
 	}
@@ -47,10 +50,11 @@ public interface ReadStream extends Stream {
 	 * data
 	 * 
 	 * @param data the {@link ByteBuffer} which should be filled with the read data
-	 * @return the number of bytes which has been read
+	 * @return the number of bytes actually read may be less because of an error or
+	 *         end of file
 	 */
-	default int read(ByteBuffer data) {
-		MemorySegment seg = MemorySegment.ofByteBuffer(data);
+	default int read(ByteBuffer data) throws IOException {
+		MemorySegment seg = MemorySegment.ofBuffer(data);
 		return (int) read(seg);
 	}
 
@@ -60,8 +64,9 @@ public interface ReadStream extends Stream {
 	 * 
 	 * @param seg the {@link MemorySegment} which should be filled with the read
 	 *            data
-	 * @return the number of bytes which has been read
+	 * @return the number of bytes actually read may be less because of an error or
+	 *         end of file
 	 */
-	long read(MemorySegment seg);
+	long read(MemorySegment seg) throws IOException;
 
 }

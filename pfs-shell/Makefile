@@ -2,7 +2,7 @@ PROJECT_ROOT = $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 PFS_LIB_FOLDER = $(PROJECT_ROOT)../pfs-core/exports/static/
 
-PFS_LIB_FILE = $(PFS_LIB_FOLDER)libpfscore.a
+PFS_LIB_FILE = $(PFS_LIB_FOLDER)libpfs-core.a
 
 LDFLAGS = -lreadline
 

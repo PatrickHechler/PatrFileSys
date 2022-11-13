@@ -1,6 +1,9 @@
 package de.hechler.patrick.zeugs.pfs.interfaces;
 
+import java.io.Closeable;
 import java.io.IOException;
+
+import de.hechler.patrick.zeugs.pfs.opts.StreamOpenOptions;
 
 /**
  * the {@link FS} interface provides methods:
@@ -14,7 +17,23 @@ import java.io.IOException;
  * 
  * @author pat
  */
-public interface FS {
+public interface FS extends Closeable {
+
+	/**
+	 * returns the number of available blocks for the file system
+	 * 
+	 * @return the number of available blocks for the file system
+	 * @throws IOException
+	 */
+	long blockCount() throws IOException;
+
+	/**
+	 * returns the size of the blocks in the file system
+	 * 
+	 * @return the size of the blocks in the file system
+	 * @throws IOException
+	 */
+	int blockSize() throws IOException;
 
 	/**
 	 * get the element which can be referred with the given path
@@ -56,6 +75,16 @@ public interface FS {
 	Pipe pipe(String path) throws IOException;
 
 	/**
+	 * opens a {@link Stream} for the given path.
+	 * 
+	 * @param path the path of the element
+	 * @param opts 
+	 * @return the opened stream
+	 * @throws IOException
+	 */
+	Stream stream(String path, StreamOpenOptions opts) throws IOException;
+
+	/**
 	 * returns the current working directory
 	 * 
 	 * @return the current working directory
@@ -70,5 +99,20 @@ public interface FS {
 	 * @throws IOException
 	 */
 	void cwd(Folder f) throws IOException;
+
+	/**
+	 * Closes this file system and releases any system resources associated with it.
+	 * If the file system is already closed then invoking this method has no effect.
+	 * <p>
+	 * As noted in {@link AutoCloseable#close()}, cases where the close may fail
+	 * require careful attention. It is strongly advised to relinquish the
+	 * underlying resources and to internally <em>mark</em> the {@code Closeable} as
+	 * closed, prior to throwing the {@code IOException}.
+	 * <p>
+	 * all file system methods (except of {@link #close()}) will throw an exception
+	 * when they are called after the file system has been closed
+	 */
+	@Override
+	void close() throws IOException;
 
 }

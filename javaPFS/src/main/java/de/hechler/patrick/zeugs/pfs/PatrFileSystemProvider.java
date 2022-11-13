@@ -19,7 +19,7 @@ import java.nio.file.spi.FileSystemProvider;
 import java.util.Map;
 import java.util.Set;
 
-public class PFSProvider extends FileSystemProvider {
+public class PatrFileSystemProvider extends FileSystemProvider {
 
 	@Override
 	public String getScheme() {

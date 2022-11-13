@@ -27,6 +27,10 @@ int pfsc_format(i64 block_count);
 
 extern i64 pfs_block_count();
 
+extern i64 pfs_free_block_count();
+
+extern i64 pfs_used_block_count();
+
 extern i32 pfs_block_size();
 
 int pfsc_fill_root(pfs_eh overwrite_me);

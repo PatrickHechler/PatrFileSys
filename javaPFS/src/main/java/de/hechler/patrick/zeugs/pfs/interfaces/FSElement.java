@@ -1,6 +1,9 @@
 package de.hechler.patrick.zeugs.pfs.interfaces;
 
+import java.io.Closeable;
 import java.io.IOException;
+
+import de.hechler.patrick.zeugs.pfs.misc.ElementType;
 
 /**
  * the {@link FSElement} interface provides methods to extract and modify basic
@@ -10,7 +13,7 @@ import java.io.IOException;
  * 
  * @author pat
  */
-public interface FSElement {
+public interface FSElement extends Closeable {
 
 	/**
 	 * these bits are not allowed to be modified after a file system has been
@@ -217,6 +220,20 @@ public interface FSElement {
 		return (flags() & FLAG_PIPE) != 0;
 	}
 
+	default ElementType type() throws IOException {
+		int flags = flags();
+		switch (flags & (FLAG_FOLDER | FLAG_FILE | FLAG_PIPE)) {
+		case FLAG_FOLDER:
+			return ElementType.folder;
+		case FLAG_FILE:
+			return ElementType.file;
+		case FLAG_PIPE:
+			return ElementType.pipe;
+		default:
+			throw new InternalError("unknown flags: 0x" + Integer.toHexString(flags));
+		}
+	}
+
 	/**
 	 * returns a {@link Folder} which represents the same file system element as
 	 * this {@link FSElement}.
@@ -302,7 +319,8 @@ public interface FSElement {
 	 * @return <code>true</code> if this {@link FSElement} represents the same
 	 *         {@link FSElement} as the given {@link FSElement} {@code e} and
 	 *         <code>false</code> if not
+	 * @throws IOException
 	 */
-	boolean equals(FSElement e);
+	boolean equals(FSElement e) throws IOException;
 
 }

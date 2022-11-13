@@ -7,8 +7,12 @@
 
 #ifndef PFS_CONSTANTS_H_
 #define PFS_CONSTANTS_H_
-
-#define PFS_MAGIC_START 0xF17565393C422698UL
+/*
+ * the magic should be changed when the version changes,
+ * so old version does not load a new version which is
+ * not backwards compatible
+ */
+#define PFS_MAGIC_START 0x31756539FC422698UL
 #define PFS_B0_OFFSET_BLOCK_COUNT 24
 #define PFS_B0_OFFSET_BLOCK_SIZE 20
 #ifdef PFS_INTERN_H_
