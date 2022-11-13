@@ -40,7 +40,7 @@ public class PatrFSProvider extends FSProvider {
 	private volatile boolean exists = false;
 
 	public PatrFSProvider() {
-		super(FSProvider.PATR_FS_NAME, 1);
+		super(FSProvider.PATR_FS_PROVIDER_NAME, 1);
 		synchronized (PatrFSProvider.class) {
 			if (exists) {
 				throw new IllegalStateException("this class is only allowed to be created once");
@@ -85,7 +85,7 @@ public class PatrFSProvider extends FSProvider {
 		return loaded;
 	}
 
-	private void loadPatrRamOpts(Linker linker, SymbolLookup loockup, MemorySession local, PatrRamFSOpts opts)
+	private static void loadPatrRamOpts(Linker linker, SymbolLookup loockup, MemorySession local, PatrRamFSOpts opts)
 			throws Throwable {
 		MethodHandle new_bm = linker.downcallHandle(loockup.lookup("bm_new_ram_block_manager").orElseThrow(),
 				FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT));
@@ -97,7 +97,7 @@ public class PatrFSProvider extends FSProvider {
 		}
 	}
 
-	private void loadPatrOpts(Linker linker, SymbolLookup loockup, MemorySession local, PatrFSOptions opts)
+	private static void loadPatrOpts(Linker linker, SymbolLookup loockup, MemorySession local, PatrFSOptions opts)
 			throws Throwable, Exception, IOException {
 		MethodHandle open = linker.downcallHandle(DEFAULT_LIBARY_LOCKUP.lookup("open").orElseThrow(), FunctionDescriptor
 				.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
@@ -112,7 +112,7 @@ public class PatrFSProvider extends FSProvider {
 		}
 	}
 
-	private void loadWithFormat(Linker linker, SymbolLookup loockup, PatrFSOptions opts, MethodHandle new_bm, int fd)
+	private static void loadWithFormat(Linker linker, SymbolLookup loockup, PatrFSOptions opts, MethodHandle new_bm, int fd)
 			throws Throwable, Exception {
 		MethodHandle pfs_load_and_format = linker.downcallHandle(loockup.lookup("pfs_load_and_format").orElseThrow(),
 				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
@@ -122,7 +122,7 @@ public class PatrFSProvider extends FSProvider {
 		}
 	}
 
-	private void loadWithoutFormat(Linker linker, SymbolLookup loockup, MemorySession local, PatrFSOptions opts,
+	private static void loadWithoutFormat(Linker linker, SymbolLookup loockup, MemorySession local, PatrFSOptions opts,
 			MethodHandle new_bm, int fd) throws Throwable, IOException, Exception {
 		MethodHandle pfs_load = linker.downcallHandle(loockup.lookup("pfs_load").orElseThrow(),
 				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
