@@ -1565,7 +1565,7 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		printf("%scould get the create time! [D]\n", start);
 		exit(EXIT_FAILURE);
 	}
-	if ((pfsc_element_get_flags(e) & PFS_F_ENCRYPTED) != 0) {
+	if ((pfsc_element_get_flags(e) & PFS_F_USER_ENCRYPTED) != 0) {
 		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
 			printf("%sthe flags have an unexpected value! (%s) [E]\n", start,
 					pfs_error());
@@ -1575,7 +1575,7 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		printf("%scould get the flags! (%s) [E.2]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
-	if (!pfsc_element_modify_flags(e, PFS_F_ENCRYPTED, 0)) {
+	if (!pfsc_element_modify_flags(e, PFS_F_USER_ENCRYPTED, 0)) {
 		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
 			printf("%scould not modify the flags! [F]\n", start);
 			exit(EXIT_FAILURE);
@@ -1585,7 +1585,7 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		printf("%scould get the flags! [10]\n", start);
 		exit(EXIT_FAILURE);
 	}
-	if ((pfsc_element_get_flags(e) & PFS_F_ENCRYPTED) == 0) {
+	if ((pfsc_element_get_flags(e) & PFS_F_USER_ENCRYPTED) == 0) {
 		printf("%sthe flags have an unexpected value! [11]\n", start);
 		exit(EXIT_FAILURE);
 	} else if ((!is_not_root && pfs_errno != PFS_ERRNO_ROOT_FOLDER)
@@ -1594,7 +1594,7 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		exit(EXIT_FAILURE);
 	}
 	pfs_errno = 0;
-	if ((pfsc_element_get_flags(e) & PFS_F_ENCRYPTED) == 0) {
+	if ((pfsc_element_get_flags(e) & PFS_F_USER_ENCRYPTED) == 0) {
 		printf("%sthe flags have an unexpected value! [13]\n", start);
 		exit(EXIT_FAILURE);
 	} else if ((!is_not_root && pfs_errno != PFS_ERRNO_ROOT_FOLDER)
@@ -1602,7 +1602,7 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		printf("%serror! (%s) [14]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
-	if (!pfsc_element_modify_flags(e, 0, PFS_F_ENCRYPTED)) {
+	if (!pfsc_element_modify_flags(e, 0, PFS_F_USER_ENCRYPTED)) {
 		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
 			printf("%scould not modify the flags! [15]\n", start);
 			exit(EXIT_FAILURE);
@@ -1612,7 +1612,7 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		printf("%scould get the flags! [16]\n", start);
 		exit(EXIT_FAILURE);
 	}
-	if ((pfsc_element_get_flags(e) & PFS_F_ENCRYPTED) != 0
+	if ((pfsc_element_get_flags(e) & PFS_F_USER_ENCRYPTED) != 0
 			&& pfsc_element_get_flags(e) != -1) {
 		printf("%scould not modify the flags! (%s) [17]\n", start, pfs_error());
 		exit(EXIT_FAILURE);

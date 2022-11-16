@@ -1,4 +1,9 @@
 eclipse.preferences.version=1
+environment/project/cdt.managedbuild.toolchain.gnu.base.1412554449.290826745/BUILD_MODE/delimiter=\:
+environment/project/cdt.managedbuild.toolchain.gnu.base.1412554449.290826745/BUILD_MODE/operation=append
+environment/project/cdt.managedbuild.toolchain.gnu.base.1412554449.290826745/BUILD_MODE/value=debug
+environment/project/cdt.managedbuild.toolchain.gnu.base.1412554449.290826745/append=true
+environment/project/cdt.managedbuild.toolchain.gnu.base.1412554449.290826745/appendContributed=true
 environment/project/cdt.managedbuild.toolchain.gnu.base.595087395.580266079/BUILD_MODE/delimiter=\:
 environment/project/cdt.managedbuild.toolchain.gnu.base.595087395.580266079/BUILD_MODE/operation=replace
 environment/project/cdt.managedbuild.toolchain.gnu.base.595087395.580266079/BUILD_MODE/value=run

@@ -465,22 +465,20 @@ static inline int open_sh(struct element_handle *eh, ui32 stream_flags) {
 		}
 	}
 	if (stream_flags & PFS_SO_FILE_EOF) {
-		if (!sh->is_file) {
-			pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
-			free(sh);
-			release_eh(eh);
-			return -1;
+		if (sh->is_file) {
+			sh->pos = f->file_length;
+		} else {
+			// ignored
 		}
-		sh->pos = f->file_length;
 	}
 	return_handle(pfs_sh_len, pfs_shs, sh);
 }
 
 extern int pfs_open_stream(int eh, i32 stream_flags) {
-	eh(0)
+	eh(-1)
 	if (stream_flags & PFS_SO_ONLY_CREATE) {
 		pfs_errno = PFS_ERRNO_ELEMENT_ALREADY_EXIST;
-		return 0;
+		return -1;
 	}
 	int res = open_sh(pfs_ehs[eh], stream_flags);
 	if (res) {
@@ -490,44 +488,45 @@ extern int pfs_open_stream(int eh, i32 stream_flags) {
 }
 
 extern int pfs_stream(const char *path, i32 stream_flags) {
+	const ui32 old_err = pfs_errno;
 	struct element_handle *peh;
 	struct element_handle *eh = open_eh(path, pfs_root, 1, &peh);
 	if (!eh) {
-		if ((stream_flags & (PFS_SO_ONLY_CREATE | PFS_SO_ALSO_CREATE)) != 0) {
-			if (peh) {
-				eh = malloc(sizeof(struct element_handle));
-				if (!eh) {
-					pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
-					return 0;
-				}
-				eh->handle = peh->handle;
-				eh->parent = peh;
-				eh->load_count = 1;
-				eh->children.entrycount = 0;
-				eh->children.setsize = 0;
-				eh->children.equalizer = childset_equal;
-				eh->children.hashmaker = childset_hash;
-				eh->children.entries = NULL;
-				const char *name = strrchr(path, '/');
-				name = name == NULL ? path : (name + 1);
-				if (stream_flags & PFS_SO_PIPE) {
-					if (!pfsc_folder_create_pipe(&eh->handle, &peh->handle,
-							name)) {
-						return -1;
-					}
-				} else if (stream_flags & PFS_SO_FILE) {
-					if (!pfsc_folder_create_file(&eh->handle, &peh->handle,
-							name)) {
-						return -1;
-					}
-				} else {
-					pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
-					return -1;
-				}
-				hashset_put(&peh->children, eh_hash(eh), eh);
-			}
+		if ((stream_flags & (PFS_SO_ONLY_CREATE | PFS_SO_ALSO_CREATE)) == 0) {
+			return -1;
 		}
-		return -1;
+		if (!peh) {
+			return -1;
+		}
+		pfs_errno = old_err;
+		eh = malloc(sizeof(struct element_handle));
+		if (!eh) {
+			pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+			return -1;
+		}
+		eh->handle = peh->handle;
+		eh->parent = peh;
+		eh->load_count = 1;
+		eh->children.entrycount = 0;
+		eh->children.setsize = 0;
+		eh->children.equalizer = childset_equal;
+		eh->children.hashmaker = childset_hash;
+		eh->children.entries = NULL;
+		const char *name = strrchr(path, '/');
+		name = name == NULL ? path : (name + 1);
+		if (stream_flags & PFS_SO_PIPE) {
+			if (!pfsc_folder_create_pipe(&eh->handle, &peh->handle, name)) {
+				return -1;
+			}
+		} else if (stream_flags & PFS_SO_FILE) {
+			if (!pfsc_folder_create_file(&eh->handle, &peh->handle, name)) {
+				return -1;
+			}
+		} else {
+			pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+			return -1;
+		}
+		hashset_put(&peh->children, eh_hash(eh), eh);
 	} else if (stream_flags & PFS_SO_ONLY_CREATE) {
 		release_eh(eh);
 		return -1;

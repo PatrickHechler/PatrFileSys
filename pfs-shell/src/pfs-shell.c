@@ -1162,7 +1162,7 @@ static inline void bc_ls(char **args) {
 							(flags & PFS_F_FOLDER ?
 									"FOLDER" :
 									(flags & PFS_F_PIPE ? "PIPE" : "UNKNOWN")) //
-							, flags & PFS_F_ENCRYPTED ? " ENC" : "" //
+							, flags & PFS_F_USER_ENCRYPTED ? " ENC" : "" //
 							, flags & PFS_F_EXECUTABLE ? " EXE " : "" //
 							, flags & PFS_F_HIDDEN ? " HID" : "" //
 							, name_buf);

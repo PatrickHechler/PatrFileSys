@@ -49,14 +49,14 @@ OBJS = $(CORE_OBJS) $(API_BIN)hashset.o $(API_BIN)bm.o $(API_BIN)pfs.o $(API_BIN
 
 all:	INIT $(CORE_TEST_TARGET) $(TARGET_A) $(TARGET_SO)
 	$(CORE_TEST_TARGET)
-	cp -r -t $(EXP)/shared/ $(TARGET_SO)
-	cp -r -t $(EXP)/static/ $(TARGET_A)
+	cp -r -t $(EXP)shared/ $(TARGET_SO)
+	cp -r -t $(EXP)static/ $(TARGET_A)
 
 static: INIT $(TARGET_A)
-	cp -r -t $(EXP)/static/ $(TARGET_A)
+	cp -r -t $(EXP)static/ $(TARGET_A)
 
 shared: INIT $(TARGET_SO)
-	cp -r -t $(EXP)/shared/ $(TARGET_SO)
+	cp -r -t $(EXP)shared/ $(TARGET_SO)
 
 INIT_SO:
 	mkdir -p $(EXP)shared/
