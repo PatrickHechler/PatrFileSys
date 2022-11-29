@@ -37,12 +37,12 @@ extern int pfs_element_delete(int eh) {
 	return res;
 }
 
-extern i32 pfs_element_get_flags(int eh) {
+extern ui32 pfs_element_get_flags(int eh) {
 	eh(-1)
 	return pfsc_element_get_flags(&pfs_ehs[eh]->handle);
 }
 
-extern int pfs_element_modify_flags(int eh, i32 add_flags, i32 rem_flags) {
+extern int pfs_element_modify_flags(int eh, ui32 add_flags, ui32 rem_flags) {
 	eh(0)
 	return pfsc_element_modify_flags(&pfs_ehs[eh]->handle, add_flags, rem_flags);
 }
