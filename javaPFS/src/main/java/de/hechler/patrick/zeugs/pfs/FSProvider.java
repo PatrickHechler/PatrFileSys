@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.ServiceLoader;
 
-import de.hechler.patrick.zeugs.pfs.impl.PatrFSProvider;
 import de.hechler.patrick.zeugs.pfs.interfaces.FS;
 import de.hechler.patrick.zeugs.pfs.interfaces.FSOptions;
 import de.hechler.patrick.zeugs.pfs.opts.PatrFSOptions;
@@ -22,7 +21,11 @@ import de.hechler.patrick.zeugs.pfs.opts.PatrFSOptions;
 public abstract class FSProvider {
 
 	/**
-	 * the {@link #name} of the {@link PatrFSProvider}
+	 * the {@link #name} of the {@link FSProvider}, which implements the patr-file-system
+	 * <p>
+	 * <h1>WARNING:</h1>
+	 * this provider is only ensured to work on LINUX.<br>
+	 * make sure the binaries are 
 	 */
 	public static final String PATR_FS_PROVIDER_NAME = "patr-fs";
 
@@ -47,7 +50,7 @@ public abstract class FSProvider {
 	 * @param maxFSCount the maximum number of loaded file systems at a time
 	 *                   ({@link #maxFSCount})
 	 */
-	public FSProvider(String name, int maxFSCount) {
+	protected FSProvider(String name, int maxFSCount) {
 		this.name = name;
 		this.maxFSCount = maxFSCount;
 	}

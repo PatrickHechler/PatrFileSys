@@ -13,7 +13,9 @@ static inline void free_old() {
 		free(pfs_ehs);
 		free(pfs_shs);
 		free(pfs_ihs);
-		free(pfs_root);
+		if (pfs_root != pfs_cwd) {
+			free(pfs_root);
+		}
 		free(pfs_cwd);
 	}
 }
@@ -233,7 +235,7 @@ extern int pfs_format(i64 block_count) {
 	struct stream_handle **nshs = malloc(sizeof(struct stream_handle*));
 	struct iter_handle **nihs = malloc(sizeof(struct iter_handle*));
 	struct element_handle *nrot = malloc(sizeof(struct element_handle));
-	if (!nihs || !nrot) {
+	if (!nehs || !nshs || !nihs || !nrot) {
 		if (nehs) {
 			free(nehs);
 		}
@@ -249,7 +251,7 @@ extern int pfs_format(i64 block_count) {
 		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
 		return 0;
 	}
-	if (!pfs_format(block_count)) {
+	if (!pfsc_format(block_count)) {
 		free(nehs);
 		free(nshs);
 		free(nihs);

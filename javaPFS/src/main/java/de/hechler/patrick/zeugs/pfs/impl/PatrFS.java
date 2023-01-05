@@ -301,8 +301,10 @@ public class PatrFS implements FS {
 				throw thrw(lockup, "close patr file system");
 			}
 		} catch (Throwable e) {
+			session.close();
 			throw thrw(e);
 		}
+		session.close();
 	}
 
 }

@@ -13,6 +13,7 @@ import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.NoSuchFileException;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -25,53 +26,47 @@ import de.hechler.patrick.zeugs.pfs.opts.PatrFSOptions;
 import de.hechler.patrick.zeugs.pfs.opts.PatrRamFSOpts;
 
 public class PatrFSProvider extends FSProvider {
-
-	private static final long MAGIC_START = 0xF17565393C422698L;
+	
+	private static final long MAGIC_START       = 0xF17565393C422698L;
 	private static final long OFFSET_BLOCK_SIZE = 20;
-
+	
 	private static final int SEEK_SET = 0;
-	private static final int O_RDWR = 02;
-	private static final int O_CREAT = 0100;
-
-	private static final SymbolLookup DEFAULT_LIBARY_LOCKUP = SymbolLookup.loaderLookup();
-
+	private static final int O_RDWR   = 02;
+	private static final int O_CREAT  = 0100;
+	
+	private static final SymbolLookup GLIBC_LIBARY_LOCKUP = SymbolLookup.libraryLookup("/lib/libc.so.6", MemorySession.global());
+	
 	static volatile PatrFS loaded;
-
+	
 	private volatile boolean exists = false;
-
+	
 	public PatrFSProvider() {
 		super(FSProvider.PATR_FS_PROVIDER_NAME, 1);
 		synchronized (PatrFSProvider.class) {
-			if (exists) {
-				throw new IllegalStateException("this class is only allowed to be created once");
-			}
+			if (exists) { throw new IllegalStateException("this class is only allowed to be created once"); }
 			exists = true;
 		}
 	}
-
-	public static void main(String[] args) throws IOException {
-		System.out.println(Runtime.version());
-		new PatrFSProvider().loadFS(new PatrFSOptions("./test.pfs", 1024L, 1024));
-	}
-
+	
 	@Override
 	public FS loadFS(FSOptions fso) throws IOException {
-		if (fso == null) {
-			throw new NullPointerException("options are null!");
-		}
+		if (fso == null) { throw new NullPointerException("options are null!"); }
 		synchronized (this) {
-			if (loaded != null) {
-				throw new IllegalStateException("maximum amount of file systems has been loaded! (max amount: 1)");
-			}
+			if (loaded != null) { throw new IllegalStateException("maximum amount of file systems has been loaded! (max amount: 1)"); }
 			MemorySession session = MemorySession.openConfined();
 			try {
-				Linker linker = Linker.nativeLinker();
-				SymbolLookup loockup = SymbolLookup.libraryLookup("pfs-core", session);
+				Linker       linker  = Linker.nativeLinker();
+				SymbolLookup loockup;
+				try {
+					loockup = SymbolLookup.libraryLookup("pfs-core", session);
+				} catch (IllegalArgumentException e) {
+					loockup = SymbolLookup.libraryLookup(Paths.get("lib/libpfs-core.so").toAbsolutePath().toString(), session);
+				}
 				try (MemorySession local = MemorySession.openConfined()) {
 					if (fso instanceof PatrFSOptions opts) {
 						loadPatrOpts(linker, loockup, local, opts);
 					} else if (fso instanceof PatrRamFSOpts opts) {
-						loadPatrRamOpts(linker, loockup, local, opts);
+						loadPatrRamOpts(linker, loockup, opts);
 					} else {
 						throw new IllegalArgumentException("FSOptions of an unknown " + fso.getClass());
 					}
@@ -84,90 +79,72 @@ public class PatrFSProvider extends FSProvider {
 		}
 		return loaded;
 	}
-
-	private static void loadPatrRamOpts(Linker linker, SymbolLookup loockup, MemorySession local, PatrRamFSOpts opts)
-			throws Throwable {
-		MethodHandle new_bm = linker.downcallHandle(loockup.lookup("bm_new_ram_block_manager").orElseThrow(),
+	
+	private static void loadPatrRamOpts(Linker linker, SymbolLookup loockup, PatrRamFSOpts opts) throws Throwable {
+		MethodHandle newBm            = linker.downcallHandle(loockup.lookup("bm_new_ram_block_manager").orElseThrow(),
 				FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT));
-		MethodHandle pfs_load_and_format = linker.downcallHandle(loockup.lookup("pfs_load_and_format").orElseThrow(),
+		MethodHandle pfsLoadAndFormat = linker.downcallHandle(loockup.lookup("pfs_load_and_format").orElseThrow(),
 				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
-		Addressable bm = (Addressable) new_bm.invoke(opts.blockCount(), opts.blockSize());
-		if (0 == (int) pfs_load_and_format.invoke(bm, opts.blockCount())) {
-			throw thrw(loockup, "load and format ram PFS (" + opts + ")");
-		}
+		Addressable  bm               = (Addressable) newBm.invoke(opts.blockCount(), opts.blockSize());
+		if (0 == (int) pfsLoadAndFormat.invoke(bm, opts.blockCount())) { throw thrw(loockup, "load and format ram PFS (" + opts + ")"); }
 	}
-
-	private static void loadPatrOpts(Linker linker, SymbolLookup loockup, MemorySession local, PatrFSOptions opts)
-			throws Throwable, Exception, IOException {
-		MethodHandle open = linker.downcallHandle(DEFAULT_LIBARY_LOCKUP.lookup("open").orElseThrow(), FunctionDescriptor
-				.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
-		MethodHandle new_bm = linker.downcallHandle(loockup.lookup("bm_new_file_block_manager").orElseThrow(),
+	
+	private static void loadPatrOpts(Linker linker, SymbolLookup loockup, MemorySession local, PatrFSOptions opts) throws Throwable {
+		MethodHandle  open  = linker.downcallHandle(GLIBC_LIBARY_LOCKUP.lookup("open").orElseThrow(),
+				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
+		MethodHandle  newBm = linker.downcallHandle(loockup.lookup("bm_new_file_block_manager").orElseThrow(),
 				FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
-		MemorySegment path = local.allocateUtf8String(opts.path());
-		int fd = (int) open.invoke(path, O_RDWR | O_CREAT, 0666);
+		MemorySegment path  = local.allocateUtf8String(opts.path());
+		int           fd    = (int) open.invoke(path, O_RDWR | O_CREAT, 0666);
 		if (opts.format()) {
-			loadWithFormat(linker, loockup, opts, new_bm, fd);
+			loadWithFormat(linker, loockup, opts, newBm, fd);
 		} else {
-			loadWithoutFormat(linker, loockup, local, opts, new_bm, fd);
+			loadWithoutFormat(linker, loockup, local, opts, newBm, fd);
 		}
 	}
-
-	private static void loadWithFormat(Linker linker, SymbolLookup loockup, PatrFSOptions opts, MethodHandle new_bm, int fd)
-			throws Throwable, Exception {
-		MethodHandle pfs_load_and_format = linker.downcallHandle(loockup.lookup("pfs_load_and_format").orElseThrow(),
+	
+	private static void loadWithFormat(Linker linker, SymbolLookup loockup, PatrFSOptions opts, MethodHandle newBm, int fd) throws Throwable {
+		MethodHandle pfsLoadAndFormat = linker.downcallHandle(loockup.lookup("pfs_load_and_format").orElseThrow(),
 				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
-		Addressable bm = (Addressable) new_bm.invoke(fd, opts.blockSize());
-		if (0 == (int) pfs_load_and_format.invoke(bm, opts.blockCount())) {
-			throw thrw(loockup, "load and format PFS (" + opts.path() + ")");
-		}
+		Addressable  bm               = (Addressable) newBm.invoke(fd, opts.blockSize());
+		if (0 == (int) pfsLoadAndFormat.invoke(bm, opts.blockCount())) { throw thrw(loockup, "load and format PFS (" + opts.path() + ")"); }
 	}
-
-	private static void loadWithoutFormat(Linker linker, SymbolLookup loockup, MemorySession local, PatrFSOptions opts,
-			MethodHandle new_bm, int fd) throws Throwable, IOException, Exception {
-		MethodHandle pfs_load = linker.downcallHandle(loockup.lookup("pfs_load").orElseThrow(),
+	
+	private static void loadWithoutFormat(Linker linker, SymbolLookup loockup, MemorySession local, PatrFSOptions opts, MethodHandle newBm, int fd)
+			throws Throwable {
+		MethodHandle  pfsLoad = linker.downcallHandle(loockup.lookup("pfs_load").orElseThrow(),
 				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
-		MethodHandle lseek = linker.downcallHandle(DEFAULT_LIBARY_LOCKUP.lookup("lseek").orElseThrow(),
-				FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT, ValueLayout.JAVA_LONG,
-						ValueLayout.JAVA_INT));
-		MethodHandle read = linker.downcallHandle(DEFAULT_LIBARY_LOCKUP.lookup("read").orElseThrow(), FunctionDescriptor
-				.of(ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
-		MemorySegment buf = local.allocate(8);
-		if (8L != (long) read.invoke(fd, buf, 8)) {
-			throw new IOException("error on read");
-		}
-		if (MAGIC_START != buf.get(ValueLayout.JAVA_LONG, 0)) {
-			throw new IOException("the file system does not start with my magic!");
-		}
-		if (OFFSET_BLOCK_SIZE != (long) lseek.invoke(fd, OFFSET_BLOCK_SIZE, SEEK_SET)) {
-			throw new IOException("error on lseek");
-		}
-		if (4L != (long) read.invoke(fd, buf, 4)) {
-			throw new IOException("error on read");
-		}
-		int bs = buf.get(ValueLayout.JAVA_INT, 0);
-		Addressable bm = (Addressable) new_bm.invoke(fd, bs);
-		if (0 == (int) pfs_load.invoke(bm, MemoryAddress.NULL)) {
-			throw thrw(loockup, "load PFS (" + opts.path() + ")");
-		}
+		MethodHandle  lseek   = linker.downcallHandle(GLIBC_LIBARY_LOCKUP.lookup("lseek").orElseThrow(),
+				FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT, ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT));
+		MethodHandle  read    = linker.downcallHandle(GLIBC_LIBARY_LOCKUP.lookup("read").orElseThrow(),
+				FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+		MemorySegment buf     = local.allocate(8);
+		if (8L != (long) read.invoke(fd, buf, 8)) { throw new IOException("error on read"); }
+		if (MAGIC_START != buf.get(ValueLayout.JAVA_LONG, 0)) { throw new IOException("the file system does not start with my magic!"); }
+		if (OFFSET_BLOCK_SIZE != (long) lseek.invoke(fd, OFFSET_BLOCK_SIZE, SEEK_SET)) { throw new IOException("error on lseek"); }
+		if (4L != (long) read.invoke(fd, buf, 4)) { throw new IOException("error on read"); }
+		int         bs = buf.get(ValueLayout.JAVA_INT, 0);
+		Addressable bm = (Addressable) newBm.invoke(fd, bs);
+		if (0 == (int) pfsLoad.invoke(bm, MemoryAddress.NULL)) { throw thrw(loockup, "load PFS (" + opts.path() + ")"); }
 	}
-
-	public static IOException thrw(Throwable e) throws IOException {
-		if (e instanceof IOException) {
-			throw (IOException) e;
-		} else if (e instanceof Error) {
-			throw (Error) e;
-		} else if (e instanceof RuntimeException) {
-			throw (RuntimeException) e;
+	
+	public static IOException thrw(Throwable t) throws IOException {
+		if (t instanceof IOException ioe) {
+			throw ioe;
+		} else if (t instanceof Error err) {
+			throw err;
+		} else if (t instanceof RuntimeException re) {
+			throw re;
 		} else {
-			throw new RuntimeException(e);
+			throw new AssertionError(t);
 		}
 	}
-
+	
 	public static IOException thrw(SymbolLookup loockup, String msg) throws IOException {
-		int pfs_errno = (int) loockup.lookup("pfs_errno").orElseThrow().get(ValueLayout.JAVA_INT, 0);
-		switch (pfs_errno) {
+		int pfsErrno = loockup.lookup("pfs_errno").orElseThrow().get(ValueLayout.JAVA_INT, 0);
+		switch (pfsErrno) {
 		case 0: /* if pfs_errno is not set/no error occurred */
-			throw new Error("no error: " + msg);
+			throw new AssertionError("no error: " + msg);
 		case 1: /* if an operation failed because of an unknown/unspecified error */
 			throw new IOException("unknown error: " + msg);
 		case 2: /* if the iterator has no next element */
@@ -202,17 +179,15 @@ public class PatrFSProvider extends FSProvider {
 					 */
 			throw new IOException("I won't move a folder to a child of it self: " + msg);
 		default:
-			throw new IOException("unknown errno (" + pfs_errno + "): " + msg);
+			throw new IOException("unknown errno (" + pfsErrno + "): " + msg);
 		}
 	}
-
-	void unload(FS loaded) {
-		if (loaded != PatrFSProvider.loaded) {
-			throw new AssertionError();
-		}
-		loaded = null;
+	
+	public static void unload(FS loaded) {
+		if (loaded != PatrFSProvider.loaded) { throw new AssertionError(); }
+		PatrFSProvider.loaded = null;
 	}
-
+	
 	@Override
 	public Collection<? extends FS> loadedFS() {
 		if (loaded != null) {
@@ -221,5 +196,5 @@ public class PatrFSProvider extends FSProvider {
 			return Collections.emptyList();
 		}
 	}
-
+	
 }

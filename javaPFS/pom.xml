@@ -16,7 +16,7 @@
 		<dependency>
 			<groupId>de.hechler.patrick.hilfen</groupId>
 			<artifactId>checker</artifactId>
-			<version>6.3.0</version>
+			<version>7.0.0</version>
 		</dependency>
 	</dependencies>
 
