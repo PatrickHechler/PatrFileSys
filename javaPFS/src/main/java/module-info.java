@@ -7,6 +7,7 @@ module de.hechler.patrick.zeugs.pfs {
 	exports de.hechler.patrick.zeugs.pfs.interfaces;
 	exports de.hechler.patrick.zeugs.pfs.misc;
 	exports de.hechler.patrick.zeugs.pfs.opts;
+	
 	// for now java package is only visible for testing
 	exports de.hechler.patrick.zeugs.pfs.java to de.hechler.patrick.zeugs.check;
 
@@ -22,7 +23,8 @@ module de.hechler.patrick.zeugs.pfs {
 	opens de.hechler.patrick.zeugs.pfs.impl to de.hechler.patrick.zeugs.check;
 	
 	uses FSProvider;
-
-//	provides FileSystemProvider with PatrFileSystemProvider;
+	
+	// when the java package is finished, remember to add the provider
+	
 	provides FSProvider with PatrFSProvider;
 }

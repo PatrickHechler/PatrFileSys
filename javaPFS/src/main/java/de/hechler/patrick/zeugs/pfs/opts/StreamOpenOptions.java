@@ -30,18 +30,15 @@ import de.hechler.patrick.zeugs.pfs.misc.ElementType;
  * 
  * @author pat
  */
-public record StreamOpenOptions(boolean read, boolean write, boolean append, ElementType type, boolean createAlso,
-		boolean createOnly) {
-
-	public StreamOpenOptions(boolean read, boolean write, boolean append, ElementType type, boolean createAlso,
-			boolean createOnly) {
-		write = write || append;
+public record StreamOpenOptions(boolean read, boolean write, boolean append, ElementType type, boolean createAlso, boolean createOnly) {
+	
+	public StreamOpenOptions(boolean read, boolean write, boolean append, ElementType type, boolean createAlso, boolean createOnly) {
+		write      = write || append;
 		createAlso = createAlso || createOnly;
-		this.read = read;
+		this.read  = read;
 		this.write = write;
 		if (!read && !write) {
-			throw new IllegalArgumentException(
-					"can't open streams without read and without write access! spezify at least one of them.");
+			throw new IllegalArgumentException("can't open streams without read and without write access! spezify at least one of them.");
 		}
 		this.append = append;
 		switch (type) {
@@ -50,10 +47,7 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 		default:
 			throw new IllegalArgumentException("unknown element type: " + type.name());
 		case null:
-			if (createAlso) {
-				throw new IllegalArgumentException(
-						"can't open a streams when createAlso or createOnly is set, but type is null");
-			}
+			if (createAlso) { throw new IllegalArgumentException("can't open a streams when createAlso or createOnly is set, but type is null"); }
 		case file:
 		case pipe:
 			this.type = type;
@@ -61,19 +55,19 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 		this.createAlso = createAlso;
 		this.createOnly = createOnly;
 	}
-
+	
 	public StreamOpenOptions(boolean read, boolean write) {
 		this(read, write, false, null, false, false);
 	}
-
+	
 	public StreamOpenOptions(boolean read, boolean write, boolean append) {
 		this(read, write, append, null, false, false);
 	}
-
+	
 	public StreamOpenOptions(boolean read, boolean write, boolean append, ElementType type) {
 		this(read, write, append, type, true, false);
 	}
-
+	
 	public boolean seekable() {
 		switch (type) {
 		case file:
@@ -86,10 +80,12 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 			throw new AssertionError("unknown type: " + type.name());
 		}
 	}
-
-	public StreamOpenOptions setType(ElementType type) {
-		assert this.type == null;
+	
+	public StreamOpenOptions ensureType(ElementType type) {
+		if (type == null) { throw new NullPointerException("type is null"); }
+		if (type == this.type) { return this; }
+		if (this.type != null) { throw new IllegalArgumentException("this is a " + type + ", but type is set to " + this.type); }
 		return new StreamOpenOptions(read, write, append, type, createAlso, createOnly);
 	}
-
+	
 }

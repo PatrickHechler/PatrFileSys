@@ -8,18 +8,6 @@
 #include "pfs.h"
 #include "../include/pfs.h"
 
-static inline void free_old() {
-	if (pfs_ehs) {
-		free(pfs_ehs);
-		free(pfs_shs);
-		free(pfs_ihs);
-		if (pfs_root != pfs_cwd) {
-			free(pfs_root);
-		}
-		free(pfs_cwd);
-	}
-}
-
 int childset_equal(const void *a, const void *b) {
 	const struct element_handle *ha = a, *hb = b;
 	return ha->handle.element_place.block == hb->handle.element_place.block
@@ -39,6 +27,16 @@ static inline void release_eh(struct element_handle *feh) {
 		}
 		hashset_remove(&b->children, eh_hash(a), a);
 		free(a);
+	}
+}
+
+static inline void free_old() {
+	if (pfs_ehs) {
+		free(pfs_ehs);
+		free(pfs_shs);
+		free(pfs_ihs);
+		release_eh(pfs_root);
+		release_eh(pfs_cwd);
 	}
 }
 
@@ -258,6 +256,13 @@ extern int pfs_format(i64 block_count) {
 		free(nrot);
 		return 0;
 	}
+	if (!pfsc_fill_root(&nrot->handle)) {
+		free(nehs);
+		free(nshs);
+		free(nihs);
+		free(nrot);
+		return 0;
+	}
 	nrot->parent = NULL;
 	nrot->load_count = 2;
 	nrot->children.setsize = 0;
@@ -326,13 +331,21 @@ static inline int handle(const char *path, ui32 flag) {
 	if (!eh) {
 		return -1;
 	}
-	ui32 flags = pfsc_element_get_flags(&eh->handle);
-	if (flags == -1) {
-		return -1;
-	}
-	if ((flags & flag) != 0) {
-		pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
-		return -1;
+	if (eh->handle.real_parent_place.block == -1) {
+		// the root folder has no flags
+		if ((flag & PFS_F_FOLDER) != flag) {
+			pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+			return -1;
+		}
+	} else {
+		ui32 flags = pfsc_element_get_flags(&eh->handle);
+		if (flags == (ui32) -1) {
+			return -1;
+		}
+		if ((flag & flags) != flag) {
+			pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+			return -1;
+		}
 	}
 	return_handle(pfs_eh_len, pfs_ehs, eh);
 }

@@ -134,7 +134,7 @@ public class PatrFS implements FS {
 			throw thrw(e);
 		}
 	}
-
+	
 	@Override
 	public Folder folder(String path) throws IOException {
 		if (closed) {
@@ -236,9 +236,9 @@ public class PatrFS implements FS {
 								throw thrw(lockup, "find out type of stream (get flags)");
 							}
 							if ((flags & FSElement.FLAG_FILE) != 0) {
-								opts = opts.setType(ElementType.file);
+								opts = opts.ensureType(ElementType.file);
 							} else if ((flags & FSElement.FLAG_PIPE) != 0) {
-								opts = opts.setType(ElementType.pipe);
+								opts = opts.ensureType(ElementType.pipe);
 							} else {
 								throw new InternalError("unknown element type: flags=0x" + Integer.toHexString(flags));
 							}

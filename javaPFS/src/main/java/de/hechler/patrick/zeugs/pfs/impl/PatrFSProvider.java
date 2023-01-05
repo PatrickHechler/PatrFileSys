@@ -14,14 +14,18 @@ import java.lang.invoke.MethodHandle;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
+import java.security.NoSuchProviderException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 import de.hechler.patrick.zeugs.pfs.FSProvider;
 import de.hechler.patrick.zeugs.pfs.interfaces.FS;
+import de.hechler.patrick.zeugs.pfs.interfaces.FSElement;
 import de.hechler.patrick.zeugs.pfs.interfaces.FSOptions;
+import de.hechler.patrick.zeugs.pfs.interfaces.Folder;
 import de.hechler.patrick.zeugs.pfs.opts.PatrFSOptions;
 import de.hechler.patrick.zeugs.pfs.opts.PatrRamFSOpts;
 
@@ -48,6 +52,35 @@ public class PatrFSProvider extends FSProvider {
 		}
 	}
 	
+	public static void main(String[] args) throws NoSuchProviderException, IOException {
+		System.out.println(Runtime.version());
+		FSProvider myProv = FSProvider.ofName(PATR_FS_PROVIDER_NAME);
+		System.out.println("got porvider");
+		FSOptions opts = new PatrFSOptions("./testout/test.pfs", 1024L, 1024);
+		System.out.println("created load option: " + opts);
+		try (FS fs = myProv.loadFS(opts)) {
+			System.out.println("loaded fs");
+			print("/", fs.folder("/"));
+		}
+		System.out.println("FINISH");
+	}
+	
+	private static void print(String prefix, Folder folder) throws IOException {
+		String newPrefix = prefix + folder.name();
+		System.out.println(" " + folder.childCount() + " children");
+		for (Iterator<FSElement> iter = folder.iter(true); iter.hasNext();) {
+			FSElement element = iter.next();
+			System.out.print(newPrefix + element.name());
+			if (element.isFolder()) {
+				print(newPrefix, element.getFolder());
+			} else if (element.isFile()) {
+				System.out.println(" " + element.getFile().length() + " bytes in the file");
+			} else if (element.isPipe()) {
+				System.out.println(" " + element.getFile().length() + " bytes in the pipe");
+			}
+		}
+	}
+	
 	@Override
 	public FS loadFS(FSOptions fso) throws IOException {
 		if (fso == null) { throw new NullPointerException("options are null!"); }
@@ -55,7 +88,7 @@ public class PatrFSProvider extends FSProvider {
 			if (loaded != null) { throw new IllegalStateException("maximum amount of file systems has been loaded! (max amount: 1)"); }
 			MemorySession session = MemorySession.openConfined();
 			try {
-				Linker       linker  = Linker.nativeLinker();
+				Linker       linker = Linker.nativeLinker();
 				SymbolLookup loockup;
 				try {
 					loockup = SymbolLookup.libraryLookup("pfs-core", session);
@@ -141,7 +174,7 @@ public class PatrFSProvider extends FSProvider {
 	}
 	
 	public static IOException thrw(SymbolLookup loockup, String msg) throws IOException {
-		int pfsErrno = loockup.lookup("pfs_errno").orElseThrow().get(ValueLayout.JAVA_INT, 0);
+		int pfsErrno = loockup.lookup("pfs_errno").orElseThrow().address().get(ValueLayout.JAVA_INT, 0);
 		switch (pfsErrno) {
 		case 0: /* if pfs_errno is not set/no error occurred */
 			throw new AssertionError("no error: " + msg);
