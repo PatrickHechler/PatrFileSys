@@ -1,6 +1,7 @@
 package de.hechler.patrick.zeugs.pfs;
 
 import java.io.IOException;
+import java.nio.file.spi.FileSystemProvider;
 import java.security.NoSuchProviderException;
 import java.util.Collection;
 import java.util.Collections;
@@ -28,6 +29,10 @@ public abstract class FSProvider {
 	 * make sure the binaries are 
 	 */
 	public static final String PATR_FS_PROVIDER_NAME = "patr-fs";
+	/**
+	 * the {@link #name} of the {@link FSProvider}, which delegates to the default {@link FileSystemProvider}
+	 */
+	public static final String JAVA_FS_PROVIDER_NAME = "java-fs";
 
 	/**
 	 * the name of the Provider

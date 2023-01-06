@@ -1,4 +1,4 @@
-package de.hechler.patrick.zeugs.pfs.impl;
+package de.hechler.patrick.zeugs.pfs.impl.pfs;
 
 import de.hechler.patrick.zeugs.pfs.interfaces.WriteStream;
 import de.hechler.patrick.zeugs.pfs.opts.StreamOpenOptions;

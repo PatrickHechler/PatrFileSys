@@ -23,22 +23,23 @@ extern i64 pfs_folder_child_count(int eh) {
 #define get_child \
 	{ \
 		struct element_handle *oc = hashset_get(&pfs_ehs[eh]->children, eh_hash(c), c); \
-		if (!oc) { \
+		if (oc) { \
 			free(c); \
 			oc->load_count++; \
 			c = oc; \
 		} else { \
-			c->children.entries = NULL; \
 			c->children.entrycount = 0; \
+			c->children.setsize = 0; \
 			c->children.equalizer = childset_equal; \
 			c->children.hashmaker = childset_hash; \
+			c->children.entries = NULL; \
 			c->load_count = 1; \
 			c->parent = pfs_ehs[eh]; \
 			hashset_put(&pfs_ehs[eh]->children, eh_hash(c), c); \
 		} \
 	}
 
-#define pfs_folder_child_impl(func_name) \
+#define pfs_folder_child_impl(type) \
 	ch(-1) \
 	struct element_handle *c = malloc(sizeof(struct element_handle)); \
 	if (!c) { \
@@ -47,7 +48,7 @@ extern i64 pfs_folder_child_count(int eh) {
 		return -1; \
 	} \
 	c->handle = pfs_ehs[eh]->handle; \
-	if (!func_name(&c->handle, name)) { \
+	if (!pfsc_folder_##type##child_from_name(&c->handle, name)) { \
 		cr(-1) \
 		return -1; \
 	} \
@@ -56,19 +57,19 @@ extern i64 pfs_folder_child_count(int eh) {
 	return_handle(pfs_eh_len, pfs_ehs, c)
 
 extern int pfs_folder_child(int eh, const char *name) {
-	pfs_folder_child_impl(pfsc_folder_child_from_name)
+	pfs_folder_child_impl()
 }
 
 extern int pfs_folder_child_folder(int eh, const char *name) {
-	pfs_folder_child_impl(pfsc_folder_folder_child_from_name)
+	pfs_folder_child_impl(folder_)
 }
 
 extern int pfs_folder_child_file(int eh, const char *name) {
-	pfs_folder_child_impl(pfsc_folder_file_child_from_name)
+	pfs_folder_child_impl(file_)
 }
 
 extern int pfs_folder_child_pipe(int eh, const char *name) {
-	pfs_folder_child_impl(pfsc_folder_pipe_child_from_name)
+	pfs_folder_child_impl(pipe_)
 }
 
 #define pfs_folder_create(type) \

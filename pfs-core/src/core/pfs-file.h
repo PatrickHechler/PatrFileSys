@@ -45,6 +45,15 @@ i64 pfsc_file_append(pfs_eh f, void *data, i64 length);
 int pfsc_file_truncate(pfs_eh f, i64 new_length);
 
 /**
+ * change the length of the file
+ *
+ * new_length has to be larger than the current length
+ *
+ * this function appends zeros to the files end until the files-length is equal to new_length
+ */
+int pfsc_file_truncate_grow(pfs_eh f, i64 new_length);
+
+/**
  * get the length of a file
  *
  * if this operation fails -1 is returned

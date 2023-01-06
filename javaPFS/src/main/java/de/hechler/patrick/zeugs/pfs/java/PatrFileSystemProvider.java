@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.Set;
 
 import de.hechler.patrick.zeugs.pfs.FSProvider;
-import de.hechler.patrick.zeugs.pfs.impl.PatrFSProvider;
+import de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider;
 import de.hechler.patrick.zeugs.pfs.interfaces.FSOptions;
 import de.hechler.patrick.zeugs.pfs.java.impl.PatrFileSystem;
 import de.hechler.patrick.zeugs.pfs.java.impl.PatrPath;

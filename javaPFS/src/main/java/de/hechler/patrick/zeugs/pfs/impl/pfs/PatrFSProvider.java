@@ -1,4 +1,4 @@
-package de.hechler.patrick.zeugs.pfs.impl;
+package de.hechler.patrick.zeugs.pfs.impl.pfs;
 
 import java.io.IOError;
 import java.io.IOException;
@@ -11,9 +11,9 @@ import java.lang.foreign.MemorySession;
 import java.lang.foreign.SymbolLookup;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.NoSuchFileException;
-import java.nio.file.Paths;
 import java.security.NoSuchProviderException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -25,7 +25,10 @@ import de.hechler.patrick.zeugs.pfs.FSProvider;
 import de.hechler.patrick.zeugs.pfs.interfaces.FS;
 import de.hechler.patrick.zeugs.pfs.interfaces.FSElement;
 import de.hechler.patrick.zeugs.pfs.interfaces.FSOptions;
+import de.hechler.patrick.zeugs.pfs.interfaces.File;
 import de.hechler.patrick.zeugs.pfs.interfaces.Folder;
+import de.hechler.patrick.zeugs.pfs.interfaces.Pipe;
+import de.hechler.patrick.zeugs.pfs.interfaces.WriteStream;
 import de.hechler.patrick.zeugs.pfs.opts.PatrFSOptions;
 import de.hechler.patrick.zeugs.pfs.opts.PatrRamFSOpts;
 
@@ -59,24 +62,49 @@ public class PatrFSProvider extends FSProvider {
 		FSOptions opts = new PatrFSOptions("./testout/test.pfs", 1024L, 1024);
 		System.out.println("created load option: " + opts);
 		try (FS fs = myProv.loadFS(opts)) {
-			System.out.println("loaded fs");
+			System.out.print("loaded fs");
 			print("/", fs.folder("/"));
+			File evilFile = fs.folder(".").createFile("evil file");
+			System.out.println("created the evil file");
+			Folder evilPipe = fs.folder(".").createFolder("evil pipe");
+			System.out.println("created the evil folder/pipe");
+			Pipe thisIsEvil = evilPipe.createPipe("this\n is \t evil");
+			System.out.println("created the evil");
+			evilFile.close();
+			System.out.println("colsed evil file");
+			WriteStream stream = thisIsEvil.openWrite();
+			System.out.println("opened evel write stream");
+			stream.write("hello world, this is the evel content of the evil pipe\nthis is very evil!".getBytes(StandardCharsets.UTF_8));
+			System.out.println("wrote some data to the evel stream");
+			thisIsEvil.close();
+			System.out.println("colsed this is evil");
+			stream.close();
+			System.out.println("colsed the evil stream");
+			evilPipe.close();
+			System.out.println("colsed evil pipe");
+			print("", fs.folder("/"));
 		}
 		System.out.println("FINISH");
 	}
 	
 	private static void print(String prefix, Folder folder) throws IOException {
-		String newPrefix = prefix + folder.name();
-		System.out.println(" " + folder.childCount() + " children");
-		for (Iterator<FSElement> iter = folder.iter(true); iter.hasNext();) {
-			FSElement element = iter.next();
-			System.out.print(newPrefix + element.name());
-			if (element.isFolder()) {
-				print(newPrefix, element.getFolder());
-			} else if (element.isFile()) {
-				System.out.println(" " + element.getFile().length() + " bytes in the file");
-			} else if (element.isPipe()) {
-				System.out.println(" " + element.getFile().length() + " bytes in the pipe");
+		try (folder) {
+			String newPrefix = prefix + folder.name().replace("\\", "\\\\").replace("\t", "\\t").replace("\b", "\\b").replace("\n", "\\n")
+					.replace("\r", "\\r").replace("\f", "\\f").replace(" ", "\\ ").replace("\'", "\\'").replace("\"", "\\\"") + '/';
+			System.out.println("/  has " + folder.childCount() + " children");
+			for (Iterator<FSElement> iter = folder.iter(true); iter.hasNext();) {
+				FSElement element = iter.next();
+				System.out.print(newPrefix + element.name().replace("\\", "\\\\").replace("\t", "\\t").replace("\b", "\\b").replace("\n", "\\n")
+						.replace("\r", "\\r").replace("\f", "\\f").replace(" ", "\\ ").replace("\'", "\\'").replace("\"", "\\\""));
+				if (element.isFolder()) {
+					print(newPrefix, element.getFolder());
+				} else if (element.isFile()) {
+					System.out.println("  has " + element.getFile().length() + " bytes in the file");
+					element.close();
+				} else if (element.isPipe()) {
+					System.out.println("  has " + element.getPipe().length() + " bytes in the pipe");
+					element.close();
+				}
 			}
 		}
 	}
@@ -88,23 +116,17 @@ public class PatrFSProvider extends FSProvider {
 			if (loaded != null) { throw new IllegalStateException("maximum amount of file systems has been loaded! (max amount: 1)"); }
 			MemorySession session = MemorySession.openConfined();
 			try {
-				Linker       linker = Linker.nativeLinker();
-				SymbolLookup loockup;
-				try {
-					loockup = SymbolLookup.libraryLookup("pfs-core", session);
-				} catch (IllegalArgumentException e) {
-					loockup = SymbolLookup.libraryLookup(Paths.get("lib/libpfs-core.so").toAbsolutePath().toString(), session);
-				}
+				Linker linker = Linker.nativeLinker();
 				try (MemorySession local = MemorySession.openConfined()) {
 					if (fso instanceof PatrFSOptions opts) {
-						loadPatrOpts(linker, loockup, local, opts);
+						loadPatrOpts(linker, PatrFS.LOCKUP, local, opts);
 					} else if (fso instanceof PatrRamFSOpts opts) {
-						loadPatrRamOpts(linker, loockup, opts);
+						loadPatrRamOpts(linker, PatrFS.LOCKUP, opts);
 					} else {
 						throw new IllegalArgumentException("FSOptions of an unknown " + fso.getClass());
 					}
 				}
-				loaded = new PatrFS(session, loockup);
+				loaded = new PatrFS(session);
 			} catch (Throwable e) {
 				session.close();
 				throw thrw(e);

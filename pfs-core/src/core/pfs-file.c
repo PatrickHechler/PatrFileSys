@@ -12,7 +12,6 @@
 #define get_file(error_result) \
 	void *file_block_data = pfs->get(pfs, f->element_place.block); \
 	if (file_block_data == NULL) { \
-		pfs_errno = PFS_ERRNO_UNKNOWN_ERROR; \
 		return error_result; \
 	} \
 	struct pfs_file *file = file_block_data + f->element_place.pos;
@@ -89,7 +88,7 @@ i64 pfsc_file_append(pfs_eh f, void *data, i64 length) {
 	return appended;
 }
 
-static inline int truncate_shrink(i64 new_length, pfs_eh f) {
+static inline int truncate_shrink(pfs_eh f, i64 new_length) {
 	struct pfs_file *file = pfs->get(pfs, f->element_place.block) + f->element_place.pos;
 	i64 remain = file->file_length - new_length;
 	struct pfs_place place = find_place(file->first_block, new_length);
@@ -113,7 +112,7 @@ static inline int truncate_shrink(i64 new_length, pfs_eh f) {
 	return 1;
 }
 
-static inline int truncate_grow(i64 new_length, pfs_eh f) {
+int pfsc_file_truncate_grow(pfs_eh f, i64 new_length) {
 	struct pfs_file *file = pfs->get(pfs, f->element_place.block) + f->element_place.pos;
 	const i64 old_length = file->file_length;
 	struct pfs_place file_end = find_place(file->first_block, old_length);
@@ -146,7 +145,7 @@ static inline int truncate_grow(i64 new_length, pfs_eh f) {
 		file_end.pos = 0;
 		pfs->set(pfs, current_block_num);
 		if (file_end.block == -1L) {
-			truncate_shrink(old_length, f);
+			truncate_shrink(f, old_length);
 			pfs->set(pfs, f->element_place.block);
 			return 0;
 		}
@@ -167,9 +166,9 @@ int pfsc_file_truncate(pfs_eh f, i64 new_length) {
 	file->element.last_mod_time = time(NULL);
 	int res;
 	if (file->file_length < new_length) {
-		res = truncate_grow(new_length, f);
+		res = pfsc_file_truncate_grow(f, new_length);
 	} else { // shrink can handle no change
-		res = truncate_shrink(new_length, f);
+		res = truncate_shrink(f, new_length);
 	}
 	pfs->unget(pfs, f->element_place.block);
 	return res;

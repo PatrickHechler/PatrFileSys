@@ -2,6 +2,8 @@ package de.hechler.patrick.zeugs.pfs.interfaces;
 
 import java.io.IOException;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.MemorySession;
+import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
 
 import de.hechler.patrick.zeugs.pfs.opts.StreamOpenOptions;
@@ -40,8 +42,11 @@ public interface WriteStream extends Stream {
 	 *         because of an error
 	 */
 	default int write(byte[] data, int off, int len) throws IOException {
-		MemorySegment seg = MemorySegment.ofArray(data);
-		return (int) write(seg.asSlice((long) off, (long) len));
+		try (MemorySession mem = MemorySession.openConfined()) {
+			MemorySegment seg = mem.allocate(len);
+			MemorySegment.copy(data, off, seg, ValueLayout.JAVA_BYTE, 0, len);
+			return (int) write(seg);
+		}
 	}
 
 	/**

@@ -1,13 +1,13 @@
-package de.hechler.patrick.zeugs.pfs.impl;
+package de.hechler.patrick.zeugs.pfs.impl.pfs;
 
-import static de.hechler.patrick.zeugs.pfs.impl.PatrFS.INT;
-import static de.hechler.patrick.zeugs.pfs.impl.PatrFS.LINKER;
-import static de.hechler.patrick.zeugs.pfs.impl.PatrFS.LONG;
-import static de.hechler.patrick.zeugs.pfs.impl.PatrFS.SO_APPEND;
-import static de.hechler.patrick.zeugs.pfs.impl.PatrFS.SO_READ;
-import static de.hechler.patrick.zeugs.pfs.impl.PatrFS.SO_WRITE;
-import static de.hechler.patrick.zeugs.pfs.impl.PatrFSProvider.loaded;
-import static de.hechler.patrick.zeugs.pfs.impl.PatrFSProvider.thrw;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.INT;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LINKER;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LOCKUP;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LONG;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.SO_APPEND;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.SO_READ;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.SO_WRITE;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider.thrw;
 
 import java.io.IOException;
 import java.lang.foreign.FunctionDescriptor;
@@ -20,14 +20,14 @@ import de.hechler.patrick.zeugs.pfs.opts.StreamOpenOptions;
 
 public class PatrFile extends PatrFSElement implements File {
 	
-	private static final MethodHandle PFS_PIPE_LENGTH;
+	private static final MethodHandle PFS_FILE_LENGTH;
 	private static final MethodHandle PFS_OPEN_STREAM;
 	private static final MethodHandle PFS_FILE_TRUNCATE;
 	
 	static {
-		PFS_PIPE_LENGTH   = LINKER.downcallHandle(loaded.lockup.lookup("pfs_pipe_length").orElseThrow(), FunctionDescriptor.of(LONG, INT));
-		PFS_FILE_TRUNCATE = LINKER.downcallHandle(loaded.lockup.lookup("pfs_file_truncate").orElseThrow(), FunctionDescriptor.of(INT, INT, LONG));
-		PFS_OPEN_STREAM   = LINKER.downcallHandle(loaded.lockup.lookup("pfs_open_stream").orElseThrow(), FunctionDescriptor.of(INT, INT, INT));
+		PFS_FILE_LENGTH   = LINKER.downcallHandle(LOCKUP.lookup("pfs_file_length").orElseThrow(), FunctionDescriptor.of(LONG, INT));
+		PFS_FILE_TRUNCATE = LINKER.downcallHandle(LOCKUP.lookup("pfs_file_truncate").orElseThrow(), FunctionDescriptor.of(INT, INT, LONG));
+		PFS_OPEN_STREAM   = LINKER.downcallHandle(LOCKUP.lookup("pfs_open_stream").orElseThrow(), FunctionDescriptor.of(INT, INT, INT));
 	}
 	
 	public PatrFile(int handle) {
@@ -36,9 +36,10 @@ public class PatrFile extends PatrFSElement implements File {
 	
 	@Override
 	public long length() throws IOException {
+		ensureOpen();
 		try {
-			long res = (long) PFS_PIPE_LENGTH.invoke(this.handle);
-			if (res == -1) { throw thrw(loaded.lockup, "get file length"); }
+			long res = (long) PFS_FILE_LENGTH.invoke(this.handle);
+			if (res == -1) { throw thrw(LOCKUP, "get file length"); }
 			return res;
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -47,8 +48,9 @@ public class PatrFile extends PatrFSElement implements File {
 	
 	@Override
 	public void truncate(long length) throws IOException {
+		ensureOpen();
 		try {
-			if (0 == (int) PFS_FILE_TRUNCATE.invoke(this.handle, length)) { throw thrw(loaded.lockup, "get file length"); }
+			if (0 == (int) PFS_FILE_TRUNCATE.invoke(this.handle, length)) { throw thrw(LOCKUP, "get file length"); }
 		} catch (Throwable e) {
 			throw thrw(e);
 		}
@@ -56,6 +58,7 @@ public class PatrFile extends PatrFSElement implements File {
 	
 	@Override
 	public Stream open(StreamOpenOptions options) throws IOException {
+		ensureOpen();
 		int o = 0;
 		if (options.createOnly()) { throw new IllegalStateException("create only is not possible when using open for an existing file!"); }
 		if (options.read()) {
@@ -69,7 +72,7 @@ public class PatrFile extends PatrFSElement implements File {
 		options = options.ensureType(ElementType.file);
 		try {
 			int res = (int) PFS_OPEN_STREAM.invoke(this.handle, o);
-			if (res == -1) { throw thrw(loaded.lockup, "open stream"); }
+			if (res == -1) { throw thrw(LOCKUP, "open stream"); }
 			if (options.read()) {
 				if (options.write()) {
 					return new PatrReadWriteStream(res, options);

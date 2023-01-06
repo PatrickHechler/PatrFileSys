@@ -42,7 +42,7 @@ static inline int return_handle(i64 *len, void ***hs, void *h) {
 		(*hs)[i] = h;
 		return i;
 	}
-	void **nhs = realloc((*hs), (*len) + 1);
+	void **nhs = realloc((*hs), ((*len) + 1) * sizeof(void*));
 	if (!nhs) {
 		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
 		return -1;
@@ -55,19 +55,27 @@ static inline int return_handle(i64 *len, void ***hs, void *h) {
 #define return_handle(len, hs, h) return return_handle(&len, (void ***) &hs, h);
 
 #define c_h(e, err_ret, flag) \
-	void *direct_parent_block_data = pfs->get(pfs, e->handle.direct_parent_place.block); \
-	if (!direct_parent_block_data) { \
-		return err_ret; \
-	} \
-	struct pfs_folder_entry *my_entry = direct_parent_block_data + e->handle.entry_pos; \
-	if ((my_entry->flags & flag) == 0) { \
-		pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE; \
-		pfs->unget(pfs, pfs_ehs[eh]->handle.direct_parent_place.block); \
-		return err_ret; \
+	if (e->handle.direct_parent_place.block == -1) { \
+		if ((PFS_F_FOLDER & flag) != flag) { \
+			pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE; \
+			return err_ret; \
+		} \
+	} else { \
+		void *direct_parent_block_data = pfs->get(pfs, e->handle.direct_parent_place.block); \
+		if (!direct_parent_block_data) { \
+			return err_ret; \
+		} \
+		struct pfs_folder_entry *my_entry = direct_parent_block_data + e->handle.entry_pos; \
+		if ((my_entry->flags & flag) == 0) { \
+			pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE; \
+			pfs->unget(pfs, pfs_ehs[eh]->handle.direct_parent_place.block); \
+			return err_ret; \
+		} \
 	} \
 
 #define c_r(e, err_ret) \
-	if (!pfs->unget(pfs, e->handle.direct_parent_place.block)) { \
+	if ((e->handle.direct_parent_place.block != -1) \
+			&& (!pfs->unget(pfs, e->handle.direct_parent_place.block))) { \
 		return err_ret; \
 	}
 
@@ -96,8 +104,7 @@ struct iter_handle {
 	struct element_handle *folder;
 };
 
-static_assert((offsetof(struct iter_handle, ieh)
-& 7) == 0, "err");
+static_assert((offsetof(struct iter_handle, ieh) & 7) == 0, "err");
 static_assert((offsetof(struct iter_handle, folder) & 7) == 0, "err");
 
 #ifndef I_AM_API_PFS

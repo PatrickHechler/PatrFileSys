@@ -137,7 +137,7 @@ extern i64 pfs_block_count() {
 	return block_count;
 }
 
-extern i64 pfs_free_block_count() {
+static inline i64 pfs_free_and_used_block_count_impl(_Bool free) {
 	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
 	if (b0 == NULL) {
 		return -1L;
@@ -148,30 +148,61 @@ extern i64 pfs_free_block_count() {
 		return -1L;
 	}
 	if (btfb == -1) {
-		i64 free_blocks = 0, current_block = 0;
+		i64 free_blocks = 0;
+		i64 current_block = btfb;
 		while (1) {
-			void *block_data = pfs->get(pfs, btfb);
+			void *block_data = pfs->get(pfs, current_block);
 			if (block_data == NULL) {
 				return -1L;
 			}
-			// TODO
+			i64 *data = block_data;
+			for (i64 i = pfs->block_size - 16; i; i--) {
+				if (data[i] == -1) {
+					continue;
+				}
+				ui8 *p = (void*) &data[i];
+				for (int ii = 7; ii; ii--) {
+					if (p[ii] == (ui8) -1) {
+						continue;
+					}
+					for (int iii = 7; iii; iii--) {
+						if (free) {
+							if ((p[ii] & (1U << iii)) == 0) {
+								free_blocks++;
+							}
+						} else {
+							if ((p[ii] & (1U << iii)) != 0) {
+								free_blocks++;
+							}
+						}
+					}
+				}
+			}
+			i64 next = *(i64*) (block_data + pfs->block_size - 8);
+			if (!pfs->unget(pfs, current_block)) {
+				return -1;
+			}
+			if (next == -1) {
+				return free_blocks;
+			}
+			current_block = next;
 		}
 	} else {
-		// TODO
+		i64 fzfb = pfs->first_zero_flagged_block(pfs);
+		if (fzfb == -1) {
+			return 0;
+		} else {
+			return 1;
+		}
 	}
 }
 
+extern i64 pfs_free_block_count() {
+	return pfs_free_and_used_block_count_impl(1);
+}
+
 extern i64 pfs_used_block_count() {
-	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
-	if (b0 == NULL) {
-		return -1L;
-	}
-	i64 total_block_count = b0->block_count;
-	i64 result = total_block_count - pfs_free_block_count();
-	if (!pfs->unget(pfs, 0L)) {
-		return -1L;
-	}
-	return result;
+	return pfs_free_and_used_block_count_impl(0);
 }
 
 extern i32 pfs_block_size() {

@@ -1,11 +1,11 @@
-package de.hechler.patrick.zeugs.pfs.impl;
+package de.hechler.patrick.zeugs.pfs.impl.pfs;
 
-import static de.hechler.patrick.zeugs.pfs.impl.PatrFS.INT;
-import static de.hechler.patrick.zeugs.pfs.impl.PatrFS.LINKER;
-import static de.hechler.patrick.zeugs.pfs.impl.PatrFS.LONG;
-import static de.hechler.patrick.zeugs.pfs.impl.PatrFS.PNTR;
-import static de.hechler.patrick.zeugs.pfs.impl.PatrFSProvider.loaded;
-import static de.hechler.patrick.zeugs.pfs.impl.PatrFSProvider.thrw;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LOCKUP;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.INT;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LINKER;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LONG;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.PNTR;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider.thrw;
 
 import java.io.IOException;
 import java.lang.foreign.FunctionDescriptor;
@@ -43,15 +43,15 @@ public abstract sealed class PatrStream implements Stream permits PatrWriteStrea
 	private static final MethodHandle PFS_STREAM_SEEK_EOF;
 	
 	static {
-		PFS_STREAM_CLOSE    = LINKER.downcallHandle(loaded.lockup.lookup("pfs_stream_close").orElseThrow(), FunctionDescriptor.of(INT, INT));
-		PFS_STREAM_WRITE    = LINKER.downcallHandle(loaded.lockup.lookup("pfs_stream_write").orElseThrow(),
+		PFS_STREAM_CLOSE    = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_close").orElseThrow(), FunctionDescriptor.of(INT, INT));
+		PFS_STREAM_WRITE    = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_write").orElseThrow(),
 				FunctionDescriptor.of(LONG, INT, PNTR, LONG));
-		PFS_STREAM_READ     = LINKER.downcallHandle(loaded.lockup.lookup("pfs_stream_read").orElseThrow(),
+		PFS_STREAM_READ     = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_read").orElseThrow(),
 				FunctionDescriptor.of(LONG, INT, PNTR, LONG));
-		PFS_STREAM_GET_POS  = LINKER.downcallHandle(loaded.lockup.lookup("pfs_stream_get_pos").orElseThrow(), FunctionDescriptor.of(INT, INT));
-		PFS_STREAM_SET_POS  = LINKER.downcallHandle(loaded.lockup.lookup("pfs_stream_set_pos").orElseThrow(), FunctionDescriptor.of(INT, INT, LONG));
-		PFS_STREAM_ADD_POS  = LINKER.downcallHandle(loaded.lockup.lookup("pfs_stream_add_pos").orElseThrow(), FunctionDescriptor.of(LONG, INT, LONG));
-		PFS_STREAM_SEEK_EOF = LINKER.downcallHandle(loaded.lockup.lookup("pfs_stream_seek_eof").orElseThrow(), FunctionDescriptor.of(LONG, INT));
+		PFS_STREAM_GET_POS  = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_get_pos").orElseThrow(), FunctionDescriptor.of(INT, INT));
+		PFS_STREAM_SET_POS  = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_set_pos").orElseThrow(), FunctionDescriptor.of(INT, INT, LONG));
+		PFS_STREAM_ADD_POS  = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_add_pos").orElseThrow(), FunctionDescriptor.of(LONG, INT, LONG));
+		PFS_STREAM_SEEK_EOF = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_seek_eof").orElseThrow(), FunctionDescriptor.of(LONG, INT));
 	}
 	
 	private final int handle;
@@ -81,7 +81,7 @@ public abstract sealed class PatrStream implements Stream permits PatrWriteStrea
 		if (closed) { throw new ClosedChannelException(); }
 		try {
 			long res = (long) PFS_STREAM_WRITE.invoke(this.handle, seg, seg.byteSize());
-			if (res == -1L) { throw thrw(loaded.lockup, "write " + seg.byteSize() + " bytes"); }
+			if (res == -1L) { throw thrw(LOCKUP, "write " + seg.byteSize() + " bytes"); }
 			return res;
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -109,7 +109,7 @@ public abstract sealed class PatrStream implements Stream permits PatrWriteStrea
 		if (closed) { throw new ClosedChannelException(); }
 		try {
 			long res = (long) PFS_STREAM_READ.invoke(this.handle, seg, seg.byteSize());
-			if (res == -1L) { throw thrw(loaded.lockup, "read " + seg.byteSize() + " bytes"); }
+			if (res == -1L) { throw thrw(LOCKUP, "read " + seg.byteSize() + " bytes"); }
 			return res;
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -125,7 +125,7 @@ public abstract sealed class PatrStream implements Stream permits PatrWriteStrea
 	public void seek(long pos) throws IOException {
 		if (closed) { throw new ClosedChannelException(); }
 		try {
-			if (0 == (int) PFS_STREAM_SET_POS.invoke(this.handle, pos)) { throw thrw(loaded.lockup, "set pos"); }
+			if (0 == (int) PFS_STREAM_SET_POS.invoke(this.handle, pos)) { throw thrw(LOCKUP, "set pos"); }
 		} catch (Throwable e) {
 			throw thrw(e);
 		}
@@ -136,7 +136,7 @@ public abstract sealed class PatrStream implements Stream permits PatrWriteStrea
 		if (closed) { throw new ClosedChannelException(); }
 		try {
 			long res = (long) PFS_STREAM_ADD_POS.invoke(this.handle, add);
-			if (res == -1L) { throw thrw(loaded.lockup, "add pos"); }
+			if (res == -1L) { throw thrw(LOCKUP, "add pos"); }
 			return res;
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -148,7 +148,7 @@ public abstract sealed class PatrStream implements Stream permits PatrWriteStrea
 		if (closed) { throw new ClosedChannelException(); }
 		try {
 			long res = (long) PFS_STREAM_GET_POS.invoke(this.handle);
-			if (res == -1L) { throw thrw(loaded.lockup, "get pos"); }
+			if (res == -1L) { throw thrw(LOCKUP, "get pos"); }
 			return res;
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -160,7 +160,7 @@ public abstract sealed class PatrStream implements Stream permits PatrWriteStrea
 		if (closed) { throw new ClosedChannelException(); }
 		try {
 			long res = (long) PFS_STREAM_SEEK_EOF.invoke(this.handle);
-			if (res == -1L) { throw thrw(loaded.lockup, "seek eof"); }
+			if (res == -1L) { throw thrw(LOCKUP, "seek eof"); }
 			return res;
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -172,7 +172,7 @@ public abstract sealed class PatrStream implements Stream permits PatrWriteStrea
 		if (closed) { return; }
 		closed = true;
 		try {
-			if (0 == (int) PFS_STREAM_CLOSE.invoke(this.handle)) { throw thrw(loaded.lockup, "close"); }
+			if (0 == (int) PFS_STREAM_CLOSE.invoke(this.handle)) { throw thrw(LOCKUP, "close"); }
 		} catch (Throwable e) {
 			throw thrw(e);
 		}

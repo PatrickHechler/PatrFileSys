@@ -41,16 +41,25 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 			throw new IllegalArgumentException("can't open streams without read and without write access! spezify at least one of them.");
 		}
 		this.append = append;
-		switch (type) {
-		case folder:
-			throw new IllegalArgumentException("can't open folder streams");
-		default:
-			throw new IllegalArgumentException("unknown element type: " + type.name());
-		case null:
-			if (createAlso) { throw new IllegalArgumentException("can't open a streams when createAlso or createOnly is set, but type is null"); }
-		case file:
-		case pipe:
-			this.type = type;
+		if (type == null) {
+			if (createAlso) {
+				throw new IllegalArgumentException("can't open a streams when createAlso or createOnly is set, but type is null");
+			} else {
+				this.type = null;
+			}
+		} else {
+			switch (type) {
+			case file, pipe -> this.type = type;
+			case null -> { // still throws null pointer
+				if (createAlso) {
+					throw new IllegalArgumentException("can't open a streams when createAlso or createOnly is set, but type is null");
+				} else {
+					this.type = null;
+				}
+			}
+			case folder -> throw new IllegalArgumentException("can't open folder streams");
+			default -> throw new IllegalArgumentException("unknown element type: " + type.name());
+			}
 		}
 		this.createAlso = createAlso;
 		this.createOnly = createOnly;
@@ -69,16 +78,13 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	}
 	
 	public boolean seekable() {
-		switch (type) {
-		case file:
-			return true;
-		case pipe:
-			return false;
-		case null:
-			throw new IllegalStateException("type is not set");
-		default:
-			throw new AssertionError("unknown type: " + type.name());
-		}
+		if (type == null) { throw new IllegalStateException("type is not set"); }
+		return switch (type) {
+		case file -> true;
+		case pipe -> false;
+		case null -> throw new IllegalStateException("type is not set");
+		default -> throw new AssertionError("unknown type: " + type.name());
+		};
 	}
 	
 	public StreamOpenOptions ensureType(ElementType type) {

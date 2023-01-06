@@ -1,5 +1,5 @@
 import de.hechler.patrick.zeugs.pfs.FSProvider;
-import de.hechler.patrick.zeugs.pfs.impl.PatrFSProvider;
+import de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider;
 
 module de.hechler.patrick.zeugs.pfs {
 
@@ -12,7 +12,7 @@ module de.hechler.patrick.zeugs.pfs {
 	exports de.hechler.patrick.zeugs.pfs.java to de.hechler.patrick.zeugs.check;
 
 	exports de.hechler.patrick.zeugs.pfs.java.impl to de.hechler.patrick.zeugs.check;
-	exports de.hechler.patrick.zeugs.pfs.impl to de.hechler.patrick.zeugs.check;
+	exports de.hechler.patrick.zeugs.pfs.impl.pfs to de.hechler.patrick.zeugs.check;
 
 	opens de.hechler.patrick.zeugs.pfs to de.hechler.patrick.zeugs.check;
 	opens de.hechler.patrick.zeugs.pfs.interfaces to de.hechler.patrick.zeugs.check;
@@ -20,7 +20,7 @@ module de.hechler.patrick.zeugs.pfs {
 	opens de.hechler.patrick.zeugs.pfs.opts to de.hechler.patrick.zeugs.check;
 	opens de.hechler.patrick.zeugs.pfs.java to de.hechler.patrick.zeugs.check;
 	opens de.hechler.patrick.zeugs.pfs.java.impl to de.hechler.patrick.zeugs.check;
-	opens de.hechler.patrick.zeugs.pfs.impl to de.hechler.patrick.zeugs.check;
+	opens de.hechler.patrick.zeugs.pfs.impl.pfs to de.hechler.patrick.zeugs.check;
 	
 	uses FSProvider;
 	
