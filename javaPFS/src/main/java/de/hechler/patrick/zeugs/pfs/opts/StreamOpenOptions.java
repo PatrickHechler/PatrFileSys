@@ -33,34 +33,30 @@ import de.hechler.patrick.zeugs.pfs.misc.ElementType;
 public record StreamOpenOptions(boolean read, boolean write, boolean append, ElementType type, boolean createAlso, boolean createOnly) {
 	
 	public StreamOpenOptions(boolean read, boolean write, boolean append, ElementType type, boolean createAlso, boolean createOnly) {
-		write      = write || append;
-		createAlso = createAlso || createOnly;
-		this.read  = read;
-		this.write = write;
+		if (append) {
+			write = true;
+		}
+		if (createOnly) {
+			createAlso = true;
+		}
 		if (!read && !write) {
 			throw new IllegalArgumentException("can't open streams without read and without write access! spezify at least one of them.");
 		}
-		this.append = append;
-		if (type == null) {
+		switch (type) {
+		case file, pipe -> this.type = type;
+		case folder -> throw new IllegalArgumentException("can't open folder streams");
+		case null -> {
 			if (createAlso) {
 				throw new IllegalArgumentException("can't open a streams when createAlso or createOnly is set, but type is null");
 			} else {
 				this.type = null;
 			}
-		} else {
-			switch (type) {
-			case file, pipe -> this.type = type;
-			case null -> { // still throws null pointer
-				if (createAlso) {
-					throw new IllegalArgumentException("can't open a streams when createAlso or createOnly is set, but type is null");
-				} else {
-					this.type = null;
-				}
-			}
-			case folder -> throw new IllegalArgumentException("can't open folder streams");
-			default -> throw new IllegalArgumentException("unknown element type: " + type.name());
-			}
 		}
+		default -> throw new IllegalArgumentException("unknown element type: " + type.name());
+		}
+		this.read       = read;
+		this.write      = write;
+		this.append     = append;
 		this.createAlso = createAlso;
 		this.createOnly = createOnly;
 	}
@@ -78,7 +74,6 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	}
 	
 	public boolean seekable() {
-		if (type == null) { throw new IllegalStateException("type is not set"); }
 		return switch (type) {
 		case file -> true;
 		case pipe -> false;
