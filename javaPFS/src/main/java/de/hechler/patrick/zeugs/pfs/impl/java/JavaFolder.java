@@ -17,8 +17,8 @@ import de.hechler.patrick.zeugs.pfs.interfaces.Pipe;
 
 public class JavaFolder extends JavaFSElement implements Folder {
 	
-	public JavaFolder(Path root, Path path) {
-		super(root, path);
+	public JavaFolder(JavaFS fs, Path path) {
+		super(fs, path);
 		
 	}
 	
@@ -27,15 +27,9 @@ public class JavaFolder extends JavaFSElement implements Folder {
 		ensureOpen();
 		DirectoryStream<Path> stream;
 		if (showHidden) {
-			stream = Files.newDirectoryStream(root.resolve(path));
+			stream = Files.newDirectoryStream(fs.root.resolve(p()));
 		} else {
-			stream = Files.newDirectoryStream(root.resolve(path), p -> {
-				Path fn = p.getFileName();
-				if (fn == null) { return true; }
-				String str = fn.toString();
-				if (str.isEmpty()) { return true; }
-				return str.charAt(0) != '.';
-			});
+			stream = Files.newDirectoryStream(fs.root.resolve(p()), p -> !Files.isHidden(p));
 		}
 		return new FolderIter() {
 			
@@ -60,7 +54,7 @@ public class JavaFolder extends JavaFSElement implements Folder {
 			public FSElement nextElement() throws IOException {
 				ensureIterOpen();
 				Path          n = iter.next();
-				JavaFSElement e = new JavaFSElement(root, n.relativize(root));
+				JavaFSElement e = new JavaFSElement(fs, n.relativize(fs.root));
 				last = e;
 				return e;
 			}
@@ -86,7 +80,7 @@ public class JavaFolder extends JavaFSElement implements Folder {
 	@Override
 	public long childCount() throws IOException {
 		long cnt = 0L;
-		try (DirectoryStream<Path> stream = Files.newDirectoryStream(root.resolve(path))) {
+		try (DirectoryStream<Path> stream = Files.newDirectoryStream(fs.root.resolve(p()))) {
 			for (@SuppressWarnings("unused")
 			Path p : stream) {
 				cnt++;
@@ -98,50 +92,50 @@ public class JavaFolder extends JavaFSElement implements Folder {
 	@Override
 	public FSElement childElement(String name) throws IOException {
 		checkValidName(name);
-		Path f = full.resolve(name);
+		Path f = f().resolve(name);
 		Path p = checkExists(f);
-		return new JavaFSElement(root, p);
+		return new JavaFSElement(fs, p);
 	}
 	
 	@Override
 	public Folder childFolder(String name) throws IOException {
 		checkValidName(name);
-		Path f = full.resolve(name);
+		Path f = f().resolve(name);
 		Path p = checkExists(f);
 		if (!Files.isDirectory(f)) { throw new NotDirectoryException(p.toString()); }
-		return new JavaFolder(root, p);
+		return new JavaFolder(fs, p);
 	}
 	
 	@Override
 	public File childFile(String name) throws IOException {
 		checkValidName(name);
-		Path f = full.resolve(name);
+		Path f = f().resolve(name);
 		Path p = checkExists(f);
 		if (!Files.isRegularFile(f)) { throw new NotDirectoryException(p.toString()); }
-		return new JavaFile(root, p);
+		return new JavaFile(fs, p);
 	}
 	
 	@Override
 	public Pipe childPipe(String name) throws IOException {
 		checkValidName(name);
-		Path p = path.resolve(name);
-		throw new NoSuchFileException(p.toString(), path.toString(), "pipes are not supported");
+		Path p = p().resolve(name);
+		throw new NoSuchFileException(p.toString(), p().toString(), "pipes are not supported");
 	}
 	
 	@Override
 	public Folder createFolder(String name) throws IOException {
 		checkValidName(name);
-		Path f = full.resolve(name);
+		Path f = f().resolve(name);
 		Files.createDirectory(f);
-		return new JavaFolder(root, root.relativize(f));
+		return new JavaFolder(fs, fs.root.relativize(f));
 	}
 	
 	@Override
 	public File createFile(String name) throws IOException {
 		checkValidName(name);
-		Path f = full.resolve(name);
+		Path f = f().resolve(name);
 		Files.createFile(f);
-		return new JavaFile(root, root.relativize(f));
+		return new JavaFile(fs, fs.root.relativize(f));
 	}
 	
 	@Override
@@ -151,8 +145,8 @@ public class JavaFolder extends JavaFSElement implements Folder {
 	
 	
 	private Path checkExists(Path f) throws NoSuchFileException {
-		Path res = root.relativize(f);
-		if (!Files.exists(f)) { throw new NoSuchFileException(res.toString(), path.toString(), "no child element"); }
+		Path res = fs.root.relativize(f);
+		if (!Files.exists(f)) { throw new NoSuchFileException(res.toString(), p().toString(), "no child element"); }
 		return res;
 	}
 	

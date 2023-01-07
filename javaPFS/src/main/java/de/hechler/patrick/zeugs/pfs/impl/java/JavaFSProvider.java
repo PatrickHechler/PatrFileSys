@@ -14,19 +14,17 @@ import de.hechler.patrick.zeugs.pfs.opts.JavaFSOptions;
 
 public class JavaFSProvider extends FSProvider {
 	
-	private static final Function<? super Path, ? extends JavaFS> MAPPING_FUNCTION = JavaFS::new;
+	private final Function<Path, JavaFS> mapFunc = p -> new JavaFS(this, p);
+	private final Map<Path, JavaFS>      loaded  = new HashMap<>();
 	
-	private final Map<Path, JavaFS> loaded;
-	
-	protected JavaFSProvider() {
+	public JavaFSProvider() {
 		super(FSProvider.JAVA_FS_PROVIDER_NAME, Integer.MAX_VALUE);
-		this.loaded = new HashMap<>();
 	}
 	
 	@Override
 	public FS loadFS(FSOptions opts) throws IOException {
 		return switch (opts) {
-		case JavaFSOptions o -> loaded.computeIfAbsent(o.root(), MAPPING_FUNCTION);
+		case JavaFSOptions o -> loaded.computeIfAbsent(o.root(), mapFunc);
 		default -> throw new IllegalArgumentException("option type is not supported: " + opts.getClass());
 		};
 	}
@@ -35,7 +33,6 @@ public class JavaFSProvider extends FSProvider {
 	public Collection<? extends FS> loadedFS() {
 		return this.loaded.values();
 	}
-	
 	
 	void unload(JavaFS fs) {
 		JavaFS old = loaded.remove(fs.root);

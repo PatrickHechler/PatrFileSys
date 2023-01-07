@@ -17,18 +17,18 @@ import de.hechler.patrick.zeugs.pfs.opts.StreamOpenOptions;
 
 public class JavaFile extends JavaFSElement implements File {
 	
-	public JavaFile(Path root, Path path) {
-		super(root, path);
+	public JavaFile(JavaFS fs, Path path) {
+		super(fs, path);
 	}
 	
 	@Override
 	public long length() throws IOException {
-		return Files.size(full);
+		return Files.size(f());
 	}
 	
 	@Override
 	public void truncate(long length) throws IOException {
-		try (SeekableByteChannel channel = Files.newByteChannel(full, StandardOpenOption.WRITE)) {
+		try (SeekableByteChannel channel = Files.newByteChannel(f(), StandardOpenOption.WRITE)) {
 			channel.truncate(length);
 		}
 	}
@@ -50,11 +50,11 @@ public class JavaFile extends JavaFSElement implements File {
 		} else if (options.createAlso()) {
 			opts.add(StandardOpenOption.CREATE);
 		}
-		SeekableByteChannel channel = Files.newByteChannel(full, opts.toArray(new OpenOption[opts.size()]));
+		SeekableByteChannel channel = Files.newByteChannel(f(), opts.toArray(new OpenOption[opts.size()]));
 		return switch (options) {
-		case StreamOpenOptions o when o.write() && o.read() -> new ChannelReadWriteStream(channel, options, full);
-		case StreamOpenOptions o when o.write() && !o.read() -> new ChannelWriteStream(channel, options, full);
-		case StreamOpenOptions o when !o.write() && o.read() -> new ChannelReadStream(channel, options, full);
+		case StreamOpenOptions o when o.write() && o.read() -> new ChannelReadWriteStream(channel, options, f());
+		case StreamOpenOptions o when o.write() && !o.read() -> new ChannelWriteStream(channel, options, f());
+		case StreamOpenOptions o when !o.write() && o.read() -> new ChannelReadStream(channel, options, f());
 		default -> throw new IllegalArgumentException("I won't open a stream without read and without write access!");
 		};
 	}
