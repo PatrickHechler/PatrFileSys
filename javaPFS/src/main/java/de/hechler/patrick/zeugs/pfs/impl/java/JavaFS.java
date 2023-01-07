@@ -15,7 +15,8 @@ import de.hechler.patrick.zeugs.pfs.opts.StreamOpenOptions;
 
 public class JavaFS implements FS {
 	
-	private final Path    root;
+	final Path root;
+	
 	private volatile JavaFolder cwd;
 	
 	public JavaFS(Path root) {

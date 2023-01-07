@@ -2,6 +2,7 @@ package de.hechler.patrick.zeugs.pfs.impl.java;
 
 import java.io.IOError;
 import java.io.IOException;
+import java.nio.channels.ClosedChannelException;
 import java.nio.file.Path;
 
 import de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSElement;
@@ -12,13 +13,19 @@ import de.hechler.patrick.zeugs.pfs.interfaces.Pipe;
 
 public class JavaFSElement implements FSElement {
 	
-	private final Path       root;
-	private final Path       path;
-	private volatile boolean closed;
+	protected final Path       root;
+	protected final Path       path;
+	protected final Path       full;
+	protected volatile boolean closed;
 	
 	public JavaFSElement(Path root, Path path) {
 		this.root = root;
 		this.path = path;
+		this.full = root.resolve(path);
+	}
+	
+	protected void ensureOpen() throws ClosedChannelException {
+		if (closed) { throw new ClosedChannelException(); }
 	}
 	
 	@Override
