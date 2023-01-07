@@ -27,7 +27,7 @@ public interface Stream extends Closeable {
 	 * {@code pos} does not need to be inside of the file
 	 * 
 	 * @param pos the new position of the stream
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	void seek(long pos) throws IOException;
 
@@ -39,8 +39,8 @@ public interface Stream extends Closeable {
 	 * <p>
 	 * the new position does not need to be inside of the file
 	 * 
-	 * @param pos the new position of the stream
-	 * @throws IOException
+	 * @param add the new position of the stream
+	 * @throws IOException if an IO error occurs
 	 */
 	long seekAdd(long add) throws IOException;
 
@@ -50,7 +50,7 @@ public interface Stream extends Closeable {
 	 * fail
 	 * 
 	 * @return the current position of the stream
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	default long position() throws IOException {
 		return seekAdd(0L);
@@ -62,7 +62,7 @@ public interface Stream extends Closeable {
 	 * fail
 	 * 
 	 * @return the new position of the stream
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	long seekEOF() throws IOException;
 

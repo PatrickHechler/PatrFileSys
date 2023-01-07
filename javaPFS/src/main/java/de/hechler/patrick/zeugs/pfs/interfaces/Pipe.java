@@ -8,10 +8,8 @@ import de.hechler.patrick.zeugs.pfs.opts.StreamOpenOptions;
  * the {@link Pipe} interface provides a bunch of methods:
  * <ul>
  * <li>to get ({@link #length()} the pipes length</li>
- * <li>to set ({@link #truncate()} the pipes length</li>
  * <li>the content of the pipe can be read with {@link #openRead()}</li>
- * <li>to write to the pipe use {@link #openWrite()} and
- * {@link #openAppend()}</li>
+ * <li>to write to the pipe use {@link #openWrite()}</li>
  * <li>to read and write to the pipe use {@link #openReadWrite()}</li>
  * <li>also {@link #open(StreamOpenOptions)} can be used to open a stream with the
  * given options</li>
@@ -25,7 +23,7 @@ public interface Pipe extends FSElement {
 	 * returns the current length of the pipe
 	 * 
 	 * @return the current length of the pipe
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	long length() throws IOException;
 
@@ -38,7 +36,7 @@ public interface Pipe extends FSElement {
 	 * the stream will not be {@link StreamOpenOptions#seekable()}
 	 * 
 	 * @return the opened {@link ReadStream}
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	default ReadStream openRead() throws IOException {
 		return (ReadStream) open(new StreamOpenOptions(true, false));
@@ -53,7 +51,7 @@ public interface Pipe extends FSElement {
 	 * the stream will not be {@link StreamOpenOptions#seekable()}
 	 * 
 	 * @return the opened {@link WriteStream}
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	default WriteStream openWrite() throws IOException {
 		return (WriteStream) open(new StreamOpenOptions(false, true));
@@ -68,7 +66,7 @@ public interface Pipe extends FSElement {
 	 * the stream will not be {@link StreamOpenOptions#seekable()}
 	 * 
 	 * @return the opened {@link Stream}
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	default Stream openReadWrite() throws IOException {
 		return open(new StreamOpenOptions(true, true));
@@ -84,7 +82,7 @@ public interface Pipe extends FSElement {
 	 * 
 	 * @param options the options for the stream
 	 * @return the opened {@link Stream}
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	Stream open(StreamOpenOptions options) throws IOException;
 

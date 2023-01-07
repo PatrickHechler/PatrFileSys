@@ -11,9 +11,18 @@ import de.hechler.patrick.zeugs.pfs.interfaces.FSOptions;
  * to load and format/create an new file system use the
  * {@link #PatrFSOptions(String, long, int)} constructor.
  * 
+ * @param path       the path of the file, which should be used as underlying
+ *                   block storage
+ * @param format     <code>true</code> if the file system should be created and
+ *                   <code>false</code> if it should be opened
+ * @param blockCount the number of blocks, which can be used by the file system
+ * @param blockSize  the size of the blocks, which can be used by the file
+ *                   system
+ * 
  * @author pat
  */
 public record PatrFSOptions(String path, boolean format, long blockCount, int blockSize) implements FSOptions {
+	
 	/**
 	 * creates new {@link PatrFSOptions} with the given path and {@link #format} set
 	 * to <code>false</code>
@@ -23,7 +32,7 @@ public record PatrFSOptions(String path, boolean format, long blockCount, int bl
 	public PatrFSOptions(String path) {
 		this(path, false, -1L, -1);
 	}
-
+	
 	/**
 	 * creates new {@link PatrFSOptions} with the given path, {@link #format} set to
 	 * <code>true</code> and the given {@link #blockCount} and {@link #blockSize}
@@ -35,4 +44,5 @@ public record PatrFSOptions(String path, boolean format, long blockCount, int bl
 	public PatrFSOptions(String path, long blockCount, int blockSize) {
 		this(path, true, blockCount, blockSize);
 	}
+	
 }

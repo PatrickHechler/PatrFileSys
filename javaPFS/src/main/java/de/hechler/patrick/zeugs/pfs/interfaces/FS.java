@@ -23,7 +23,7 @@ public interface FS extends Closeable {
 	 * returns the number of available blocks for the file system
 	 * 
 	 * @return the number of available blocks for the file system
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	long blockCount() throws IOException;
 
@@ -31,7 +31,7 @@ public interface FS extends Closeable {
 	 * returns the size of the blocks in the file system
 	 * 
 	 * @return the size of the blocks in the file system
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	int blockSize() throws IOException;
 
@@ -40,7 +40,7 @@ public interface FS extends Closeable {
 	 * 
 	 * @param path the path of the element
 	 * @return an handle for the given element refereed by {@code path}
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	FSElement element(String path) throws IOException;
 
@@ -50,7 +50,7 @@ public interface FS extends Closeable {
 	 * 
 	 * @param path the path of the element
 	 * @return an handle for the given element refereed by {@code path}
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	Folder folder(String path) throws IOException;
 
@@ -60,7 +60,7 @@ public interface FS extends Closeable {
 	 * 
 	 * @param path the path of the element
 	 * @return an handle for the given element refereed by {@code path}
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	File file(String path) throws IOException;
 
@@ -70,7 +70,7 @@ public interface FS extends Closeable {
 	 * 
 	 * @param path the path of the element
 	 * @return an handle for the given element refereed by {@code path}
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	Pipe pipe(String path) throws IOException;
 
@@ -80,7 +80,7 @@ public interface FS extends Closeable {
 	 * @param path the path of the element
 	 * @param opts 
 	 * @return the opened stream
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	Stream stream(String path, StreamOpenOptions opts) throws IOException;
 
@@ -88,7 +88,7 @@ public interface FS extends Closeable {
 	 * returns the current working directory
 	 * 
 	 * @return the current working directory
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	Folder cwd() throws IOException;
 
@@ -96,7 +96,7 @@ public interface FS extends Closeable {
 	 * changes the current working directory to {@code f}
 	 * 
 	 * @param f the new current working directory
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	void cwd(Folder f) throws IOException;
 

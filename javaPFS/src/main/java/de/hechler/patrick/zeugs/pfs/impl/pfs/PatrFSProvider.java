@@ -32,6 +32,17 @@ import de.hechler.patrick.zeugs.pfs.interfaces.WriteStream;
 import de.hechler.patrick.zeugs.pfs.opts.PatrFSOptions;
 import de.hechler.patrick.zeugs.pfs.opts.PatrRamFSOpts;
 
+/**
+ * this class implements the File System interfaces by delegating to the linux
+ * native Patr-FileSystem API
+ * <br>
+ * the {@link #name()} of this provider is
+ * {@value FSProvider#PATR_FS_PROVIDER_NAME}
+ * 
+ * @author pat
+ * 
+ * @see FSProvider#PATR_FS_PROVIDER_NAME
+ */
 public class PatrFSProvider extends FSProvider {
 	
 	private static final long MAGIC_START       = 0xF17565393C422698L;

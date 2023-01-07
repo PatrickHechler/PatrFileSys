@@ -14,7 +14,7 @@ import de.hechler.patrick.zeugs.pfs.misc.ElementType;
  * @author pat
  */
 public interface FSElement extends Closeable {
-
+	
 	/**
 	 * these bits are not allowed to be modified after a file system has been
 	 * created.
@@ -27,26 +27,26 @@ public interface FSElement extends Closeable {
 	 * 
 	 * @see #flags()
 	 */
-	static final int FLAG_FOLDER = 0x00000001;
+	static final int FLAG_FOLDER       = 0x00000001;
 	/**
 	 * an element marked with this flag represent a file
 	 * 
 	 * @see #flags()
 	 */
-	static final int FLAG_FILE = 0x00000002;
+	static final int FLAG_FILE         = 0x00000002;
 	/**
 	 * an element marked with this flag represent a pipe
 	 * 
 	 * @see #flags()
 	 */
-	static final int FLAG_PIPE = 0x00000004;
+	static final int FLAG_PIPE         = 0x00000004;
 	/**
 	 * a file marked with this flag can be executed
 	 * 
 	 * @see #flags()
 	 * @see #flag(int, int)
 	 */
-	static final int FLAG_EXECUTABLE = 0x00000100;
+	static final int FLAG_EXECUTABLE   = 0x00000100;
 	/**
 	 * an element marked with this flag will be hidden by default
 	 * 
@@ -55,30 +55,30 @@ public interface FSElement extends Closeable {
 	 * @see Folder#iter(boolean)
 	 * @see Folder#iterator()
 	 */
-	static final int FLAG_HIDDEN = 0x01000000;
-
+	static final int FLAG_HIDDEN       = 0x01000000;
+	
 	/**
 	 * returns the parent folder of this {@link FSElement}.
 	 * <p>
 	 * if this {@link FSElement} is the root {@link Folder} the method will fail
 	 * 
 	 * @return the parent folder of this {@link FSElement}.
-	 *         <p>
-	 * @throws IOException
+	 * 
+	 * @throws IOException if an IO error occurs
 	 */
 	Folder parent() throws IOException;
-
+	
 	/**
 	 * returns the flags of this {@link FSElement}
 	 * 
 	 * @return the flags of this {@link FSElement}
-	 * @throws IOException
+	 * 
+	 * @throws IOException if an IO error occurs
 	 */
 	int flags() throws IOException;
-
+	
 	/**
 	 * modifies the flags of this {@link FSElement}.
-	 * <p>
 	 * <ul>
 	 * <li>{@code add} and {@code rem} are not allowed to contain common bits.
 	 * {@code (add & rem)} has to be zero</li>
@@ -88,50 +88,56 @@ public interface FSElement extends Closeable {
 	 * 
 	 * @param add the flags which should be added to this {@link FSElement}
 	 * @param rem the flags which should be removed from this {@link FSElement}
-	 * @throws IOException
+	 * 
+	 * @throws IOException if an IO error occurs
 	 */
 	void flag(int add, int rem) throws IOException;
-
+	
 	/**
 	 * returns the last modification time of this {@link FSElement}
 	 * 
 	 * @return the last modification time of this {@link FSElement}
-	 * @throws IOException
+	 * 
+	 * @throws IOException if an IO error occurs
 	 */
 	long lastModTime() throws IOException;
-
+	
 	/**
 	 * sets the last modification time of this {@link FSElement}
 	 * 
 	 * @param time the new last modification time of this {@link FSElement}
-	 * @throws IOException
+	 * 
+	 * @throws IOException if an IO error occurs
 	 */
 	void lastModTime(long time) throws IOException;
-
+	
 	/**
 	 * returns the create time of this {@link FSElement}
 	 * 
 	 * @return the create time of this {@link FSElement}
-	 * @throws IOException
+	 * 
+	 * @throws IOException if an IO error occurs
 	 */
 	long createTime() throws IOException;
-
+	
 	/**
 	 * sets the create time of this {@link FSElement}
 	 * 
 	 * @param time the create time of this {@link FSElement}
-	 * @throws IOException
+	 * 
+	 * @throws IOException if an IO error occurs
 	 */
 	void createTime(long time) throws IOException;
-
+	
 	/**
 	 * returns the name of this {@link FSElement}
 	 * 
 	 * @return the name of this {@link FSElement}
-	 * @throws IOException
+	 * 
+	 * @throws IOException if an IO error occurs
 	 */
 	String name() throws IOException;
-
+	
 	/**
 	 * changes the name of this {@link FSElement}
 	 * <p>
@@ -139,10 +145,11 @@ public interface FSElement extends Closeable {
 	 * first parameter and {@code name} as second
 	 * 
 	 * @param name the new name of this {@link FSElement}
-	 * @throws IOException
+	 * 
+	 * @throws IOException if an IO error occurs
 	 */
 	void name(String name) throws IOException;
-
+	
 	/**
 	 * moves this element to the new parent
 	 * <p>
@@ -150,10 +157,11 @@ public interface FSElement extends Closeable {
 	 * parameter and {@link #name()} as second
 	 * 
 	 * @param parent the new parent of this {@link FSElement}
-	 * @throws IOException
+	 * 
+	 * @throws IOException if an IO error occurs
 	 */
 	void parent(Folder parent) throws IOException;
-
+	
 	/**
 	 * moves this {@link FSElement} in the file system
 	 * <p>
@@ -162,10 +170,11 @@ public interface FSElement extends Closeable {
 	 * 
 	 * @param parent the new parent of this {@link FSElement}
 	 * @param name   the new name of this {@link FSElement}
-	 * @throws IOException
+	 * 
+	 * @throws IOException if an IO error occurs
 	 */
 	void move(Folder parent, String name) throws IOException;
-
+	
 	/**
 	 * deletes this {@link FSElement}.
 	 * <p>
@@ -177,49 +186,56 @@ public interface FSElement extends Closeable {
 	 * <p>
 	 * after this operation this {@link FSElement} should not be used
 	 * 
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	void delete() throws IOException;
-
+	
 	/**
 	 * returns <code>true</code> if this {@link FSElement} represents a folder and
 	 * <code>false</code> if not
 	 * 
 	 * @return <code>true</code> if this {@link FSElement} represents a folder and
 	 *         <code>false</code> if not
-	 * @throws IOException
+	 * 		
+	 * @throws IOException if an IO error occurs
+	 * 		
 	 * @see #getFolder()
 	 */
-	default boolean isFolder() throws IOException {
-		return (flags() & FLAG_FOLDER) != 0;
-	}
-
+	default boolean isFolder() throws IOException { return (flags() & FLAG_FOLDER) != 0; }
+	
 	/**
 	 * returns <code>true</code> if this {@link FSElement} represents a file and
 	 * <code>false</code> if not
 	 * 
 	 * @return <code>true</code> if this {@link FSElement} represents a file and
 	 *         <code>false</code> if not
-	 * @throws IOException
-	 * @see {@link #getFile()}
+	 * 		
+	 * @throws IOException if an IO error occurs
+	 * 		
+	 * @see #getFile()
 	 */
-	default boolean isFile() throws IOException {
-		return (flags() & FLAG_FILE) != 0;
-	}
-
+	default boolean isFile() throws IOException { return (flags() & FLAG_FILE) != 0; }
+	
 	/**
 	 * returns <code>true</code> if this {@link FSElement} represents a pipe and
 	 * <code>false</code> if not
 	 * 
 	 * @return <code>true</code> if this {@link FSElement} represents a pipe and
 	 *         <code>false</code> if not
-	 * @throws IOException
-	 * @see {@link #getPipe()}
+	 * 		
+	 * @throws IOException if an IO error occurs
+	 * 		
+	 * @see #getPipe()
 	 */
-	default boolean isPipe() throws IOException {
-		return (flags() & FLAG_PIPE) != 0;
-	}
-
+	default boolean isPipe() throws IOException { return (flags() & FLAG_PIPE) != 0; }
+	
+	/**
+	 * returns the {@link ElementType} of this {@link FSElement}
+	 * 
+	 * @return the {@link ElementType} of this {@link FSElement}
+	 * 
+	 * @throws IOException if an IO error occurs
+	 */
 	default ElementType type() throws IOException {
 		int flags = flags();
 		switch (flags & (FLAG_FOLDER | FLAG_FILE | FLAG_PIPE)) {
@@ -233,7 +249,7 @@ public interface FSElement extends Closeable {
 			throw new InternalError("unknown flags: 0x" + Integer.toHexString(flags));
 		}
 	}
-
+	
 	/**
 	 * returns a {@link Folder} which represents the same file system element as
 	 * this {@link FSElement}.
@@ -246,11 +262,13 @@ public interface FSElement extends Closeable {
 	 * 
 	 * @return a {@link Folder} which represents the same file system element as
 	 *         this {@link FSElement}.
-	 * @throws IOException
-	 * @see {@link #isFolder()}
+	 * 		
+	 * @throws IOException if an IO error occurs
+	 * 		
+	 * @see #isFolder()
 	 */
 	Folder getFolder() throws IOException;
-
+	
 	/**
 	 * returns a {@link File} which represents the same file system element as this
 	 * {@link FSElement}.
@@ -263,11 +281,13 @@ public interface FSElement extends Closeable {
 	 * 
 	 * @return a {@link File} which represents the same file system element as this
 	 *         {@link FSElement}.
-	 * @throws IOException
-	 * @see {@link #isFile()}
+	 * 
+	 * @throws IOException if an IO error occurs
+	 * 
+	 * @see #isFile()
 	 */
 	File getFile() throws IOException;
-
+	
 	/**
 	 * returns a {@link Pipe} which represents the same file system element as this
 	 * {@link FSElement}.
@@ -280,35 +300,41 @@ public interface FSElement extends Closeable {
 	 * 
 	 * @return a {@link Pipe} which represents the same file system element as this
 	 *         {@link FSElement}.
-	 * @throws IOException
-	 * @see {@link #isPipe()}
+	 * 
+	 * @throws IOException if an IO error occurs
+	 * 
+	 * @see #isPipe()
 	 */
 	Pipe getPipe() throws IOException;
-
+	
 	/**
 	 * @see #equals(Object)
+	 * @see #equals(FSElement)
 	 */
 	@Override
 	int hashCode();
-
+	
 	/**
 	 * returns <code>true</code> if this {@link FSElement} represents the same
 	 * {@link FSElement} as the given {@link Object}
 	 * <p>
-	 * this method will work like: <code><pre>if (obj == null) { 
+	 * this method will work like:
+	 * 
+	 * <pre><code>if (obj == null) { 
 	 *   return false; 
 	 * } else if (obj instanceof FSElement e) {
 	 *   return {@link #equals(FSElement) equals(e)}; 
 	 * } else { 
 	 *   return false; 
-	 * }</pre></code>
+	 * }</code></pre>
 	 * 
 	 * @param obj the object which is potentially
+	 * 
 	 * @return <code>true</code> if this {@link FSElement} represents the same
 	 *         {@link FSElement} as the given {@link Object}
 	 */
 	boolean equals(Object obj);
-
+	
 	/**
 	 * returns <code>true</code> if this {@link FSElement} represents the same
 	 * {@link FSElement} as the given {@link FSElement} {@code e} and
@@ -316,11 +342,13 @@ public interface FSElement extends Closeable {
 	 * 
 	 * @param e the given {@link FSElement} which is potentially equal to this
 	 *          {@link FSElement}
+	 * 
 	 * @return <code>true</code> if this {@link FSElement} represents the same
 	 *         {@link FSElement} as the given {@link FSElement} {@code e} and
 	 *         <code>false</code> if not
-	 * @throws IOException
+	 * 		
+	 * @throws IOException if an IO error occurs
 	 */
 	boolean equals(FSElement e) throws IOException;
-
+	
 }

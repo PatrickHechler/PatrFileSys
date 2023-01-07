@@ -1,37 +1,56 @@
 package de.hechler.patrick.zeugs.pfs.opts;
 
-import de.hechler.patrick.zeugs.pfs.interfaces.Stream;
+import de.hechler.patrick.zeugs.pfs.interfaces.FSElement;
 import de.hechler.patrick.zeugs.pfs.misc.ElementType;
 
 /**
  * the {@link StreamOpenOptions} provide options for opening streams:
- * <ul>
- * <li>{@link #read()} if the stream should be opened with read access</li>
- * <li>{@link #write()} if the stream should be opened with write access</li>
- * <li>{@link #append()} if the streams position should be set to the end of the
- * file before every write operation. This option implicitly set the
- * {@link #write()} option</li>
- * <li>{@link #type()} the type of the element</li>
- * <ul>
- * <li>{@link ElementType#folder} is forbidden</li>
- * <li><code>null</code> stands for accept all types for which a {@link Stream}
- * can be opened</li>
- * <ul>
- * <li>note that <code>null</code> is forbidden when {@link #createAlso} is
- * set</li>
- * </ul>
- * </ul>
- * <li>{@link #createAlso} if the element should be created if the element does
- * not exist already</li>
- * <li>{@link #createOnly()} like {@link #createAlso()}, but fail if the element
- * exist already. When {@link #createOnly()} is set {@link #createAlso()} will
- * be set implicitly</li>
- * </ul>
  * 
  * @author pat
+ * 
+ * @param read       if the stream should be opened for read access
+ * @param write      if the stream should be opened for write access
+ * @param append     if the stream should be opened for append access (implicit
+ *                   <code>write</code>)
+ * @param type       the {@link FSElement} type of the element for which the
+ *                   stream should be opened ({@link ElementType#folder} is
+ *                   forbidden, <code>null</code> is allowed)
+ * @param createAlso if the element should be created if it doesn't exist
+ *                   already (needs a non <code>null</code> <code>type</code>)
+ * @param createOnly if the open operation should fail if the element already
+ *                   exists (implicit <code>createAlso</code>)
  */
 public record StreamOpenOptions(boolean read, boolean write, boolean append, ElementType type, boolean createAlso, boolean createOnly) {
 	
+	/**
+	 * creates a new {@link StreamOpenOptions} instance from the given parameters:
+	 * <ul>
+	 * <li><code>read</code>: if the stream should be opened for read access</li>
+	 * <li><code>write</code>: if the stream should be opened for write access</li>
+	 * <li><code>append</code>: if the stream should be opened for append access
+	 * (implicit <code>write</code>)</li>
+	 * <li><code>type</code> the {@link FSElement} type of the element for which the
+	 * stream should be opened ({@link ElementType#folder} is
+	 * forbidden, <code>null</code> is allowed, if the value is <code>null</code>,
+	 * <code>type</code> will be set when opening the {@link FSElement})</li>
+	 * <li><code>createAlso</code>: if the element should be created if it doesn't
+	 * exist already (needs a non <code>null</code> <code>type</code>)</li>
+	 * <li><code>createOnly</code>: if the open operation should fail if the element
+	 * already exists (implicit <code>createAlso</code>)</li>
+	 * </ul>
+	 * 
+	 * @param read       if the stream should be opened for read access
+	 * @param write      if the stream should be opened for write access
+	 * @param append     if the stream should be opened for append access (implicit
+	 *                   <code>write</code>)
+	 * @param type       the {@link FSElement} type of the element for which the
+	 *                   stream should be opened ({@link ElementType#folder} is
+	 *                   forbidden, <code>null</code> is allowed)
+	 * @param createAlso if the element should be created if it doesn't exist
+	 *                   already (needs a non <code>null</code> <code>type</code>)
+	 * @param createOnly if the open operation should fail if the element already
+	 *                   exists (implicit <code>createAlso</code>)
+	 */
 	public StreamOpenOptions(boolean read, boolean write, boolean append, ElementType type, boolean createAlso, boolean createOnly) {
 		if (append) {
 			write = true;
@@ -61,18 +80,63 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 		this.createOnly = createOnly;
 	}
 	
+	/**
+	 * creates new {@link StreamOpenOptions} with the given parameters
+	 * <ul>
+	 * <li>{@link #append} will be set to <code>false</code></li>
+	 * <li>{@link #type} will be set to <code>null</code></li>
+	 * <li>{@link #createAlso} will be set to <code>false</code></li>
+	 * <li>{@link #createOnly} will be set to <code>false</code></li>
+	 * </ul>
+	 * 
+	 * @param read  if the stream should be opened for read access
+	 * @param write if the stream should be opened for write access
+	 */
 	public StreamOpenOptions(boolean read, boolean write) {
 		this(read, write, false, null, false, false);
 	}
 	
+	/**
+	 * creates new {@link StreamOpenOptions} with the given parameters
+	 * <ul>
+	 * <li>{@link #type} will be set to <code>null</code></li>
+	 * <li>{@link #createAlso} will be set to <code>false</code></li>
+	 * <li>{@link #createOnly} will be set to <code>false</code></li>
+	 * </ul>
+	 * 
+	 * @param read   if the stream should be opened for read access
+	 * @param write  if the stream should be opened for write access
+	 * @param append if the stream should be opened for append access (implicit
+	 *               <code>write</code>)
+	 */
 	public StreamOpenOptions(boolean read, boolean write, boolean append) {
 		this(read, write, append, null, false, false);
 	}
 	
+	/**
+	 * creates new {@link StreamOpenOptions} with the given parameters
+	 * <ul>
+	 * <li>{@link #createAlso} will be set to <code>false</code></li>
+	 * <li>{@link #createOnly} will be set to <code>false</code></li>
+	 * </ul>
+	 * 
+	 * @param read   if the stream should be opened for read access
+	 * @param write  if the stream should be opened for write access
+	 * @param append if the stream should be opened for append access (implicit
+	 *               <code>write</code>)
+	 * @param type   the type of the element on which the stream should be opened
+	 */
 	public StreamOpenOptions(boolean read, boolean write, boolean append, ElementType type) {
 		this(read, write, append, type, true, false);
 	}
 	
+	/**
+	 * returns <code>true</code> if the stream can perform seek operations and
+	 * <code>false</code> if not
+	 * 
+	 * @return <code>true</code> if the stream can perform seek operations and
+	 *         <code>false</code> if not
+	 */
 	public boolean seekable() {
 		return switch (type) {
 		case file -> true;
@@ -82,7 +146,26 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 		};
 	}
 	
-	public StreamOpenOptions ensureType(ElementType type) {
+	/**
+	 * ensures that the {@link StreamOpenOptions} can be opened for the given
+	 * <code>type</code><br>
+	 * that is always, when {@link #type} is <code>null</code> or if
+	 * <code>type == {@link #type}</code> is <code>true</code>
+	 * <br>
+	 * if this {@link StreamOpenOptions} can not be used to open streams for the
+	 * given <code>type</code> the operation will fail
+	 * 
+	 * @param type the {@link ElementType} for which the stream should be opened
+	 * 
+	 * @return a {@link StreamOpenOptions}, which are the same to this, but with
+	 *         {@link #type} set to <code>type</code> (or <code>this</code> if
+	 *         {@link #type} is already set)
+	 * 		
+	 * @throws IllegalArgumentException if this {@link StreamOpenOptions} can not be
+	 *                                  used to open streams for the given
+	 *                                  <code>type</code>
+	 */
+	public StreamOpenOptions ensureType(ElementType type) throws IllegalArgumentException {
 		if (type == null) { throw new NullPointerException("type is null"); }
 		if (type == this.type) { return this; }
 		if (this.type != null) { throw new IllegalArgumentException("this is a " + type + ", but type is set to " + this.type); }

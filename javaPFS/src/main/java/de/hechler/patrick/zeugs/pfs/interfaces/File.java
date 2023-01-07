@@ -8,7 +8,7 @@ import de.hechler.patrick.zeugs.pfs.opts.StreamOpenOptions;
  * the {@link File} interface provides a bunch of methods:
  * <ul>
  * <li>to get ({@link #length()} the files length</li>
- * <li>to set ({@link #truncate()} the files length</li>
+ * <li>to set ({@link #truncate(long)} the files length</li>
  * <li>the content of the file can be read with {@link #openRead()}</li>
  * <li>to write to the file use {@link #openWrite()} and
  * {@link #openAppend()}</li>
@@ -25,7 +25,7 @@ public interface File extends FSElement {
 	 * returns the current length of the file
 	 * 
 	 * @return the current length of the file
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	long length() throws IOException;
 
@@ -36,7 +36,7 @@ public interface File extends FSElement {
 	 * {@code length}
 	 * 
 	 * @param length the new length of the file
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	void truncate(long length) throws IOException;
 
@@ -49,7 +49,7 @@ public interface File extends FSElement {
 	 * the stream will be {@link StreamOpenOptions#seekable()}
 	 * 
 	 * @return the opened {@link ReadStream}
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	default ReadStream openRead() throws IOException {
 		return (ReadStream) open(new StreamOpenOptions(true, false));
@@ -64,7 +64,7 @@ public interface File extends FSElement {
 	 * the stream will be {@link StreamOpenOptions#seekable()}
 	 * 
 	 * @return the opened {@link WriteStream}
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	default WriteStream openWrite() throws IOException {
 		return (WriteStream) open(new StreamOpenOptions(false, true));
@@ -79,7 +79,7 @@ public interface File extends FSElement {
 	 * the stream will not be {@link StreamOpenOptions#seekable()}
 	 * 
 	 * @return the opened {@link WriteStream}
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	default WriteStream openAppend() throws IOException {
 		return (WriteStream) open(new StreamOpenOptions(false, true, true));
@@ -94,7 +94,7 @@ public interface File extends FSElement {
 	 * the stream will be {@link StreamOpenOptions#seekable()}
 	 * 
 	 * @return the opened {@link Stream}
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	default Stream openReadWrite() throws IOException {
 		return open(new StreamOpenOptions(true, true));
@@ -107,7 +107,7 @@ public interface File extends FSElement {
 	 * 
 	 * @param options the options for the stream
 	 * @return the opened {@link Stream}
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	Stream open(StreamOpenOptions options) throws IOException;
 

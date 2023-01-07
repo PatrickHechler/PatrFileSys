@@ -103,7 +103,7 @@ public abstract sealed class PatrStream implements Stream permits PatrWriteStrea
 	 * 
 	 * @throws IOException if an error occurs
 	 * 
-	 * @see ReadStream#write(MemorySegment)
+	 * @see ReadStream#read(MemorySegment)
 	 */
 	public long read(MemorySegment seg) throws IOException {
 		if (closed) { throw new ClosedChannelException(); }

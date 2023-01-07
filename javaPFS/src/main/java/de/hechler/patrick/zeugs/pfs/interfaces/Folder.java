@@ -35,7 +35,7 @@ public interface Folder extends FSElement, Iterable<FSElement> {
 	 *                   non hidden elements should be returned by the returned
 	 *                   {@link FolderIter}
 	 * @return an {@link FolderIter} which iterates over the children of this folder
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	FolderIter iter(boolean showHidden) throws IOException;
 
@@ -62,7 +62,7 @@ public interface Folder extends FSElement, Iterable<FSElement> {
 	 * returns the number of child elements this folder has
 	 * 
 	 * @return the number of child elements this folder has
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	long childCount() throws IOException;
 
@@ -72,7 +72,7 @@ public interface Folder extends FSElement, Iterable<FSElement> {
 	 * 
 	 * @param name the name of the child
 	 * @return the child element with the given name
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	FSElement childElement(String name) throws IOException;
 
@@ -86,7 +86,7 @@ public interface Folder extends FSElement, Iterable<FSElement> {
 	 * 
 	 * @param name the name of the child
 	 * @return the child element with the given name
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	Folder childFolder(String name) throws IOException;
 
@@ -100,7 +100,7 @@ public interface Folder extends FSElement, Iterable<FSElement> {
 	 * 
 	 * @param name the name of the child
 	 * @return the child element with the given name
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	File childFile(String name) throws IOException;
 
@@ -114,7 +114,7 @@ public interface Folder extends FSElement, Iterable<FSElement> {
 	 * 
 	 * @param name the name of the child
 	 * @return the child element with the given name
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	Pipe childPipe(String name) throws IOException;
 
@@ -126,7 +126,7 @@ public interface Folder extends FSElement, Iterable<FSElement> {
 	 * 
 	 * @param name the name of the new child
 	 * @return the newly created child
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	Folder createFolder(String name) throws IOException;
 
@@ -138,7 +138,7 @@ public interface Folder extends FSElement, Iterable<FSElement> {
 	 * 
 	 * @param name the name of the new child
 	 * @return the newly created child
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	File createFile(String name) throws IOException;
 
@@ -150,7 +150,7 @@ public interface Folder extends FSElement, Iterable<FSElement> {
 	 * 
 	 * @param name the name of the new child
 	 * @return the newly created child
-	 * @throws IOException
+	 * @throws IOException if an IO error occurs
 	 */
 	Pipe createPipe(String name) throws IOException;
 
@@ -172,7 +172,7 @@ public interface Folder extends FSElement, Iterable<FSElement> {
 		 * returns the next element
 		 * 
 		 * @return the next element
-		 * @throws IOException
+		 * @throws IOException if an IO error occurs
 		 */
 		FSElement nextElement() throws IOException;
 
@@ -182,7 +182,7 @@ public interface Folder extends FSElement, Iterable<FSElement> {
 		 * 
 		 * @return <code>true</code> if there is a next element and <code>false</code>
 		 *         if not
-		 * @throws IOException
+		 * @throws IOException if an IO error occurs
 		 */
 		boolean hasNextElement() throws IOException;
 
@@ -190,7 +190,7 @@ public interface Folder extends FSElement, Iterable<FSElement> {
 		 * {@link FSElement#delete() deletes} the element which has been returned from
 		 * the last {@link #nextElement()} or {@link #next()} call.
 		 * 
-		 * @throws IOException
+		 * @throws IOException if an IO error occurs
 		 */
 		void delete() throws IOException;
 
