@@ -9,6 +9,10 @@
 
 extern int pfs_element_parent(int eh) {
 	eh(-1)
+	if (!pfs_ehs[eh]->parent) {
+		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
+		return -1;
+	}
 	return_handle(pfs_eh_len, pfs_ehs, pfs_ehs[eh]->parent)
 }
 
@@ -80,13 +84,15 @@ extern int pfs_element_set_name(int eh, char *name) {
 extern int pfs_element_set_parent(int eh, int parenteh) {
 	eh(0)
 	get_eh(0, parenteh)
-	return pfsc_element_set_parent(&pfs_ehs[eh]->handle, &pfs_ehs[parenteh]->handle);
+	return pfsc_element_set_parent(&pfs_ehs[eh]->handle,
+			&pfs_ehs[parenteh]->handle);
 }
 
-extern int pfs_element_move(int eh, int parenteh, char* name) {
+extern int pfs_element_move(int eh, int parenteh, char *name) {
 	eh(0)
 	get_eh(0, parenteh)
-	return pfsc_element_move(&pfs_ehs[eh]->handle, &pfs_ehs[parenteh]->handle, name);
+	return pfsc_element_move(&pfs_ehs[eh]->handle, &pfs_ehs[parenteh]->handle,
+			name);
 }
 
 extern int pfs_element_same(int aeh, int beh) {

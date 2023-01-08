@@ -1,6 +1,10 @@
 package de.hechler.patrick.zeugs.pfs;
 
 import java.io.IOException;
+import java.lang.module.ModuleDescriptor.Provides;
+import java.lang.module.ModuleDescriptor.Requires;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.file.spi.FileSystemProvider;
 import java.security.NoSuchProviderException;
 import java.util.Collection;
@@ -8,7 +12,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.Set;
 
+import de.hechler.patrick.zeugs.pfs.impl.java.JavaFSProvider;
+import de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider;
 import de.hechler.patrick.zeugs.pfs.interfaces.FS;
 import de.hechler.patrick.zeugs.pfs.interfaces.FSOptions;
 import de.hechler.patrick.zeugs.pfs.opts.PatrFSOptions;
@@ -128,13 +135,21 @@ public abstract class FSProvider {
 	private static final Map<String, FSProvider> provs = loadProfs();
 	
 	/**
+	 * the name which should be equal to the name of this module
+	 */
+	private static final String MY_MODULE_NAME  = "de.hechler.patrick.zeugs.pfs";
+	private static final String MY_SERVICE_NAME = "de.hechler.patrick.zeugs.pfs.FSProvider";
+	
+	/**
 	 * load the installed providers
 	 * 
 	 * @return a map containing all installed {@link FSProvider
 	 *         file-system-providers} mapped with their {@link #name}
 	 */
 	private static Map<String, FSProvider> loadProfs() {
-		Map<String, FSProvider>   result  = new HashMap<>();
+		Map<String, FSProvider> result = new HashMap<>();
+		result.put(JAVA_FS_PROVIDER_NAME, new JavaFSProvider());
+		result.put(PATR_FS_PROVIDER_NAME, new PatrFSProvider());
 		ServiceLoader<FSProvider> service = ServiceLoader.load(FSProvider.class);
 		for (FSProvider fsp : service) {
 			FSProvider old = result.put(fsp.name, fsp);
@@ -142,7 +157,35 @@ public abstract class FSProvider {
 				throw new AssertionError("multiple FSProviders with the same name: (name='" + fsp.name + "') '" + old + "' and '" + fsp + "'");
 			}
 		}
+		Module myModule = FSProvider.class.getModule();
+		if (!MY_MODULE_NAME.equals(myModule.getName())) {
+			manualLoadModules(result);
+		}
 		return Collections.unmodifiableMap(result);
+	}
+	
+	private static void manualLoadModules(Map<String, FSProvider> result) {
+		Module myModule = FSProvider.class.getModule();
+		ModuleLayer.boot().modules().stream().forEach(mod -> {
+			Set<Requires> req = mod.getDescriptor().requires();
+			if (req.stream().noneMatch(r -> MY_MODULE_NAME.equals(r.name()))) return;
+			myModule.addReads(mod);
+			Set<Provides> prov   = mod.getDescriptor().provides();
+			ClassLoader   loader = mod.getClassLoader();
+			prov.stream().filter(p -> MY_SERVICE_NAME.equals(p.service())).forEach(ps -> ps.providers().stream().forEach(p -> {
+				try {
+					Class<? extends FSProvider>       cls         = loader.loadClass(p).asSubclass(FSProvider.class);
+					Constructor<? extends FSProvider> constructor = cls.getDeclaredConstructor();
+					FSProvider                        instance    = constructor.newInstance();
+					result.put(instance.name, instance);
+				} catch (ClassNotFoundException e) {
+					throw new NoClassDefFoundError(p);
+				} catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException | IllegalArgumentException
+						| InvocationTargetException e) {
+					throw new AssertionError(e);
+				}
+			}));
+		});
 	}
 	
 	/**

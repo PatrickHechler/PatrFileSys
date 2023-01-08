@@ -39,7 +39,7 @@ public class PatrFile extends PatrFSElement implements File {
 		ensureOpen();
 		try {
 			long res = (long) PFS_FILE_LENGTH.invoke(this.handle);
-			if (res == -1) { throw thrw(LOCKUP, "get file length"); }
+			if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.GET_FILE_LEN, null); }
 			return res;
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -50,7 +50,7 @@ public class PatrFile extends PatrFSElement implements File {
 	public void truncate(long length) throws IOException {
 		ensureOpen();
 		try {
-			if (0 == (int) PFS_FILE_TRUNCATE.invoke(this.handle, length)) { throw thrw(LOCKUP, "get file length"); }
+			if (0 == (int) PFS_FILE_TRUNCATE.invoke(this.handle, length)) { throw thrw(LOCKUP, PFSErrorCause.GET_FILE_LEN, null); }
 		} catch (Throwable e) {
 			throw thrw(e);
 		}
@@ -72,7 +72,7 @@ public class PatrFile extends PatrFSElement implements File {
 		options = options.ensureType(ElementType.file);
 		try {
 			int res = (int) PFS_OPEN_STREAM.invoke(this.handle, o);
-			if (res == -1) { throw thrw(LOCKUP, "open stream"); }
+			if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.OPEN_STREAM, null); }
 			if (options.read()) {
 				if (options.write()) {
 					return new PatrReadWriteStream(res, options);

@@ -24,6 +24,23 @@ import de.hechler.patrick.zeugs.pfs.interfaces.FSOptions;
 public record PatrFSOptions(String path, boolean format, long blockCount, int blockSize) implements FSOptions {
 	
 	/**
+	 * creates new {@link PatrFSOptions} with the given parameters
+	 * 
+	 * @param path       the path of the file, which should be used as underlying
+	 *                   block storage
+	 * @param format     <code>true</code> if the file system should be created and
+	 *                   <code>false</code> if it should be opened
+	 * @param blockCount the number of blocks, which can be used by the file system
+	 * @param blockSize  the size of the blocks, which can be used by the file
+	 *                   system
+	 * 
+	 * @return the newly created options
+	 */
+	public static PatrFSOptions create(String path, boolean format, long blockCount, int blockSize) {
+		return new PatrFSOptions(path, format, blockCount, blockSize);
+	}
+	
+	/**
 	 * creates new {@link PatrFSOptions} with the given path and {@link #format} set
 	 * to <code>false</code>
 	 * 

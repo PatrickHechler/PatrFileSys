@@ -1,6 +1,5 @@
 package de.hechler.patrick.zeugs.pfs.impl.pfs;
 
-import java.io.IOError;
 import java.io.IOException;
 import java.lang.foreign.Addressable;
 import java.lang.foreign.FunctionDescriptor;
@@ -11,24 +10,13 @@ import java.lang.foreign.MemorySession;
 import java.lang.foreign.SymbolLookup;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.FileAlreadyExistsException;
-import java.nio.file.NoSuchFileException;
-import java.security.NoSuchProviderException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
-import java.util.NoSuchElementException;
 
 import de.hechler.patrick.zeugs.pfs.FSProvider;
 import de.hechler.patrick.zeugs.pfs.interfaces.FS;
-import de.hechler.patrick.zeugs.pfs.interfaces.FSElement;
 import de.hechler.patrick.zeugs.pfs.interfaces.FSOptions;
-import de.hechler.patrick.zeugs.pfs.interfaces.File;
-import de.hechler.patrick.zeugs.pfs.interfaces.Folder;
-import de.hechler.patrick.zeugs.pfs.interfaces.Pipe;
-import de.hechler.patrick.zeugs.pfs.interfaces.WriteStream;
 import de.hechler.patrick.zeugs.pfs.opts.PatrFSOptions;
 import de.hechler.patrick.zeugs.pfs.opts.PatrRamFSOpts;
 
@@ -66,60 +54,6 @@ public class PatrFSProvider extends FSProvider {
 		}
 	}
 	
-	public static void main(String[] args) throws NoSuchProviderException, IOException {
-		System.out.println(Runtime.version());
-		FSProvider myProv = FSProvider.ofName(PATR_FS_PROVIDER_NAME);
-		System.out.println("got porvider");
-		FSOptions opts = new PatrFSOptions("./testout/test.pfs", 1024L, 1024);
-		System.out.println("created load option: " + opts);
-		try (FS fs = myProv.loadFS(opts)) {
-			System.out.print("loaded fs");
-			print("/", fs.folder("/"));
-			File evilFile = fs.folder(".").createFile("evil file");
-			System.out.println("created the evil file");
-			Folder evilPipe = fs.folder(".").createFolder("evil pipe");
-			System.out.println("created the evil folder/pipe");
-			Pipe thisIsEvil = evilPipe.createPipe("this\n is \t evil");
-			System.out.println("created the evil");
-			evilFile.close();
-			System.out.println("colsed evil file");
-			WriteStream stream = thisIsEvil.openWrite();
-			System.out.println("opened evel write stream");
-			stream.write("hello world, this is the evel content of the evil pipe\nthis is very evil!".getBytes(StandardCharsets.UTF_8));
-			System.out.println("wrote some data to the evel stream");
-			thisIsEvil.close();
-			System.out.println("colsed this is evil");
-			stream.close();
-			System.out.println("colsed the evil stream");
-			evilPipe.close();
-			System.out.println("colsed evil pipe");
-			print("", fs.folder("/"));
-		}
-		System.out.println("FINISH");
-	}
-	
-	private static void print(String prefix, Folder folder) throws IOException {
-		try (folder) {
-			String newPrefix = prefix + folder.name().replace("\\", "\\\\").replace("\t", "\\t").replace("\b", "\\b").replace("\n", "\\n")
-					.replace("\r", "\\r").replace("\f", "\\f").replace(" ", "\\ ").replace("\'", "\\'").replace("\"", "\\\"") + '/';
-			System.out.println("/  has " + folder.childCount() + " children");
-			for (Iterator<FSElement> iter = folder.iter(true); iter.hasNext();) {
-				FSElement element = iter.next();
-				System.out.print(newPrefix + element.name().replace("\\", "\\\\").replace("\t", "\\t").replace("\b", "\\b").replace("\n", "\\n")
-						.replace("\r", "\\r").replace("\f", "\\f").replace(" ", "\\ ").replace("\'", "\\'").replace("\"", "\\\""));
-				if (element.isFolder()) {
-					print(newPrefix, element.getFolder());
-				} else if (element.isFile()) {
-					System.out.println("  has " + element.getFile().length() + " bytes in the file");
-					element.close();
-				} else if (element.isPipe()) {
-					System.out.println("  has " + element.getPipe().length() + " bytes in the pipe");
-					element.close();
-				}
-			}
-		}
-	}
-	
 	@Override
 	public FS loadFS(FSOptions fso) throws IOException {
 		if (fso == null) { throw new NullPointerException("options are null!"); }
@@ -152,7 +86,7 @@ public class PatrFSProvider extends FSProvider {
 		MethodHandle pfsLoadAndFormat = linker.downcallHandle(loockup.lookup("pfs_load_and_format").orElseThrow(),
 				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
 		Addressable  bm               = (Addressable) newBm.invoke(opts.blockCount(), opts.blockSize());
-		if (0 == (int) pfsLoadAndFormat.invoke(bm, opts.blockCount())) { throw thrw(loockup, "load and format ram PFS (" + opts + ")"); }
+		if (0 == (int) pfsLoadAndFormat.invoke(bm, opts.blockCount())) { throw thrw(loockup, PFSErrorCause.LOAD_PFS_AND_FORMAT, opts); }
 	}
 	
 	private static void loadPatrOpts(Linker linker, SymbolLookup loockup, MemorySession local, PatrFSOptions opts) throws Throwable {
@@ -173,7 +107,7 @@ public class PatrFSProvider extends FSProvider {
 		MethodHandle pfsLoadAndFormat = linker.downcallHandle(loockup.lookup("pfs_load_and_format").orElseThrow(),
 				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
 		Addressable  bm               = (Addressable) newBm.invoke(fd, opts.blockSize());
-		if (0 == (int) pfsLoadAndFormat.invoke(bm, opts.blockCount())) { throw thrw(loockup, "load and format PFS (" + opts.path() + ")"); }
+		if (0 == (int) pfsLoadAndFormat.invoke(bm, opts.blockCount())) { throw thrw(loockup, PFSErrorCause.LOAD_PFS_AND_FORMAT, opts); }
 	}
 	
 	private static void loadWithoutFormat(Linker linker, SymbolLookup loockup, MemorySession local, PatrFSOptions opts, MethodHandle newBm, int fd)
@@ -191,7 +125,7 @@ public class PatrFSProvider extends FSProvider {
 		if (4L != (long) read.invoke(fd, buf, 4)) { throw new IOException("error on read"); }
 		int         bs = buf.get(ValueLayout.JAVA_INT, 0);
 		Addressable bm = (Addressable) newBm.invoke(fd, bs);
-		if (0 == (int) pfsLoad.invoke(bm, MemoryAddress.NULL)) { throw thrw(loockup, "load PFS (" + opts.path() + ")"); }
+		if (0 == (int) pfsLoad.invoke(bm, MemoryAddress.NULL)) { throw thrw(loockup, PFSErrorCause.LOAD_PFS, opts.path()); }
 	}
 	
 	public static IOException thrw(Throwable t) throws IOException {
@@ -206,47 +140,10 @@ public class PatrFSProvider extends FSProvider {
 		}
 	}
 	
-	public static IOException thrw(SymbolLookup loockup, String msg) throws IOException {
-		int pfsErrno = loockup.lookup("pfs_errno").orElseThrow().address().get(ValueLayout.JAVA_INT, 0);
-		switch (pfsErrno) {
-		case 0: /* if pfs_errno is not set/no error occurred */
-			throw new AssertionError("no error: " + msg);
-		case 1: /* if an operation failed because of an unknown/unspecified error */
-			throw new IOException("unknown error: " + msg);
-		case 2: /* if the iterator has no next element */
-			throw new NoSuchElementException("no more elements: " + msg);
-		case 3: /*
-				 * if an IO operation failed because the element is not of the correct type
-				 * (file expected, but folder or reverse)
-				 */
-			throw new IOException("the element has not the expected type: " + msg);
-		case 4: /* if an IO operation failed because the element does not exist */
-			throw new NoSuchFileException("there is no such file: " + msg);
-		case 5: /* if an IO operation failed because the element already existed */
-			throw new FileAlreadyExistsException("the file exists already: " + msg);
-		case 6: /*
-				 * if an IO operation failed because there was not enough space in the file
-				 * system
-				 */
-			throw new IOError(new IOException("out of space: " + msg));
-		case 7: /* if an unspecified IO error occurred */
-			throw new IOException("IO error: " + msg);
-		case 8: /* if there was at least one invalid argument */
-			throw new IllegalArgumentException("illegal argument: " + msg);
-		case 9: /* if there was an invalid magic value */
-			throw new IOException("invalid magic: " + msg);
-		case 10: /* if an IO operation failed because there was not enough memory available */
-			throw new OutOfMemoryError("out of memory: " + msg);
-		case 11: /* if an IO operation failed because the root folder has some restrictions */
-			throw new IOException("root folder restrictions: " + msg);
-		case 12: /*
-					 * if an folder can not be moved because the new child (maybe a deep/indirect
-					 * child) is a child of the folder
-					 */
-			throw new IOException("I won't move a folder to a child of it self: " + msg);
-		default:
-			throw new IOException("unknown errno (" + pfsErrno + "): " + msg);
-		}
+	public static IOException thrw(SymbolLookup loockup, PFSErrorCause cause, Object info) throws IOException {
+		int    pfsErrno = loockup.lookup("pfs_errno").orElseThrow().address().get(ValueLayout.JAVA_INT, 0);
+		String msg      = cause.str.apply(info);
+		throw cause.func.apply(msg, pfsErrno);
 	}
 	
 	public static void unload(FS loaded) {

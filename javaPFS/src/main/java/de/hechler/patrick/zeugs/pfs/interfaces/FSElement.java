@@ -64,9 +64,10 @@ public interface FSElement extends Closeable {
 	 * 
 	 * @return the parent folder of this {@link FSElement}.
 	 * 
-	 * @throws IOException if an IO error occurs
+	 * @throws IOException           if an IO error occurs
+	 * @throws IllegalStateException if this element is the root
 	 */
-	Folder parent() throws IOException;
+	Folder parent() throws IOException, IllegalStateException;
 	
 	/**
 	 * returns the flags of this {@link FSElement}

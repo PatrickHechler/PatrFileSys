@@ -83,7 +83,7 @@ public class PatrFS implements FS {
 		if (closed) { throw new ClosedChannelException(); }
 		try {
 			long res = (long) PFS_BLOCK_COUNT.invoke();
-			if (res == -1L) { throw thrw(LOCKUP, "get the block count"); }
+			if (res == -1L) { throw thrw(LOCKUP, PFSErrorCause.GET_BLOCK_COUNT, null); }
 			return res;
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -95,7 +95,7 @@ public class PatrFS implements FS {
 		if (closed) { throw new ClosedChannelException(); }
 		try {
 			int res = (int) PFS_BLOCK_SIZE.invoke();
-			if (res == -1) { throw thrw(LOCKUP, "get the block size"); }
+			if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.GET_BLOCK_SIZE, null); }
 			return res;
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -108,7 +108,7 @@ public class PatrFS implements FS {
 		try {
 			try (MemorySession ses = MemorySession.openConfined()) {
 				int res = (int) PFS_HANDLE.invoke(ses.allocateUtf8String(path));
-				if (res == -1) { throw thrw(LOCKUP, "get the element '" + path + "'"); }
+				if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.GET_ELEMENT, path); }
 				return new PatrFSElement(res);
 			}
 		} catch (Throwable e) {
@@ -122,7 +122,7 @@ public class PatrFS implements FS {
 		try {
 			try (MemorySession ses = MemorySession.openConfined()) {
 				int res = (int) PFS_HANDLE_FOLDER.invoke(ses.allocateUtf8String(path));
-				if (res == -1) { throw thrw(LOCKUP, "get the element '" + path + "'"); }
+				if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.GET_ELEMENT, path); }
 				return new PatrFolder(res);
 			}
 		} catch (Throwable e) {
@@ -136,7 +136,7 @@ public class PatrFS implements FS {
 		try {
 			try (MemorySession ses = MemorySession.openConfined()) {
 				int res = (int) PFS_HANDLE_FILE.invoke(ses.allocateUtf8String(path));
-				if (res == -1) { throw thrw(LOCKUP, "get the element '" + path + "'"); }
+				if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.GET_ELEMENT, path); }
 				return new PatrFile(res);
 			}
 		} catch (Throwable e) {
@@ -150,7 +150,7 @@ public class PatrFS implements FS {
 		try {
 			try (MemorySession ses = MemorySession.openConfined()) {
 				int res = (int) PFS_HANDLE_PIPE.invoke(ses.allocateUtf8String(path));
-				if (res == -1) { throw thrw(LOCKUP, "get the element '" + path + "'"); }
+				if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.GET_ELEMENT, path); }
 				return new PatrPipe(res);
 			}
 		} catch (Throwable e) {
@@ -188,14 +188,14 @@ public class PatrFS implements FS {
 				}
 				MemorySegment pathSeg = ses.allocateUtf8String(path);
 				int           res     = (int) PFS_STREAM.invoke(pathSeg, o);
-				if (res == -1) { throw thrw(LOCKUP, "open stream for the element '" + path + "'"); }
+				if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.OPEN_STREAM, path); }
 				try {
 					if (opts.type() == null) {
 						int handle = (int) PFS_HANDLE.invoke(pathSeg);
-						if (handle == -1) { throw thrw(LOCKUP, "find out type of stream (get element handle)"); }
+						if (handle == -1) { throw thrw(LOCKUP, PFSErrorCause.GET_ELEMENT, path); }
 						try {
 							int flags = (int) PFS_ELEMENT_GET_FLAGS.invoke(handle);
-							if (flags == -1) { throw thrw(LOCKUP, "find out type of stream (get flags)"); }
+							if (flags == -1) { throw thrw(LOCKUP, PFSErrorCause.GET_FLAGS, path); }
 							if ((flags & FSElement.FLAG_FILE) != 0) {
 								opts = opts.ensureType(ElementType.file);
 							} else if ((flags & FSElement.FLAG_PIPE) != 0) {
@@ -238,7 +238,7 @@ public class PatrFS implements FS {
 		if (closed) { throw new ClosedChannelException(); }
 		try {
 			if (f instanceof PatrFolder pf) {
-				if (0 == (int) PFS_CHANGE_DIR.invoke(pf.handle)) { throw thrw(LOCKUP, "change working directory"); }
+				if (0 == (int) PFS_CHANGE_DIR.invoke(pf.handle)) { throw thrw(LOCKUP, PFSErrorCause.SET_CWD, null); }
 			} else {
 				throw new ClassCastException("the folder is not of type PatrFolder");
 			}
@@ -252,7 +252,7 @@ public class PatrFS implements FS {
 		if (closed) { return; }
 		closed = true;
 		try {
-			if (0 == (int) PFS_CLOSE.invoke()) { throw thrw(LOCKUP, "close patr file system"); }
+			if (0 == (int) PFS_CLOSE.invoke()) { throw thrw(LOCKUP, PFSErrorCause.CLOSE_PFS, null); }
 		} catch (Throwable e) {
 			session.close();
 			throw thrw(e);

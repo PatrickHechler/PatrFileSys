@@ -38,8 +38,8 @@ public class JavaFSElement implements FSElement {
 	@Override
 	public Folder parent() throws IOException {
 		ensureOpen();
-		if (p().getNameCount() == 0) { throw new IllegalStateException("the root has no parent"); }
 		Path p = p().getParent();
+		if (p == null) { throw new IllegalStateException("the root has no parent"); }
 		return new JavaFolder(fs, p);
 	}
 	

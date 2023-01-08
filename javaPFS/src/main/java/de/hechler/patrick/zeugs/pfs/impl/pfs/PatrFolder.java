@@ -95,7 +95,7 @@ public class PatrFolder extends PatrFSElement implements Folder {
 			}
 			try {
 				int res = (int) PFS_ITER_NEXT.invoke(this.handle);
-				if (res == -1) { throw thrw(LOCKUP, "next"); }
+				if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.ITER_NEXT, null); }
 				return new PatrFSElement(res);
 			} catch (Throwable e) {
 				throw thrw(e);
@@ -128,7 +128,7 @@ public class PatrFolder extends PatrFSElement implements Folder {
 			if (iterClosed) { return; }
 			try {
 				iterClosed = true;
-				if (0 == (int) PFS_ITER_CLOSE.invoke(this.handle)) { throw thrw(LOCKUP, "close folder iter"); }
+				if (0 == (int) PFS_ITER_CLOSE.invoke(this.handle)) { throw thrw(LOCKUP, PFSErrorCause.CLOSE_ITER, null); }
 			} catch (Throwable e) {
 				throw thrw(e);
 			}
@@ -141,7 +141,7 @@ public class PatrFolder extends PatrFSElement implements Folder {
 		ensureOpen();
 		try {
 			long res = (long) PFS_FOLDER_CHILD_COUNT.invoke(this.handle);
-			if (res == -1) { throw thrw(LOCKUP, "childCount"); }
+			if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.GET_CHILD_COUNT, null); }
 			return res;
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -153,7 +153,7 @@ public class PatrFolder extends PatrFSElement implements Folder {
 		ensureOpen();
 		try (MemorySession ses = MemorySession.openConfined()) {
 			int res = (int) PFS_FOLDER_CHILD.invoke(this.handle, ses.allocateUtf8String(name));
-			if (res == -1) { throw thrw(LOCKUP, "child"); }
+			if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.GET_CHILD, name); }
 			return new PatrFSElement(res);
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -165,7 +165,7 @@ public class PatrFolder extends PatrFSElement implements Folder {
 		ensureOpen();
 		try (MemorySession ses = MemorySession.openConfined()) {
 			int res = (int) PFS_FOLDER_CHILD_FOLDER.invoke(this.handle, ses.allocateUtf8String(name));
-			if (res == -1) { throw thrw(LOCKUP, "child folder"); }
+			if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.GET_CHILD, name); }
 			return new PatrFolder(res);
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -177,7 +177,7 @@ public class PatrFolder extends PatrFSElement implements Folder {
 		ensureOpen();
 		try (MemorySession ses = MemorySession.openConfined()) {
 			int res = (int) PFS_FOLDER_CHILD_FILE.invoke(this.handle, ses.allocateUtf8String(name));
-			if (res == -1) { throw thrw(LOCKUP, "child file"); }
+			if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.GET_CHILD, name); }
 			return new PatrFile(res);
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -189,7 +189,7 @@ public class PatrFolder extends PatrFSElement implements Folder {
 		ensureOpen();
 		try (MemorySession ses = MemorySession.openConfined()) {
 			int res = (int) PFS_FOLDER_CHILD_PIPE.invoke(this.handle, ses.allocateUtf8String(name));
-			if (res == -1) { throw thrw(LOCKUP, "child pipe"); }
+			if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.GET_CHILD, name); }
 			return new PatrPipe(res);
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -201,7 +201,7 @@ public class PatrFolder extends PatrFSElement implements Folder {
 		ensureOpen();
 		try (MemorySession ses = MemorySession.openConfined()) {
 			int res = (int) PFS_FOLDER_CREATE_FOLDER.invoke(this.handle, ses.allocateUtf8String(name));
-			if (res == -1) { throw thrw(LOCKUP, "create folder"); }
+			if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.CREATE_CHILD, name); }
 			return new PatrFolder(res);
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -213,7 +213,7 @@ public class PatrFolder extends PatrFSElement implements Folder {
 		ensureOpen();
 		try (MemorySession ses = MemorySession.openConfined()) {
 			int res = (int) PFS_FOLDER_CREATE_FILE.invoke(this.handle, ses.allocateUtf8String(name));
-			if (res == -1) { throw thrw(LOCKUP, "create file"); }
+			if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.CREATE_CHILD, name); }
 			return new PatrFile(res);
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -225,7 +225,7 @@ public class PatrFolder extends PatrFSElement implements Folder {
 		ensureOpen();
 		try (MemorySession ses = MemorySession.openConfined()) {
 			int res = (int) PFS_FOLDER_CREATE_PIPE.invoke(this.handle, ses.allocateUtf8String(name));
-			if (res == -1) { throw thrw(LOCKUP, "create pipe"); }
+			if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.CREATE_CHILD, name); }
 			return new PatrPipe(res);
 		} catch (Throwable e) {
 			throw thrw(e);
