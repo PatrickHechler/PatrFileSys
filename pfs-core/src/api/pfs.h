@@ -93,9 +93,9 @@ struct element_handle {
 
 struct stream_handle {
 	struct element_handle *element;
-	i64 pos;
+	i64 pos; /* also used as reference count for delegate streams */
 	ui32 flags;
-	int is_file;
+	int is_file; /* also used as fd for delegate streams */
 };
 
 struct iter_handle {

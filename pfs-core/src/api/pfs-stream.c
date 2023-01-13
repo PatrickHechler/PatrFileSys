@@ -15,6 +15,13 @@ extern i64 pfs_stream_write(int sh, void *data, i64 len) {
 	if ((pfs_shs[sh]->flags & (PFS_SO_APPEND | PFS_SO_WRITE)) == 0) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
+	} else if (!pfs_shs[sh]->element) {
+		i64 wrote = write(pfs_shs[sh]->is_file, data, len);
+		if (wrote == -1) {
+			wrote = 0;
+			pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
+		}
+		return wrote;
 	}
 	if (len <= 0) {
 		if (len < 0) {
@@ -49,7 +56,8 @@ extern i64 pfs_stream_write(int sh, void *data, i64 len) {
 		} else {
 			write_len = len;
 		}
-		if (!pfsc_file_write(&pfs_shs[sh]->element->handle, pfs_shs[sh]->pos, data, write_len)) {
+		if (!pfsc_file_write(&pfs_shs[sh]->element->handle, pfs_shs[sh]->pos,
+				data, write_len)) {
 			pfs->unget(pfs, pfs_shs[sh]->element->handle.element_place.block);
 			return -1;
 		}
@@ -58,13 +66,15 @@ extern i64 pfs_stream_write(int sh, void *data, i64 len) {
 			pfs->unget(pfs, pfs_shs[sh]->element->handle.element_place.block);
 			return write_len;
 		}
-		i64 appended = pfsc_file_append(&pfs_shs[sh]->element->handle, data + write_len, remain);
+		i64 appended = pfsc_file_append(&pfs_shs[sh]->element->handle,
+				data + write_len, remain);
 		pfs->unget(pfs, pfs_shs[sh]->element->handle.element_place.block);
 		return write_len + appended;
 	} else if (overwrite_place < 0) {
 		abort();
 	} else {
-		i64 appended = pfsc_file_append(&pfs_shs[sh]->element->handle, data, len);
+		i64 appended = pfsc_file_append(&pfs_shs[sh]->element->handle, data,
+				len);
 		pfs->unget(pfs, pfs_shs[sh]->element->handle.element_place.block);
 		return appended;
 	}
@@ -75,6 +85,13 @@ extern i64 pfs_stream_read(int sh, void *buffer, i64 len) {
 	if ((pfs_shs[sh]->flags & PFS_SO_READ) == 0) {
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
+	} else if (!pfs_shs[sh]->element) {
+		i64 reat = read(pfs_shs[sh]->is_file, buffer, len);
+		if (reat == -1) {
+			reat = 0;
+			pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
+		}
+		return reat;
 	}
 	if (len <= 0) {
 		if (len < 0) {
@@ -118,7 +135,17 @@ extern i64 pfs_stream_read(int sh, void *buffer, i64 len) {
 
 extern i64 pfs_stream_get_pos(int sh) {
 	sh(-1)
-	if (!pfs_shs[sh]->is_file) {
+	if (!pfs_shs[sh]->element) {
+		if ((pfs_shs[sh]->flags & PFS_SO_FILE) == 0) {
+			pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+			return -1L;
+		}
+		i64 sek = lseek(pfs_shs[sh]->is_file, 0, SEEK_CUR);
+		if (sek == -1) {
+			pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
+		}
+		return sek;
+	} else if (!pfs_shs[sh]->is_file) {
 		pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 		return -1L;
 	}
@@ -127,7 +154,17 @@ extern i64 pfs_stream_get_pos(int sh) {
 
 extern int pfs_stream_set_pos(int sh, i64 pos) {
 	sh(0)
-	if (!pfs_shs[sh]->is_file) {
+	if (!pfs_shs[sh]->element) {
+		if ((pfs_shs[sh]->flags & PFS_SO_FILE) == 0) {
+			pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+			return -1L;
+		}
+		i64 sek = lseek(pfs_shs[sh]->is_file, pos, SEEK_SET);
+		if (sek == -1) {
+			pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
+		}
+		return sek;
+	} else if (!pfs_shs[sh]->is_file) {
 		pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 		return 0;
 	}
@@ -141,7 +178,17 @@ extern int pfs_stream_set_pos(int sh, i64 pos) {
 
 extern i64 pfs_stream_add_pos(int sh, i64 add) {
 	sh(-1)
-	if (!pfs_shs[sh]->is_file) {
+	if (!pfs_shs[sh]->element) {
+		if ((pfs_shs[sh]->flags & PFS_SO_FILE) == 0) {
+			pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+			return -1L;
+		}
+		i64 sek = lseek(pfs_shs[sh]->is_file, add, SEEK_CUR);
+		if (sek == -1) {
+			pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
+		}
+		return sek;
+	} else if (!pfs_shs[sh]->is_file) {
 		pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 		return -1;
 	}
@@ -155,7 +202,17 @@ extern i64 pfs_stream_add_pos(int sh, i64 add) {
 
 extern i64 pfs_stream_seek_eof(int sh) {
 	sh(-1)
-	if (!pfs_shs[sh]->is_file) {
+	if (!pfs_shs[sh]->element) {
+		if ((pfs_shs[sh]->flags & PFS_SO_FILE) == 0) {
+			pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+			return -1L;
+		}
+		i64 sek = lseek(pfs_shs[sh]->is_file, 0, SEEK_END);
+		if (sek == -1) {
+			pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
+		}
+		return sek;
+	} else if (!pfs_shs[sh]->is_file) {
 		pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 		return -1;
 	}

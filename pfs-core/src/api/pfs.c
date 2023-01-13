@@ -445,12 +445,14 @@ static inline int open_sh(struct element_handle *eh, ui32 stream_flags) {
 			return -1;
 		}
 	}
-	if (eh->handle.direct_parent_place.block != eh->handle.element_place.block) {
+	if (eh->handle.direct_parent_place.block
+			!= eh->handle.element_place.block) {
 		pfs->unget(pfs, eh->handle.direct_parent_place.block);
 	}
 	if (sh->is_file) {
 		if (stream_flags & PFS_SO_PIPE) {
-			if (eh->handle.direct_parent_place.block == eh->handle.element_place.block) {
+			if (eh->handle.direct_parent_place.block
+					== eh->handle.element_place.block) {
 				pfs->unget(pfs, eh->handle.direct_parent_place.block);
 			}
 			pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
@@ -459,7 +461,8 @@ static inline int open_sh(struct element_handle *eh, ui32 stream_flags) {
 			return -1;
 		}
 	} else if (stream_flags & PFS_SO_FILE) {
-		if (eh->handle.direct_parent_place.block == eh->handle.element_place.block) {
+		if (eh->handle.direct_parent_place.block
+				== eh->handle.element_place.block) {
 			pfs->unget(pfs, eh->handle.direct_parent_place.block);
 		}
 		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
@@ -467,7 +470,8 @@ static inline int open_sh(struct element_handle *eh, ui32 stream_flags) {
 		release_eh(eh);
 		return -1;
 	}
-	if (eh->handle.direct_parent_place.block != eh->handle.element_place.block) {
+	if (eh->handle.direct_parent_place.block
+			!= eh->handle.element_place.block) {
 		block_data = pfs->get(pfs, eh->handle.element_place.block);
 	}
 	if (!block_data) {
@@ -499,6 +503,31 @@ static inline int open_sh(struct element_handle *eh, ui32 stream_flags) {
 	}
 	pfs->unget(pfs, eh->handle.element_place.block);
 	return_handle(pfs_sh_len, pfs_shs, sh);
+}
+
+extern int pfs_stream_open_delegate(int fd, i32 stream_flags) {
+	if (stream_flags & (PFS_SO_ONLY_CREATE | PFS_SO_ALSO_CREATE)) {
+		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+		return -1;
+	}
+	for (int i = 0; i < pfs_sh_len; i++) {
+		if (!pfs_shs[i]) {
+			continue;
+		}
+		if (pfs_shs[i]->element) {
+			continue;
+		}
+		if (pfs_shs[i]->is_file == fd) {
+			pfs_shs[i]->pos++;
+			return_handle(pfs_sh_len, pfs_shs, pfs_shs[i]);
+		}
+	}
+	struct stream_handle *res = malloc(sizeof(struct stream_handle));
+	res->element = NULL;
+	res->flags = stream_flags;
+	res->is_file = fd;
+	res->pos = 1;
+	return_handle(pfs_sh_len, pfs_shs, res);
 }
 
 extern int pfs_open_stream(int eh, i32 stream_flags) {
@@ -676,7 +705,17 @@ extern int pfs_iter_close(int ih) {
 
 extern int pfs_stream_close(int sh) {
 	sh(0)
-	release_eh(pfs_shs[sh]->element);
+	if (pfs_shs[sh]->element) {
+		release_eh(pfs_shs[sh]->element);
+	} else if (--pfs_shs[sh]->pos <= 0) {
+		if (pfs_shs[sh]->pos < 0) {
+			abort();
+		}
+		if (close(pfs_shs[sh]->is_file) == -1) {
+			pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
+			return 0;
+		}
+	}
 	pfs_shs[sh] = NULL;
 	return 1;
 }
