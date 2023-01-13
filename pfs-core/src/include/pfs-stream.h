@@ -18,6 +18,11 @@
  */
 extern int pfs_stream_close(int sh);
 
+/**
+ * creates a delegate stream for the given file descriptor and with the given flags
+ */
+extern int pfs_stream_open_delegate(int fd, i32 stream_flags);
+
 /*
  * writes some data to the stream
  *

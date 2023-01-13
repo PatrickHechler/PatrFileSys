@@ -18,6 +18,10 @@ extern int pfs_element_parent(int eh) {
 
 extern int pfs_element_delete(int eh) {
 	eh(0)
+	if (pfs_ehs[eh]->children.entrycount != 0 || pfs_ehs[eh]->load_count != 1) {
+		pfs_errno = PFS_ERRNO_ELEMENT_USED;
+		return 0;
+	}
 	int res = pfsc_element_delete(&pfs_ehs[eh]->handle);
 	if (res) {
 		struct element_handle *e = pfs_ehs[eh];
