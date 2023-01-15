@@ -32,6 +32,6 @@ extern void* hashset_get(const struct hashset *set, unsigned int hash, const voi
 
 extern void* hashset_put(struct hashset *set, unsigned int hash, void *newval);
 
-extern void* hashset_remove(struct hashset *set, unsigned int hash, void *newval);
+extern void* hashset_remove(struct hashset *set, unsigned int hash, void *oldval);
 
 #endif /* HASHSET_H_ */
