@@ -61,7 +61,7 @@ void pfs_simple_print(i64 max_depth, pfs_eh folder, char **buf, i64 *len) {
 				free(*buf);
 				free(buf);
 			}
-			if (pfs_errno == PFS_ERRNO_NO_MORE_ELEMNETS) {
+			if (pfs_errno == PFS_ERRNO_NO_MORE_ELEMENTS) {
 				free(iter);
 				return;
 			} else {
@@ -919,7 +919,7 @@ static void folder_check() {
 		printf("%sgot more elements from the iter than expected! [B]\n", start);
 		exit(EXIT_FAILURE);
 	}
-	if (pfs_errno != PFS_ERRNO_NO_MORE_ELEMNETS) {
+	if (pfs_errno != PFS_ERRNO_NO_MORE_ELEMENTS) {
 		printf(
 				"%spfs_errno has not the expected value (no-more-elements, but: %s)! [C]\n",
 				start, pfs_error());
@@ -1194,7 +1194,7 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 	(*name)[cur_len++] = '/';
 	while (1) {
 		if (!pfsc_folder_iter_next(iter)) {
-			if (pfs_errno != PFS_ERRNO_NO_MORE_ELEMNETS) {
+			if (pfs_errno != PFS_ERRNO_NO_MORE_ELEMENTS) {
 				printf(
 						"%sfailed to get the next element from the folder iter! (pfs_errno=%s) [1]\n",
 						start, pfs_error);

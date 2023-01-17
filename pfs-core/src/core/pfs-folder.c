@@ -72,7 +72,7 @@ int pfsc_folder_iter_next(pfs_fi fi) {
 				if (fi->current_depth != 0) {
 					abort();
 				}
-				pfs_errno = PFS_ERRNO_NO_MORE_ELEMNETS;
+				pfs_errno = PFS_ERRNO_NO_MORE_ELEMENTS;
 				pfs->unget(pfs, fi->current_place.block);
 				return 0;
 			}

@@ -55,7 +55,13 @@ static inline struct element_handle* open_eh(const char *path,
 	}
 	struct element_handle *eh =
 			(allow_relative && (*path != '/')) ? rot : pfs_cwd;
-	for (const char *cur = path, *end; *(cur - 1); cur = end + 1) {
+	for (const char *cur = path, *end;; cur = end) {
+		while (*cur == '/') {
+			cur++;
+		}
+		if (*cur == '\0') {
+			break;
+		}
 		end = strchrnul(cur, '/');
 		i64 len = ((i64) end) - ((i64) cur);
 		if (len >= buf_len) {
@@ -102,8 +108,8 @@ static inline struct element_handle* open_eh(const char *path,
 			if (!pfsc_folder_folder_child_from_name(&neh->handle, buf)) {
 				if (!*end) {
 					if (parent_on_err) {
-						*parent_on_err = eh->parent;
-						(*parent_on_err)->load_count++;
+						*parent_on_err = eh;
+						eh->load_count++;
 					}
 				}
 				release_eh(eh);

@@ -44,7 +44,7 @@ int pfsc_folder_fill_iterator(pfs_eh f, pfs_fi iter, int show_hidden);
  *
  * returns 1 on success, 0 if no more elements are there or an error occurred
  *
- * if there are no more elements pfs_errno will be set to PFS_ERRNO_NO_MORE_ELEMNETS
+ * if there are no more elements pfs_errno will be set to PFS_ERRNO_NO_MORE_ELEMENTS
  */
 int pfsc_folder_iter_next(pfs_fi fi);
 

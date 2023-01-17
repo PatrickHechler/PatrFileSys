@@ -54,33 +54,42 @@ public class PatrFS implements FS {
 			lockup = SymbolLookup.libraryLookup("pfs-core", MemorySession.global());
 		} catch (IllegalArgumentException e) {
 			try {
-				lockup = SymbolLookup.libraryLookup(Paths.get("lib/libpfs-core.so").toAbsolutePath().toString(), MemorySession.global());
+				lockup = SymbolLookup.libraryLookup(Paths.get("lib/libpfs-core.so").toAbsolutePath().toString(),
+						MemorySession.global());
 			} catch (IllegalArgumentException e2) {
 				lockup = SymbolLookup.libraryLookup("/lib/libpfs-core.so", MemorySession.global());
 			}
 		}
-		LOCKUP                = lockup;
-		PFS_BLOCK_COUNT       = LINKER.downcallHandle(lockup.lookup("pfs_block_count").orElseThrow(), FunctionDescriptor.of(LONG));
-		PFS_BLOCK_SIZE        = LINKER.downcallHandle(lockup.lookup("pfs_block_size").orElseThrow(), FunctionDescriptor.of(INT));
-		PFS_HANDLE            = LINKER.downcallHandle(lockup.lookup("pfs_handle").orElseThrow(), FunctionDescriptor.of(INT, PNTR));
-		PFS_HANDLE_FOLDER     = LINKER.downcallHandle(lockup.lookup("pfs_handle_folder").orElseThrow(), FunctionDescriptor.of(INT, PNTR));
-		PFS_HANDLE_FILE       = LINKER.downcallHandle(lockup.lookup("pfs_handle_file").orElseThrow(), FunctionDescriptor.of(INT, PNTR));
-		PFS_HANDLE_PIPE       = LINKER.downcallHandle(lockup.lookup("pfs_handle_pipe").orElseThrow(), FunctionDescriptor.of(INT, PNTR));
-		PFS_CHANGE_DIR        = LINKER.downcallHandle(lockup.lookup("pfs_change_dir").orElseThrow(), FunctionDescriptor.of(INT, INT));
-		PFS_STREAM            = LINKER.downcallHandle(lockup.lookup("pfs_stream").orElseThrow(), FunctionDescriptor.of(INT, PNTR, INT));
-		PFS_STREAM_CLOSE      = LINKER.downcallHandle(lockup.lookup("pfs_stream_close").orElseThrow(), FunctionDescriptor.of(INT, INT));
-		PFS_ELEMENT_CLOSE     = LINKER.downcallHandle(lockup.lookup("pfs_element_close").orElseThrow(), FunctionDescriptor.of(INT, INT));
-		PFS_ELEMENT_GET_FLAGS = LINKER.downcallHandle(lockup.lookup("pfs_element_get_flags").orElseThrow(), FunctionDescriptor.of(INT, INT));
-		PFS_CLOSE             = LINKER.downcallHandle(lockup.lookup("pfs_close").orElseThrow(), FunctionDescriptor.of(INT));
+		LOCKUP = lockup;
+		PFS_BLOCK_COUNT = LINKER.downcallHandle(lockup.lookup("pfs_block_count").orElseThrow(),
+				FunctionDescriptor.of(LONG));
+		PFS_BLOCK_SIZE = LINKER.downcallHandle(lockup.lookup("pfs_block_size").orElseThrow(),
+				FunctionDescriptor.of(INT));
+		PFS_HANDLE = LINKER.downcallHandle(lockup.lookup("pfs_handle").orElseThrow(), FunctionDescriptor.of(INT, PNTR));
+		PFS_HANDLE_FOLDER = LINKER.downcallHandle(lockup.lookup("pfs_handle_folder").orElseThrow(),
+				FunctionDescriptor.of(INT, PNTR));
+		PFS_HANDLE_FILE = LINKER.downcallHandle(lockup.lookup("pfs_handle_file").orElseThrow(),
+				FunctionDescriptor.of(INT, PNTR));
+		PFS_HANDLE_PIPE = LINKER.downcallHandle(lockup.lookup("pfs_handle_pipe").orElseThrow(),
+				FunctionDescriptor.of(INT, PNTR));
+		PFS_CHANGE_DIR = LINKER.downcallHandle(lockup.lookup("pfs_change_dir").orElseThrow(),
+				FunctionDescriptor.of(INT, INT));
+		PFS_STREAM = LINKER.downcallHandle(lockup.lookup("pfs_stream").orElseThrow(),
+				FunctionDescriptor.of(INT, PNTR, INT));
+		PFS_STREAM_CLOSE = LINKER.downcallHandle(lockup.lookup("pfs_stream_close").orElseThrow(),
+				FunctionDescriptor.of(INT, INT));
+		PFS_ELEMENT_CLOSE = LINKER.downcallHandle(lockup.lookup("pfs_element_close").orElseThrow(),
+				FunctionDescriptor.of(INT, INT));
+		PFS_ELEMENT_GET_FLAGS = LINKER.downcallHandle(lockup.lookup("pfs_element_get_flags").orElseThrow(),
+				FunctionDescriptor.of(INT, INT));
+		PFS_CLOSE = LINKER.downcallHandle(lockup.lookup("pfs_close").orElseThrow(), FunctionDescriptor.of(INT));
 	}
 	
 	final MemorySession session;
 	
 	private boolean closed;
 	
-	public PatrFS(MemorySession session) {
-		this.session = session;
-	}
+	public PatrFS(MemorySession session) { this.session = session; }
 	
 	@Override
 	public long blockCount() throws IOException {
@@ -179,16 +188,18 @@ public class PatrFS implements FS {
 				int o = 0;
 				if (opts.createOnly()) {
 					o |= SO_CREATE_ONLY;
-				} else if (opts.createAlso()) {
-					o |= SO_ALSO_CREATE;
-				}
-				if (opts.read()) {
-					o |= SO_READ;
-				}
+				} else if (opts.createAlso()) { o |= SO_ALSO_CREATE; }
+				if (opts.read()) { o |= SO_READ; }
 				if (opts.append()) {
 					o |= SO_APPEND;
-				} else if (opts.write()) {
-					o |= SO_WRITE;
+				} else if (opts.write()) { o |= SO_WRITE; }
+				if (opts.type() != null) {
+					switch (opts.type()) {
+					case file -> o |= SO_FILE;
+					case pipe -> o |= SO_PIPE;
+					case folder -> throw new AssertionError("stream options with type folder");
+					default -> throw new InternalError("unknown type: " + opts.type().name());
+					}
 				}
 				MemorySegment pathSeg = ses.allocateUtf8String(path);
 				int           res     = (int) PFS_STREAM.invoke(pathSeg, o);
@@ -233,9 +244,7 @@ public class PatrFS implements FS {
 	}
 	
 	@Override
-	public Folder cwd() throws IOException {
-		return folder("./");
-	}
+	public Folder cwd() throws IOException { return folder("./"); }
 	
 	@Override
 	public void cwd(Folder f) throws IOException {

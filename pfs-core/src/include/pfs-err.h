@@ -18,7 +18,7 @@ ui32 pfs_errno;
 enum PFS_ERRNO {
     PFS_ERRNO_NONE                  = 0,  /* if pfs_errno is not set/no error occurred */
     PFS_ERRNO_UNKNOWN_ERROR         = 1,  /* if an operation failed because of an unknown/unspecified error */
-    PFS_ERRNO_NO_MORE_ELEMNETS      = 2,  /* if the iterator has no next element */
+    PFS_ERRNO_NO_MORE_ELEMENTS      = 2,  /* if the iterator has no next element */
     PFS_ERRNO_ELEMENT_WRONG_TYPE    = 3,  /* if an IO operation failed because the element is not of the correct type (file expected, but folder or reverse) */
     PFS_ERRNO_ELEMENT_NOT_EXIST     = 4,  /* if an IO operation failed because the element does not exist */
     PFS_ERRNO_ELEMENT_ALREADY_EXIST = 5,  /* if an IO operation failed because the element already existed */
