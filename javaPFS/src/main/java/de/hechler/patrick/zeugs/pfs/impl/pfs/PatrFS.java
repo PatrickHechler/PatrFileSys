@@ -53,7 +53,11 @@ public class PatrFS implements FS {
 		try {
 			lockup = SymbolLookup.libraryLookup("pfs-core", MemorySession.global());
 		} catch (IllegalArgumentException e) {
-			lockup = SymbolLookup.libraryLookup(Paths.get("lib/libpfs-core.so").toAbsolutePath().toString(), MemorySession.global());
+			try {
+				lockup = SymbolLookup.libraryLookup(Paths.get("lib/libpfs-core.so").toAbsolutePath().toString(), MemorySession.global());
+			} catch (IllegalArgumentException e2) {
+				lockup = SymbolLookup.libraryLookup("/lib/libpfs-core.so", MemorySession.global());
+			}
 		}
 		LOCKUP                = lockup;
 		PFS_BLOCK_COUNT       = LINKER.downcallHandle(lockup.lookup("pfs_block_count").orElseThrow(), FunctionDescriptor.of(LONG));
@@ -63,7 +67,7 @@ public class PatrFS implements FS {
 		PFS_HANDLE_FILE       = LINKER.downcallHandle(lockup.lookup("pfs_handle_file").orElseThrow(), FunctionDescriptor.of(INT, PNTR));
 		PFS_HANDLE_PIPE       = LINKER.downcallHandle(lockup.lookup("pfs_handle_pipe").orElseThrow(), FunctionDescriptor.of(INT, PNTR));
 		PFS_CHANGE_DIR        = LINKER.downcallHandle(lockup.lookup("pfs_change_dir").orElseThrow(), FunctionDescriptor.of(INT, INT));
-		PFS_STREAM            = LINKER.downcallHandle(lockup.lookup("pfs_stream").orElseThrow(), FunctionDescriptor.of(INT, PNTR));
+		PFS_STREAM            = LINKER.downcallHandle(lockup.lookup("pfs_stream").orElseThrow(), FunctionDescriptor.of(INT, PNTR, INT));
 		PFS_STREAM_CLOSE      = LINKER.downcallHandle(lockup.lookup("pfs_stream_close").orElseThrow(), FunctionDescriptor.of(INT, INT));
 		PFS_ELEMENT_CLOSE     = LINKER.downcallHandle(lockup.lookup("pfs_element_close").orElseThrow(), FunctionDescriptor.of(INT, INT));
 		PFS_ELEMENT_GET_FLAGS = LINKER.downcallHandle(lockup.lookup("pfs_element_get_flags").orElseThrow(), FunctionDescriptor.of(INT, INT));

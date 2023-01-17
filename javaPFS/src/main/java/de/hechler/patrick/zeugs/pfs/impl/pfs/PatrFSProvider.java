@@ -115,9 +115,11 @@ public class PatrFSProvider extends FSProvider {
 		MethodHandle  pfsLoad = linker.downcallHandle(loockup.lookup("pfs_load").orElseThrow(),
 				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
 		MethodHandle  lseek   = linker.downcallHandle(GLIBC_LIBARY_LOCKUP.lookup("lseek").orElseThrow(),
-				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT));
+				FunctionDescriptor.of(ValueLayout.JAVA_LONG, 
+						ValueLayout.JAVA_INT, ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT));
 		MethodHandle  read    = linker.downcallHandle(GLIBC_LIBARY_LOCKUP.lookup("read").orElseThrow(),
-				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+				FunctionDescriptor.of(ValueLayout.JAVA_LONG, 
+						ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
 		MemorySegment buf     = local.allocate(8);
 		if (8L != (long) read.invoke(fd, buf, 8L)) { throw new IOException("error on read"); }
 		if (MAGIC_START != buf.get(ValueLayout.JAVA_LONG, 0)) { throw new IOException("the file system does not start with my magic!"); }
