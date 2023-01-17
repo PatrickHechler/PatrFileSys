@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>de.hechler.patrick.zeugs.pfs</groupId>
 	<artifactId>javaPFS</artifactId>
-	<version>1.0.0</version>
+	<version>1.1.1</version>
 	<packaging>jar</packaging>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -13,6 +13,7 @@
 			<groupId>de.hechler.patrick.hilfen</groupId>
 			<artifactId>checker</artifactId>
 			<version>7.1.4-SNAPSHOT</version>
+			<scope>test</scope>
 		</dependency>
 	</dependencies>
 	<build>

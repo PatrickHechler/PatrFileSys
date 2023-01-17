@@ -115,14 +115,14 @@ public class PatrFSProvider extends FSProvider {
 		MethodHandle  pfsLoad = linker.downcallHandle(loockup.lookup("pfs_load").orElseThrow(),
 				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
 		MethodHandle  lseek   = linker.downcallHandle(GLIBC_LIBARY_LOCKUP.lookup("lseek").orElseThrow(),
-				FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT, ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT));
+				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT));
 		MethodHandle  read    = linker.downcallHandle(GLIBC_LIBARY_LOCKUP.lookup("read").orElseThrow(),
-				FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
 		MemorySegment buf     = local.allocate(8);
-		if (8L != (long) read.invoke(fd, buf, 8)) { throw new IOException("error on read"); }
+		if (8L != (long) read.invoke(fd, buf, 8L)) { throw new IOException("error on read"); }
 		if (MAGIC_START != buf.get(ValueLayout.JAVA_LONG, 0)) { throw new IOException("the file system does not start with my magic!"); }
 		if (OFFSET_BLOCK_SIZE != (long) lseek.invoke(fd, OFFSET_BLOCK_SIZE, SEEK_SET)) { throw new IOException("error on lseek"); }
-		if (4L != (long) read.invoke(fd, buf, 4)) { throw new IOException("error on read"); }
+		if (4L != (long) read.invoke(fd, buf, 4L)) { throw new IOException("error on read"); }
 		int         bs = buf.get(ValueLayout.JAVA_INT, 0);
 		Addressable bm = (Addressable) newBm.invoke(fd, bs);
 		if (0 == (int) pfsLoad.invoke(bm, MemoryAddress.NULL)) { throw thrw(loockup, PFSErrorCause.LOAD_PFS, opts.path()); }

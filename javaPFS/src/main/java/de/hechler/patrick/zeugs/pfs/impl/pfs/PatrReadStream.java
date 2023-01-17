@@ -8,5 +8,5 @@ public final class PatrReadStream extends PatrStream implements ReadStream {
 	public PatrReadStream(int handle, StreamOpenOptions opts) {
 		super(handle, opts);
 	}
-
+	
 }
