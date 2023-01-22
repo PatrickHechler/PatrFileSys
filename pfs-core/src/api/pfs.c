@@ -54,7 +54,8 @@ static inline struct element_handle* open_eh(const char *path,
 		return NULL;
 	}
 	struct element_handle *eh =
-			(allow_relative && (*path != '/')) ? rot : pfs_cwd;
+			(allow_relative && (*path != '/')) ? pfs_cwd : rot;
+	eh->load_count++;
 	for (const char *cur = path, *end;; cur = end) {
 		while (*cur == '/') {
 			cur++;
@@ -85,16 +86,13 @@ static inline struct element_handle* open_eh(const char *path,
 			if (!eh->parent) {
 				pfs_errno = PFS_ERRNO_ROOT_FOLDER;
 				free(buf);
+				release_eh(eh);
 				return 0;
 			}
-			if (has_refs(eh)) {
-				struct element_handle *oeh = eh;
-				eh = eh->parent;
-				hashset_remove(&eh->children, eh_hash(oeh), oeh);
-				free(oeh);
-			} else {
-				eh = eh->parent;
-			}
+			struct element_handle *oeh = eh;
+			eh = oeh->parent;
+			eh->load_count++;
+			release_eh(oeh);
 			continue;
 		}
 		struct element_handle *neh = malloc(sizeof(struct element_handle));
@@ -121,14 +119,16 @@ static inline struct element_handle* open_eh(const char *path,
 			free(buf);
 			return 0;
 		}
+		struct element_handle *oeh = eh;
 		struct element_handle *oneh = hashset_get(&eh->children, eh_hash(neh),
 				neh);
 		if (oneh) {
 			eh = oneh;
+			eh->load_count++;
 		} else {
 			hashset_put(&eh->children, eh_hash(neh), neh);
 			neh->parent = eh;
-			neh->load_count = 0;
+			neh->load_count = 1;
 			neh->children.entrycount = 0;
 			neh->children.setsize = 0;
 			neh->children.equalizer = childset_equal;
@@ -136,6 +136,7 @@ static inline struct element_handle* open_eh(const char *path,
 			neh->children.entries = NULL;
 			eh = neh;
 		}
+		release_eh(oeh);
 	}
 	free(buf);
 	eh->load_count++;
@@ -190,9 +191,8 @@ extern int pfs_load(struct bm_block_manager *bm, const char *cur_work_dir) {
 	nrot->children.equalizer = childset_equal;
 	nrot->children.hashmaker = childset_hash;
 	nrot->children.entries = NULL;
-	struct element_handle *ncwd;
 	if (cur_work_dir) {
-		ncwd = open_eh(cur_work_dir, nrot, 0, NULL);
+		struct element_handle *ncwd = open_eh(cur_work_dir, nrot, 0, NULL);
 		if (!ncwd) {
 			free(nehs);
 			free(nshs);
@@ -201,19 +201,19 @@ extern int pfs_load(struct bm_block_manager *bm, const char *cur_work_dir) {
 			pfs = old;
 			return 0;
 		}
+		free_old();
+		pfs_cwd = ncwd;
 	} else {
 		nrot->load_count++;
-		ncwd = pfs_root;
+		pfs_cwd = nrot;
 	}
-	free_old();
+	pfs_root = nrot;
 	pfs_ehs = nehs;
 	pfs_shs = nshs;
 	pfs_ihs = nihs;
 	pfs_eh_len = 1;
 	pfs_sh_len = 1;
 	pfs_ih_len = 1;
-	pfs_root = nrot;
-	pfs_cwd = ncwd;
 	pfs_shs[0] = NULL;
 	pfs_ehs[0] = NULL;
 	pfs_ihs[0] = NULL;
@@ -362,11 +362,11 @@ extern int pfs_handle_folder(const char *path) {
 }
 
 extern int pfs_handle_file(const char *path) {
-	return handle(path, PFS_F_FOLDER);
+	return handle(path, PFS_F_FILE);
 }
 
 extern int pfs_handle_pipe(const char *path) {
-	return handle(path, PFS_F_FOLDER);
+	return handle(path, PFS_F_PIPE);
 }
 
 extern int pfs_change_dir(int eh) {

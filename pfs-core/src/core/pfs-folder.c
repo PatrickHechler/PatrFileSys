@@ -212,8 +212,13 @@ static int pfs_folder_child_from_name_impl(pfs_eh f, const char *name,
 	get_folder
 	for (int i = 0; i < folder->direct_child_count; i++) {
 		if (folder->entries[i].name_pos == -1) {
+			struct pfs_place old_place = f->direct_parent_place;
+			f->direct_parent_place = f->element_place;
+			f->element_place = folder->entries[i].child_place;
 			int res = pfs_folder_child_from_name_impl(f, name, 1, neededflag);
 			if (res != 0) {
+				f->element_place = f->direct_parent_place;
+				f->direct_parent_place = old_place;
 				pfs->unget(pfs, old_block_num);
 				return res;
 			}
@@ -228,8 +233,15 @@ static int pfs_folder_child_from_name_impl(pfs_eh f, const char *name,
 					pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 					return -1;
 				}
-				f->element_place.block = folder->entries[i].child_place.block;
-				f->element_place.pos = folder->entries[i].child_place.pos;
+				if (is_helper) {
+					f->real_parent_place = f->direct_parent_place;
+				} else {
+					f->real_parent_place = f->element_place;
+				}
+				f->direct_parent_place = f->element_place;
+				f->element_place = folder->entries[i].child_place;
+				f->entry_pos = ((void*) &folder->entries[i]) - block_data;
+				f->index_in_direct_parent_list = i;
 				pfs->unget(pfs, old_block_num);
 				return 1;
 			}
