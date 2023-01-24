@@ -41,7 +41,7 @@ public class PatrPipe extends PatrFSElement implements Pipe {
 		ensureOpen();
 		try {
 			long res = (long) PFS_PIPE_LENGTH.invoke(this.handle);
-			if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.GET_PIPE_LEN, null); }
+			if (res == -1) { throw thrw(PFSErrorCause.GET_PIPE_LEN, null); }
 			return res;
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -64,7 +64,7 @@ public class PatrPipe extends PatrFSElement implements Pipe {
 		options = options.ensureType(ElementType.pipe);
 		try {
 			int res = (int) PFS_OPEN_STREAM.invoke(this.handle, o);
-			if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.OPEN_STREAM, null); }
+			if (res == -1) { throw thrw(PFSErrorCause.OPEN_STREAM, null); }
 			if (options.read()) {
 				if (options.write()) {
 					return new PatrReadWriteStream(res, options);

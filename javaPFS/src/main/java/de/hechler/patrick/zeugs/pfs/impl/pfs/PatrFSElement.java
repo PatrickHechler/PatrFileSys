@@ -82,7 +82,7 @@ public class PatrFSElement implements FSElement {
 		ensureOpen();
 		try {
 			int res = (int) PFS_ELEMENT_PARENT.invoke(this.handle);
-			if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.GET_PARENT, null); }
+			if (res == -1) { throw thrw(PFSErrorCause.GET_PARENT, null); }
 			return new PatrFolder(res);
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -94,7 +94,7 @@ public class PatrFSElement implements FSElement {
 		ensureOpen();
 		try {
 			int res = (int) PFS_ELEMENT_GET_FLAGS.invoke(this.handle);
-			if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.GET_FLAGS, null); }
+			if (res == -1) { throw thrw(PFSErrorCause.GET_FLAGS, null); }
 			return res;
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -105,7 +105,7 @@ public class PatrFSElement implements FSElement {
 	public void flag(int add, int rem) throws IOException {
 		ensureOpen();
 		try {
-			if (0 == (int) PFS_ELEMENT_MODIFY_FLAGS.invoke(this.handle, add, rem)) { throw thrw(LOCKUP, PFSErrorCause.MODIFY_FLAGS, null); }
+			if (0 == (int) PFS_ELEMENT_MODIFY_FLAGS.invoke(this.handle, add, rem)) { throw thrw(PFSErrorCause.MODIFY_FLAGS, null); }
 		} catch (Throwable e) {
 			throw thrw(e);
 		}
@@ -116,7 +116,7 @@ public class PatrFSElement implements FSElement {
 		ensureOpen();
 		try {
 			long res = (long) PFS_ELEMENT_GET_LAST_MODIFY_TIME.invoke(this.handle);
-			if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.GET_LAST_MODIFY_TIME, null); }
+			if (res == -1) { throw thrw(PFSErrorCause.GET_LAST_MODIFY_TIME, null); }
 			return res;
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -128,7 +128,7 @@ public class PatrFSElement implements FSElement {
 		ensureOpen();
 		try {
 			if (0 == (int) PFS_ELEMENT_SET_LAST_MODIFY_TIME.invoke(this.handle, time)) {
-				throw thrw(LOCKUP, PFSErrorCause.SET_LAST_MODIFY_TIME, null);
+				throw thrw(PFSErrorCause.SET_LAST_MODIFY_TIME, null);
 			}
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -140,7 +140,7 @@ public class PatrFSElement implements FSElement {
 		ensureOpen();
 		try {
 			long res = (long) PFS_ELEMENT_GET_CREATE_TIME.invoke(this.handle);
-			if (res == -1) { throw thrw(LOCKUP, PFSErrorCause.GET_CREATE_TIME, null); }
+			if (res == -1) { throw thrw(PFSErrorCause.GET_CREATE_TIME, null); }
 			return res;
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -151,7 +151,7 @@ public class PatrFSElement implements FSElement {
 	public void createTime(long time) throws IOException {
 		ensureOpen();
 		try {
-			if (0 == (int) PFS_ELEMENT_SET_CREATE_TIME.invoke(this.handle, time)) { throw thrw(LOCKUP, PFSErrorCause.SET_CREATE_TIME, null); }
+			if (0 == (int) PFS_ELEMENT_SET_CREATE_TIME.invoke(this.handle, time)) { throw thrw(PFSErrorCause.SET_CREATE_TIME, null); }
 		} catch (Throwable e) {
 			throw thrw(e);
 		}
@@ -164,7 +164,7 @@ public class PatrFSElement implements FSElement {
 			MemorySegment data = ses.allocate(16);
 			data.set(PNTR, 0L, MemoryAddress.NULL);
 			data.set(LONG, 8L, 0L);
-			if (0 == (int) PFS_ELEMENT_GET_NAME.invoke(this.handle, data, data.asSlice(8L, 8L))) { throw thrw(LOCKUP, PFSErrorCause.GET_NAME, null); }
+			if (0 == (int) PFS_ELEMENT_GET_NAME.invoke(this.handle, data, data.asSlice(8L, 8L))) { throw thrw(PFSErrorCause.GET_NAME, null); }
 			return data.get(PNTR, 0L).getUtf8String(0L);
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -176,7 +176,7 @@ public class PatrFSElement implements FSElement {
 		ensureOpen();
 		try (MemorySession ses = MemorySession.openConfined()) {
 			if (0 == (int) PFS_ELEMENT_SET_NAME.invoke(this.handle, ses.allocateUtf8String(name))) {
-				throw thrw(LOCKUP, PFSErrorCause.SET_NAME, null);
+				throw thrw(PFSErrorCause.SET_NAME, null);
 			}
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -188,7 +188,7 @@ public class PatrFSElement implements FSElement {
 		ensureOpen();
 		try {
 			if (parent instanceof PatrFolder p) {
-				if (0 == (int) PFS_ELEMENT_SET_PARENT.invoke(this.handle, p.handle)) { throw thrw(LOCKUP, PFSErrorCause.SET_PARENT, null); }
+				if (0 == (int) PFS_ELEMENT_SET_PARENT.invoke(this.handle, p.handle)) { throw thrw(PFSErrorCause.SET_PARENT, null); }
 			} else {
 				throw new ClassCastException("parent is not of class PatrFolder, but of " + parent.getClass());
 			}
@@ -203,7 +203,7 @@ public class PatrFSElement implements FSElement {
 		try (MemorySession ses = MemorySession.openConfined()) {
 			if (parent instanceof PatrFolder p) {
 				if (0 == (int) PFS_ELEMENT_MOVE.invoke(this.handle, p.handle, ses.allocateUtf8String(name))) {
-					throw thrw(LOCKUP, PFSErrorCause.MOVE_ELEMENT, null);
+					throw thrw(PFSErrorCause.MOVE_ELEMENT, null);
 				}
 			} else {
 				throw new ClassCastException("parent is not of class PatrFolder, but of " + parent.getClass());
@@ -217,7 +217,7 @@ public class PatrFSElement implements FSElement {
 	public void delete() throws IOException {
 		ensureOpen();
 		try {
-			if (0 == (int) PFS_ELEMENT_DELETE.invoke(this.handle)) { throw thrw(LOCKUP, PFSErrorCause.DELETE_ELEMENT, null); }
+			if (0 == (int) PFS_ELEMENT_DELETE.invoke(this.handle)) { throw thrw(PFSErrorCause.DELETE_ELEMENT, null); }
 		} catch (Throwable e) {
 			throw thrw(e);
 		}
@@ -261,7 +261,7 @@ public class PatrFSElement implements FSElement {
 		if (closed) { return; }
 		this.closed = true;
 		try {
-			if (0 == (int) PFS_ELEMENT_CLOSE.invoke(this.handle)) { throw thrw(LOCKUP, PFSErrorCause.CLOSE_ELEMENT, null); }
+			if (0 == (int) PFS_ELEMENT_CLOSE.invoke(this.handle)) { throw thrw(PFSErrorCause.CLOSE_ELEMENT, null); }
 		} catch (Throwable e) {
 			throw thrw(e);
 		}
@@ -275,8 +275,8 @@ public class PatrFSElement implements FSElement {
 				return switch (res) {
 				case 0 -> false;
 				case 1 -> true;
-				case -1 -> throw thrw(LOCKUP, PFSErrorCause.SAME, null);
-				default -> throw thrw(LOCKUP, PFSErrorCause.SAME, res);
+				case -1 -> throw thrw(PFSErrorCause.SAME, null);
+				default -> throw thrw(PFSErrorCause.SAME, res);
 				};
 			} else {
 				return false;
