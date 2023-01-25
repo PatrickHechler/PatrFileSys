@@ -6,8 +6,7 @@ import de.hechler.patrick.zeugs.pfs.interfaces.Folder;
 import de.hechler.patrick.zeugs.pfs.interfaces.Pipe;
 
 /**
- * this enumeration enumerates, the different types an {@link FSElement} can
- * have
+ * this enumeration enumerates, the different types an {@link FSElement} can have
  * 
  * @author pat
  * 
@@ -20,18 +19,25 @@ public enum ElementType {
 	 * 
 	 * @see Folder
 	 */
-	folder,
+	FOLDER,
 	/**
 	 * file elements
 	 * 
 	 * @see File
 	 */
-	file,
+	FILE,
 	/**
 	 * pipe elements
 	 * 
 	 * @see Pipe
 	 */
-	pipe
+	PIPE,
+	
+	;
+	
+	@Override
+	public String toString() {
+		return name().toLowerCase();
+	}
 	
 }

@@ -12,7 +12,7 @@ import de.hechler.patrick.zeugs.pfs.misc.ElementType;
  * @param write      if the stream should be opened for write access
  * @param append     if the stream should be opened for append access (implicit <code>write</code>)
  * @param type       the {@link FSElement} type of the element for which the stream should be opened
- *                   ({@link ElementType#folder} is forbidden, <code>null</code> is allowed)
+ *                   ({@link ElementType#FOLDER} is forbidden, <code>null</code> is allowed)
  * @param createAlso if the element should be created if it doesn't exist already (needs a non <code>null</code>
  *                   <code>type</code>)
  * @param createOnly if the open operation should fail if the element already exists (implicit <code>createAlso</code>)
@@ -27,7 +27,7 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	 * <li><code>write</code>: if the stream should be opened for write access</li>
 	 * <li><code>append</code>: if the stream should be opened for append access (implicit <code>write</code>)</li>
 	 * <li><code>type</code> the {@link FSElement} type of the element for which the stream should be opened
-	 * ({@link ElementType#folder} is forbidden, <code>null</code> is allowed, if the value is <code>null</code>,
+	 * ({@link ElementType#FOLDER} is forbidden, <code>null</code> is allowed, if the value is <code>null</code>,
 	 * <code>type</code> will be set when opening the {@link FSElement})</li>
 	 * <li><code>createAlso</code>: if the element should be created if it doesn't exist already (needs a non
 	 * <code>null</code> <code>type</code>)</li>
@@ -39,7 +39,7 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	 * @param write      if the stream should be opened for write access
 	 * @param append     if the stream should be opened for append access (implicit <code>write</code>)
 	 * @param type       the {@link FSElement} type of the element for which the stream should be opened
-	 *                   ({@link ElementType#folder} is forbidden, <code>null</code> is allowed)
+	 *                   ({@link ElementType#FOLDER} is forbidden, <code>null</code> is allowed)
 	 * @param createAlso if the element should be created if it doesn't exist already (needs a non <code>null</code>
 	 *                   <code>type</code>)
 	 * @param createOnly if the open operation should fail if the element already exists (implicit
@@ -54,8 +54,9 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 					"can't open streams without read and without write access! spezify at least one of them.");
 		}
 		this.type = switch (type) {
-		case ElementType e when e == ElementType.file || e == ElementType.pipe -> type;
-		case ElementType e when e == ElementType.folder -> throw new IllegalArgumentException("can't open folder streams");
+		case ElementType e when e == ElementType.FILE || e == ElementType.PIPE -> type;
+		case ElementType e when e == ElementType.FOLDER ->
+			throw new IllegalArgumentException("can't open folder streams");
 		case null -> {
 			if (createAlso) {
 				throw new IllegalArgumentException(
@@ -127,8 +128,8 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	public boolean seekable() {
 		try {
 			return switch (type) {
-			case file -> true;
-			case pipe -> false;
+			case FILE -> true;
+			case PIPE -> false;
 			case null -> throw new IllegalStateException("type is not set");
 			default -> throw new AssertionError("unknown type: " + type.name());
 			};
@@ -156,9 +157,47 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 		return switch (type) {
 		case null -> throw new NullPointerException("can't ensure to be of type null");
 		case (ElementType e) when e == this.type -> this;
-		case (ElementType e) when null == this.type -> new StreamOpenOptions(read, write, append, e, createAlso, createOnly);
+		case (ElementType e) when null == this.type ->
+			new StreamOpenOptions(read, write, append, e, createAlso, createOnly);
 		default -> throw new IllegalArgumentException("this is a " + type + ", but type is set to " + this.type);
 		};
+	}
+	
+	@Override
+	public String toString() {
+		StringBuilder b = new StringBuilder();
+		b.append("Stream[");
+		boolean first = true;
+		if (type != null) {
+			first = checkFirst(b, first);
+			b.append(type);
+		}
+		if (read) {
+			first = checkFirst(b, first);
+			b.append("read");
+		}
+		if (append) {
+			first = checkFirst(b, first);
+			b.append("append");
+		} else if (write) {
+			first = checkFirst(b, first);
+			b.append("write");
+		}
+		if (createOnly) {
+			first = checkFirst(b, first);
+			b.append("createOnly");
+		} else if (createAlso) {
+			first = checkFirst(b, first);
+			b.append("createAlso");
+		}
+		return b.append(']').toString();
+	}
+	
+	private static boolean checkFirst(StringBuilder b, boolean first) {
+		if (!first) {
+			b.append(", ");
+		}
+		return false;
 	}
 	
 }

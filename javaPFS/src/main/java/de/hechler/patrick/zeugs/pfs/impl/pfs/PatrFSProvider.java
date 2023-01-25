@@ -30,7 +30,7 @@ import de.hechler.patrick.zeugs.pfs.opts.PatrRamFSOpts;
  */
 public class PatrFSProvider extends FSProvider {
 	
-	private static final long MAGIC_START       = 0xF17565393C422698L;
+	private static final long MAGIC_START       = 0x31756539FC422698L;
 	private static final long OFFSET_BLOCK_SIZE = 20;
 	
 	private static final int SEEK_SET = 0;

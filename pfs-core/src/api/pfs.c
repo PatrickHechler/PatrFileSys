@@ -102,15 +102,9 @@ static inline struct element_handle* open_eh(const char *path,
 			return 0;
 		}
 		neh->handle = eh->handle;
-		if (*end || parent_on_err) {
-			if (!pfsc_folder_folder_child_from_name(&neh->handle, buf)) {
-				if (!*end) {
-					if (parent_on_err) {
-						*parent_on_err = eh;
-						eh->load_count++;
-					}
-				}
-				release_eh(eh);
+		if (!*end && parent_on_err) {
+			if (!pfsc_folder_child_from_name(&neh->handle, buf)) {
+				*parent_on_err = eh;
 				free(buf);
 				return 0;
 			}
@@ -150,15 +144,15 @@ extern int pfs_load(struct bm_block_manager *bm, const char *cur_work_dir) {
 	}
 	struct pfs_b0 *b0 = bm->get(bm, 0L);
 	if (b0->MAGIC != PFS_MAGIC_START) {
-		bm->unget(bm, 0L);
 		pfs_errno = PFS_ERRNO_ILLEGAL_MAGIC;
+		bm->unget(bm, 0L);
 		return 0;
 	}
 	struct element_handle **nehs = malloc(sizeof(struct element_handle*));
 	struct stream_handle **nshs = malloc(sizeof(struct stream_handle*));
 	struct iter_handle **nihs = malloc(sizeof(struct iter_handle*));
 	struct element_handle *nrot = malloc(sizeof(struct element_handle));
-	if (!nihs || !nrot) {
+	if (!nrot) {
 		if (nehs) {
 			free(nehs);
 		}
@@ -168,20 +162,17 @@ extern int pfs_load(struct bm_block_manager *bm, const char *cur_work_dir) {
 		if (nihs) {
 			free(nihs);
 		}
-		if (nrot) {
-			free(nrot);
-		}
 		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
+		bm->unget(bm, 0L);
 		return 0;
 	}
-	struct bm_block_manager *old = pfs;
 	pfs = bm;
 	if (!pfsc_fill_root(&nrot->handle)) {
 		free(nehs);
 		free(nshs);
 		free(nihs);
 		free(nrot);
-		pfs = old;
+		bm->unget(bm, 0L);
 		return 0;
 	}
 	nrot->parent = NULL;
@@ -198,7 +189,7 @@ extern int pfs_load(struct bm_block_manager *bm, const char *cur_work_dir) {
 			free(nshs);
 			free(nihs);
 			free(nrot);
-			pfs = old;
+			bm->unget(bm, 0L);
 			return 0;
 		}
 		free_old();
@@ -207,6 +198,7 @@ extern int pfs_load(struct bm_block_manager *bm, const char *cur_work_dir) {
 		nrot->load_count++;
 		pfs_cwd = nrot;
 	}
+	bm->unget(bm, 0L);
 	pfs_root = nrot;
 	pfs_ehs = nehs;
 	pfs_shs = nshs;

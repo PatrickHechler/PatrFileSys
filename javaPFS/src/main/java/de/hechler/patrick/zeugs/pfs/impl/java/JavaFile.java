@@ -35,7 +35,7 @@ public class JavaFile extends JavaFSElement implements File {
 	
 	@Override
 	public Stream open(StreamOpenOptions options) throws IOException {
-		options = options.ensureType(ElementType.file);
+		options = options.ensureType(ElementType.FILE);
 		List<OpenOption> opts = new ArrayList<>();
 		if (options.append()) {
 			opts.add(StandardOpenOption.APPEND);

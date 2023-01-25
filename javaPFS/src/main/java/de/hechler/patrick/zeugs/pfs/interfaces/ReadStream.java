@@ -3,6 +3,7 @@ package de.hechler.patrick.zeugs.pfs.interfaces;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.MemorySession;
 import java.nio.ByteBuffer;
 
 import de.hechler.patrick.zeugs.pfs.opts.StreamOpenOptions;
@@ -43,8 +44,20 @@ public interface ReadStream extends Stream {
 	 * @throws IOException if an IO error occurs
 	 */
 	default int read(byte[] data, int off, int len) throws IOException {
-		MemorySegment seg = MemorySegment.ofArray(data);
-		return (int) read(seg.asSlice((long) off, (long) len));
+		if (len < 0 || off < 0) {
+			throw new IllegalArgumentException("off: " + off + " len: " + len);
+		}
+		if (data.length - off > len) {
+			throw new IllegalArgumentException("off: " + off + " len: " + len + " arr.len: " + data.length);
+		}
+		try (MemorySession ses = MemorySession.openConfined()) {
+			MemorySegment mem  = ses.allocate(len);
+			long          reat = read(mem);
+			assert reat <= len;
+			MemorySegment seg = MemorySegment.ofArray(data).asSlice(off, reat);
+			seg.copyFrom(mem.asSlice(0, reat));
+			return (int) reat;
+		}
 	}
 	
 	/**
@@ -88,10 +101,18 @@ public interface ReadStream extends Stream {
 			}
 			
 			@Override
-			public int read(byte[] b, int off, int len) throws IOException { return ReadStream.this.read(b, off, len); }
+			public int read(byte[] b, int off, int len) throws IOException {
+				int r = ReadStream.this.read(b, off, len);
+				if (r <= 0) {
+					return -1;
+				}
+				return r;
+			}
 			
 			@Override
-			public void close() throws IOException { ReadStream.this.close(); }
+			public void close() throws IOException {
+				ReadStream.this.close();
+			}
 			
 		};
 	}

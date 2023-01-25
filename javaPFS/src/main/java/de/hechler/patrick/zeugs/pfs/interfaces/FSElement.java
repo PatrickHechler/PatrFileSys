@@ -241,11 +241,11 @@ public interface FSElement extends Closeable {
 		int flags = flags();
 		switch (flags & (FLAG_FOLDER | FLAG_FILE | FLAG_PIPE)) {
 		case FLAG_FOLDER:
-			return ElementType.folder;
+			return ElementType.FOLDER;
 		case FLAG_FILE:
-			return ElementType.file;
+			return ElementType.FILE;
 		case FLAG_PIPE:
-			return ElementType.pipe;
+			return ElementType.PIPE;
 		default:
 			throw new InternalError("unknown flags: 0x" + Integer.toHexString(flags));
 		}

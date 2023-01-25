@@ -188,16 +188,22 @@ public class PatrFS implements FS {
 				int o = 0;
 				if (opts.createOnly()) {
 					o |= SO_CREATE_ONLY;
-				} else if (opts.createAlso()) { o |= SO_ALSO_CREATE; }
-				if (opts.read()) { o |= SO_READ; }
+				} else if (opts.createAlso()) {
+					o |= SO_ALSO_CREATE;
+				}
+				if (opts.read()) {
+					o |= SO_READ;
+				}
 				if (opts.append()) {
 					o |= SO_APPEND;
-				} else if (opts.write()) { o |= SO_WRITE; }
+				} else if (opts.write()) {
+					o |= SO_WRITE;
+				}
 				if (opts.type() != null) {
 					switch (opts.type()) {
-					case file -> o |= SO_FILE;
-					case pipe -> o |= SO_PIPE;
-					case folder -> throw new AssertionError("stream options with type folder");
+					case FILE -> o |= SO_FILE;
+					case PIPE -> o |= SO_PIPE;
+					case FOLDER -> throw new AssertionError("stream options with type folder");
 					default -> throw new InternalError("unknown type: " + opts.type().name());
 					}
 				}
@@ -212,9 +218,9 @@ public class PatrFS implements FS {
 							int flags = (int) PFS_ELEMENT_GET_FLAGS.invoke(handle);
 							if (flags == -1) { throw thrw(PFSErrorCause.GET_FLAGS, path); }
 							if ((flags & FSElement.FLAG_FILE) != 0) {
-								opts = opts.ensureType(ElementType.file);
+								opts = opts.ensureType(ElementType.FILE);
 							} else if ((flags & FSElement.FLAG_PIPE) != 0) {
-								opts = opts.ensureType(ElementType.pipe);
+								opts = opts.ensureType(ElementType.PIPE);
 							} else {
 								throw new InternalError("unknown element type: flags=0x" + Integer.toHexString(flags));
 							}

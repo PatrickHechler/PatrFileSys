@@ -61,7 +61,7 @@ public class PatrPipe extends PatrFSElement implements Pipe {
 		} else if (options.write()) {
 			o |= SO_WRITE;
 		}
-		options = options.ensureType(ElementType.pipe);
+		options = options.ensureType(ElementType.PIPE);
 		try {
 			int res = (int) PFS_OPEN_STREAM.invoke(this.handle, o);
 			if (res == -1) { throw thrw(PFSErrorCause.OPEN_STREAM, null); }
