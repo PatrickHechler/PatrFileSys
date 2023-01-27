@@ -270,6 +270,7 @@ public class PatrFS implements FS {
 	public void close() throws IOException {
 		if (closed) { return; }
 		closed = true;
+		PatrFSProvider.unload(this);
 		try {
 			if (0 == (int) PFS_CLOSE.invoke()) { throw thrw(PFSErrorCause.CLOSE_PFS, null); }
 		} catch (Throwable e) {
