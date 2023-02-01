@@ -42,6 +42,9 @@ struct bm_block_manager {
 	int (*const sync_bm)(struct bm_block_manager *bm);
 	/**
 	 * closes the block manager
+	 *
+	 * regardless of the return value, the block manager should not be used again
+	 * (also not for a second close)
 	 */
 	int (*const close_bm)(struct bm_block_manager *bm);
 	/**
@@ -80,16 +83,26 @@ struct bm_block_manager {
 	int (*const delete_all_flags)(struct bm_block_manager *bm);
 };
 
-static_assert(offsetof(struct bm_block_manager, get) == 32);
-static_assert(offsetof(struct bm_block_manager, unget) == 40);
-static_assert(offsetof(struct bm_block_manager, set) == 48);
-static_assert(offsetof(struct bm_block_manager, sync_bm) == 56);
-static_assert(offsetof(struct bm_block_manager, close_bm) == 64);
-static_assert(offsetof(struct bm_block_manager, block_size) == 72);
-static_assert(offsetof(struct bm_block_manager, block_flag_bits) == 76);
-static_assert(offsetof(struct bm_block_manager, get_flags) == 80);
-static_assert(offsetof(struct bm_block_manager, set_flags) == 88);
-static_assert(offsetof(struct bm_block_manager, first_zero_flagged_block) == 96);
+static_assert(offsetof(struct bm_block_manager, get)
+== 32);
+static_assert(offsetof(struct bm_block_manager, unget)
+== 40);
+static_assert(offsetof(struct bm_block_manager, set)
+== 48);
+static_assert(offsetof(struct bm_block_manager, sync_bm)
+== 56);
+static_assert(offsetof(struct bm_block_manager, close_bm)
+== 64);
+static_assert(offsetof(struct bm_block_manager, block_size)
+== 72);
+static_assert(offsetof(struct bm_block_manager, block_flag_bits)
+== 76);
+static_assert(offsetof(struct bm_block_manager, get_flags)
+== 80);
+static_assert(offsetof(struct bm_block_manager, set_flags)
+== 88);
+static_assert(offsetof(struct bm_block_manager, first_zero_flagged_block)
+== 96);
 static_assert(offsetof(struct bm_block_manager, delete_all_flags) == 104);
 
 /**
@@ -99,7 +112,8 @@ static_assert(offsetof(struct bm_block_manager, delete_all_flags) == 104);
  *
  * block_size: the size of the blocks
  */
-extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count, i32 block_size);
+extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count,
+		i32 block_size);
 
 /**
  * creates a new file block manager
@@ -108,7 +122,8 @@ extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count, i32 bl
  *
  * block_size: the size of the blocks
  */
-extern struct bm_block_manager* bm_new_file_block_manager(int file, i32 block_size);
+extern struct bm_block_manager* bm_new_file_block_manager(int file,
+		i32 block_size);
 
 #define sread(fd, buf, count, error) \
 	{ \
@@ -158,6 +173,7 @@ extern struct bm_block_manager* bm_new_file_block_manager(int file, i32 block_si
  *
  * block_size: the size of the blocks
  */
-extern struct bm_block_manager* bm_new_flaggable_ram_block_manager(i64 block_count, i32 block_size);
+extern struct bm_block_manager* bm_new_flaggable_ram_block_manager(
+		i64 block_count, i32 block_size);
 
 #endif /* BM_H_ */

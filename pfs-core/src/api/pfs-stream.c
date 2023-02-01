@@ -130,6 +130,7 @@ extern i64 pfs_stream_read(int sh, void *buffer, i64 len) {
 		return 0;
 	}
 	pfs_shs[sh]->pos += len;
+	pfs->unget(pfs, pfs_shs[sh]->element->handle.element_place.block);
 	return len;
 }
 

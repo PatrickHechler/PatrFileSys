@@ -296,9 +296,9 @@ static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 	return loaded->data;
 }
 
-static inline int save_block(i64 block, struct bm_file *bf,
-		struct bm_loaded *loaded) {
-	if (lseek64(bf->file, block * (i64) bf->bm.block_size, SEEK_SET) == -1) {
+static inline int save_block(struct bm_file *bf, struct bm_loaded *loaded) {
+	if (lseek64(bf->file, loaded->block * (i64) bf->bm.block_size, SEEK_SET)
+			== -1) {
 		abort();
 	}
 	void *data = loaded->data;
@@ -334,7 +334,7 @@ static int bm_file_unget(struct bm_block_manager *bm, i64 block) {
 		hashset_remove(&bf->bm.loaded, (unsigned int) block, loaded);
 		int res = 1;
 		if (loaded->save) {
-			res = save_block(block, bf, loaded);
+			res = save_block(bf, loaded);
 		}
 		free(loaded->data);
 		free(loaded);
@@ -353,7 +353,7 @@ static int bm_file_set(struct bm_block_manager *bm, i64 block) {
 	loaded->save = 1;
 	if (--loaded->count == 0) {
 		hashset_remove(&bf->bm.loaded, (unsigned int) block, loaded);
-		int res = save_block(block, bf, loaded);
+		int res = save_block(bf, loaded);
 		free(loaded->data);
 		free(loaded);
 		return res;
@@ -369,10 +369,24 @@ static int bm_file_sync(struct bm_block_manager *bm) {
 static int bm_file_close(struct bm_block_manager *bm) {
 	struct bm_file *bf = (struct bm_file*) bm;
 	if (bm->loaded.entrycount > 0) {
+		for (int i = bm->loaded.setsize; i--;) {
+			if (!bm->loaded.entries[i] || bm->loaded.entries[i] == &illegal) {
+				continue;
+			}
+			save_block(bf, bm->loaded.entries[i]);
+		}
 		abort();
 	}
 	free(bm->loaded.entries);
 	if (close(bf->file) == -1) {
+		switch (errno) {
+		case EIO:
+			pfs_errno = PFS_ERRNO_IO_ERR;
+			break;
+		default:
+			pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
+		}
+		free(bm);
 		return 0;
 	}
 	free(bm);
@@ -383,7 +397,6 @@ static ui64 get_none_flags(struct bm_block_manager *bm, i64 block) {
 	return 0L;
 }
 static void set_none_flags(struct bm_block_manager *bm, i64 block, ui64 flags) {
-
 }
 
 static i64 not_get_first_zero_flagged_block(struct bm_block_manager *bm) {
@@ -391,7 +404,6 @@ static i64 not_get_first_zero_flagged_block(struct bm_block_manager *bm) {
 }
 
 static void not_delete_all_flags(struct bm_block_manager *bm) {
-
 }
 
 static int bm_flag_ram_close(struct bm_block_manager *bm) {
