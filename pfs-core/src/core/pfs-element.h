@@ -105,7 +105,7 @@ int pfsc_element_set_last_mod_time(pfs_eh e, i64 new_time);
  *
  * note that the pfs-element-handle needs to be manually freed
  */
-int pfsc_element_delete(pfs_eh e);
+int pfsc_element_delete(pfs_eh e, i64 *former_index);
 
 // note that this function is implemented in pfs-folder.c and not in pfs-element.c
 /**

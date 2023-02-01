@@ -6,6 +6,7 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.MemorySession;
 import java.nio.ByteBuffer;
 
+import de.hechler.patrick.zeugs.pfs.misc.ElementType;
 import de.hechler.patrick.zeugs.pfs.opts.StreamOpenOptions;
 
 /**
@@ -112,6 +113,16 @@ public interface ReadStream extends Stream {
 			@Override
 			public void close() throws IOException {
 				ReadStream.this.close();
+			}
+			
+			@Override
+			public long skip(long n) throws IOException {
+				if (options().type() == ElementType.FILE) {
+					seekAdd(n); // may skip beyond EOF
+					return n;
+				} else {
+					return super.skip(n);
+				}
 			}
 			
 		};

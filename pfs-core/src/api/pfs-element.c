@@ -16,35 +16,6 @@ extern int pfs_element_parent(int eh) {
 	return_handle(pfs_eh_len, pfs_ehs, pfs_ehs[eh]->parent)
 }
 
-extern int pfs_element_delete(int eh) {
-	eh(0)
-	if (pfs_ehs[eh]->children.entrycount != 0 || pfs_ehs[eh]->load_count != 1) {
-		pfs_errno = PFS_ERRNO_ELEMENT_USED;
-		return 0;
-	}
-	int res = pfsc_element_delete(&pfs_ehs[eh]->handle);
-	if (res) {
-		struct element_handle *e = pfs_ehs[eh];
-		for (int i = 0; i < pfs_eh_len; i++) {
-			if (!pfs_ehs[i]) {
-				continue;
-			}
-			if (e == pfs_ehs[i]) {
-				pfs_ehs[i] = NULL;
-			}
-		}
-		hashset_remove(&e->parent->children, eh_hash(e), e);
-		for (struct element_handle *a = e->parent, *b; a != NULL && has_refs(a);
-				a = b) {
-			b = a->parent;
-			hashset_remove(&b->children, eh_hash(a), a);
-			free(a);
-		}
-		free(e);
-	}
-	return res;
-}
-
 extern ui32 pfs_element_get_flags(int eh) {
 	eh(-1)
 	return pfsc_element_get_flags(&pfs_ehs[eh]->handle);

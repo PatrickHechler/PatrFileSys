@@ -155,9 +155,13 @@ public class PatrFSProvider extends FSProvider {
 	}
 	
 	public static IOException thrw(PFSErrorCause cause, Object info) throws IOException {
-		int    pfsErrno = PatrFS.LOCKUP.lookup("pfs_errno").orElseThrow().address().get(ValueLayout.JAVA_INT, 0);
+		int    pfsErrno = pfsErrno();
 		String msg      = cause.str.apply(info);
 		throw cause.func.apply(msg, pfsErrno);
+	}
+	
+	public static int pfsErrno() {
+		return PatrFS.LOCKUP.lookup("pfs_errno").orElseThrow().address().get(ValueLayout.JAVA_INT, 0);
 	}
 	
 	public static void unload(FS loaded) {

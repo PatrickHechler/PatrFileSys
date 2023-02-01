@@ -18,15 +18,22 @@ unsigned int childset_hash(const void *a) {
 	return eh_hash(a);
 }
 
-static inline void release_eh(struct element_handle *feh) {
-	feh->load_count--;
-	for (struct element_handle *a = feh, *b; a != NULL && !has_refs(a); a = b) {
+static inline void force_release_eh(struct element_handle *feh) {
+	for (struct element_handle *a = feh, *b;
+			a != NULL && (feh == a || !has_refs(a)); a = b) {
 		b = a->parent;
-		if (!b) { // root
+		if (!b) { // root has no references
 			abort();
 		}
 		hashset_remove(&b->children, eh_hash(a), a);
 		free(a);
+	}
+}
+
+static inline void release_eh(struct element_handle *feh) {
+	feh->load_count--;
+	if (!has_refs(feh)) {
+		force_release_eh(feh);
 	}
 }
 
@@ -395,23 +402,56 @@ extern int pfs_change_working_directoy(char *path) {
 	return 1;
 }
 
-extern int pfs_delete(const char *path) {
-	struct element_handle *eh = open_eh(path, pfs_root, 1, NULL);
-	if (!eh) {
-		return -1;
-	}
-	int res = pfsc_element_delete(&eh->handle);
-	if (res) {
-		if (eh == pfs_cwd) {
+static inline void pfs_close_iter_impl(int ih) {
+	release_eh(pfs_ihs[ih]->folder);
+	pfs_ihs[ih] = NULL;
+}
+
+static int delete_element(struct element_handle **eh) {
+	if (has_refs0(*eh, 1)) {
+		if (*eh == pfs_cwd && has_refs0(*eh, 2)) {
 			pfs_cwd = pfs_root;
+		} else {
+			pfs_errno = PFS_ERRNO_ELEMENT_USED;
+			return 0;
 		}
-		for (int i = 0; i < pfs_eh_len; i++) {
-			if (eh == pfs_ehs[i]) {
-				pfs_ehs[i] = NULL;
+	}
+	i64 former_index;
+	int res = pfsc_element_delete(&(*eh)->handle, &former_index);
+	if (res) {
+		for (int i = pfs_ih_len; i--;) {
+			if (!pfs_ihs[i]) {
+				continue;
+			}
+			if (pfs_ihs[i]->folder != (*eh)->parent) {
+				continue;
+			}
+			if (pfs_ihs[i]->index >= former_index) {
+				if (pfs_ihs[i]->index == former_index) {
+					abort();
+				}
+				pfs_ihs[i]->index--;
+				if (!pfsc_folder_fill_iterator_index(&pfs_ihs[i]->folder->handle,
+						&pfs_ihs[i]->handle, pfs_ihs[i]->index)) {
+					// well, thats (possibly) better than a crash
+					pfs_close_iter_impl(i);
+				}
 			}
 		}
+		force_release_eh(*eh);
+		*eh = NULL;
 	}
 	return res;
+}
+
+extern int pfs_delete(const char *path) {
+	struct element_handle *eh = open_eh(path, pfs_root, 1, NULL);
+	return delete_element(&eh);
+}
+
+extern int pfs_element_delete(int eh) {
+	eh(0)
+	return delete_element(&pfs_ehs[eh]);
 }
 
 static inline int open_sh(struct element_handle *eh, ui32 stream_flags) {
@@ -696,8 +736,7 @@ extern int pfs_element_close(int eh) {
 
 extern int pfs_iter_close(int ih) {
 	ih(0)
-	release_eh(pfs_ihs[ih]->folder);
-	pfs_ihs[ih] = NULL;
+	pfs_close_iter_impl(ih);
 	return 1;
 }
 

@@ -30,6 +30,7 @@ enum PFS_ERRNO {
     PFS_ERRNO_ROOT_FOLDER           = 11, /* if an IO operation failed because the root folder has some restrictions */
     PFS_ERRNO_PARENT_IS_CHILD       = 12, /* if an folder can not be moved because the new child (maybe a deep/indirect child) is a child of the folder */
 	PFS_ERRNO_ELEMENT_USED          = 13, /* if an element which is opened elsewhere is tried to be deleted */
+	PFS_ERRNO_FOLDER_NOT_EMPTY      = 14, /* if a non empty folder is tried to be deleted */
 };
 
 extern const char* pfs_error();

@@ -11,6 +11,11 @@
 #include "pfs.h"
 
 /**
+ * set the given folder iterator to the given index
+ */
+int pfsc_folder_fill_iterator_index(pfs_eh f, pfs_fi iter, i64 index);
+
+/**
  * creates a new folder iterator
  *
  * if show_hidden is zero hidden elements will be skipped

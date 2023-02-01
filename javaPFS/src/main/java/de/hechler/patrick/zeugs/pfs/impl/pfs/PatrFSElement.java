@@ -39,30 +39,33 @@ public class PatrFSElement implements FSElement {
 	private static final MethodHandle PFS_ELEMENT_SAME;
 	
 	static {
-		PFS_ELEMENT_CLOSE                = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_close").orElseThrow(), FunctionDescriptor.of(INT, INT));
-		PFS_ELEMENT_PARENT               = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_parent").orElseThrow(), FunctionDescriptor.of(INT, INT));
-		PFS_ELEMENT_DELETE               = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_delete").orElseThrow(), FunctionDescriptor.of(INT, INT));
-		PFS_ELEMENT_GET_FLAGS            = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_get_flags").orElseThrow(),
+		PFS_ELEMENT_CLOSE = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_close").orElseThrow(),
 				FunctionDescriptor.of(INT, INT));
-		PFS_ELEMENT_MODIFY_FLAGS         = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_modify_flags").orElseThrow(),
+		PFS_ELEMENT_PARENT = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_parent").orElseThrow(),
+				FunctionDescriptor.of(INT, INT));
+		PFS_ELEMENT_DELETE = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_delete").orElseThrow(),
+				FunctionDescriptor.of(INT, INT));
+		PFS_ELEMENT_GET_FLAGS = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_get_flags").orElseThrow(),
+				FunctionDescriptor.of(INT, INT));
+		PFS_ELEMENT_MODIFY_FLAGS = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_modify_flags").orElseThrow(),
 				FunctionDescriptor.of(INT, INT, INT, INT));
-		PFS_ELEMENT_GET_CREATE_TIME      = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_get_create_time").orElseThrow(),
+		PFS_ELEMENT_GET_CREATE_TIME = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_get_create_time").orElseThrow(),
 				FunctionDescriptor.of(LONG, INT));
-		PFS_ELEMENT_GET_LAST_MODIFY_TIME = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_get_last_modify_time").orElseThrow(),
-				FunctionDescriptor.of(LONG, INT));
-		PFS_ELEMENT_SET_CREATE_TIME      = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_set_create_time").orElseThrow(),
+		PFS_ELEMENT_GET_LAST_MODIFY_TIME = LINKER.downcallHandle(
+				LOCKUP.lookup("pfs_element_get_last_modify_time").orElseThrow(), FunctionDescriptor.of(LONG, INT));
+		PFS_ELEMENT_SET_CREATE_TIME = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_set_create_time").orElseThrow(),
 				FunctionDescriptor.of(INT, INT, LONG));
-		PFS_ELEMENT_SET_LAST_MODIFY_TIME = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_set_last_modify_time").orElseThrow(),
-				FunctionDescriptor.of(INT, INT, LONG));
-		PFS_ELEMENT_GET_NAME             = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_get_name").orElseThrow(),
+		PFS_ELEMENT_SET_LAST_MODIFY_TIME = LINKER.downcallHandle(
+				LOCKUP.lookup("pfs_element_set_last_modify_time").orElseThrow(), FunctionDescriptor.of(INT, INT, LONG));
+		PFS_ELEMENT_GET_NAME = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_get_name").orElseThrow(),
 				FunctionDescriptor.of(INT, INT, PNTR, PNTR));
-		PFS_ELEMENT_SET_NAME             = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_set_name").orElseThrow(),
+		PFS_ELEMENT_SET_NAME = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_set_name").orElseThrow(),
 				FunctionDescriptor.of(INT, INT, PNTR));
-		PFS_ELEMENT_SET_PARENT           = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_set_parent").orElseThrow(),
+		PFS_ELEMENT_SET_PARENT = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_set_parent").orElseThrow(),
 				FunctionDescriptor.of(INT, INT, INT));
-		PFS_ELEMENT_MOVE                 = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_move").orElseThrow(),
+		PFS_ELEMENT_MOVE = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_move").orElseThrow(),
 				FunctionDescriptor.of(INT, INT, INT, PNTR));
-		PFS_ELEMENT_SAME                 = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_same").orElseThrow(),
+		PFS_ELEMENT_SAME = LINKER.downcallHandle(LOCKUP.lookup("pfs_element_same").orElseThrow(),
 				FunctionDescriptor.of(INT, INT, INT));
 	}
 	
@@ -105,7 +108,9 @@ public class PatrFSElement implements FSElement {
 	public void flag(int add, int rem) throws IOException {
 		ensureOpen();
 		try {
-			if (0 == (int) PFS_ELEMENT_MODIFY_FLAGS.invoke(this.handle, add, rem)) { throw thrw(PFSErrorCause.MODIFY_FLAGS, null); }
+			if (0 == (int) PFS_ELEMENT_MODIFY_FLAGS.invoke(this.handle, add, rem)) {
+				throw thrw(PFSErrorCause.MODIFY_FLAGS, null);
+			}
 		} catch (Throwable e) {
 			throw thrw(e);
 		}
@@ -151,7 +156,9 @@ public class PatrFSElement implements FSElement {
 	public void createTime(long time) throws IOException {
 		ensureOpen();
 		try {
-			if (0 == (int) PFS_ELEMENT_SET_CREATE_TIME.invoke(this.handle, time)) { throw thrw(PFSErrorCause.SET_CREATE_TIME, null); }
+			if (0 == (int) PFS_ELEMENT_SET_CREATE_TIME.invoke(this.handle, time)) {
+				throw thrw(PFSErrorCause.SET_CREATE_TIME, null);
+			}
 		} catch (Throwable e) {
 			throw thrw(e);
 		}
@@ -164,7 +171,9 @@ public class PatrFSElement implements FSElement {
 			MemorySegment data = ses.allocate(16);
 			data.set(PNTR, 0L, MemoryAddress.NULL);
 			data.set(LONG, 8L, 0L);
-			if (0 == (int) PFS_ELEMENT_GET_NAME.invoke(this.handle, data, data.asSlice(8L, 8L))) { throw thrw(PFSErrorCause.GET_NAME, null); }
+			if (0 == (int) PFS_ELEMENT_GET_NAME.invoke(this.handle, data, data.asSlice(8L, 8L))) {
+				throw thrw(PFSErrorCause.GET_NAME, null);
+			}
 			return data.get(PNTR, 0L).getUtf8String(0L);
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -188,7 +197,9 @@ public class PatrFSElement implements FSElement {
 		ensureOpen();
 		try {
 			if (parent instanceof PatrFolder p) {
-				if (0 == (int) PFS_ELEMENT_SET_PARENT.invoke(this.handle, p.handle)) { throw thrw(PFSErrorCause.SET_PARENT, null); }
+				if (0 == (int) PFS_ELEMENT_SET_PARENT.invoke(this.handle, p.handle)) {
+					throw thrw(PFSErrorCause.SET_PARENT, null);
+				}
 			} else {
 				throw new ClassCastException("parent is not of class PatrFolder, but of " + parent.getClass());
 			}
@@ -218,6 +229,7 @@ public class PatrFSElement implements FSElement {
 		ensureOpen();
 		try {
 			if (0 == (int) PFS_ELEMENT_DELETE.invoke(this.handle)) { throw thrw(PFSErrorCause.DELETE_ELEMENT, null); }
+			closed = true;
 		} catch (Throwable e) {
 			throw thrw(e);
 		}
@@ -304,6 +316,40 @@ public class PatrFSElement implements FSElement {
 			return name().hashCode();
 		} catch (IOException e) {
 			throw new IOError(e);
+		}
+	}
+	
+	@Override
+	public String toString() {
+		FSElement e = this;
+		try {
+			StringBuilder b = new StringBuilder();
+			if (isFolder()) {
+				b.append('/');
+			}
+			while (true) {
+				String n = e.name();
+				if (n.isEmpty()) { // root has an empty name
+					break;
+				}
+				b.insert(0, '/').insert(0, n);
+				FSElement p = e.parent();
+				if (e != this) {
+					e.close();
+				}
+				e = p;
+			}
+			if (e != this) {
+				e.close();
+			}
+			return b.toString();
+		} catch (IOException ioe) {
+			if (e != this) {
+				try {
+					e.close();
+				} catch (IOException ioe2) {/**/}
+			}
+			return "<error: could not get path: " + ioe + ">";
 		}
 	}
 	

@@ -12,8 +12,6 @@
 	void* block_name = pfs->get(pfs, place_block); \
 	if (block_name == NULL) { \
 		error \
-		pfs_errno = PFS_ERRNO_UNKNOWN_ERROR; \
-		return 0; \
 	} \
 	struct struct_name *any_name = block_name + place_pos;
 
@@ -27,7 +25,20 @@
 
 #define get_folder get_folder0(folder, block_data)
 
-static inline int pfs_folder_iter_impl(pfs_eh f, pfs_fi iter, int show_hidden) {
+pfs_fi pfsc_folder_iterator(pfs_eh f, int show_hidden) {
+	pfs_fi result = malloc(sizeof(struct pfs_folder_iter));
+	if (result == NULL) {
+		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
+		return NULL;
+	}
+	if (!pfsc_folder_fill_iterator(f, result, show_hidden)) {
+		free(result);
+		return NULL;
+	}
+	return result;
+}
+
+int pfsc_folder_fill_iterator(pfs_eh f, pfs_fi iter, int show_hidden) {
 	get_folder0(folder, block_data)
 	iter->current_place.block = f->element_place.block;
 	iter->current_place.pos = f->element_place.pos + sizeof(struct pfs_folder);
@@ -40,21 +51,69 @@ static inline int pfs_folder_iter_impl(pfs_eh f, pfs_fi iter, int show_hidden) {
 	return 1;
 }
 
-pfs_fi pfsc_folder_iterator(pfs_eh f, int show_hidden) {
-	pfs_fi result = malloc(sizeof(struct pfs_folder_iter));
-	if (result == NULL) {
-		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
-		return NULL;
+int pfsc_folder_fill_iterator_index(pfs_eh f, pfs_fi iter, i64 index) {
+	get_folder
+	iter->current_place.block = f->element_place.block;
+	iter->current_place.pos = f->element_place.pos + sizeof(struct pfs_folder);
+	iter->current_depth = 0;
+	iter->current_folder_pos = f->element_place.pos;
+	iter->remaining_direct_entries = folder->direct_child_count;
+	while (index >= folder->helper_index) {
+		if (folder->helper_index == -1) {
+			while (1) { // do not leave this loop until the index is small enugh
+				if (iter->current_depth <= 0) {
+					abort();
+				}
+				if (index < iter->remaining_direct_entries) {
+					break;
+				}
+				i64 old_block = iter->current_place.block;
+				index -= iter->remaining_direct_entries;
+				iter->current_place = folder->folder_entry;
+				pfs->unget(pfs, old_block);
+				block_data = pfs->get(pfs, iter->current_place.block);
+				if (!block_data) {
+					return 0;
+				}
+				i32 *table_end = block_data + pfs->block_size - 4;
+				for (i32 *table = block_data + *table_end + 4;; table += 2) {
+					if (table >= table_end) {
+						abort();
+					}
+					if (folder->folder_entry.pos < *table) {
+						iter->current_folder_pos = table[-1];
+						break;
+					}
+				}
+				folder = block_data + iter->current_folder_pos;
+				iter->current_depth--;
+				iter->current_place.pos += sizeof(struct pfs_folder_entry);
+				i64 val = iter->current_place.pos - iter->current_folder_pos
+						- sizeof(struct pfs_folder);
+				if (val % sizeof(struct pfs_folder_entry)) {
+					abort();
+				}
+				iter->remaining_direct_entries = val
+						/ sizeof(struct pfs_folder_entry);
+			}
+		} else {
+			i64 old_block = iter->current_place.block;
+			index -= folder->helper_index;
+			iter->current_place =
+					folder->entries[folder->helper_index].child_place;
+			iter->current_folder_pos = iter->current_place.pos;
+			iter->current_place.pos += sizeof(struct pfs_folder);
+			pfs->unget(pfs, old_block);
+			block_data = pfs->get(pfs, iter->current_place.block);
+			if (!block_data) {
+				return 0;
+			}
+		}
 	}
-	if (!pfs_folder_iter_impl(f, result, show_hidden)) {
-		free(result);
-		return NULL;
-	}
-	return result;
-}
-
-int pfsc_folder_fill_iterator(pfs_eh f, pfs_fi iter, int show_hidden) {
-	return pfs_folder_iter_impl(f, iter, show_hidden);
+	iter->current_place.pos += index * sizeof(struct pfs_folder_entry);
+	iter->remaining_direct_entries -= index;
+	pfs->unget(pfs, iter->current_place.block);
+	return 1;
 }
 
 int pfsc_folder_iter_next(pfs_fi fi) {
@@ -80,7 +139,6 @@ int pfsc_folder_iter_next(pfs_fi fi) {
 			struct pfs_folder *inner_folder = cb_data + fi->current_folder_pos;
 			cb_data = pfs->get(pfs, inner_folder->folder_entry.block);
 			if (cb_data == NULL) {
-				pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
 				pfs->unget(pfs, fi->current_place.block);
 				return 0;
 			}
@@ -729,12 +787,11 @@ static int del_helper(struct pfs_place h) {
 	if (helper->direct_child_count > 0) {
 		if ((helper->direct_child_count > 1) || (helper->helper_index == -1)) {
 			pfs->unget(pfs, h.block);
-			pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+			pfs_errno = PFS_ERRNO_FOLDER_NOT_EMPTY;
 			return 0;
 		}
 		if (!del_helper(helper->entries[0].child_place)) {
 			pfs->unget(pfs, h.block);
-			pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
 			return 0;
 		}
 		helper->helper_index = -1; // just to make sure
@@ -745,19 +802,50 @@ static int del_helper(struct pfs_place h) {
 	return 1;
 }
 
-int pfsc_element_delete(pfs_eh e) {
+static inline i64 get_index_from_parent(pfs_eh e) {
+	get_folder1(folder, block_data, e->real_parent_place);
+	struct pfs_place cur_place = e->real_parent_place;
+	i64 index = 0;
+	while (cur_place.block != e->direct_parent_place.block) {
+		index += folder->helper_index;
+		i64 old_block = cur_place.block;
+		cur_place = folder->entries[folder->helper_index].child_place;
+		pfs->unget(pfs, old_block);
+		block_data = pfs->get(pfs, cur_place.block);
+		if (!block_data) {
+			return -1;
+		}
+		folder = block_data + cur_place.pos;
+	}
+	pfs->unget(pfs, cur_place.block);
+	return index + e->index_in_direct_parent_list;
+}
+
+int pfsc_element_delete(pfs_eh e, i64 *former_index) {
 	get_folder1(direct_parent, direct_parent_block, e->direct_parent_place)
 	get_any(pfs_element, element, element_block, e->element_place.block,
 			e->element_place.pos, pfs->unget(pfs, e->direct_parent_place.block)
 			;)
+	i64 index = get_index_from_parent(e);
+	if (index == -1) {
+		pfs->unget(pfs, e->direct_parent_place.block);
+		pfs->unget(pfs, e->element_place.block);
+		return 0;
+	}
+	if (former_index) {
+		*former_index = index;
+	}
 	if ((direct_parent->entries[e->index_in_direct_parent_list].flags
 			& PFS_F_FOLDER) != 0) {
 		struct pfs_folder *folder = (struct pfs_folder*) element;
 		if (folder->direct_child_count > 0) {
-			if ((folder->direct_child_count > 1) || (folder->helper_index == -1)
-					|| (!del_helper(folder->entries[0].child_place))) {
+			if ((folder->direct_child_count > 1)
+					|| (folder->helper_index == -1)) {
+				pfs_errno = PFS_ERRNO_FOLDER_NOT_EMPTY;
 				pfs->unget(pfs, e->element_place.block);
-				pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+				return 0;
+			} else if (!del_helper(folder->entries[0].child_place)) {
+				pfs->unget(pfs, e->element_place.block);
 				return 0;
 			}
 			folder->direct_child_count = 0;

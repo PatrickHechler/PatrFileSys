@@ -52,7 +52,7 @@ struct pfs_folder_entry {
 	struct pfs_place child_place;
 	i64 create_time;
 	ui32 flags;
-	// i32 padding; // no padding done here every second entry is miss-alinged
+// i32 padding; // no padding done here every second entry is miss-alinged
 } __attribute__((packed));
 
 struct pfs_folder {
@@ -117,7 +117,8 @@ int allocate_new_entry(struct pfs_place *write, i64 base_block, i32 size);
 
 i32 allocate_in_block_table(i64 block, i64 size);
 
-i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size, const int copy);
+i32 reallocate_in_block_table(const i64 block, const i32 pos,
+		const i64 new_size, const int copy);
 
 #define remove_from_block_table(block, pos) reallocate_in_block_table(block, pos, 0, 0)
 
@@ -134,7 +135,7 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos, const i64 new_size
 	}
 
 i32 grow_folder_entry(const struct pfs_element_handle *e, i32 new_size,
-        struct pfs_place real_parent);
+		struct pfs_place real_parent);
 
 #define remove_table_entry(block, pos) reallocate_in_block_table(block, pos, 0, 0)
 

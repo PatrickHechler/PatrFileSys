@@ -19,12 +19,10 @@ import de.hechler.patrick.zeugs.pfs.interfaces.WriteStream;
 import de.hechler.patrick.zeugs.pfs.opts.StreamOpenOptions;
 
 /**
- * this class implements only the {@link Stream} interface, but also provides
- * method which effectively implement the {@link WriteStream} and
- * {@link ReadStream} interface.
+ * this class implements only the {@link Stream} interface, but also provides method which effectively implement the
+ * {@link WriteStream} and {@link ReadStream} interface.
  * <p>
- * the three subclasses of this class implement the {@link ReadStream} and/or
- * {@link WriteStream} interfaces.
+ * the three subclasses of this class implement the {@link ReadStream} and/or {@link WriteStream} interfaces.
  * 
  * @author pat
  */
@@ -43,31 +41,35 @@ public abstract sealed class PatrStream implements Stream permits PatrWriteStrea
 	private static final MethodHandle PFS_STREAM_SEEK_EOF;
 	
 	static {
-		PFS_STREAM_CLOSE    = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_close").orElseThrow(), FunctionDescriptor.of(INT, INT));
-		PFS_STREAM_WRITE    = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_write").orElseThrow(), FunctionDescriptor.of(LONG, INT, PNTR, LONG));
-		PFS_STREAM_READ     = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_read").orElseThrow(), FunctionDescriptor.of(LONG, INT, PNTR, LONG));
-		PFS_STREAM_GET_POS  = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_get_pos").orElseThrow(), FunctionDescriptor.of(INT, INT));
-		PFS_STREAM_SET_POS  = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_set_pos").orElseThrow(), FunctionDescriptor.of(INT, INT, LONG));
-		PFS_STREAM_ADD_POS  = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_add_pos").orElseThrow(), FunctionDescriptor.of(LONG, INT, LONG));
-		PFS_STREAM_SEEK_EOF = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_seek_eof").orElseThrow(), FunctionDescriptor.of(LONG, INT));
+		PFS_STREAM_CLOSE = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_close").orElseThrow(),
+				FunctionDescriptor.of(INT, INT));
+		PFS_STREAM_WRITE = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_write").orElseThrow(),
+				FunctionDescriptor.of(LONG, INT, PNTR, LONG));
+		PFS_STREAM_READ = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_read").orElseThrow(),
+				FunctionDescriptor.of(LONG, INT, PNTR, LONG));
+		PFS_STREAM_GET_POS = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_get_pos").orElseThrow(),
+				FunctionDescriptor.of(INT, INT));
+		PFS_STREAM_SET_POS = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_set_pos").orElseThrow(),
+				FunctionDescriptor.of(INT, INT, LONG));
+		PFS_STREAM_ADD_POS = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_add_pos").orElseThrow(),
+				FunctionDescriptor.of(LONG, INT, LONG));
+		PFS_STREAM_SEEK_EOF = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_seek_eof").orElseThrow(),
+				FunctionDescriptor.of(LONG, INT));
 	}
 	
 	private final int handle;
 	
 	protected PatrStream(int handle, StreamOpenOptions opts) {
-		this.opts   = opts;
+		this.opts = opts;
 		this.handle = handle;
 	}
 	
 	/**
-	 * implementation of the write method for subclasses which implement the
-	 * {@link WriteStream} interface
+	 * implementation of the write method for subclasses which implement the {@link WriteStream} interface
 	 * <p>
-	 * note that the native implementation will fail if this stream is not opened
-	 * for writing
+	 * note that the native implementation will fail if this stream is not opened for writing
 	 * 
-	 * @param seg the segment, which holds the data, which should be written to this
-	 *            stream
+	 * @param seg the segment, which holds the data, which should be written to this stream
 	 * 
 	 * @return the number of bytes written by the stream
 	 * 
@@ -86,16 +88,12 @@ public abstract sealed class PatrStream implements Stream permits PatrWriteStrea
 		}
 	}
 	
-	
 	/**
-	 * implementation of the read method for subclasses which implement the
-	 * {@link ReadStream} interface
+	 * implementation of the read method for subclasses which implement the {@link ReadStream} interface
 	 * <p>
-	 * note that the native implementation will fail if this stream is not opened
-	 * for reading
+	 * note that the native implementation will fail if this stream is not opened for reading
 	 * 
-	 * @param seg the memory segment, where the data should be saved from this
-	 *            stream
+	 * @param seg the memory segment, where the data should be saved from this stream
 	 * 
 	 * @return the number of bytes read by the stream
 	 * 
@@ -107,8 +105,9 @@ public abstract sealed class PatrStream implements Stream permits PatrWriteStrea
 		if (closed) { throw new ClosedChannelException(); }
 		try {
 			long res = (long) PFS_STREAM_READ.invoke(this.handle, seg, seg.byteSize());
-			if (res == -1L) { throw thrw(PFSErrorCause.READ, seg.byteSize()); }
-			return res;
+			if (res == -1L) throw thrw(PFSErrorCause.READ, seg.byteSize());
+			else if (res == 0) return -1;
+			else return res;
 		} catch (Throwable e) {
 			throw thrw(e);
 		}

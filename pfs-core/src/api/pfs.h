@@ -11,7 +11,8 @@
 #include "../include/patr-file-sys.h"
 #include "../include/pfs-err.h"
 
-#define has_refs(eh) ( ( (eh)->load_count > 0) ? 1 : ( (eh)->children.entrycount != 0) )
+#define has_refs0(eh, small) ( ( (eh)->load_count > small) ? 1 : ( (eh)->children.entrycount != 0) )
+#define has_refs(eh) has_refs0(eh, 0)
 
 #define get_handle(err_ret, h_len, hs, h_num) \
 	if (h_num >= h_len) { \
@@ -102,6 +103,7 @@ struct iter_handle {
 	struct pfs_folder_iter handle;
 	struct pfs_element_handle ieh;
 	struct element_handle *folder;
+	i64 index;
 };
 
 static_assert((offsetof(struct iter_handle, ieh) & 7) == 0, "err");

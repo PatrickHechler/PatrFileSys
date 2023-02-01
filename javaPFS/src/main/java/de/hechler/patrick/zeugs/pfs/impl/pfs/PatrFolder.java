@@ -12,7 +12,6 @@ import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.MemorySession;
 import java.lang.invoke.MethodHandle;
 import java.nio.channels.ClosedChannelException;
-import java.util.NoSuchElementException;
 
 import de.hechler.patrick.zeugs.pfs.interfaces.FSElement;
 import de.hechler.patrick.zeugs.pfs.interfaces.File;
@@ -32,18 +31,23 @@ public class PatrFolder extends PatrFSElement implements Folder {
 	private static final MethodHandle PFS_FOLDER_CREATE_PIPE;
 	
 	static {
-		PFS_FOLDER_OPEN_ITER     = LINKER.downcallHandle(LOCKUP.lookup("pfs_folder_open_iter").orElseThrow(), FunctionDescriptor.of(INT, INT, INT));
-		PFS_FOLDER_CHILD_COUNT   = LINKER.downcallHandle(LOCKUP.lookup("pfs_folder_child_count").orElseThrow(), FunctionDescriptor.of(LONG, INT));
-		PFS_FOLDER_CHILD         = LINKER.downcallHandle(LOCKUP.lookup("pfs_folder_child").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
-		PFS_FOLDER_CHILD_FOLDER  = LINKER.downcallHandle(LOCKUP.lookup("pfs_folder_child_folder").orElseThrow(),
+		PFS_FOLDER_OPEN_ITER = LINKER.downcallHandle(LOCKUP.lookup("pfs_folder_open_iter").orElseThrow(),
+				FunctionDescriptor.of(INT, INT, INT));
+		PFS_FOLDER_CHILD_COUNT = LINKER.downcallHandle(LOCKUP.lookup("pfs_folder_child_count").orElseThrow(),
+				FunctionDescriptor.of(LONG, INT));
+		PFS_FOLDER_CHILD = LINKER.downcallHandle(LOCKUP.lookup("pfs_folder_child").orElseThrow(),
 				FunctionDescriptor.of(INT, INT, PNTR));
-		PFS_FOLDER_CHILD_FILE    = LINKER.downcallHandle(LOCKUP.lookup("pfs_folder_child_file").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
-		PFS_FOLDER_CHILD_PIPE    = LINKER.downcallHandle(LOCKUP.lookup("pfs_folder_child_pipe").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_CHILD_FOLDER = LINKER.downcallHandle(LOCKUP.lookup("pfs_folder_child_folder").orElseThrow(),
+				FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_CHILD_FILE = LINKER.downcallHandle(LOCKUP.lookup("pfs_folder_child_file").orElseThrow(),
+				FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_CHILD_PIPE = LINKER.downcallHandle(LOCKUP.lookup("pfs_folder_child_pipe").orElseThrow(),
+				FunctionDescriptor.of(INT, INT, PNTR));
 		PFS_FOLDER_CREATE_FOLDER = LINKER.downcallHandle(LOCKUP.lookup("pfs_folder_create_folder").orElseThrow(),
 				FunctionDescriptor.of(INT, INT, PNTR));
-		PFS_FOLDER_CREATE_FILE   = LINKER.downcallHandle(LOCKUP.lookup("pfs_folder_create_file").orElseThrow(),
+		PFS_FOLDER_CREATE_FILE = LINKER.downcallHandle(LOCKUP.lookup("pfs_folder_create_file").orElseThrow(),
 				FunctionDescriptor.of(INT, INT, PNTR));
-		PFS_FOLDER_CREATE_PIPE   = LINKER.downcallHandle(LOCKUP.lookup("pfs_folder_create_pipe").orElseThrow(),
+		PFS_FOLDER_CREATE_PIPE = LINKER.downcallHandle(LOCKUP.lookup("pfs_folder_create_pipe").orElseThrow(),
 				FunctionDescriptor.of(INT, INT, PNTR));
 	}
 	
@@ -68,14 +72,17 @@ public class PatrFolder extends PatrFSElement implements Folder {
 		private static final MethodHandle PFS_ITER_NEXT;
 		
 		static {
-			PFS_ITER_CLOSE = LINKER.downcallHandle(LOCKUP.lookup("pfs_iter_close").orElseThrow(), FunctionDescriptor.of(INT, INT));
-			PFS_ITER_NEXT  = LINKER.downcallHandle(LOCKUP.lookup("pfs_iter_next").orElseThrow(), FunctionDescriptor.of(INT, INT));
+			PFS_ITER_CLOSE = LINKER.downcallHandle(LOCKUP.lookup("pfs_iter_close").orElseThrow(),
+					FunctionDescriptor.of(INT, INT));
+			PFS_ITER_NEXT = LINKER.downcallHandle(LOCKUP.lookup("pfs_iter_next").orElseThrow(),
+					FunctionDescriptor.of(INT, INT));
 		}
 		
 		private final int handle;
 		
 		private boolean   iterClosed;
 		private FSElement next;
+		private FSElement last;
 		
 		public PatrFolderIter(int handle) {
 			this.handle = handle;
@@ -90,13 +97,16 @@ public class PatrFolder extends PatrFSElement implements Folder {
 			ensureIterOpen();
 			FSElement n = next;
 			if (n != null) {
+				last = n;
 				next = null;
 				return n;
 			}
 			try {
 				int res = (int) PFS_ITER_NEXT.invoke(this.handle);
 				if (res == -1) { throw thrw(PFSErrorCause.ITER_NEXT, null); }
-				return new PatrFSElement(res);
+				n = new PatrFSElement(res);
+				last = n;
+				return n;
 			} catch (Throwable e) {
 				throw thrw(e);
 			}
@@ -105,22 +115,30 @@ public class PatrFolder extends PatrFSElement implements Folder {
 		@Override
 		public boolean hasNextElement() throws IOException {
 			ensureIterOpen();
-			try {
-				next = nextElement();
+			if (next != null) {
 				return true;
-			} catch (NoSuchElementException e) {
-				return false;
+			}
+			try {
+				int res = (int) PFS_ITER_NEXT.invoke(this.handle);
+				if (res == -1) { throw thrw(PFSErrorCause.ITER_NEXT, null); }
+				next = new PatrFSElement(res);
+				return true;
+			} catch (Throwable e) {
+				if (PatrFSProvider.pfsErrno() == ErrConsts.NO_MORE_ELEMENTS) {
+					return false;
+				}
+				throw thrw(e);
 			}
 		}
 		
 		@Override
-		public void delete() throws IOException {
-			/*
-			 * FIXME: implement delete()
-			 * caching the last element could confuse the native iterator
-			 * (native implementation/changes needed)
-			 */
-			throw new UnsupportedOperationException("delete");
+		public void delete() throws IOException, IllegalStateException {
+			ensureIterOpen();
+			if (last == null) {
+				throw new IllegalStateException("there is no last element");
+			}
+			last.delete();
+			last = null;
 		}
 		
 		@Override
