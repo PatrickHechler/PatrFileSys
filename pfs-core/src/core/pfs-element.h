@@ -13,7 +13,7 @@
 /**
  * get the flags of a patr-file-system-element
  *
- * when the operation fails (ui32) -1 is returned and pfs_errno will be set
+ * when the operation fails (ui32) -1 is returned and (*pfs_err_loc) will be set
  */
 ui32 pfsc_element_get_flags(pfs_eh e);
 
@@ -30,7 +30,7 @@ ui32 pfsc_element_get_flags(pfs_eh e);
  *
  * when the operation succeeds 1 is returned
  *
- * when the operation fails 0 is returned and pfs_errno will be set
+ * when the operation fails 0 is returned and (*pfs_err_loc) will be set
  */
 int pfsc_element_modify_flags(pfs_eh e, ui32 add_flags, ui32 rem_flags);
 
@@ -63,12 +63,12 @@ int pfsc_element_set_name(pfs_eh e, char *name);
  * get the create time of the given pfs-element
  *
  * when the operation fails PFS_NO_TIME will be
- * returned and pfs_errno will be set
+ * returned and (*pfs_err_loc) will be set
  *
  * note that PFS_NO_TIME may also be the create
- * time of the pfs-element, so ensure that pfs_errno
+ * time of the pfs-element, so ensure that (*pfs_err_loc)
  * is set to zero before calling this and than check
- * with the pfs_errno and not with the return value
+ * with the (*pfs_err_loc) and not with the return value
  */
 i64 pfsc_element_get_create_time(pfs_eh e);
 
@@ -80,10 +80,10 @@ int pfsc_element_set_create_time(pfs_eh e, i64 new_time);
 /**
  * get the last modify time of the given pfs-element
  *
- * when the operation fails (ui64) -1 is returned and pfs_errno will be set
+ * when the operation fails (ui64) -1 is returned and (*pfs_err_loc) will be set
  *
  * note that -1 may also be the last modify time of the pfs-element, so ensure that
- * pfs_errno is set to zero before calling this and than check with the pfs_errno
+ * (*pfs_err_loc) is set to zero before calling this and than check with the (*pfs_err_loc)
  */
 i64 pfsc_element_get_last_mod_time(pfs_eh e);
 
@@ -112,7 +112,7 @@ int pfsc_element_delete(pfs_eh e, i64 *former_index);
  * get the parent folder of the given element
  *
  * when the operation fails 0 is returned and
- * pfs_errno will be set, otherwise 1 is returned
+ * (*pfs_err_loc) will be set, otherwise 1 is returned
  */
 int pfsc_element_get_parent(pfs_eh e);
 
@@ -122,7 +122,7 @@ int pfsc_element_get_parent(pfs_eh e);
  * to new_parent
  *
  * when the operation fails 0 is returned and
- * pfs_errno will be set, otherwise 1 is returned
+ * (*pfs_err_loc) will be set, otherwise 1 is returned
  *
  * not that this function will always set pfs_erno
  * (to PFS_ERRNO_NONE on success)
@@ -141,7 +141,7 @@ int pfsc_element_set_parent(pfs_eh e, pfs_eh new_parent);
  * contains a child with the old name
  *
  * when the operation fails 0 is returned and
- * pfs_errno will be set, otherwise 1 is returned
+ * (*pfs_err_loc) will be set, otherwise 1 is returned
  *
  * not that this function will always set pfs_erno
  * (to PFS_ERRNO_NONE on success)

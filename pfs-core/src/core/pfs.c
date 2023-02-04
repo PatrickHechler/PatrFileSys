@@ -9,7 +9,7 @@
 #include "pfs.h"
 
 extern const char* pfs_error() {
-	switch (pfs_errno) {
+	switch ((*pfs_err_loc)) {
 	case PFS_ERRNO_NONE: /* if no error occurred */
 		return "no error/success";
 	case PFS_ERRNO_UNKNOWN_ERROR: /* if an operation failed because there was not enough space in the file system */
@@ -36,7 +36,7 @@ extern const char* pfs_error() {
 		return "new parent folder is a child folder";
 	default:
 		char *buf = malloc(33);
-		sprintf(buf, "unknown value [%lx]", pfs_errno);
+		sprintf(buf, "unknown value [%lx]", (*pfs_err_loc));
 		return buf;
 	}
 }
@@ -47,13 +47,13 @@ extern void pfs_perror(const char *msg) {
 
 int pfsc_format(i64 block_count) {
 	if (pfs == NULL) {
-		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	if (pfs->block_size
 			< (sizeof(struct pfs_b0) + sizeof(struct pfs_folder)
 					+ (sizeof(struct pfs_folder_entry) * 2) + 30)) {
-		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
 		/*
 		 * absolute minimum:
 		 *    'super_block'
@@ -65,11 +65,11 @@ int pfsc_format(i64 block_count) {
 		return 0;
 	}
 	if ((pfs->block_size & 7) != 0) {
-		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	if (block_count < 2) {
-		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	if (pfs->loaded.entrycount > 0) {
@@ -77,7 +77,7 @@ int pfsc_format(i64 block_count) {
 	}
 	void *b0 = pfs->get(pfs, 0L);
 	if (b0 == NULL) {
-		pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
+		(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
 		return 0;
 	}
 	i32 table_offset = pfs->block_size - 20;
@@ -239,7 +239,7 @@ int pfsc_fill_root(pfs_eh overwrite_me) {
 pfs_eh pfsc_root() {
 	struct pfs_element_handle *res = malloc(sizeof(struct pfs_element_handle));
 	if (res == NULL) {
-		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
 		return NULL;
 	}
 	if (!pfsc_fill_root(res)) {
@@ -251,7 +251,7 @@ pfs_eh pfsc_root() {
 
 int init_block(i64 block, i64 size) {
 	if (size > pfs->block_size - 12) {
-		pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 		return 0;
 	}
 	void *data = pfs->get(pfs, block);
@@ -325,7 +325,7 @@ i32 allocate_in_block_table(i64 block, i64 size) {
 	i32 *table_end = block_data + pfs->block_size - 4;
 	i32 *table = block_data + *table_end;
 	if (table_end[0] - 8 < table_end[-1]) {
-		pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 		pfs->unget(pfs, block);
 		return -1;
 	}
@@ -478,7 +478,7 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos,
 				return new_pos;
 			}
 		} // could not resize
-		pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 		pfs->unget(pfs, block);
 		return -1;
 	}
@@ -638,7 +638,7 @@ static inline i64 allocate_block_without_bm(i64 btfb) {
 			if (block_count == 255) {
 				result += 8;
 				if (result >= block_count) {
-					pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+					(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 					pfs->unget(pfs, current_block_num);
 					return -1L;
 				}
@@ -657,7 +657,7 @@ static inline i64 allocate_block_without_bm(i64 btfb) {
 				}
 				result++;
 				if (result >= block_count) {
-					pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+					(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 					pfs->unget(pfs, current_block_num);
 					return -1L;
 				}
@@ -665,7 +665,7 @@ static inline i64 allocate_block_without_bm(i64 btfb) {
 		}
 		if (next_block_num == -1L) {
 			if (result + 1 >= block_count) {
-				pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+				(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 				pfs->unget(pfs, current_block_num);
 				return -1L;
 			}
@@ -704,12 +704,12 @@ i64 allocate_block(ui64 block_flags) {
 			if (pfs->block_flag_bits <= 0) {
 				abort();
 			}
-			pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+			(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 			return -1L;
 		}
 		const i64 block_count = pfs_block_count();
 		if (fzfb >= block_count) {
-			pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+			(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 			return -1L;
 		}
 		pfs->set_flags(pfs, fzfb, block_flags);

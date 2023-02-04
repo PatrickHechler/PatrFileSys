@@ -28,7 +28,7 @@
 pfs_fi pfsc_folder_iterator(pfs_eh f, int show_hidden) {
 	pfs_fi result = malloc(sizeof(struct pfs_folder_iter));
 	if (result == NULL) {
-		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
 		return NULL;
 	}
 	if (!pfsc_folder_fill_iterator(f, result, show_hidden)) {
@@ -119,7 +119,7 @@ int pfsc_folder_fill_iterator_index(pfs_eh f, pfs_fi iter, i64 index) {
 int pfsc_folder_iter_next(pfs_fi fi) {
 	void *cb_data = pfs->get(pfs, fi->current_place.block);
 	if (cb_data == NULL) {
-		pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
+		(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
 		return 0;
 	}
 	while (1) {
@@ -131,7 +131,7 @@ int pfsc_folder_iter_next(pfs_fi fi) {
 				if (fi->current_depth != 0) {
 					abort();
 				}
-				pfs_errno = PFS_ERRNO_NO_MORE_ELEMENTS;
+				(*pfs_err_loc) = PFS_ERRNO_NO_MORE_ELEMENTS;
 				pfs->unget(pfs, fi->current_place.block);
 				return 0;
 			}
@@ -212,7 +212,7 @@ int pfsc_folder_iter_next(pfs_fi fi) {
 			void *fe_block_data = pfs->get(pfs, folder->folder_entry.block);
 			if (fe_block_data == NULL) {
 				pfs->unget(pfs, fi->current_place.block);
-				pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
+				(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
 				return 0;
 			}
 			struct pfs_folder_entry *entry = fe_block_data
@@ -288,7 +288,7 @@ static int pfs_folder_child_from_name_impl(pfs_eh f, const char *name,
 					== 0) {
 				if ((folder->entries[i].flags & neededflag) == 0) {
 					pfs->unget(pfs, old_block_num);
-					pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+					(*pfs_err_loc) = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 					return -1;
 				}
 				if (is_helper) {
@@ -307,7 +307,7 @@ static int pfs_folder_child_from_name_impl(pfs_eh f, const char *name,
 	}
 	pfs->unget(pfs, old_block_num);
 	if (!is_helper) {
-		pfs_errno = PFS_ERRNO_ELEMENT_NOT_EXIST;
+		(*pfs_err_loc) = PFS_ERRNO_ELEMENT_NOT_EXIST;
 	}
 	return 0;
 }
@@ -393,7 +393,7 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 			free_block(helper_block);
 			pfs->unget(pfs, helper_block);
 			pfs->unget(pfs, my_place.block);
-			pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+			(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 			return 0;
 		}
 		helper->element.last_mod_time = -1L;
@@ -404,7 +404,7 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 				free_block(helper_block);
 				pfs->unget(pfs, helper_block);
 				pfs->unget(pfs, my_place.block);
-				pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+				(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 				return 0;
 			}
 			helper->direct_child_count = 0;
@@ -416,7 +416,7 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 				free_block(helper_block);
 				pfs->unget(pfs, helper_block);
 				pfs->unget(pfs, my_place.block);
-				pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+				(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 				return 0;
 			}
 			me->helper_index = me->direct_child_count - 1;
@@ -433,7 +433,7 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 				free_block(helper_block);
 				pfs->unget(pfs, helper_block);
 				pfs->unget(pfs, my_place.block);
-				pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+				(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 				return 0;
 			}
 			helper->entries[0].name_pos = name_pos;
@@ -496,7 +496,7 @@ static inline int add_child(pfs_eh f, pfs_eh parent,
 		struct pfs_place real_parent, const char *name, i64 name_len,
 		ui32 child_flags, struct pfs_folder_entry *overwrite_child_entry) {
 	if (f == parent) {
-		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	if (parent != NULL) {
@@ -506,7 +506,7 @@ static inline int add_child(pfs_eh f, pfs_eh parent,
 	struct pfs_place my_place = f->element_place;
 	if (has_child_with_name(my_place, name, name_len)) {
 		pfs->unget(pfs, my_place.block);
-		pfs_errno = PFS_ERRNO_ELEMENT_ALREADY_EXIST;
+		(*pfs_err_loc) = PFS_ERRNO_ELEMENT_ALREADY_EXIST;
 		return 0;
 	}
 	const i64 my_new_size = sizeof(struct pfs_folder)
@@ -561,7 +561,7 @@ static inline int add_child(pfs_eh f, pfs_eh parent,
 			if (parent != NULL) {
 				*parent = *f;
 			}
-			pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
+			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
 			return 0;
 		}
 		me = my_new_block_data + my_place.pos;
@@ -579,7 +579,7 @@ static inline int add_child(pfs_eh f, pfs_eh parent,
 			if (parent != NULL) {
 				*parent = *f;
 			}
-			pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
+			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
 			return 0;
 		}
 		if (old_me->folder_entry.block != f->direct_parent_place.block) {
@@ -595,7 +595,7 @@ static inline int add_child(pfs_eh f, pfs_eh parent,
 			if (parent != NULL) {
 				*parent = *f;
 			}
-			pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+			(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 			return 0;
 		}
 		if (old_me->folder_entry.block == -1) {
@@ -662,7 +662,7 @@ static inline int add_child(pfs_eh f, pfs_eh parent,
 				remove_from_block_table(my_place.block,
 						me->entries[child_index].name_pos);
 				pfs->set(pfs, my_place.block);
-				pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
+				(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
 				return 0;
 			}
 		}
@@ -717,7 +717,7 @@ int pfsc_folder_create_pipe(pfs_eh f, pfs_eh parent, const char *name) {
 
 int pfsc_element_get_parent(pfs_eh e) {
 	if (e->real_parent_place.block == -1) {
-		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
+		(*pfs_err_loc) = PFS_ERRNO_ROOT_FOLDER;
 		return 0;
 	}
 	get_folder1(parent, block_data, (e->real_parent_place))
@@ -737,7 +737,7 @@ int pfsc_element_get_parent(pfs_eh e) {
 			e->direct_parent_place.block = direct_parent_block;
 			e->entry_pos = entry_pos;
 			e->element_place = old_place;
-			pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
+			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
 			return 0;
 		}
 	}
@@ -787,7 +787,7 @@ static int del_helper(struct pfs_place h) {
 	if (helper->direct_child_count > 0) {
 		if ((helper->direct_child_count > 1) || (helper->helper_index == -1)) {
 			pfs->unget(pfs, h.block);
-			pfs_errno = PFS_ERRNO_FOLDER_NOT_EMPTY;
+			(*pfs_err_loc) = PFS_ERRNO_FOLDER_NOT_EMPTY;
 			return 0;
 		}
 		if (!del_helper(helper->entries[0].child_place)) {
@@ -841,7 +841,7 @@ int pfsc_element_delete(pfs_eh e, i64 *former_index) {
 		if (folder->direct_child_count > 0) {
 			if ((folder->direct_child_count > 1)
 					|| (folder->helper_index == -1)) {
-				pfs_errno = PFS_ERRNO_FOLDER_NOT_EMPTY;
+				(*pfs_err_loc) = PFS_ERRNO_FOLDER_NOT_EMPTY;
 				pfs->unget(pfs, e->element_place.block);
 				return 0;
 			} else if (!del_helper(folder->entries[0].child_place)) {
@@ -864,9 +864,9 @@ int pfsc_element_delete(pfs_eh e, i64 *former_index) {
 }
 
 static int move_and_set_parent_impl(pfs_eh e, pfs_eh new_parent, char *name) {
-	pfs_errno = PFS_ERRNO_NONE;
+	(*pfs_err_loc) = PFS_ERRNO_NONE;
 	if (e->real_parent_place.block == -1) {
-		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
+		(*pfs_err_loc) = PFS_ERRNO_ROOT_FOLDER;
 		return 0;
 	}
 	struct pfs_element_handle moh = *e;
@@ -883,16 +883,16 @@ static int move_and_set_parent_impl(pfs_eh e, pfs_eh new_parent, char *name) {
 			if (moh.element_place.block == eh.element_place.block) {
 				if (moh.element_place.pos == eh.element_place.pos) {
 					pfs->unget(pfs, moh.real_parent_place.block);
-					pfs_errno = PFS_ERRNO_PARENT_IS_CHILD;
+					(*pfs_err_loc) = PFS_ERRNO_PARENT_IS_CHILD;
 					return 0;
 				}
 			}
 			if (!pfsc_element_get_parent(&eh)) {
-				if (pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
+				if ((*pfs_err_loc) != PFS_ERRNO_ROOT_FOLDER) {
 					pfs->unget(pfs, moh.real_parent_place.block);
 					return 0;
 				} else {
-					pfs_errno = 0;
+					(*pfs_err_loc) = 0;
 				}
 			}
 		}
@@ -915,7 +915,7 @@ static int move_and_set_parent_impl(pfs_eh e, pfs_eh new_parent, char *name) {
 		pfs->unget(pfs, moh.direct_parent_place.block);
 		pfs->unget(pfs, moh.element_place.block);
 		pfs->unget(pfs, new_parent_old_block);
-		return 0; // pfs_errno has already been set
+		return 0; // (*pfs_err_loc) has already been set
 	}
 	remove_from_parent(&moh, old_parent_folder);
 	pfs->set(pfs, moh.direct_parent_place.block);
@@ -930,7 +930,7 @@ int pfsc_element_set_parent(pfs_eh e, pfs_eh new_parent) {
 
 int pfsc_element_move(pfs_eh e, pfs_eh new_parent, char *name) {
 	if (name == NULL) {
-		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	return move_and_set_parent_impl(e, new_parent, name);

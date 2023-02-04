@@ -16,11 +16,11 @@
 
 #define get_handle(err_ret, h_len, hs, h_num) \
 	if (h_num >= h_len) { \
-		pfs_errno = PFS_ERRNO_ILLEGAL_ARG; \
+		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG; \
 		return err_ret; \
 	} \
 	if (!hs[h_num]) { \
-		pfs_errno = PFS_ERRNO_ILLEGAL_ARG; \
+		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG; \
 		return err_ret; \
 	}
 
@@ -45,7 +45,7 @@ static inline int return_handle(i64 *len, void ***hs, void *h) {
 	}
 	void **nhs = realloc((*hs), ((*len) + 1) * sizeof(void*));
 	if (!nhs) {
-		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
 		return -1;
 	}
 	(*hs) = nhs;
@@ -58,7 +58,7 @@ static inline int return_handle(i64 *len, void ***hs, void *h) {
 #define c_h(e, err_ret, flag) \
 	if (e->handle.direct_parent_place.block == -1) { \
 		if ((PFS_F_FOLDER & flag) != flag) { \
-			pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE; \
+			(*pfs_err_loc) = PFS_ERRNO_ELEMENT_WRONG_TYPE; \
 			return err_ret; \
 		} \
 	} else { \
@@ -68,7 +68,7 @@ static inline int return_handle(i64 *len, void ***hs, void *h) {
 		} \
 		struct pfs_folder_entry *my_entry = direct_parent_block_data + e->handle.entry_pos; \
 		if ((my_entry->flags & flag) == 0) { \
-			pfs_errno = PFS_ERRNO_ELEMENT_WRONG_TYPE; \
+			(*pfs_err_loc) = PFS_ERRNO_ELEMENT_WRONG_TYPE; \
 			pfs->unget(pfs, pfs_ehs[eh]->handle.direct_parent_place.block); \
 			return err_ret; \
 		} \

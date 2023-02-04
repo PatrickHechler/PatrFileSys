@@ -18,7 +18,7 @@
 	ensure_entry_blocks \
 	void *block_name = pfs->get(pfs, e->element_place.block); \
 	if (block_name == NULL) { \
-		pfs_errno = PFS_ERRNO_UNKNOWN_ERROR; \
+		(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR; \
 		return error_result; \
 	} \
 	struct pfs_element *element_name = block_name + e->element_place.pos;
@@ -29,7 +29,7 @@
 //	ensure_entry_blocks \
 //	void *block_name = pfs->get(pfs, e->direct_parent_place.block); \
 //	if (block_name == NULL) { \
-//		pfs_errno = PFS_ERRNO_UNKNOWN_ERROR; \
+//		(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR; \
 //		return error_result; \
 //	} \
 //	struct pfs_folder *parent_name = block_name + e->direct_parent_place.pos; \
@@ -40,7 +40,7 @@
 	ensure_entry_blocks \
 	void *block_name = pfs->get(pfs, e->direct_parent_place.block); \
 	if (block_name == NULL) { \
-		pfs_errno = PFS_ERRNO_UNKNOWN_ERROR; \
+		(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR; \
 		return error_result; \
 	} \
 	struct pfs_folder *parent_name = block_name + e->direct_parent_place.pos; \
@@ -50,7 +50,7 @@
 
 extern ui32 pfsc_element_get_flags(pfs_eh e) {
 	if (e->real_parent_place.block == -1) {
-		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
+		(*pfs_err_loc) = PFS_ERRNO_ROOT_FOLDER;
 		return -1;
 	}
 	get_entry(-1)
@@ -61,15 +61,15 @@ extern ui32 pfsc_element_get_flags(pfs_eh e) {
 
 extern int pfsc_element_modify_flags(pfs_eh e, ui32 add_flags, ui32 rem_flags) {
 	if (e->real_parent_place.block == -1) {
-		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
+		(*pfs_err_loc) = PFS_ERRNO_ROOT_FOLDER;
 		return 0;
 	}
 	if ((add_flags & rem_flags) != 0) {
-		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	if (((add_flags | rem_flags) & PFS_UNMODIFIABLE_FLAGS) != 0) {
-		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	get_entry(0)
@@ -112,7 +112,7 @@ extern i64 pfsc_element_get_name_length(pfs_eh e) {
 
 extern int pfsc_element_get_name(pfs_eh e, char **buffer, i64 *buffer_len) {
 	if (*buffer_len < 0) {
-		pfs_errno = PFS_ERRNO_ILLEGAL_ARG;
+		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	if (e->real_parent_place.block == -1) { // root
@@ -120,7 +120,7 @@ extern int pfsc_element_get_name(pfs_eh e, char **buffer, i64 *buffer_len) {
 			void *nb;
 			nb = malloc(1);
 			if (nb == NULL) {
-				pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
+				(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
 				return 0;
 			}
 			*buffer_len = 1;
@@ -132,7 +132,7 @@ extern int pfsc_element_get_name(pfs_eh e, char **buffer, i64 *buffer_len) {
 		i64 len = pfsc_element_get_name_length(e);
 		i64 size = len + 1;
 		if (size == -1) {
-			// pfs_errno already set
+			// (*pfs_err_loc) already set
 			pfs->unget(pfs, e->direct_parent_place.block);
 			return 0;
 		}
@@ -144,7 +144,7 @@ extern int pfsc_element_get_name(pfs_eh e, char **buffer, i64 *buffer_len) {
 				nb = realloc(*buffer, size);
 			}
 			if (nb == NULL) {
-				pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
+				(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
 				pfs->unget(pfs, e->direct_parent_place.block);
 				return 0;
 			}
@@ -160,7 +160,7 @@ extern int pfsc_element_get_name(pfs_eh e, char **buffer, i64 *buffer_len) {
 
 extern int pfsc_element_set_name(pfs_eh e, char *name) {
 	if (e->real_parent_place.block == -1) {
-		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
+		(*pfs_err_loc) = PFS_ERRNO_ROOT_FOLDER;
 		return 0;
 	}
 	get_entry0(entry, direct_parent, entry_block_data, 0)
@@ -177,7 +177,7 @@ extern int pfsc_element_set_name(pfs_eh e, char *name) {
 	        + (sizeof(struct pfs_folder_entry) * direct_parent->direct_child_count);
 	if (!allocate_new_entry(&dpplace, -1, parent_size)) {
 		pfs->unget(pfs, e->direct_parent_place.block);
-		pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 		return 0;
 	}
 	void *new_block = pfs->get(pfs, dpplace.block);
@@ -248,7 +248,7 @@ extern int pfsc_element_set_name(pfs_eh e, char *name) {
 				}
 				pfs->unget(pfs, dpplace.block);
 				pfs->unget(pfs, e->direct_parent_place.block);
-				pfs_errno = PFS_ERRNO_OUT_OF_SPACE;
+				(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 				return 0;
 			}
 			struct pfs_folder *sb = sb_data + new_parent->entries[i].child_place.pos;
@@ -270,7 +270,7 @@ extern int pfsc_element_set_name(pfs_eh e, char *name) {
 
 extern i64 pfsc_element_get_create_time(pfs_eh e) {
 	if (e->direct_parent_place.block == -1) {
-		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
+		(*pfs_err_loc) = PFS_ERRNO_ROOT_FOLDER;
 		return -1;
 	}
 	get_entry(-1);
@@ -281,7 +281,7 @@ extern i64 pfsc_element_get_create_time(pfs_eh e) {
 
 extern int pfsc_element_set_create_time(pfs_eh e, i64 new_time) {
 	if (e->direct_parent_place.block == -1) {
-		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
+		(*pfs_err_loc) = PFS_ERRNO_ROOT_FOLDER;
 		return 0;
 	}
 	get_entry(-1);

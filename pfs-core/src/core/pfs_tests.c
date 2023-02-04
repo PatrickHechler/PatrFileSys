@@ -61,7 +61,7 @@ void pfs_simple_print(i64 max_depth, pfs_eh folder, char **buf, i64 *len) {
 				free(*buf);
 				free(buf);
 			}
-			if (pfs_errno == PFS_ERRNO_NO_MORE_ELEMENTS) {
+			if ((*pfs_err_loc) == PFS_ERRNO_NO_MORE_ELEMENTS) {
 				free(iter);
 				return;
 			} else {
@@ -919,13 +919,13 @@ static void folder_check() {
 		printf("%sgot more elements from the iter than expected! [B]\n", start);
 		exit(EXIT_FAILURE);
 	}
-	if (pfs_errno != PFS_ERRNO_NO_MORE_ELEMENTS) {
+	if ((*pfs_err_loc) != PFS_ERRNO_NO_MORE_ELEMENTS) {
 		printf(
-				"%spfs_errno has not the expected value (no-more-elements, but: %s)! [C]\n",
+				"%s(*pfs_err_loc) has not the expected value (no-more-elements, but: %s)! [C]\n",
 				start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
-	pfs_errno = PFS_ERRNO_NONE;
+	(*pfs_err_loc) = PFS_ERRNO_NONE;
 }
 
 static void deep_folder_check() {
@@ -1029,12 +1029,12 @@ static void deep_folder_check() {
 		printf("%scould create a child folder [17]\n", start);
 		exit(EXIT_FAILURE);
 	}
-	if (pfs_errno != PFS_ERRNO_ELEMENT_ALREADY_EXIST) {
-		printf("%spfs_errno has not the expected value! (pfs_errno=%s) [18]\n",
+	if ((*pfs_err_loc) != PFS_ERRNO_ELEMENT_ALREADY_EXIST) {
+		printf("%s(*pfs_err_loc) has not the expected value! ((*pfs_err_loc)=%s) [18]\n",
 				start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
-	pfs_errno = PFS_ERRNO_NONE;
+	(*pfs_err_loc) = PFS_ERRNO_NONE;
 }
 
 static void ensurelen(char **name, i64 *len, i64 min_len, int from_read_dir) {
@@ -1142,7 +1142,7 @@ static void read_from(DIR *dir, pfs_eh f, char **name, i64 *name_size) {
 				cnt++;
 				if (appended != reat) {
 					printf(
-							"%scould not append to the file (pfs_errno=%s, cnt=%d) [8]\n",
+							"%scould not append to the file ((*pfs_err_loc)=%s, cnt=%d) [8]\n",
 							start, pfs_error(), cnt);
 					exit(1);
 				}
@@ -1187,22 +1187,22 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 	i64 cur_len = strlen(*name);
 	if (iter == NULL) {
 		printf(
-				"%sfailed to get a iterator for the folder! (pfs_errno=%s) [0]\n",
+				"%sfailed to get a iterator for the folder! ((*pfs_err_loc)=%s) [0]\n",
 				start, pfs_error());
 		exit(1);
 	}
 	(*name)[cur_len++] = '/';
 	while (1) {
 		if (!pfsc_folder_iter_next(iter)) {
-			if (pfs_errno != PFS_ERRNO_NO_MORE_ELEMENTS) {
+			if ((*pfs_err_loc) != PFS_ERRNO_NO_MORE_ELEMENTS) {
 				printf(
-						"%sfailed to get the next element from the folder iter! (pfs_errno=%s) [1]\n",
+						"%sfailed to get the next element from the folder iter! ((*pfs_err_loc)=%s) [1]\n",
 						start, pfs_error);
 				exit(1);
 			}
 			free(iter);
 			(*name)[--cur_len] = '\0';
-			pfs_errno = PFS_ERRNO_NONE;
+			(*pfs_err_loc) = PFS_ERRNO_NONE;
 			return;
 		}
 		*name_size -= cur_len;
@@ -1211,7 +1211,7 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 			*name_size += cur_len;
 			*name -= cur_len;
 			printf(
-					"%scould not get the name of the element (pfs_errno=%s) [2]\n",
+					"%scould not get the name of the element ((*pfs_err_loc)=%s) [2]\n",
 					start, pfs_error);
 			exit(1);
 		}
@@ -1233,7 +1233,7 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 				}
 				if (!pfsc_file_read(f, pos, buf, cpy)) {
 					printf(
-							"%scould not read from my file %s (pfs_errno=%s) [3]\n",
+							"%scould not read from my file %s ((*pfs_err_loc)=%s) [3]\n",
 							start, *name, pfs_error);
 					exit(1);
 				}
@@ -1468,7 +1468,7 @@ static void real_file_sys_check() {
 #endif // PRINT_PFS
 	fflush(NULL);
 	if (!pfsc_fill_root(root)) {
-		printf("%scould not get the root! (pfs_errno=%s) [3]\n", start,
+		printf("%scould not get the root! ((*pfs_err_loc)=%s) [3]\n", start,
 				pfs_error);
 		exit(EXIT_FAILURE);
 	}
@@ -1494,13 +1494,13 @@ static void real_file_sys_check() {
 void sub_meta_check(pfs_eh e, int is_not_root) {
 	const char *start = "[main.checks.meta_check.sub_meta_check]:              ";
 	i64 ct = pfsc_element_get_create_time(e);
-	if (pfs_errno != 0) {
-		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
+	if ((*pfs_err_loc) != 0) {
+		if (is_not_root || (*pfs_err_loc) != PFS_ERRNO_ROOT_FOLDER) {
 			printf("%scould not get the create time! (%s) [0]\n", start,
 					pfs_error());
 			exit(EXIT_FAILURE);
 		}
-		pfs_errno = 0;
+		(*pfs_err_loc) = 0;
 	} else if (!is_not_root) {
 		printf("%scould get the create time! (%s) [1]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
@@ -1511,7 +1511,7 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		exit(EXIT_FAILURE);
 	}
 	i64 lmt = pfsc_element_get_last_mod_time(e);
-	if (pfs_errno != 0) {
+	if ((*pfs_err_loc) != 0) {
 		printf("%scould not get the last modified time! (%s) [3]\n", start,
 				pfs_error());
 		exit(EXIT_FAILURE);
@@ -1527,21 +1527,21 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 	}
 	ct ^= rand() | ((ui64) rand() << 31) | ((ui64) rand() << 62);
 	if (!pfsc_element_set_create_time(e, ct)) {
-		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
+		if (is_not_root || (*pfs_err_loc) != PFS_ERRNO_ROOT_FOLDER) {
 			printf("%scould not set the create time! [6]\n", start);
 			exit(EXIT_FAILURE);
 		}
-		pfs_errno = 0;
+		(*pfs_err_loc) = 0;
 	} else if (!is_not_root) {
 		printf("%scould set the create time! [7]\n", start);
 		exit(EXIT_FAILURE);
 	}
 	if (ct != pfsc_element_get_create_time(e)) {
-		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
+		if (is_not_root || (*pfs_err_loc) != PFS_ERRNO_ROOT_FOLDER) {
 			printf("%screate time has an unexpected value! [8]\n", start);
 			exit(EXIT_FAILURE);
 		}
-		pfs_errno = 0;
+		(*pfs_err_loc) = 0;
 	} else if (!is_not_root) {
 		printf("%scould get the create time! [9]\n", start);
 		exit(EXIT_FAILURE);
@@ -1556,17 +1556,17 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		exit(EXIT_FAILURE);
 	}
 	if (ct != pfsc_element_get_create_time(e)) {
-		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
+		if (is_not_root || (*pfs_err_loc) != PFS_ERRNO_ROOT_FOLDER) {
 			printf("%screate time has the wrong value! [C]\n", start);
 			exit(EXIT_FAILURE);
 		}
-		pfs_errno = 0;
+		(*pfs_err_loc) = 0;
 	} else if (!is_not_root) {
 		printf("%scould get the create time! [D]\n", start);
 		exit(EXIT_FAILURE);
 	}
 	if ((pfsc_element_get_flags(e) & PFS_F_USER_ENCRYPTED) != 0) {
-		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
+		if (is_not_root || (*pfs_err_loc) != PFS_ERRNO_ROOT_FOLDER) {
 			printf("%sthe flags have an unexpected value! (%s) [E]\n", start,
 					pfs_error());
 			exit(EXIT_FAILURE);
@@ -1576,11 +1576,11 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		exit(EXIT_FAILURE);
 	}
 	if (!pfsc_element_modify_flags(e, PFS_F_USER_ENCRYPTED, 0)) {
-		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
+		if (is_not_root || (*pfs_err_loc) != PFS_ERRNO_ROOT_FOLDER) {
 			printf("%scould not modify the flags! [F]\n", start);
 			exit(EXIT_FAILURE);
 		}
-		pfs_errno = 0;
+		(*pfs_err_loc) = 0;
 	} else if (!is_not_root) {
 		printf("%scould get the flags! [10]\n", start);
 		exit(EXIT_FAILURE);
@@ -1588,26 +1588,26 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 	if ((pfsc_element_get_flags(e) & PFS_F_USER_ENCRYPTED) == 0) {
 		printf("%sthe flags have an unexpected value! [11]\n", start);
 		exit(EXIT_FAILURE);
-	} else if ((!is_not_root && pfs_errno != PFS_ERRNO_ROOT_FOLDER)
-			|| (is_not_root && pfs_errno != PFS_ERRNO_NONE)) {
+	} else if ((!is_not_root && (*pfs_err_loc) != PFS_ERRNO_ROOT_FOLDER)
+			|| (is_not_root && (*pfs_err_loc) != PFS_ERRNO_NONE)) {
 		printf("%serror! (%s) [11.2]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
-	pfs_errno = 0;
+	(*pfs_err_loc) = 0;
 	if ((pfsc_element_get_flags(e) & PFS_F_USER_ENCRYPTED) == 0) {
 		printf("%sthe flags have an unexpected value! [13]\n", start);
 		exit(EXIT_FAILURE);
-	} else if ((!is_not_root && pfs_errno != PFS_ERRNO_ROOT_FOLDER)
-			|| (is_not_root && pfs_errno != PFS_ERRNO_NONE)) {
+	} else if ((!is_not_root && (*pfs_err_loc) != PFS_ERRNO_ROOT_FOLDER)
+			|| (is_not_root && (*pfs_err_loc) != PFS_ERRNO_NONE)) {
 		printf("%serror! (%s) [14]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	if (!pfsc_element_modify_flags(e, 0, PFS_F_USER_ENCRYPTED)) {
-		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
+		if (is_not_root || (*pfs_err_loc) != PFS_ERRNO_ROOT_FOLDER) {
 			printf("%scould not modify the flags! [15]\n", start);
 			exit(EXIT_FAILURE);
 		}
-		pfs_errno = 0;
+		(*pfs_err_loc) = 0;
 	} else if (!is_not_root) {
 		printf("%scould get the flags! [16]\n", start);
 		exit(EXIT_FAILURE);
@@ -1616,47 +1616,47 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 			&& pfsc_element_get_flags(e) != -1) {
 		printf("%scould not modify the flags! (%s) [17]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
-	} else if ((!is_not_root && pfs_errno != PFS_ERRNO_ROOT_FOLDER)
-			|| (is_not_root && pfs_errno != PFS_ERRNO_NONE)) {
+	} else if ((!is_not_root && (*pfs_err_loc) != PFS_ERRNO_ROOT_FOLDER)
+			|| (is_not_root && (*pfs_err_loc) != PFS_ERRNO_NONE)) {
 		printf("%serror! (%s) [18]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	if (pfsc_element_modify_flags(e, PFS_F_FILE, 0)) {
 		printf("%scould modify the flags! [19]\n", start);
 		exit(EXIT_FAILURE);
-	} else if (pfs_errno != PFS_ERRNO_ILLEGAL_ARG) {
-		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%spfs_errno has an unexpected value (%s)! [1A]\n", start,
+	} else if ((*pfs_err_loc) != PFS_ERRNO_ILLEGAL_ARG) {
+		if (is_not_root || (*pfs_err_loc) != PFS_ERRNO_ROOT_FOLDER) {
+			printf("%s(*pfs_err_loc) has an unexpected value (%s)! [1A]\n", start,
 					pfs_error());
 			exit(EXIT_FAILURE);
 		}
 	}
-	pfs_errno = 0;
+	(*pfs_err_loc) = 0;
 	if (pfsc_element_modify_flags(e, 0, PFS_F_FOLDER)) {
 		printf("%scould modify the flags! [1B]\n", start);
 		exit(EXIT_FAILURE);
-	} else if (pfs_errno != PFS_ERRNO_ILLEGAL_ARG) {
-		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%spfs_errno has an unexpected value (%s)! [1C]\n", start,
+	} else if ((*pfs_err_loc) != PFS_ERRNO_ILLEGAL_ARG) {
+		if (is_not_root || (*pfs_err_loc) != PFS_ERRNO_ROOT_FOLDER) {
+			printf("%s(*pfs_err_loc) has an unexpected value (%s)! [1C]\n", start,
 					pfs_error());
 			exit(EXIT_FAILURE);
 		}
 	}
-	pfs_errno = 0;
+	(*pfs_err_loc) = 0;
 	if (pfsc_element_modify_flags(e, PFS_F_EXECUTABLE, PFS_F_EXECUTABLE)) {
 		printf("%scould modify the flags! [1D]\n", start);
 		exit(EXIT_FAILURE);
-	} else if (pfs_errno != PFS_ERRNO_ILLEGAL_ARG) {
-		if (is_not_root || pfs_errno != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%spfs_errno has an unexpected value (%s)! [1E]\n", start,
+	} else if ((*pfs_err_loc) != PFS_ERRNO_ILLEGAL_ARG) {
+		if (is_not_root || (*pfs_err_loc) != PFS_ERRNO_ROOT_FOLDER) {
+			printf("%s(*pfs_err_loc) has an unexpected value (%s)! [1E]\n", start,
 					pfs_error());
 			exit(EXIT_FAILURE);
 		}
 	}
-	pfs_errno = 0;
+	(*pfs_err_loc) = 0;
 }
 
-static void meta_check() { // TODO (move|set(name|parent))checks
+static void meta_check() {
 	const char *start = "[main.checks.meta_check]:                             ";
 	pfs_eh e = pfsc_root();
 	if (e == NULL) {
@@ -1791,12 +1791,12 @@ static void pipe_check() {
 	if (res) {
 		printf("%scould read form the pipe! [F]\n", start);
 		exit(EXIT_FAILURE);
-	} else if (pfs_errno != PFS_ERRNO_ILLEGAL_ARG) {
-		printf("%spfs_errno has not the expected value (%s)! [10]\n", start,
+	} else if ((*pfs_err_loc) != PFS_ERRNO_ILLEGAL_ARG) {
+		printf("%s(*pfs_err_loc) has not the expected value (%s)! [10]\n", start,
 				pfs_error());
 		exit(EXIT_FAILURE);
 	}
-	pfs_errno = PFS_ERRNO_NONE;
+	(*pfs_err_loc) = PFS_ERRNO_NONE;
 	res = pfsc_pipe_read(p, read_buf + 1024, 756);
 	if (!res) {
 		printf("%scould not read form the pipe! [11]\n", start);

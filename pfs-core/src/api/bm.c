@@ -90,7 +90,7 @@ extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count,
 		i32 block_size) {
 	struct bm_ram *bm = malloc(sizeof(struct bm_ram));
 	if (bm == NULL) {
-		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
 		return NULL;
 	}
 	bm->bm.loaded.entries = NULL;
@@ -102,7 +102,7 @@ extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count,
 	bm->blocks = malloc(block_count * (i64) block_size);
 	if (bm->blocks == NULL) {
 		free(bm);
-		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
 		return NULL;
 	}
 	return &(bm->bm);
@@ -112,7 +112,7 @@ extern struct bm_block_manager* bm_new_file_block_manager(int fd,
 		i32 block_size) {
 	struct bm_file *bm = malloc(sizeof(struct bm_file));
 	if (bm == NULL) {
-		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
 		return NULL;
 	}
 	bm->bm.loaded.entries = NULL;
@@ -129,7 +129,7 @@ extern struct bm_block_manager* bm_new_flaggable_ram_block_manager(
 		i64 block_count, i32 block_size) {
 	struct bm_flag_ram *bm = malloc(sizeof(struct bm_flag_ram));
 	if (bm == NULL) {
-		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
 		return NULL;
 	}
 	bm->bm.bm.loaded.entries = NULL;
@@ -141,14 +141,14 @@ extern struct bm_block_manager* bm_new_flaggable_ram_block_manager(
 	bm->bm.blocks = malloc(block_count * (i64) block_size);
 	if (bm->bm.blocks == NULL) {
 		free(bm);
-		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
 		return NULL;
 	}
 	bm->flags = malloc(block_count);
 	if (bm->flags == NULL) {
 		free(bm->bm.blocks);
 		free(bm);
-		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
 		return NULL;
 	}
 	bm->block_count = block_count;
@@ -180,7 +180,7 @@ static void* bm_ram_get(struct bm_block_manager *bm, i64 block) {
 	}
 	loaded = malloc(sizeof(struct bm_loaded));
 	if (loaded == NULL) {
-		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
 		return NULL;
 	}
 	loaded->block = block;
@@ -189,7 +189,7 @@ static void* bm_ram_get(struct bm_block_manager *bm, i64 block) {
 	loaded->save = 0;
 	if (loaded->data == NULL) {
 		free(loaded);
-		pfs_errno = PFS_ERRNO_OUT_OF_MEMORY;
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
 		return NULL;
 	}
 	memcpy(loaded->data, br->blocks + (block * (i64) br->bm.block_size),
@@ -310,10 +310,10 @@ static inline int save_block(struct bm_file *bf, struct bm_loaded *loaded) {
 			case EAGAIN:
 				continue;
 			case EIO:
-				pfs_errno = PFS_ERRNO_IO_ERR;
+				(*pfs_err_loc) = PFS_ERRNO_IO_ERR;
 				return 0;
 			default:
-				pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
+				(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
 				return 0;
 			}
 		}
@@ -381,10 +381,10 @@ static int bm_file_close(struct bm_block_manager *bm) {
 	if (close(bf->file) == -1) {
 		switch (errno) {
 		case EIO:
-			pfs_errno = PFS_ERRNO_IO_ERR;
+			(*pfs_err_loc) = PFS_ERRNO_IO_ERR;
 			break;
 		default:
-			pfs_errno = PFS_ERRNO_UNKNOWN_ERROR;
+			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
 		}
 		free(bm);
 		return 0;

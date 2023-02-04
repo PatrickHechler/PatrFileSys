@@ -10,7 +10,7 @@
 extern int pfs_element_parent(int eh) {
 	eh(-1)
 	if (!pfs_ehs[eh]->parent) {
-		pfs_errno = PFS_ERRNO_ROOT_FOLDER;
+		(*pfs_err_loc) = PFS_ERRNO_ROOT_FOLDER;
 		return -1;
 	}
 	return_handle(pfs_eh_len, pfs_ehs, pfs_ehs[eh]->parent)
