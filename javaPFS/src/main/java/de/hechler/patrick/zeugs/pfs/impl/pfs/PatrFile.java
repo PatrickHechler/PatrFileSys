@@ -25,9 +25,9 @@ public class PatrFile extends PatrFSElement implements File {
 	private static final MethodHandle PFS_FILE_TRUNCATE;
 	
 	static {
-		PFS_FILE_LENGTH   = LINKER.downcallHandle(LOCKUP.lookup("pfs_file_length").orElseThrow(), FunctionDescriptor.of(LONG, INT));
-		PFS_FILE_TRUNCATE = LINKER.downcallHandle(LOCKUP.lookup("pfs_file_truncate").orElseThrow(), FunctionDescriptor.of(INT, INT, LONG));
-		PFS_OPEN_STREAM   = LINKER.downcallHandle(LOCKUP.lookup("pfs_open_stream").orElseThrow(), FunctionDescriptor.of(INT, INT, INT));
+		PFS_FILE_LENGTH   = LINKER.downcallHandle(LOCKUP.find("pfs_file_length").orElseThrow(), FunctionDescriptor.of(LONG, INT));
+		PFS_FILE_TRUNCATE = LINKER.downcallHandle(LOCKUP.find("pfs_file_truncate").orElseThrow(), FunctionDescriptor.of(INT, INT, LONG));
+		PFS_OPEN_STREAM   = LINKER.downcallHandle(LOCKUP.find("pfs_open_stream").orElseThrow(), FunctionDescriptor.of(INT, INT, INT));
 	}
 	
 	public PatrFile(int handle) {

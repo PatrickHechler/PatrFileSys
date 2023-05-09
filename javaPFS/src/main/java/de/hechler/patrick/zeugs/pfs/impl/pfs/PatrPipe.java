@@ -28,8 +28,8 @@ public class PatrPipe extends PatrFSElement implements Pipe {
 	private static final MethodHandle PFS_OPEN_STREAM;
 	
 	static {
-		PFS_PIPE_LENGTH = LINKER.downcallHandle(LOCKUP.lookup("pfs_pipe_length").orElseThrow(), FunctionDescriptor.of(LONG, INT));
-		PFS_OPEN_STREAM = LINKER.downcallHandle(LOCKUP.lookup("pfs_open_stream").orElseThrow(), FunctionDescriptor.of(INT, INT, INT));
+		PFS_PIPE_LENGTH = LINKER.downcallHandle(LOCKUP.find("pfs_pipe_length").orElseThrow(), FunctionDescriptor.of(LONG, INT));
+		PFS_OPEN_STREAM = LINKER.downcallHandle(LOCKUP.find("pfs_open_stream").orElseThrow(), FunctionDescriptor.of(INT, INT, INT));
 	}
 	
 	public PatrPipe(int handle) {

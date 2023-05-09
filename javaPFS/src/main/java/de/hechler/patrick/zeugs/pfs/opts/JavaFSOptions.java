@@ -39,7 +39,7 @@ public record JavaFSOptions(Path root, boolean allowReuseAlreadyLoaded) implemen
 	
 	/**
 	 * creates new {@link JavaFSOptions} with the given path and
-	 * {@link #allowReuseAlreadyLoaded} set to <code>true</code>
+	 * {@link #allowReuseAlreadyLoaded()} set to <code>true</code>
 	 * 
 	 * @param root the root {@link Path} of the file system
 	 */

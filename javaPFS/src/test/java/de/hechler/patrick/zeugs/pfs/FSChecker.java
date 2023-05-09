@@ -6,7 +6,7 @@ import static de.hechler.patrick.zeugs.check.Assert.assertThrows;
 import static de.hechler.patrick.zeugs.check.ParamCreaterHelp.SPLIT_COMMA_OF_INFO;
 
 import java.io.IOException;
-import java.lang.foreign.MemorySession;
+import java.lang.foreign.Arena;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.nio.charset.StandardCharsets;
@@ -39,15 +39,14 @@ import de.hechler.patrick.zeugs.pfs.opts.JavaFSOptions;
 import de.hechler.patrick.zeugs.pfs.opts.PatrFSOptions;
 
 @CheckClass
-@SuppressWarnings("static-method")
+@SuppressWarnings({ "static-method", "javadoc" })
 public class FSChecker {
 	
 	private static final Path                   JAVA_TEST_ROOT = Paths.get("./testout/java.fs/");
 	private static final String                 ALL_PROVIDERS  = FSProvider.JAVA_FS_PROVIDER_NAME + "," + FSProvider.PATR_FS_PROVIDER_NAME;
 	private static final JavaFSOptions          JAVA_OPTS      = new JavaFSOptions(JAVA_TEST_ROOT);
 	private static final PatrFSOptions          PATR_OPTS      = new PatrFSOptions("./testout/patr-fs.pfs", true, 1024L, 1024);
-	private static final Map<String, FSOptions> PROVIDER_OPTS  = Map.of(FSProvider.JAVA_FS_PROVIDER_NAME, JAVA_OPTS, FSProvider.PATR_FS_PROVIDER_NAME,
-			PATR_OPTS);
+	private static final Map<String, FSOptions> PROVIDER_OPTS  = Map.of(FSProvider.JAVA_FS_PROVIDER_NAME, JAVA_OPTS, FSProvider.PATR_FS_PROVIDER_NAME, PATR_OPTS);
 	
 	@Start(onlyOnce = true)
 	private void init() throws IOException {
@@ -132,20 +131,18 @@ public class FSChecker {
 	
 	@Check
 	private void simpleCheck( // FIXME
-			@ParamCreater(clas = ParamCreaterHelp.class, method = SPLIT_COMMA_OF_INFO, params = Parameter.class) @ParamInfo(ALL_PROVIDERS) String prov)
-			throws IOException, NoSuchProviderException {
+		@ParamCreater(clas = ParamCreaterHelp.class, method = SPLIT_COMMA_OF_INFO, params = Parameter.class) @ParamInfo(ALL_PROVIDERS) String prov)
+		throws IOException, NoSuchProviderException {
 		try (FS fs = fs(prov)) {
 			try (Folder root = fs.cwd()) {
 				assertNull(root.childCount());
 				assertThrows(true, IllegalStateException.class, () -> root.parent());
-				try (File file = root.createFile("testfile.txt");
-						WriteStream str = file.openAppend();
-						MemorySession mem = MemorySession.openConfined()) {
+				try (File file = root.createFile("testfile.txt"); WriteStream str = file.openAppend(); Arena mem = Arena.openConfined()) {
 					assertEquals(1, root.childCount());
 					str.write(mem.allocateUtf8String("this file ends with a '\\0'"));
 				}
 				try (File file = root.createFile("testfile2.txt"); WriteStream str = file.openAppend()) {
-					assertEquals(1, root.childCount());
+					assertEquals(2, root.childCount());
 					str.write("this file ends with a '\\n' and not with a '\\0'\n".getBytes(StandardCharsets.UTF_8));
 				}
 			}

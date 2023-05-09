@@ -9,6 +9,7 @@ import java.util.function.Function;
 
 import de.hechler.patrick.zeugs.pfs.interfaces.IntObjectFunction;
 
+@SuppressWarnings("javadoc")
 public enum PFSErrorCause {
 	
 	GET_FILE_LEN("get file length"), GET_PIPE_LEN("get pipe length"),

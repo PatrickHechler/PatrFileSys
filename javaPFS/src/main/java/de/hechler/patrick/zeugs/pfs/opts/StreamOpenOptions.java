@@ -65,7 +65,7 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 				yield null;
 			}
 		}
-		default -> throw new IllegalArgumentException("unknown element type: " + type.name());
+		case ElementType e -> throw new IllegalArgumentException("unknown element type: " + type.name());
 		};
 		this.read = read;
 		this.write = write;
@@ -77,10 +77,10 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	/**
 	 * creates new {@link StreamOpenOptions} with the given parameters
 	 * <ul>
-	 * <li>{@link #append} will be set to <code>false</code></li>
-	 * <li>{@link #type} will be set to <code>null</code></li>
-	 * <li>{@link #createAlso} will be set to <code>false</code></li>
-	 * <li>{@link #createOnly} will be set to <code>false</code></li>
+	 * <li>{@link #append()} will be set to <code>false</code></li>
+	 * <li>{@link #type()} will be set to <code>null</code></li>
+	 * <li>{@link #createAlso()} will be set to <code>false</code></li>
+	 * <li>{@link #createOnly()} will be set to <code>false</code></li>
 	 * </ul>
 	 * 
 	 * @param read  if the stream should be opened for read access
@@ -91,9 +91,9 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	/**
 	 * creates new {@link StreamOpenOptions} with the given parameters
 	 * <ul>
-	 * <li>{@link #type} will be set to <code>null</code></li>
-	 * <li>{@link #createAlso} will be set to <code>false</code></li>
-	 * <li>{@link #createOnly} will be set to <code>false</code></li>
+	 * <li>{@link #type()} will be set to <code>null</code></li>
+	 * <li>{@link #createAlso()} will be set to <code>false</code></li>
+	 * <li>{@link #createOnly()} will be set to <code>false</code></li>
 	 * </ul>
 	 * 
 	 * @param read   if the stream should be opened for read access
@@ -107,8 +107,8 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	/**
 	 * creates new {@link StreamOpenOptions} with the given parameters
 	 * <ul>
-	 * <li>{@link #createAlso} will be set to <code>false</code></li>
-	 * <li>{@link #createOnly} will be set to <code>false</code></li>
+	 * <li>{@link #createAlso()} will be set to <code>false</code></li>
+	 * <li>{@link #createOnly()} will be set to <code>false</code></li>
 	 * </ul>
 	 * 
 	 * @param read   if the stream should be opened for read access
@@ -125,6 +125,7 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	 * 
 	 * @return <code>true</code> if the stream can perform seek operations and <code>false</code> if not
 	 */
+	@SuppressWarnings({"preview", "unused"})
 	public boolean seekable() {
 		try {
 			return switch (type) {
@@ -140,15 +141,15 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	
 	/**
 	 * ensures that the {@link StreamOpenOptions} can be opened for the given <code>type</code><br>
-	 * that is always, when {@link #type} is <code>null</code> or if <code>type == {@link #type}</code> is
+	 * that is always, when {@link #type()} is <code>null</code> or if <code>type == {@link #type()}</code> is
 	 * <code>true</code> <br>
 	 * if this {@link StreamOpenOptions} can not be used to open streams for the given <code>type</code> the operation
 	 * will fail
 	 * 
 	 * @param type the {@link ElementType} for which the stream should be opened
 	 * 
-	 * @return a {@link StreamOpenOptions}, which are the same to this, but with {@link #type} set to <code>type</code>
-	 *         (or <code>this</code> if {@link #type} is already set)
+	 * @return a {@link StreamOpenOptions}, which are the same to this, but with {@link #type()} set to <code>type</code>
+	 *         (or <code>this</code> if {@link #type()} is already set)
 	 * 		
 	 * @throws IllegalArgumentException if this {@link StreamOpenOptions} can not be used to open streams for the given
 	 *                                  <code>type</code>
@@ -156,10 +157,10 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	public StreamOpenOptions ensureType(ElementType type) throws IllegalArgumentException {
 		return switch (type) {
 		case null -> throw new NullPointerException("can't ensure to be of type null");
-		case (ElementType e) when e == this.type -> this;
-		case (ElementType e) when null == this.type ->
+		case ElementType e when e == this.type -> this;
+		case ElementType e when null == this.type ->
 			new StreamOpenOptions(read, write, append, e, createAlso, createOnly);
-		default -> throw new IllegalArgumentException("this is a " + type + ", but type is set to " + this.type);
+		case ElementType e -> throw new IllegalArgumentException("this is a " + type + ", but type is set to " + this.type);
 		};
 	}
 	

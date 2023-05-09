@@ -41,19 +41,19 @@ public abstract sealed class PatrStream implements Stream permits PatrWriteStrea
 	private static final MethodHandle PFS_STREAM_SEEK_EOF;
 	
 	static {
-		PFS_STREAM_CLOSE = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_close").orElseThrow(),
+		PFS_STREAM_CLOSE = LINKER.downcallHandle(LOCKUP.find("pfs_stream_close").orElseThrow(),
 				FunctionDescriptor.of(INT, INT));
-		PFS_STREAM_WRITE = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_write").orElseThrow(),
+		PFS_STREAM_WRITE = LINKER.downcallHandle(LOCKUP.find("pfs_stream_write").orElseThrow(),
 				FunctionDescriptor.of(LONG, INT, PNTR, LONG));
-		PFS_STREAM_READ = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_read").orElseThrow(),
+		PFS_STREAM_READ = LINKER.downcallHandle(LOCKUP.find("pfs_stream_read").orElseThrow(),
 				FunctionDescriptor.of(LONG, INT, PNTR, LONG));
-		PFS_STREAM_GET_POS = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_get_pos").orElseThrow(),
+		PFS_STREAM_GET_POS = LINKER.downcallHandle(LOCKUP.find("pfs_stream_get_pos").orElseThrow(),
 				FunctionDescriptor.of(INT, INT));
-		PFS_STREAM_SET_POS = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_set_pos").orElseThrow(),
+		PFS_STREAM_SET_POS = LINKER.downcallHandle(LOCKUP.find("pfs_stream_set_pos").orElseThrow(),
 				FunctionDescriptor.of(INT, INT, LONG));
-		PFS_STREAM_ADD_POS = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_add_pos").orElseThrow(),
+		PFS_STREAM_ADD_POS = LINKER.downcallHandle(LOCKUP.find("pfs_stream_add_pos").orElseThrow(),
 				FunctionDescriptor.of(LONG, INT, LONG));
-		PFS_STREAM_SEEK_EOF = LINKER.downcallHandle(LOCKUP.lookup("pfs_stream_seek_eof").orElseThrow(),
+		PFS_STREAM_SEEK_EOF = LINKER.downcallHandle(LOCKUP.find("pfs_stream_seek_eof").orElseThrow(),
 				FunctionDescriptor.of(LONG, INT));
 	}
 	

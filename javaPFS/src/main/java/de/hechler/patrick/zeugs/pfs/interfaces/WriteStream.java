@@ -2,8 +2,9 @@ package de.hechler.patrick.zeugs.pfs.interfaces;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
-import java.lang.foreign.MemorySession;
+import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
 
 import de.hechler.patrick.zeugs.pfs.opts.StreamOpenOptions;
@@ -44,10 +45,9 @@ public interface WriteStream extends Stream {
 	 * @throws IOException if an IO error occurs
 	 */
 	default int write(byte[] data, int off, int len) throws IOException {
-		try (MemorySession ses = MemorySession.openConfined()) {
+		try (Arena ses = Arena.openConfined()) {
 			MemorySegment mem     = ses.allocate(len);
-			MemorySegment dataSeg = MemorySegment.ofArray(data).asSlice(off, len);
-			mem.copyFrom(dataSeg);
+			MemorySegment.copy(data, off, mem, ValueLayout.JAVA_BYTE, 0L, len);
 			return (int) write(mem);
 		}
 	}

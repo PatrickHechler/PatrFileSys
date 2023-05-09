@@ -2,8 +2,9 @@ package de.hechler.patrick.zeugs.pfs.interfaces;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
-import java.lang.foreign.MemorySession;
+import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
 
 import de.hechler.patrick.zeugs.pfs.misc.ElementType;
@@ -51,13 +52,13 @@ public interface ReadStream extends Stream {
 		if (data.length - off > len) {
 			throw new IllegalArgumentException("off: " + off + " len: " + len + " arr.len: " + data.length);
 		}
-		try (MemorySession ses = MemorySession.openConfined()) {
+		try (Arena ses = Arena.openConfined()) {
 			MemorySegment mem  = ses.allocate(len);
 			long          reat = read(mem);
 			assert reat <= len;
-			MemorySegment seg = MemorySegment.ofArray(data).asSlice(off, reat);
-			seg.copyFrom(mem.asSlice(0, reat));
-			return (int) reat;
+			int res = (int) reat;
+			MemorySegment.copy(mem, ValueLayout.JAVA_BYTE, 0, data, off, res);
+			return res;
 		}
 	}
 	
