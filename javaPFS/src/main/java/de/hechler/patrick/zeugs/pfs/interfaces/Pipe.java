@@ -68,8 +68,8 @@ public interface Pipe extends FSElement {
 	 * @return the opened {@link Stream}
 	 * @throws IOException if an IO error occurs
 	 */
-	default Stream openReadWrite() throws IOException {
-		return open(new StreamOpenOptions(true, true));
+	default ReadWriteStream openReadWrite() throws IOException {
+		return (ReadWriteStream) open(new StreamOpenOptions(true, true));
 	}
 
 	/**

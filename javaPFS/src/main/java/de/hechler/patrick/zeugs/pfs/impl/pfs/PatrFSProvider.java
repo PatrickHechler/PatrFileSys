@@ -97,7 +97,7 @@ public class PatrFSProvider extends FSProvider {
 		MemorySegment path  = local.allocateUtf8String(opts.path());
 		int           fd    = (int) open.invoke(path, opts.format() ? O_RDWR | O_CREAT : O_RDWR, 0666);
 		if (fd == -1) {
-			throw new IOException("could not open the pfs '" + opts.path() + "'");
+			throw new IOException("could not open the pfs '" + opts.path() + "' file");
 		}
 		if (opts.format()) {
 			loadWithFormat(linker, opts, newBm, fd);

@@ -14,6 +14,7 @@ import java.lang.invoke.MethodHandle;
 import java.nio.channels.ClosedChannelException;
 
 import de.hechler.patrick.zeugs.pfs.interfaces.ReadStream;
+import de.hechler.patrick.zeugs.pfs.interfaces.ReadWriteStream;
 import de.hechler.patrick.zeugs.pfs.interfaces.Stream;
 import de.hechler.patrick.zeugs.pfs.interfaces.WriteStream;
 import de.hechler.patrick.zeugs.pfs.opts.StreamOpenOptions;
@@ -22,7 +23,7 @@ import de.hechler.patrick.zeugs.pfs.opts.StreamOpenOptions;
  * this class implements only the {@link Stream} interface, but also provides method which effectively implement the
  * {@link WriteStream} and {@link ReadStream} interface.
  * <p>
- * the three subclasses of this class implement the {@link ReadStream} and/or {@link WriteStream} interfaces.
+ * the three subclasses of this class implement the {@link ReadStream} or {@link WriteStream} (or {@link ReadWriteStream}) interfaces.
  * 
  * @author pat
  */

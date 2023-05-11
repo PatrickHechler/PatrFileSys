@@ -57,6 +57,7 @@ public interface ReadStream extends Stream {
 			long          reat = read(mem);
 			assert reat <= len;
 			int res = (int) reat;
+			if (res == -1) return -1;
 			MemorySegment.copy(mem, ValueLayout.JAVA_BYTE, 0, data, off, res);
 			return res;
 		}
