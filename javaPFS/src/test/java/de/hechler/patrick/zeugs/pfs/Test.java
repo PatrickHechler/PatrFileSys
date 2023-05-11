@@ -19,7 +19,7 @@ public class Test {
 	
 	public static void main(String[] args) {
 		BigCheckResult result = BigChecker.tryCheckAll(true, Test.class.getPackage(), Test.class.getClassLoader());
-		result.detailedPrint();
+		result.detailedPrint(System.err);
 		if (result.wentUnexpected()) { throw new AssertionError(result); }
 	}
 	

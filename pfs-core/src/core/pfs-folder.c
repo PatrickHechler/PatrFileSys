@@ -766,10 +766,12 @@ int pfsc_element_get_parent(pfs_eh e) {
 
 static void remove_from_parent(const struct pfs_element_handle *e,
 		struct pfs_folder *direct_parent) {
+	size_t cpyLen = (direct_parent->direct_child_count
+			- e->index_in_direct_parent_list - 1)
+			* sizeof(struct pfs_folder_entry);
 	memmove(direct_parent->entries + e->index_in_direct_parent_list,
 			direct_parent->entries + e->index_in_direct_parent_list + 1,
-			(e->index_in_direct_parent_list - direct_parent->direct_child_count
-					- 1) * sizeof(struct pfs_folder_entry));
+			cpyLen);
 	direct_parent->direct_child_count--;
 	if (direct_parent->helper_index > e->index_in_direct_parent_list) {
 		direct_parent->helper_index--;

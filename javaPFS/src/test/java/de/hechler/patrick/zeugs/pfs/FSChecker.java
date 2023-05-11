@@ -42,43 +42,24 @@ import de.hechler.patrick.zeugs.pfs.opts.PatrFSOptions;
 @SuppressWarnings({ "static-method", "javadoc" })
 public class FSChecker {
 	
-	private static final Path                   JAVA_TEST_ROOT = Paths.get("./testout/java.fs/");
-	private static final String                 ALL_PROVIDERS  = FSProvider.JAVA_FS_PROVIDER_NAME + "," + FSProvider.PATR_FS_PROVIDER_NAME;
-	private static final JavaFSOptions          JAVA_OPTS      = new JavaFSOptions(JAVA_TEST_ROOT);
-	private static final PatrFSOptions          PATR_OPTS      = new PatrFSOptions("./testout/patr-fs.pfs", true, 1024L, 1024);
-	private static final Map<String, FSOptions> PROVIDER_OPTS  = Map.of(FSProvider.JAVA_FS_PROVIDER_NAME, JAVA_OPTS, FSProvider.PATR_FS_PROVIDER_NAME, PATR_OPTS);
+	private static final String ALL_PROVIDERS   =  FSProvider.PATR_FS_PROVIDER_NAME + ',' + FSProvider.JAVA_FS_PROVIDER_NAME;
+	private static final Path   TEST_ROOT       = Paths.get("./testout/");
+	private static final Path   JAVA_TEST_ROOT  = Paths.get("./testout/java-fs/");
+	private static final String PATR_FS_TESTOUT = "./testout/patr-fs/";
+	private static final Path   PFS_TEST_ROOT   = Paths.get(PATR_FS_TESTOUT);
+	
+	private JavaFSOptions          javaOpts;
+	private PatrFSOptions          patrOpts;
+	private Map<String, FSOptions> providerOpts;
 	
 	@Start(onlyOnce = true)
 	private void init() throws IOException {
-		Files.createDirectories(JAVA_TEST_ROOT);
-		deleteChildren(JAVA_TEST_ROOT);
+		Files.createDirectories(TEST_ROOT);
+		deleteChildren(TEST_ROOT);
+		Files.createDirectory(JAVA_TEST_ROOT);
+		Files.createDirectory(PFS_TEST_ROOT);
 		System.out.println(PatrFSProvider.class.getModule());
 		System.out.println(FSProvider.providerMap());
-	}
-	
-	static {
-		try {
-			Path src  = Paths.get("/data/git/PatrFileSys/javaPFS/target/");
-			Path dest = Path.of("/data/git/PatrFileSys/javaPFS/target-snapshot/");
-			deepCopy(src, dest);
-			System.out.println("copied successfully");
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
-	
-	private static void deepCopy(Path src, Path dest) throws IOException {
-		Files.createDirectory(dest);
-		try (DirectoryStream<Path> str = Files.newDirectoryStream(src)) {
-			for (Path subSrc : str) {
-				Path subDest = dest.resolve(subSrc.getFileName());
-				if (Files.isDirectory(subSrc)) {
-					deepCopy(subSrc, subDest);
-				} else {
-					Files.copy(subSrc, subDest);
-				}
-			}
-		}
 	}
 	
 	private void deleteChildren(Path folder) throws IOException {
@@ -93,18 +74,16 @@ public class FSChecker {
 	}
 	
 	@Start
-	private void start(@MethodParam Method met, @MethodParamsParam Object[] params) {
+	private void start(@MethodParam Method met, @MethodParamsParam Object[] params) throws IOException {
+		Path jtr = JAVA_TEST_ROOT.resolve(met.getName());
+		if (!Files.exists(jtr)) Files.createDirectory(jtr);
+		this.javaOpts     = new JavaFSOptions(jtr);
+		this.patrOpts     = new PatrFSOptions(PFS_TEST_ROOT + met.getName() + ".pfs", true, 1024L, 1024);
+		this.providerOpts = Map.of(FSProvider.JAVA_FS_PROVIDER_NAME, this.javaOpts, FSProvider.PATR_FS_PROVIDER_NAME, this.patrOpts);
 		LogHandler.LOG.info(() -> {
 			StringBuilder b = new StringBuilder();
 			b.append("start now check: ");
-			b.append(met.getName());
-			b.append('(');
-			for (int i = 0; i < params.length; i++) {
-				if (i != 0) {
-					b.append(", ");
-				}
-				b.append(params[i]);
-			}
+			appendMethod(met, params, b);
 			b.append(')');
 			return b.toString();
 		});
@@ -115,26 +94,31 @@ public class FSChecker {
 		LogHandler.LOG.info(() -> {
 			StringBuilder b = new StringBuilder();
 			b.append("finished check: ");
-			b.append(met.getName());
-			b.append('(');
-			for (int i = 0; i < params.length; i++) {
-				if (i != 0) {
-					b.append(", ");
-				}
-				b.append(params[i]);
-			}
+			appendMethod(met, params, b);
 			b.append(")\nresult: ");
 			b.append(res);
+			if (res.badResult()) res.getErr().printStackTrace();
 			return b.toString();
 		});
 	}
 	
+	private void appendMethod(Method met, Object[] params, StringBuilder b) {
+		b.append(met.getName());
+		b.append('(');
+		for (int i = 0; i < params.length; i++) {
+			if (i != 0) {
+				b.append(", ");
+			}
+			b.append(params[i]);
+		}
+	}
+	
 	@Check
-	private void simpleCheck( // FIXME
-		@ParamCreater(clas = ParamCreaterHelp.class, method = SPLIT_COMMA_OF_INFO, params = Parameter.class) @ParamInfo(ALL_PROVIDERS) String prov)
-		throws IOException, NoSuchProviderException {
+	private void
+		simpleCheck(@ParamCreater(clas = ParamCreaterHelp.class, method = SPLIT_COMMA_OF_INFO, params = Parameter.class) @ParamInfo(ALL_PROVIDERS) String prov)
+			throws IOException, NoSuchProviderException {
 		try (FS fs = fs(prov)) {
-			try (Folder root = fs.cwd()) {
+			try (Folder root = fs.folder("/")) {
 				assertNull(root.childCount());
 				assertThrows(true, IllegalStateException.class, () -> root.parent());
 				try (File file = root.createFile("testfile.txt"); WriteStream str = file.openAppend(); Arena mem = Arena.openConfined()) {
@@ -149,9 +133,25 @@ public class FSChecker {
 		}
 	}
 	
-	private static FS fs(String provName) throws IOException, NoSuchProviderException {
+	@Check
+	private void
+		writeCheck(@ParamCreater(clas = ParamCreaterHelp.class, method = SPLIT_COMMA_OF_INFO, params = Parameter.class) @ParamInfo(ALL_PROVIDERS) String prov)
+			throws IOException, NoSuchProviderException {
+		try (FS fs = fs(prov); Folder root = fs.folder("/"); File file = root.createFile("file")) {
+			byte[] fl = "this is a text\n".getBytes(StandardCharsets.UTF_8);
+			byte[] sl = "this is the second line".getBytes(StandardCharsets.UTF_8);
+			try (WriteStream write = file.openWrite()) {
+				write.write(fl);
+				write.write(sl);
+			}
+			assertEquals(fl.length + (long) sl.length, file.length());
+			file.delete();
+		}
+	}
+	
+	private FS fs(String provName) throws IOException, NoSuchProviderException {
 		FSProvider prov = FSProvider.ofName(provName);
-		FSOptions  opts = PROVIDER_OPTS.get(provName);
+		FSOptions  opts = this.providerOpts.get(provName);
 		return prov.loadFS(opts);
 	}
 	

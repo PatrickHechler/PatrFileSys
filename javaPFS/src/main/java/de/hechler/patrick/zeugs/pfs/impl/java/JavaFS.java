@@ -63,12 +63,16 @@ public class JavaFS implements FS {
 		if (path.isEmpty()) { throw new IllegalArgumentException("path is empty"); }
 		Path p;
 		if (path.charAt(0) == '/') {
-			p = root.resolve(path);
+			if (path.length() == 1) {
+				p = root;
+			} else {
+				p = root.resolve('.' + path);
+			}
 		} else {
 			p = cwd.f().resolve(path);
 		}
 		p = p.toRealPath();
-		if (!p.startsWith(root)) { throw new IllegalArgumentException("the root folder has no parent"); }
+		if (!p.startsWith(root)) throw new IllegalArgumentException("the root folder has no parent");
 		Path rel = root.relativize(p);
 		if (Files.isDirectory(p)) {
 			return new JavaFolder(this, rel);

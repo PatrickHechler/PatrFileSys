@@ -408,10 +408,12 @@ static inline void pfs_close_iter_impl(int ih) {
 }
 
 static int delete_element(struct element_handle **eh) {
-	if (has_refs0(*eh, 1)) {
+	if (has_refs0(*eh, 1)) { // 1 and 2 because this handle itself does not count
 		if (*eh == pfs_cwd && has_refs0(*eh, 2)) {
 			pfs_cwd = pfs_root;
 		} else {
+			release_eh(*eh);
+			*eh = NULL;
 			(*pfs_err_loc) = PFS_ERRNO_ELEMENT_USED;
 			return 0;
 		}
@@ -433,16 +435,21 @@ static int delete_element(struct element_handle **eh) {
 				pfs_ihs[i]->index--;
 				if (!pfsc_folder_fill_iterator_index(&pfs_ihs[i]->folder->handle,
 						&pfs_ihs[i]->handle, pfs_ihs[i]->index)) {
+					abort(); // check what to do when it happens
 					// well, thats (possibly) better than a crash
-					pfs_close_iter_impl(i);
+					// pfs_close_iter_impl(i);
 				}
 			}
 		}
 		force_release_eh(*eh);
-		*eh = NULL;
+	} else {
+		release_eh(*eh);
 	}
+	*eh = NULL;
 	return res;
 }
+
+#include <stdio.h>
 
 extern int pfs_delete(const char *path) {
 	struct element_handle *eh = open_eh(path, pfs_root, 1, NULL);

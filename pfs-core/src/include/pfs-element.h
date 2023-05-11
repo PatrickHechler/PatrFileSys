@@ -28,7 +28,7 @@ extern int pfs_element_parent(int eh);
 /*
  * deletes the element of the given handle
  *
- * this operation automatically closes the element handle
+ * this operation automatically closes the element handle (even if this function fails)
  *
  * after this operation the eh-ID may be reused by the system when a new handle is opened
  *

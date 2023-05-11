@@ -87,9 +87,5 @@ $(CORE_BIN)%.o:	$(INTSOURCE)%.c
 $(API_BIN)%.o:	$(APISOURCE)%.c
 	$(CC) -x c -c $(CFLAGS) -o $@ $<
 
-# # no c++ support
-#$(CORE_BIN)%.o:	$(SOURCE)%.cpp
-#	$(CXX) -c $(CFLAGS) $(CXXFLAGS) $(CPPFLAGS) -o $@ $<
-
 clean:
 	rm -frd $(PROJECT_ROOT)testout/ $(PROJECT_ROOT)exports/ $(BIN_ROOT)

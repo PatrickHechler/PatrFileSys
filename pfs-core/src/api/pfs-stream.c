@@ -69,13 +69,16 @@ extern i64 pfs_stream_write(int sh, void *data, i64 len) {
 		i64 appended = pfsc_file_append(&pfs_shs[sh]->element->handle,
 				data + write_len, remain);
 		pfs->unget(pfs, pfs_shs[sh]->element->handle.element_place.block);
-		return write_len + appended;
+		i64 sum = write_len + appended;
+		pfs_shs[sh]->pos += sum;
+		return sum;
 	} else if (overwrite_place < 0) {
-		abort();
+		abort(); // should be covered earlier
 	} else {
 		i64 appended = pfsc_file_append(&pfs_shs[sh]->element->handle, data,
 				len);
 		pfs->unget(pfs, pfs_shs[sh]->element->handle.element_place.block);
+		pfs_shs[sh]->pos += appended;
 		return appended;
 	}
 }
