@@ -1,3 +1,19 @@
+//This file is part of the Patr File System Project
+//DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+//Copyright (C) 2023  Patrick Hechler
+//
+//This program is free software: you can redistribute it and/or modify
+//it under the terms of the GNU General Public License as published by
+//the Free Software Foundation, either version 3 of the License, or
+//(at your option) any later version.
+//
+//This program is distributed in the hope that it will be useful,
+//but WITHOUT ANY WARRANTY; without even the implied warranty of
+//MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//GNU General Public License for more details.
+//
+//You should have received a copy of the GNU General Public License
+//along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package de.hechler.patrick.zeugs.pfs.impl.pfs;
 
 import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.INT;
@@ -15,11 +31,13 @@ import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandle;
 import java.nio.channels.ClosedChannelException;
 
+import de.hechler.patrick.zeugs.pfs.interfaces.FS;
 import de.hechler.patrick.zeugs.pfs.interfaces.FSElement;
 import de.hechler.patrick.zeugs.pfs.interfaces.File;
 import de.hechler.patrick.zeugs.pfs.interfaces.Folder;
 import de.hechler.patrick.zeugs.pfs.interfaces.Pipe;
 
+@SuppressWarnings("javadoc")
 public class PatrFSElement implements FSElement {
 	
 	private static final MethodHandle PFS_ELEMENT_CLOSE;
@@ -38,34 +56,21 @@ public class PatrFSElement implements FSElement {
 	private static final MethodHandle PFS_ELEMENT_SAME;
 	
 	static {
-		PFS_ELEMENT_CLOSE = LINKER.downcallHandle(LOCKUP.find("pfs_element_close").orElseThrow(),
-				FunctionDescriptor.of(INT, INT));
-		PFS_ELEMENT_PARENT = LINKER.downcallHandle(LOCKUP.find("pfs_element_parent").orElseThrow(),
-				FunctionDescriptor.of(INT, INT));
-		PFS_ELEMENT_DELETE = LINKER.downcallHandle(LOCKUP.find("pfs_element_delete").orElseThrow(),
-				FunctionDescriptor.of(INT, INT));
-		PFS_ELEMENT_GET_FLAGS = LINKER.downcallHandle(LOCKUP.find("pfs_element_get_flags").orElseThrow(),
-				FunctionDescriptor.of(INT, INT));
-		PFS_ELEMENT_MODIFY_FLAGS = LINKER.downcallHandle(LOCKUP.find("pfs_element_modify_flags").orElseThrow(),
-				FunctionDescriptor.of(INT, INT, INT, INT));
-		PFS_ELEMENT_GET_CREATE_TIME = LINKER.downcallHandle(LOCKUP.find("pfs_element_get_create_time").orElseThrow(),
-				FunctionDescriptor.of(LONG, INT));
-		PFS_ELEMENT_GET_LAST_MODIFY_TIME = LINKER.downcallHandle(
-				LOCKUP.find("pfs_element_get_last_modify_time").orElseThrow(), FunctionDescriptor.of(LONG, INT));
-		PFS_ELEMENT_SET_CREATE_TIME = LINKER.downcallHandle(LOCKUP.find("pfs_element_set_create_time").orElseThrow(),
+		PFS_ELEMENT_CLOSE                = LINKER.downcallHandle(LOCKUP.find("pfs_element_close").orElseThrow(), FunctionDescriptor.of(INT, INT));
+		PFS_ELEMENT_PARENT               = LINKER.downcallHandle(LOCKUP.find("pfs_element_parent").orElseThrow(), FunctionDescriptor.of(INT, INT));
+		PFS_ELEMENT_DELETE               = LINKER.downcallHandle(LOCKUP.find("pfs_element_delete").orElseThrow(), FunctionDescriptor.of(INT, INT));
+		PFS_ELEMENT_GET_FLAGS            = LINKER.downcallHandle(LOCKUP.find("pfs_element_get_flags").orElseThrow(), FunctionDescriptor.of(INT, INT));
+		PFS_ELEMENT_MODIFY_FLAGS         = LINKER.downcallHandle(LOCKUP.find("pfs_element_modify_flags").orElseThrow(), FunctionDescriptor.of(INT, INT, INT, INT));
+		PFS_ELEMENT_GET_CREATE_TIME      = LINKER.downcallHandle(LOCKUP.find("pfs_element_get_create_time").orElseThrow(), FunctionDescriptor.of(LONG, INT));
+		PFS_ELEMENT_GET_LAST_MODIFY_TIME = LINKER.downcallHandle(LOCKUP.find("pfs_element_get_last_modify_time").orElseThrow(), FunctionDescriptor.of(LONG, INT));
+		PFS_ELEMENT_SET_CREATE_TIME      = LINKER.downcallHandle(LOCKUP.find("pfs_element_set_create_time").orElseThrow(), FunctionDescriptor.of(INT, INT, LONG));
+		PFS_ELEMENT_SET_LAST_MODIFY_TIME = LINKER.downcallHandle(LOCKUP.find("pfs_element_set_last_modify_time").orElseThrow(),
 				FunctionDescriptor.of(INT, INT, LONG));
-		PFS_ELEMENT_SET_LAST_MODIFY_TIME = LINKER.downcallHandle(
-				LOCKUP.find("pfs_element_set_last_modify_time").orElseThrow(), FunctionDescriptor.of(INT, INT, LONG));
-		PFS_ELEMENT_GET_NAME = LINKER.downcallHandle(LOCKUP.find("pfs_element_get_name").orElseThrow(),
-				FunctionDescriptor.of(INT, INT, PNTR, PNTR));
-		PFS_ELEMENT_SET_NAME = LINKER.downcallHandle(LOCKUP.find("pfs_element_set_name").orElseThrow(),
-				FunctionDescriptor.of(INT, INT, PNTR));
-		PFS_ELEMENT_SET_PARENT = LINKER.downcallHandle(LOCKUP.find("pfs_element_set_parent").orElseThrow(),
-				FunctionDescriptor.of(INT, INT, INT));
-		PFS_ELEMENT_MOVE = LINKER.downcallHandle(LOCKUP.find("pfs_element_move").orElseThrow(),
-				FunctionDescriptor.of(INT, INT, INT, PNTR));
-		PFS_ELEMENT_SAME = LINKER.downcallHandle(LOCKUP.find("pfs_element_same").orElseThrow(),
-				FunctionDescriptor.of(INT, INT, INT));
+		PFS_ELEMENT_GET_NAME             = LINKER.downcallHandle(LOCKUP.find("pfs_element_get_name").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR, PNTR));
+		PFS_ELEMENT_SET_NAME             = LINKER.downcallHandle(LOCKUP.find("pfs_element_set_name").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_ELEMENT_SET_PARENT           = LINKER.downcallHandle(LOCKUP.find("pfs_element_set_parent").orElseThrow(), FunctionDescriptor.of(INT, INT, INT));
+		PFS_ELEMENT_MOVE                 = LINKER.downcallHandle(LOCKUP.find("pfs_element_move").orElseThrow(), FunctionDescriptor.of(INT, INT, INT, PNTR));
+		PFS_ELEMENT_SAME                 = LINKER.downcallHandle(LOCKUP.find("pfs_element_same").orElseThrow(), FunctionDescriptor.of(INT, INT, INT));
 	}
 	
 	public final int  handle;
@@ -76,7 +81,7 @@ public class PatrFSElement implements FSElement {
 	}
 	
 	protected void ensureOpen() throws ClosedChannelException {
-		if (closed) { throw new ClosedChannelException(); }
+		if (this.closed) { throw new ClosedChannelException(); }
 	}
 	
 	@Override
@@ -89,6 +94,12 @@ public class PatrFSElement implements FSElement {
 		} catch (Throwable e) {
 			throw thrw(e);
 		}
+	}
+	
+	@Override
+	public FS fs() throws ClosedChannelException {
+		ensureOpen();
+		return PatrFSProvider.loaded;
 	}
 	
 	@Override
@@ -228,7 +239,7 @@ public class PatrFSElement implements FSElement {
 		ensureOpen();
 		try {
 			if (0 == (int) PFS_ELEMENT_DELETE.invoke(this.handle)) { throw thrw(PFSErrorCause.DELETE_ELEMENT, null); }
-			closed = true;
+			this.closed = true;
 		} catch (Throwable e) {
 			throw thrw(e);
 		}
@@ -269,7 +280,7 @@ public class PatrFSElement implements FSElement {
 	
 	@Override
 	public void close() throws IOException {
-		if (closed) { return; }
+		if (this.closed) { return; }
 		this.closed = true;
 		try {
 			if (0 == (int) PFS_ELEMENT_CLOSE.invoke(this.handle)) { throw thrw(PFSErrorCause.CLOSE_ELEMENT, null); }
@@ -281,17 +292,14 @@ public class PatrFSElement implements FSElement {
 	@Override
 	public boolean equals(FSElement other) throws IOException {
 		try {
-			if (other instanceof PatrFSElement pe) {
-				int res = (int) PFS_ELEMENT_SAME.invoke(this.handle, pe.handle);
-				return switch (res) {
-				case 0 -> false;
-				case 1 -> true;
-				case -1 -> throw thrw(PFSErrorCause.SAME, null);
-				default -> throw thrw(PFSErrorCause.SAME, res);
-				};
-			} else {
-				return false;
-			}
+			if (!(other instanceof PatrFSElement pe)) return false;
+			int res = (int) PFS_ELEMENT_SAME.invoke(this.handle, pe.handle);
+			return switch (res) {
+			case 0 -> false;
+			case 1 -> true;
+			case -1 -> throw thrw(PFSErrorCause.SAME, null);
+			default -> throw thrw(PFSErrorCause.SAME, Integer.valueOf(res));
+			};
 		} catch (Throwable e) {
 			throw thrw(e);
 		}
@@ -342,13 +350,13 @@ public class PatrFSElement implements FSElement {
 				e.close();
 			}
 			return b.toString();
-		} catch (IOException ioe) {
+		} catch (Throwable t) {
 			if (e != this) {
 				try {
 					e.close();
-				} catch (IOException ioe2) {/**/}
+				} catch (@SuppressWarnings("unused") IOException ioe2) {/**/}
 			}
-			return "<error: could not get path: " + ioe + ">";
+			return "<error: could not get path: " + t + ">";
 		}
 	}
 	

@@ -1,3 +1,19 @@
+//This file is part of the Patr File System Project
+//DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+//Copyright (C) 2023  Patrick Hechler
+//
+//This program is free software: you can redistribute it and/or modify
+//it under the terms of the GNU General Public License as published by
+//the Free Software Foundation, either version 3 of the License, or
+//(at your option) any later version.
+//
+//This program is distributed in the hope that it will be useful,
+//but WITHOUT ANY WARRANTY; without even the implied warranty of
+//MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//GNU General Public License for more details.
+//
+//You should have received a copy of the GNU General Public License
+//along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package de.hechler.patrick.zeugs.pfs.impl.java;
 
 import java.io.IOError;
@@ -12,11 +28,13 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.util.concurrent.TimeUnit;
 
 import de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSElement;
+import de.hechler.patrick.zeugs.pfs.interfaces.FS;
 import de.hechler.patrick.zeugs.pfs.interfaces.FSElement;
 import de.hechler.patrick.zeugs.pfs.interfaces.File;
 import de.hechler.patrick.zeugs.pfs.interfaces.Folder;
 import de.hechler.patrick.zeugs.pfs.interfaces.Pipe;
 
+@SuppressWarnings("javadoc")
 public class JavaFSElement implements FSElement {
 	
 	protected final JavaFS     fs;
@@ -31,8 +49,8 @@ public class JavaFSElement implements FSElement {
 	}
 	
 	protected void ensureOpen() throws ClosedChannelException {
-		if (closed) { throw new ClosedChannelException(); }
-		fs.ensureOpen();
+		if (this.closed) { throw new ClosedChannelException(); }
+		this.fs.ensureOpen();
 	}
 	
 	@Override
@@ -40,7 +58,13 @@ public class JavaFSElement implements FSElement {
 		ensureOpen();
 		Path p = p().getParent();
 		if (p == null) { throw new IllegalStateException("the root has no parent"); }
-		return new JavaFolder(fs, p);
+		return new JavaFolder(this.fs, p);
+	}
+	
+	@Override
+	public FS fs() throws ClosedChannelException {
+		ensureOpen();
+		return this.fs;
 	}
 	
 	@Override
@@ -81,27 +105,21 @@ public class JavaFSElement implements FSElement {
 	
 	private static void modExecutableFlag(int add, int rem, Path f) throws IOException {
 		if ((add & FLAG_EXECUTABLE) != 0) {
-			if (Files.isDirectory(f)) {
-				throw new UnsupportedOperationException("modify the executable flag on folders");
-			} else {
-				String old = PosixFilePermissions.toString(Files.getPosixFilePermissions(f));
-				char[] arr = old.toCharArray();
-				arr[2] = 'x';
-				arr[5] = 'x';
-				arr[8] = 'x';
-				Files.setPosixFilePermissions(f, PosixFilePermissions.fromString(String.valueOf(arr)));
-			}
+			if (Files.isDirectory(f)) throw new UnsupportedOperationException("modify the executable flag on folders");
+			String old = PosixFilePermissions.toString(Files.getPosixFilePermissions(f));
+			char[] arr = old.toCharArray();
+			arr[2] = 'x';
+			arr[5] = 'x';
+			arr[8] = 'x';
+			Files.setPosixFilePermissions(f, PosixFilePermissions.fromString(String.valueOf(arr)));
 		} else if ((rem & FLAG_EXECUTABLE) != 0) {
-			if (Files.isDirectory(f)) {
-				throw new UnsupportedOperationException("modify the executable flag on folders");
-			} else {
-				String old = PosixFilePermissions.toString(Files.getPosixFilePermissions(f));
-				char[] arr = old.toCharArray();
-				arr[2] = '-';
-				arr[5] = '-';
-				arr[8] = '-';
-				Files.setPosixFilePermissions(f, PosixFilePermissions.fromString(String.valueOf(arr)));
-			}
+			if (Files.isDirectory(f)) throw new UnsupportedOperationException("modify the executable flag on folders");
+			String old = PosixFilePermissions.toString(Files.getPosixFilePermissions(f));
+			char[] arr = old.toCharArray();
+			arr[2] = '-';
+			arr[5] = '-';
+			arr[8] = '-';
+			Files.setPosixFilePermissions(f, PosixFilePermissions.fromString(String.valueOf(arr)));
 		}
 	}
 	
@@ -140,46 +158,46 @@ public class JavaFSElement implements FSElement {
 		ensureOpen();
 		if (name.indexOf('/') != -1) { throw new IllegalArgumentException("name contains path seperator"); }
 		synchronized (this) {
-			Path p = path.resolveSibling(name);
-			Path f = fs.root.resolve(p);
-			Files.move(full, f);
-			path = p;
-			full = f;
+			Path p = this.path.resolveSibling(name);
+			Path f = this.fs.root.resolve(p);
+			Files.move(this.full, f);
+			this.path = p;
+			this.full = f;
 		}
 	}
 	
 	@Override
 	public void parent(Folder parent) throws IOException {
 		ensureOpen();
-		if (!(parent instanceof JavaFolder jf) || jf.fs != fs) {
+		if (!(parent instanceof JavaFolder jf) || jf.fs != this.fs) {
 			throw new IllegalArgumentException("the target folder does not belong to the same file system");
 		}
 		synchronized (this) {
 			Path target  = jf.f();
-			Path oldFull = full;
+			Path oldFull = this.full;
 			if (target.startsWith(oldFull)) { throw new IllegalArgumentException("I won't move a folder to it's own child"); }
 			Path newFull = target.resolve(oldFull.getFileName());
 			Files.move(oldFull, newFull);
-			path = fs.root.relativize(newFull);
-			full = newFull;
+			this.path = this.fs.root.relativize(newFull);
+			this.full = newFull;
 		}
 	}
 	
 	@Override
 	public void move(Folder parent, String name) throws IOException {
 		ensureOpen();
-		if (!(parent instanceof JavaFolder jf) || jf.fs != fs) {
+		if (!(parent instanceof JavaFolder jf) || jf.fs != this.fs) {
 			throw new IllegalArgumentException("the target folder does not belong to the same file system");
 		}
 		if (name.indexOf('/') != -1) { throw new IllegalArgumentException("name contains path seperator"); }
 		synchronized (this) {
 			Path target  = jf.f();
-			Path oldFull = full;
+			Path oldFull = this.full;
 			if (target.startsWith(oldFull)) { throw new IllegalArgumentException("I won't move a folder to it's own child"); }
 			Path newFull = target.resolve(name);
 			Files.move(oldFull, newFull);
-			path = fs.root.relativize(newFull);
-			full = newFull;
+			this.path = this.fs.root.relativize(newFull);
+			this.full = newFull;
 		}
 	}
 	
@@ -195,12 +213,10 @@ public class JavaFSElement implements FSElement {
 		if (Files.isDirectory(f())) {
 			if (this instanceof Folder f) {
 				return f;
-			} else {
-				return new JavaFolder(fs, p());
 			}
-		} else {
-			throw new IllegalStateException("this is no folder");
+			return new JavaFolder(this.fs, p());
 		}
+		throw new IllegalStateException("this is no folder");
 	}
 	
 	@Override
@@ -208,12 +224,10 @@ public class JavaFSElement implements FSElement {
 		if (!Files.isDirectory(f())) {
 			if (this instanceof File f) {
 				return f;
-			} else {
-				return new JavaFile(fs, p());
 			}
-		} else {
-			throw new IllegalStateException("this is no folder");
+			return new JavaFile(this.fs, p());
 		}
+		throw new IllegalStateException("this is no folder");
 	}
 	
 	@Override
@@ -221,13 +235,13 @@ public class JavaFSElement implements FSElement {
 		throw new UnsupportedOperationException("pipe");
 	}
 	
-	protected synchronized Path p() { return path; }
+	protected synchronized Path p() { return this.path; }
 	
-	protected synchronized Path f() { return full; }
+	protected synchronized Path f() { return this.full; }
 	
 	@Override
 	public void close() throws IOException {
-		closed = true;
+		this.closed = true;
 	}
 	
 	@Override
@@ -236,7 +250,7 @@ public class JavaFSElement implements FSElement {
 		if (e == this) return true;
 		if (!(e instanceof JavaFSElement je)) {
 			return false;
-		} else if (je.fs != fs) {
+		} else if (je.fs != this.fs) {
 			return false;
 		} else {
 			return je.path.equals(p());
