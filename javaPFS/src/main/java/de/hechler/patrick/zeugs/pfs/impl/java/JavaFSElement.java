@@ -30,7 +30,6 @@ import java.util.concurrent.TimeUnit;
 import de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSElement;
 import de.hechler.patrick.zeugs.pfs.interfaces.FS;
 import de.hechler.patrick.zeugs.pfs.interfaces.FSElement;
-import de.hechler.patrick.zeugs.pfs.interfaces.File;
 import de.hechler.patrick.zeugs.pfs.interfaces.Folder;
 import de.hechler.patrick.zeugs.pfs.interfaces.Pipe;
 
@@ -208,10 +207,10 @@ public class JavaFSElement implements FSElement {
 	}
 	
 	@Override
-	public Folder getFolder() throws IOException {
+	public JavaFolder getFolder() throws IOException {
 		ensureOpen();
 		if (Files.isDirectory(f())) {
-			if (this instanceof Folder f) {
+			if (this instanceof JavaFolder f) {
 				return f;
 			}
 			return new JavaFolder(this.fs, p());
@@ -220,9 +219,9 @@ public class JavaFSElement implements FSElement {
 	}
 	
 	@Override
-	public File getFile() throws IOException {
+	public JavaFile getFile() throws IOException {
 		if (!Files.isDirectory(f())) {
-			if (this instanceof File f) {
+			if (this instanceof JavaFile f) {
 				return f;
 			}
 			return new JavaFile(this.fs, p());

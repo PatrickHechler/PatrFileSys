@@ -27,7 +27,6 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 import de.hechler.patrick.zeugs.pfs.interfaces.FSElement;
-import de.hechler.patrick.zeugs.pfs.interfaces.File;
 import de.hechler.patrick.zeugs.pfs.interfaces.Folder;
 import de.hechler.patrick.zeugs.pfs.interfaces.Pipe;
 
@@ -94,7 +93,7 @@ public class JavaFolder extends JavaFSElement implements Folder {
 	}
 	
 	@Override
-	public long childCount() throws IOException {
+	public long 	childCount() throws IOException {
 		long cnt = 0L;
 		try (DirectoryStream<Path> stream = Files.newDirectoryStream(fs.root.resolve(p()))) {
 			for (@SuppressWarnings("unused")
@@ -106,16 +105,14 @@ public class JavaFolder extends JavaFSElement implements Folder {
 	}
 	
 	@Override
-	public FSElement childElement(String name) throws IOException {
-		checkValidName(name);
+	public JavaFSElement childElement(String name) throws IOException {
 		Path f = f().resolve(name);
 		Path p = checkExists(f);
 		return new JavaFSElement(fs, p);
 	}
 	
 	@Override
-	public Folder childFolder(String name) throws IOException {
-		checkValidName(name);
+	public JavaFolder childFolder(String name) throws IOException {
 		Path f = f().resolve(name);
 		Path p = checkExists(f);
 		if (!Files.isDirectory(f)) { throw new NotDirectoryException(p.toString()); }
@@ -123,8 +120,7 @@ public class JavaFolder extends JavaFSElement implements Folder {
 	}
 	
 	@Override
-	public File childFile(String name) throws IOException {
-		checkValidName(name);
+	public JavaFile childFile(String name) throws IOException {
 		Path f = f().resolve(name);
 		Path p = checkExists(f);
 		if (!Files.isRegularFile(f)) { throw new NotDirectoryException(p.toString()); }
@@ -133,22 +129,19 @@ public class JavaFolder extends JavaFSElement implements Folder {
 	
 	@Override
 	public Pipe childPipe(String name) throws IOException {
-		checkValidName(name);
 		Path p = p().resolve(name);
 		throw new NoSuchFileException(p.toString(), p().toString(), "pipes are not supported");
 	}
 	
 	@Override
-	public Folder createFolder(String name) throws IOException {
-		checkValidName(name);
+	public JavaFolder createFolder(String name) throws IOException {
 		Path f = f().resolve(name);
 		Files.createDirectory(f);
 		return new JavaFolder(fs, fs.root.relativize(f));
 	}
 	
 	@Override
-	public File createFile(String name) throws IOException {
-		checkValidName(name);
+	public JavaFile createFile(String name) throws IOException {
 		Path f = f().resolve(name);
 		Files.createFile(f);
 		return new JavaFile(fs, fs.root.relativize(f));
@@ -164,10 +157,6 @@ public class JavaFolder extends JavaFSElement implements Folder {
 		Path res = fs.root.relativize(f);
 		if (!Files.exists(f)) { throw new NoSuchFileException(res.toString(), p().toString(), "no child element"); }
 		return res;
-	}
-	
-	private static void checkValidName(String name) {
-		if (name.indexOf('/') != -1) { throw new IllegalArgumentException("name contains path seperator"); }
 	}
 	
 }

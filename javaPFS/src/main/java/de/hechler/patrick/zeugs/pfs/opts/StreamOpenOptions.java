@@ -61,6 +61,7 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	 * @param createOnly if the open operation should fail if the element already exists (implicit
 	 *                   <code>createAlso</code>)
 	 */
+	@SuppressWarnings("preview")
 	public StreamOpenOptions(boolean read, boolean write, boolean append, ElementType type, boolean createAlso,
 			boolean createOnly) {
 		if (append) { write = true; }
@@ -77,9 +78,8 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 			if (createAlso) {
 				throw new IllegalArgumentException(
 						"can't open a streams when createAlso or createOnly is set, but type is null");
-			} else {
-				yield null;
 			}
+			yield null;
 		}
 		case ElementType e -> throw new IllegalArgumentException("unknown element type: " + type.name());
 		};
@@ -144,11 +144,11 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	@SuppressWarnings({"preview", "unused"})
 	public boolean seekable() {
 		try {
-			return switch (type) {
+			return switch (this.type) {
 			case FILE -> true;
 			case PIPE -> false;
 			case null -> throw new IllegalStateException("type is not set");
-			default -> throw new AssertionError("unknown type: " + type.name());
+			default -> throw new AssertionError("unknown type: " + this.type.name());
 			};
 		} catch (NullPointerException npe) { // bug in eclipse compiler
 			throw new IllegalStateException("type is not set");
@@ -171,13 +171,9 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	 *                                  <code>type</code>
 	 */
 	public StreamOpenOptions ensureType(ElementType type) throws IllegalArgumentException {
-		return switch (type) {
-		case null -> throw new NullPointerException("can't ensure to be of type null");
-		case ElementType e when e == this.type -> this;
-		case ElementType e when null == this.type ->
-			new StreamOpenOptions(read, write, append, e, createAlso, createOnly);
-		case ElementType e -> throw new IllegalArgumentException("this is a " + type + ", but type is set to " + this.type);
-		};
+		if (this.type == type) return this;
+		if (this.type != null) throw new IllegalArgumentException("this is a " + type + ", but type is set to " + this.type);
+		return new StreamOpenOptions(this.read, this.write, this.append, type, this.createAlso, this.createOnly);
 	}
 	
 	@Override
