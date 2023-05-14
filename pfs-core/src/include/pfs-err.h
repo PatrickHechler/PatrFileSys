@@ -35,7 +35,7 @@ ui32 *pfs_err_loc = &pfs_err_val;
 #endif
 
 enum pfs_errno {
-	//GENERATED-CODE-START
+	// GENERATED-CODE-START
 	// this code-block is automatic generated, do not modify
 	PFS_ERRNO_NONE                          = 0, /* indicates no error */
 	PFS_ERRNO_UNKNOWN_ERROR                 = 1, /* indicates an unknown error */
