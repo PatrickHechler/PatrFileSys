@@ -39,7 +39,7 @@ enum pfs_errno {
 	// this code-block is automatic generated, do not modify
 	PFS_ERRNO_NONE                          = 0, /* indicates no error */
 	PFS_ERRNO_UNKNOWN_ERROR                 = 1, /* indicates an unknown error */
-	PFS_ERRNO_NO_MORE_ELEMENTS              = 2, /* indicates that there are no more elements */
+	PFS_ERRNO_NO_MORE_ELEMENTS              = 2, /* indicates that there are no more params */
 	PFS_ERRNO_ELEMENT_WRONG_TYPE            = 3, /* indicates that the element has not the wanted/allowed type */
 	PFS_ERRNO_ELEMENT_NOT_EXIST             = 4, /* indicates that the element does not exist */
 	PFS_ERRNO_ELEMENT_ALREADY_EXIST         = 5, /* indicates that the element already exists */
