@@ -374,9 +374,10 @@ static int print_pfs() {
 
 static ui64 flag_and;
 
-static int (*other_set_flags)(struct bm_block_manager *bm, i64 block, i64 flags);
+static int (*other_set_flags)(struct bm_block_manager *bm, i64 block,
+		ui64 flags);
 
-static int my_set_flags(struct bm_block_manager *bm, i64 block, i64 flags) {
+static int my_set_flags(struct bm_block_manager *bm, i64 block, ui64 flags) {
 	return other_set_flags(bm, block, flags & flag_and);
 }
 
@@ -424,7 +425,7 @@ int main(int argc, char **argv) {
 			start);
 	pfs = bm_new_flaggable_ram_block_manager(BLOCK_COUNT, 1024);
 	other_set_flags = pfs->set_flags;
-	*((int (**)(struct bm_block_manager*, i64, i64)) &pfs->set_flags) =
+	*((int (**)(struct bm_block_manager*, i64, ui64)) &pfs->set_flags) =
 			my_set_flags;
 	*((int*) &pfs->block_flag_bits) = 1;
 	flag_and = 1;
@@ -435,7 +436,7 @@ int main(int argc, char **argv) {
 			start);
 	pfs = bm_new_flaggable_ram_block_manager(BLOCK_COUNT, 1024);
 	other_set_flags = pfs->set_flags;
-	*((int (**)(struct bm_block_manager*, i64, i64)) &pfs->set_flags) =
+	*((int (**)(struct bm_block_manager*, i64, ui64)) &pfs->set_flags) =
 			my_set_flags;
 	*((int*) &pfs->block_flag_bits) = 2;
 	flag_and = 3;
@@ -446,7 +447,7 @@ int main(int argc, char **argv) {
 			start);
 	pfs = bm_new_flaggable_ram_block_manager(BLOCK_COUNT, 1024);
 	other_set_flags = pfs->set_flags;
-	*((int (**)(struct bm_block_manager*, i64, i64)) &pfs->set_flags) =
+	*((int (**)(struct bm_block_manager*, i64, ui64)) &pfs->set_flags) =
 			my_set_flags;
 	*((int*) &pfs->block_flag_bits) = 3;
 	flag_and = 7;
@@ -560,8 +561,27 @@ static void* random_data(const char *start, i64 size) {
 	return data;
 }
 
+int debug_print(void *arg0, void *element) {
+	const char *identy = arg0;
+	printf("debug print [0]: %s pointer=%p\n", identy, element);
+	fflush(NULL);
+	printf("debug print [1]: %s block=%lX\n", identy, *(uint64_t*) element);
+	fflush(NULL);
+	return 1;
+}
+
+void print_blocks(char *arg0) {
+	printf("print blocks [0]: %s start entrycnt=%ld maxi=%ld\n", arg0,
+			pfs->loaded.entrycount, pfs->loaded.maxi);
+	fflush(NULL);
+	hashset_for_each(&pfs->loaded, debug_print, arg0);
+	printf("print blocks [1]: %s finish\n", arg0);
+	fflush(NULL);
+}
+
 // should actually be named truncate_file_check
 static void file_check() {
+	print_blocks("[:6:]");
 	const char *start = "[main.checks.file_check]:                             ";
 	const char *rd_start =
 			"[main.checks.file_check.random_data]:                 ";
@@ -597,41 +617,49 @@ static void file_check() {
 		printf("%sfile length != 1016 (%ld) [5]\n", start, length);
 		exit(EXIT_FAILURE);
 	}
+	print_blocks("[:5:]");
 	res = pfsc_file_truncate(file, 10);
 	if (!res) {
 		printf("%scould not truncate the file to length 10 [6]\n", start);
 		exit(EXIT_FAILURE);
 	}
+	print_blocks("[:4:]");
 	length = pfsc_file_length(file);
 	if (length != 10L) {
 		printf("%sfile length != 10 (%ld) [7]\n", start, length);
 		exit(EXIT_FAILURE);
 	}
+	print_blocks("[:3:]");
 	res = pfsc_file_truncate(file, 1500);
 	if (!res) {
 		printf("%scould not truncate the file to length 1500 [8]\n", start);
 		exit(EXIT_FAILURE);
 	}
+	print_blocks("[:2:]");
 	length = pfsc_file_length(file);
 	if (length != 1500L) {
 		printf("%sfile length != 1500 (%ld) [9]\n", start, length);
 		exit(EXIT_FAILURE);
 	}
+	print_blocks("[:1:]");
 	res = pfsc_file_truncate(file, 0);
 	if (!res) {
 		printf("%scould not truncate the file to length 0 [A]\n", start);
 		exit(EXIT_FAILURE);
 	}
+	print_blocks("[:0:]");
 	length = pfsc_file_length(file);
 	if (length != 0L) {
 		printf("%sfile length != 0 (%ld) [B]\n", start, length);
 		exit(EXIT_FAILURE);
 	}
+	print_blocks("[:-1:]");
 	res = pfsc_file_truncate(file, 10000);
 	if (!res) {
 		printf("%scould not truncate the file to length 10000 [C]\n", start);
 		exit(EXIT_FAILURE);
 	}
+	print_blocks("[:-2:]");
 	length = pfsc_file_length(file);
 	if (length != 10000L) {
 		printf("%sfile length != 10000 (%ld) [D]\n", start, length);
@@ -1046,7 +1074,8 @@ static void deep_folder_check() {
 		exit(EXIT_FAILURE);
 	}
 	if ((*pfs_err_loc) != PFS_ERRNO_ELEMENT_ALREADY_EXIST) {
-		printf("%s(*pfs_err_loc) has not the expected value! ((*pfs_err_loc)=%s) [18]\n",
+		printf(
+				"%s(*pfs_err_loc) has not the expected value! ((*pfs_err_loc)=%s) [18]\n",
 				start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
@@ -1642,8 +1671,8 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		exit(EXIT_FAILURE);
 	} else if ((*pfs_err_loc) != PFS_ERRNO_ILLEGAL_ARG) {
 		if (is_not_root || (*pfs_err_loc) != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%s(*pfs_err_loc) has an unexpected value (%s)! [1A]\n", start,
-					pfs_error());
+			printf("%s(*pfs_err_loc) has an unexpected value (%s)! [1A]\n",
+					start, pfs_error());
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -1653,8 +1682,8 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		exit(EXIT_FAILURE);
 	} else if ((*pfs_err_loc) != PFS_ERRNO_ILLEGAL_ARG) {
 		if (is_not_root || (*pfs_err_loc) != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%s(*pfs_err_loc) has an unexpected value (%s)! [1C]\n", start,
-					pfs_error());
+			printf("%s(*pfs_err_loc) has an unexpected value (%s)! [1C]\n",
+					start, pfs_error());
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -1664,8 +1693,8 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		exit(EXIT_FAILURE);
 	} else if ((*pfs_err_loc) != PFS_ERRNO_ILLEGAL_ARG) {
 		if (is_not_root || (*pfs_err_loc) != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%s(*pfs_err_loc) has an unexpected value (%s)! [1E]\n", start,
-					pfs_error());
+			printf("%s(*pfs_err_loc) has an unexpected value (%s)! [1E]\n",
+					start, pfs_error());
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -1808,8 +1837,8 @@ static void pipe_check() {
 		printf("%scould read form the pipe! [F]\n", start);
 		exit(EXIT_FAILURE);
 	} else if ((*pfs_err_loc) != PFS_ERRNO_ILLEGAL_ARG) {
-		printf("%s(*pfs_err_loc) has not the expected value (%s)! [10]\n", start,
-				pfs_error());
+		printf("%s(*pfs_err_loc) has not the expected value (%s)! [10]\n",
+				start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	(*pfs_err_loc) = PFS_ERRNO_NONE;

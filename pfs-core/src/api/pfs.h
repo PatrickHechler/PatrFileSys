@@ -48,8 +48,8 @@
 #define sh(err_ret) get_sh(err_ret, sh)
 #define ih(err_ret) get_ih(err_ret, ih)
 
-#define eh_hash(a) ( (unsigned) ( ( (unsigned) ((struct element_handle*)a)->handle.element_place.block) \
-		^ ( (unsigned) ((struct element_handle*)a)->handle.element_place.pos) ) )
+#define eh_hash(a) ( (uint64_t) ( ( (uint64_t) ((struct element_handle*)a)->handle.element_place.block) \
+		^ ( (uint64_t) ((struct element_handle*)a)->handle.element_place.pos) ) )
 
 static inline int return_handle(i64 *len, void ***hs, void *h) {
 	for (int i = 0; i < (*len); i++) {
@@ -99,7 +99,7 @@ static inline int return_handle(i64 *len, void ***hs, void *h) {
 #include "../core/pfs.h"
 
 int childset_equal(const void *a, const void *b);
-unsigned int childset_hash(const void *a);
+uint64_t childset_hash(const void *a);
 
 struct element_handle {
 	struct pfs_element_handle handle;

@@ -32,7 +32,7 @@
 #include <sys/errno.h>
 
 static int bm_equal(const void *a, const void *b);
-static unsigned int bm_hash(const void *a);
+static uint64_t bm_hash(const void *a);
 
 static ui64 get_none_flags(struct bm_block_manager *bm, i64 block);
 static void set_none_flags(struct bm_block_manager *bm, i64 block, ui64 flags);
@@ -110,7 +110,7 @@ extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count,
 		return NULL;
 	}
 	bm->bm.loaded.entries = NULL;
-	bm->bm.loaded.setsize = 0;
+	bm->bm.loaded.maxi = 0;
 	bm->bm.loaded.entrycount = 0;
 	bm->bm.loaded.equalizer = bm_equal;
 	bm->bm.loaded.hashmaker = bm_hash;
@@ -132,7 +132,7 @@ extern struct bm_block_manager* bm_new_file_block_manager(int fd,
 		return NULL;
 	}
 	bm->bm.loaded.entries = NULL;
-	bm->bm.loaded.setsize = 0;
+	bm->bm.loaded.maxi = 0;
 	bm->bm.loaded.entrycount = 0;
 	bm->bm.loaded.equalizer = bm_equal;
 	bm->bm.loaded.hashmaker = bm_hash;
@@ -149,7 +149,7 @@ extern struct bm_block_manager* bm_new_flaggable_ram_block_manager(
 		return NULL;
 	}
 	bm->bm.bm.loaded.entries = NULL;
-	bm->bm.bm.loaded.setsize = 0;
+	bm->bm.bm.loaded.maxi = 0;
 	bm->bm.bm.loaded.entrycount = 0;
 	bm->bm.bm.loaded.equalizer = bm_equal;
 	bm->bm.bm.loaded.hashmaker = bm_hash;
@@ -175,8 +175,8 @@ static int bm_equal(const void *a, const void *b) {
 	return *(i64*) a == *(i64*) b;
 }
 
-static unsigned int bm_hash(const void *a) {
-	return *(int*) a;
+static uint64_t bm_hash(const void *a) {
+	return *(uint64_t*) a;
 }
 
 struct bm_loaded {
@@ -186,9 +186,11 @@ struct bm_loaded {
 	int save;
 };
 
+static_assert(offsetof(struct bm_loaded, block) == 0, "Error!");
+
 static void* bm_ram_get(struct bm_block_manager *bm, i64 block) {
 	struct bm_ram *br = (struct bm_ram*) bm;
-	struct bm_loaded *loaded = hashset_get(&br->bm.loaded, (unsigned int) block,
+	struct bm_loaded *loaded = hashset_get(&br->bm.loaded, (uint64_t) block,
 			&block);
 	if (loaded) {
 		loaded->count++;
@@ -210,19 +212,24 @@ static void* bm_ram_get(struct bm_block_manager *bm, i64 block) {
 	}
 	memcpy(loaded->data, br->blocks + (block * (i64) br->bm.block_size),
 			br->bm.block_size);
-	hashset_put(&br->bm.loaded, (unsigned int) block, loaded);
+	if (hashset_put(&br->bm.loaded, (uint64_t) block, loaded) != NULL) {
+		abort();
+	}
 	return loaded->data;
 }
 
 static int bm_ram_unget(struct bm_block_manager *bm, i64 block) {
 	struct bm_ram *br = (struct bm_ram*) bm;
-	struct bm_loaded *loaded = hashset_get(&br->bm.loaded, (unsigned int) block,
+	struct bm_loaded *loaded = hashset_get(&br->bm.loaded, (uint64_t) block,
 			&block);
 	if (loaded == NULL) {
 		abort();
 	}
 	if (--loaded->count == 0) {
-		hashset_remove(&br->bm.loaded, (unsigned int) block, loaded);
+		if (hashset_remove(&br->bm.loaded, (uint64_t) block, loaded)
+				!= loaded) {
+			abort();
+		}
 		if (loaded->save) {
 			memcpy(
 					(void*) ((i64) br->blocks
@@ -237,14 +244,17 @@ static int bm_ram_unget(struct bm_block_manager *bm, i64 block) {
 
 static int bm_ram_set(struct bm_block_manager *bm, i64 block) {
 	struct bm_ram *br = (struct bm_ram*) bm;
-	struct bm_loaded *loaded = hashset_get(&br->bm.loaded, (unsigned int) block,
+	struct bm_loaded *loaded = hashset_get(&br->bm.loaded, (uint64_t) block,
 			&block);
 	if (loaded == NULL) {
 		abort();
 	}
 	loaded->save = 1;
 	if (--loaded->count == 0) {
-		hashset_remove(&br->bm.loaded, (unsigned int) block, loaded);
+		if (hashset_remove(&br->bm.loaded, (uint64_t) block, loaded)
+				!= loaded) {
+			abort();
+		}
 		memcpy((void*) ((i64) br->blocks + (block * (i64) br->bm.block_size)),
 				loaded->data, br->bm.block_size);
 		free(loaded->data);
@@ -269,7 +279,7 @@ static int bm_ram_close(struct bm_block_manager *bm) {
 
 static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 	struct bm_file *bf = (struct bm_file*) bm;
-	struct bm_loaded *loaded = hashset_get(&bf->bm.loaded, (unsigned int) block,
+	struct bm_loaded *loaded = hashset_get(&bf->bm.loaded, (uint64_t) block,
 			&block);
 	if (loaded) {
 		loaded->count++;
@@ -287,7 +297,7 @@ static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 		free(loaded);
 		return NULL;
 	}
-	if (lseek64(bf->file, block * (i64) bf->bm.block_size, SEEK_SET) == -1) {
+	if (lseek64(bf->file, block * bf->bm.block_size, SEEK_SET) == -1) {
 		perror("error");
 		fflush(NULL);
 		abort();
@@ -308,7 +318,10 @@ static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 		}
 		need -= size;
 	}
-	hashset_put(&bf->bm.loaded, (unsigned int) block, loaded);
+	if (hashset_put(&bf->bm.loaded, (uint64_t) block, loaded)
+			!= NULL) {
+		abort();
+	}
 	return loaded->data;
 }
 
@@ -341,13 +354,16 @@ static inline int save_block(struct bm_file *bf, struct bm_loaded *loaded) {
 
 static int bm_file_unget(struct bm_block_manager *bm, i64 block) {
 	struct bm_file *bf = (struct bm_file*) bm;
-	struct bm_loaded *loaded = hashset_get(&bf->bm.loaded, (unsigned int) block,
+	struct bm_loaded *loaded = hashset_get(&bf->bm.loaded, (uint64_t) block,
 			&block);
 	if (loaded == NULL) {
 		abort();
 	}
 	if (--loaded->count == 0) {
-		hashset_remove(&bf->bm.loaded, (unsigned int) block, loaded);
+		if (hashset_remove(&bf->bm.loaded, (uint64_t) block, loaded)
+				!= loaded) {
+			abort();
+		}
 		int res = 1;
 		if (loaded->save) {
 			res = save_block(bf, loaded);
@@ -361,14 +377,17 @@ static int bm_file_unget(struct bm_block_manager *bm, i64 block) {
 
 static int bm_file_set(struct bm_block_manager *bm, i64 block) {
 	struct bm_file *bf = (struct bm_file*) bm;
-	struct bm_loaded *loaded = hashset_get(&bf->bm.loaded, (unsigned int) block,
+	struct bm_loaded *loaded = hashset_get(&bf->bm.loaded, (uint64_t) block,
 			&block);
 	if (loaded == NULL) {
 		abort();
 	}
 	loaded->save = 1;
 	if (--loaded->count == 0) {
-		hashset_remove(&bf->bm.loaded, (unsigned int) block, loaded);
+		if (hashset_remove(&bf->bm.loaded, (uint64_t) block, loaded)
+				!= loaded) {
+			abort();
+		}
 		int res = save_block(bf, loaded);
 		free(loaded->data);
 		free(loaded);
@@ -382,15 +401,15 @@ static int bm_file_sync(struct bm_block_manager *bm) {
 	return -1 != fsync(bf->file);
 }
 
+static int save_block_ret1(void *arg0, void *element) {
+	save_block(arg0, element);
+	return 1;
+}
+
 static int bm_file_close(struct bm_block_manager *bm) {
 	struct bm_file *bf = (struct bm_file*) bm;
 	if (bm->loaded.entrycount > 0) {
-		for (int i = bm->loaded.setsize; i--;) {
-			if (!bm->loaded.entries[i] || bm->loaded.entries[i] == &illegal) {
-				continue;
-			}
-			save_block(bf, bm->loaded.entries[i]);
-		}
+		hashset_for_each(&bm->loaded, save_block_ret1, bf);
 		abort();
 	}
 	free(bm->loaded.entries);

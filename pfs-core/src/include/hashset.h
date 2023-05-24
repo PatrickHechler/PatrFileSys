@@ -24,30 +24,48 @@
 #ifndef HASHSET_H_
 #define HASHSET_H_
 
-#ifndef I_AM_HASH_SET
-extern
-#endif
-/*
- * used to mark an removed entry
- * when iterating over all entries a non-NULL
- * check and a non-illegal check has to be made
- */
-char illegal;
+#include <stdint.h>
 
 struct hashset {
-	int entrycount;
-	int setsize;
+	void *entries;
+	uint64_t maxi; // if set to zero the set size is zero and not the length
 	int (*equalizer)(const void*, const void*);
-	unsigned int (*hashmaker)(const void*);
-	void **entries;
+	uint64_t (*hashmaker)(const void*);
+	uint64_t entrycount;
 };
 
-_Static_assert(sizeof(struct hashset) == 32);
+_Static_assert(sizeof(uint64_t) == sizeof(void*), "Error!");
 
-extern void* hashset_get(const struct hashset *set, unsigned int hash, const void *other);
+/**
+ * returns the entry which is equal to the given entry and in the given set
+ *
+ * if the set contains no such entry NULL is returned
+ */
+extern void* hashset_get(const struct hashset *set, uint64_t hash,
+		const void *other);
 
-extern void* hashset_put(struct hashset *set, unsigned int hash, void *newval);
+/**
+ * adds/overwrites the entry with the given hash and value
+ *
+ * this function returns the previous entry (equal to the given entry) or NULL if there was no such entry perviusly
+ */
+extern void* hashset_put(struct hashset *set, uint64_t hash, void *newval);
 
-extern void* hashset_remove(struct hashset *set, unsigned int hash, void *oldval);
+/**
+ * removes the entry with the given hash and value
+ *
+ * this function returns the previous entry (equal to the given entry) or NULL if no such entry was found
+ */
+extern void* hashset_remove(struct hashset *set, uint64_t hash,
+		void *oldval);
+
+/**
+ * execute the given function with each argument in this set.
+ *
+ * this operation will pass the elements in the set to the function until
+ * the function returns zero/false or all elements were passed to it
+ */
+extern void hashset_for_each(const struct hashset *set,
+		int (*do_stuff)(void *arg0, void *element), void *arg0);
 
 #endif /* HASHSET_H_ */

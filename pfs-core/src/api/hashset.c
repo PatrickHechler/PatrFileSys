@@ -14,6 +14,7 @@
 //
 //You should have received a copy of the GNU General Public License
 //along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 /*
  * hashset.c
  *
@@ -23,127 +24,246 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <stddef.h>
 
 #define I_AM_HASH_SET
 #include "../include/hashset.h"
 
-#define INIT_MAP_SIZE 17
+#define INIT_MAP_SIZE 8
 
-static void* put0(struct hashset*, unsigned int, void*);
-static void grow(struct hashset*);
+struct hs_list {
+	void *datam1[0];
+	uint64_t len;
+	void *data[];
+};
 
-extern void* hashset_get(const struct hashset *set, unsigned int hash, const void *equalto) {
-	if (set->entrycount == 0) {
+_Static_assert(offsetof(struct hs_list, data) == sizeof(void*), "Error!");
+
+extern void* hashset_get(const struct hashset *set, uint64_t hash,
+		const void *equalto) {
+	int mi = set->maxi;
+	if (!mi) {
 		return NULL;
 	}
-	int i = hash % set->setsize;
-	const int origI = i;
-	while (1) {
-		if (!set->entries[i]) {
-			return NULL;
+	hash &= mi;
+	void *entry = ((void**) set->entries)[hash];
+	if (entry > 0) {
+		if (set->equalizer(entry, equalto)) {
+			return entry;
 		}
-		if (set->entries[i] != &illegal) {
-			if (set->hashmaker(set->entries[i]) == hash) {
-				if (set->equalizer(set->entries[i], equalto)) {
-					return set->entries[i];
-				}
+		return NULL;
+	} else if (entry < 0) {
+		struct hs_list *list = (struct hs_list*) -(int64_t) entry;
+		for (uint64_t i = list->len; i; i--) { // possibly search the new elements more often
+			if (set->equalizer(list->datam1[i], equalto)) {
+				return entry;
 			}
 		}
-		i++;
-		if (i >= set->setsize) {
-			i = 0;
-		}
-		if (i == origI) {
-			return NULL;
-		}
-	}
-}
-
-extern void* hashset_put(struct hashset *set, unsigned int hash, void *newvalue) {
-	set->entrycount++;
-	if (set->setsize <= set->entrycount * 1.5) {
-		grow(set);
-	}
-	void *old = put0(set, hash, newvalue);
-	if (old) {
-		set->entrycount--;
-	}
-	return old;
-}
-
-extern void* hashset_remove(struct hashset *set, unsigned int hash, void *oldvalue) {
-	if (set->setsize == 0) {
+		return NULL;
+	} else {
 		return NULL;
 	}
-	int i = hash % (unsigned int) set->setsize;
-	const int origI = i;
-	while (1) {
-		if (set->entries[i] == NULL) {
-			return NULL;
+}
+
+static inline unsigned hs_bitcnt(uint64_t val) {
+	if (val > 0xFFFFFFFF) { // see java: Long.bitCount
+		val = val - ((val >> 1) & 0x5555555555555555L);
+		val = (val & 0x3333333333333333L) + ((val >> 2) & 0x3333333333333333L);
+		val = (val + (val >> 4)) & 0x0f0f0f0f0f0f0f0fL;
+		val = val + (val >> 8);
+		val = val + (val >> 16);
+		val = val + (val >> 32);
+		return val & 0x7f;
+	} else { // see java: Integer.bitCount
+		unsigned val0 = val0 - ((val0 >> 1) & 0x55555555);
+		val0 = (val0 & 0x33333333) + ((val0 >> 2) & 0x33333333);
+		val0 = (val0 + (val0 >> 4)) & 0x0f0f0f0f;
+		val0 = val0 + (val0 >> 8);
+		val0 = val0 + (val0 >> 16);
+		return val0 & 0x3f;
+	}
+}
+
+struct no_check_put_arg {
+	uint64_t (*hashmaker)(const void*);
+	void **elements;
+	uint64_t mi;
+};
+
+static int hs_no_check_put(void *arg0, void *element) {
+	struct no_check_put_arg *arg = arg0;
+	uint64_t hash = arg->hashmaker(element);
+	hash &= arg->mi;
+	void *es = arg->elements[hash];
+	// no need to check for equal here
+	if (es > 0) {
+		struct hs_list *list = malloc(sizeof(void*) * 4);
+		list->len = 2;
+		list->data[0] = es;
+		list->data[1] = element;
+		arg->elements[hash] = (void*) -(int64_t) list;
+	} else if (es < 0) {
+		struct hs_list *list = (struct hs_list*) -(int64_t) es;
+		uint64_t i = ++list->len;
+		if (hs_bitcnt(i) == 1) {
+			list = realloc(list, sizeof(void*) * 2 * list->len);
+			arg->elements[hash] = (void*) -(int64_t) list;
 		}
-		if (set->hashmaker(set->entries[i]) == hash) {
-			if (set->equalizer(set->entries[i], oldvalue)) {
-				set->entrycount--;
-				void *old = set->entries[i];
-				if (set->entries[i + 1 == set->setsize ? 0 : i + 1] == NULL) {
-					set->entries[i] = NULL;
+		list->datam1[i] = element;
+	} else {
+		arg->elements[hash] = element;
+	}
+	return 1;
+}
+
+static inline void hs_free_old(struct hashset *set) {
+	if (!set->maxi) {
+		return;
+	}
+	for (uint64_t i = set->maxi + 1; i-- > 0;) {
+		void *es = ((void**) set->entries)[i];
+		if (es < 0) {
+			free((void*) -(int64_t) es);
+		}
+	}
+	free(set->entries);
+}
+
+extern void* hashset_put(struct hashset *set, uint64_t hash, void *newvalue) {
+	if (set->maxi >> 1 <= set->entrycount) {
+		uint64_t nmi = (set->maxi << 1) | 1;
+		void *newEntries = malloc((nmi + 1) * sizeof(void*));
+		memset(newEntries, 0, (nmi + 1) * sizeof(void*));
+		struct no_check_put_arg arg = { //
+				/*	  */.elements = newEntries, //
+						.hashmaker = set->hashmaker, //
+						.mi = nmi //
+				};
+		hashset_for_each(set, hs_no_check_put, &arg);
+		hs_free_old(set);
+		set->entries = newEntries;
+		set->maxi = nmi;
+	}
+	hash &= set->maxi;
+	void *es = ((void**) set->entries)[hash];
+	if (es > 0) {
+		if (set->equalizer(es, newvalue)) {
+			void *res = es;
+			((void**) set->entries)[hash] = newvalue;
+			return res;
+		}
+		struct hs_list *list = malloc(sizeof(void*) * 4);
+		list->len = 2;
+		list->data[0] = es;
+		list->data[1] = newvalue;
+		((void**) set->entries)[hash] = (void*) -(int64_t) list;
+		set->entrycount++;
+		return NULL;
+	} else if (es < 0) {
+		struct hs_list *list = (struct hs_list*) -(int64_t) es;
+		for (uint64_t i = list->len; i; i--) {
+			if (set->equalizer(list->datam1[i], newvalue)) {
+				void *res = list->datam1[i];
+				list->datam1[i] = newvalue;
+				return res;
+			}
+		}
+		uint64_t i = ++list->len;
+		if (hs_bitcnt(i) == 1) {
+			list = realloc(list, sizeof(void*) * 2 * list->len);
+			((void**) set->entries)[hash] = (void*) -(int64_t) list;
+		}
+		list->datam1[i] = newvalue;
+		set->entrycount++;
+		return NULL;
+	} else {
+		((void**) set->entries)[hash] = newvalue;
+		set->entrycount++;
+		return NULL;
+	}
+}
+
+static inline void hs_shrink(struct hashset *set) {
+	if (set->maxi >> 3 >= --set->entrycount) {
+		if (set->entrycount) {
+			uint64_t nmi = set->maxi >> 1;
+			void *newEntries = malloc((nmi + 1) * sizeof(void*));
+			memset(newEntries, 0, (nmi + 1) * sizeof(void*));
+			struct no_check_put_arg arg = { //
+					/*	  */.elements = newEntries, //
+							.hashmaker = set->hashmaker, //
+							.mi = nmi //
+					};
+			hashset_for_each(set, hs_no_check_put, &arg);
+			hs_free_old(set);
+			set->entries = newEntries;
+			set->maxi = nmi;
+		} else {
+			free(set->entries);
+			set->entries = NULL;
+			set->maxi = 0;
+		}
+	}
+}
+
+extern void* hashset_remove(struct hashset *set, uint64_t hash, void *oldvalue) {
+	if (!set->maxi)
+		return NULL;
+	hash &= set->maxi;
+	void *es = ((void**) set->entries)[hash];
+	if (es > 0) {
+		if (set->equalizer(es, oldvalue)) {
+			void *ov = es;
+			((void**) set->entries)[hash] = NULL;
+			hs_shrink(set);
+			return ov;
+		}
+		return NULL;
+	} else if (es < 0) {
+		struct hs_list *list = (struct hs_list*) -(int64_t) es;
+		for (uint64_t i = list->len; i; i--) {
+			if (set->equalizer(list->datam1[i], oldvalue)) {
+				void *ov = list->datam1[i];
+				if (list->len == 1) {
+					((void**) set->entries)[hash] = NULL;
+					free(list);
 				} else {
-					set->entries[i] = &illegal;
+					memmove(list->datam1 + i, list->datam1 + 1 + i,
+							(list->len - i) * sizeof(void*));
+					if (hs_bitcnt(list->len) == 1) {
+						list = realloc(list, sizeof(void*) * list->len);
+					}
+					list->len--;
 				}
-				return old;
+				hs_shrink(set);
+				return ov;
 			}
 		}
-		i++;
-		if (i >= set->setsize) {
-			i = 0;
-		}
-		if (i == origI) {
-			grow(set);
-			return NULL;
-		}
+		return NULL;
+	} else {
+		return NULL;
 	}
 }
 
-static void* put0(struct hashset *set, unsigned int hash, void *newvalue) {
-	int i = hash % (unsigned int) set->setsize;
-	while (1) {
-		if ((set->entries[i] == NULL) || (set->entries[i] == &illegal)) {
-			set->entries[i] = newvalue;
-			return NULL;
-		}
-		if (set->hashmaker(set->entries[i]) == hash) {
-			if (set->equalizer(set->entries[i], newvalue)) {
-				void *old = set->entries[i];
-				set->entries[i] = newvalue;
-				return old;
+extern void hashset_for_each(const struct hashset *set,
+		int (*do_stuff)(void *arg0, void *element), void *arg0) {
+	if (!set->maxi) {
+		return;
+	}
+	for (uint64_t i = set->maxi + 1; i-- > 0;) {
+		void *val = ((void**) set->entries)[i];
+		if (val > 0) {
+			if (!do_stuff(arg0, val)) {
+				return;
+			}
+		} else if (val < 0) {
+			struct hs_list *list = (struct hs_list*) -(int64_t) val;
+			for (uint64_t i = list->len; i > 0; i--) {
+				if (!do_stuff(arg0, list->datam1[i])) {
+					return;
+				}
 			}
 		}
-		i++;
-		if (i >= set->setsize) {
-			i = 0;
-		}
-	}
-}
-
-static void grow(struct hashset *set) {
-	const int oldlen = set->setsize;
-	const int newsize = set->setsize = set->setsize ? set->setsize * 2 : INIT_MAP_SIZE;
-	void **oldentries = set->entries;
-	void *freePNTR = set->entries;
-	void **newentries = set->entries = malloc(newsize * sizeof(void*));
-	for (int i = 0; i < newsize; i++) {
-		newentries[i] = NULL; //NULL entries are not permitted
-	}
-	for (int i = 0; i < oldlen; i++) {
-		if (!oldentries[i]) {
-			continue;
-		}
-		if (oldentries[i] == &illegal) {
-			continue;
-		}
-		put0(set, set->hashmaker(oldentries[i]), oldentries[i]);
-	}
-	if (freePNTR) {
-		free(freePNTR);
 	}
 }

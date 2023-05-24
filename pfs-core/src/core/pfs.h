@@ -25,7 +25,6 @@
 #define SRC_CORE_PFS_H_
 
 #include "pfs-intern.h"
-#include "../include/patr-file-sys.h"
 #include "pfs-element.h"
 #include "pfs-file.h"
 #include "pfs-folder.h"

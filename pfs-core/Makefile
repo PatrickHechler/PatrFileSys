@@ -1,12 +1,13 @@
 PROJECT_ROOT = $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
-LDFLAGS = 
+ifeq ($(CC),)
+	CC = gcc
+endif
+ifeq ($(AR),)
+	AR = ar
+endif
 
-CC = gcc
-
-AR = ar
-
-CFLAGS = -fPIC
+CFLAGS += -fPIC
 
 ifeq ($(BUILD_MODE),debug)
 	CFLAGS += -g -Og

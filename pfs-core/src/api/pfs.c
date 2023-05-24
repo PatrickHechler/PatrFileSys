@@ -30,7 +30,7 @@ int childset_equal(const void *a, const void *b) {
 			&& ha->handle.element_place.pos == hb->handle.element_place.pos;
 }
 
-unsigned int childset_hash(const void *a) {
+uint64_t childset_hash(const void *a) {
 	return eh_hash(a);
 }
 
@@ -147,7 +147,7 @@ static inline struct element_handle* open_eh(const char *path,
 			neh->parent = eh;
 			neh->load_count = 1;
 			neh->children.entrycount = 0;
-			neh->children.setsize = 0;
+			neh->children.maxi = 0;
 			neh->children.equalizer = childset_equal;
 			neh->children.hashmaker = childset_hash;
 			neh->children.entries = NULL;
@@ -200,7 +200,7 @@ extern int pfs_load(struct bm_block_manager *bm, const char *cur_work_dir) {
 	}
 	nrot->parent = NULL;
 	nrot->load_count = 1;
-	nrot->children.setsize = 0;
+	nrot->children.maxi = 0;
 	nrot->children.entrycount = 0;
 	nrot->children.equalizer = childset_equal;
 	nrot->children.hashmaker = childset_hash;
@@ -286,7 +286,7 @@ extern int pfs_format(i64 block_count) {
 	}
 	nrot->parent = NULL;
 	nrot->load_count = 2;
-	nrot->children.setsize = 0;
+	nrot->children.maxi = 0;
 	nrot->children.entrycount = 0;
 	nrot->children.equalizer = childset_equal;
 	nrot->children.hashmaker = childset_hash;
@@ -625,7 +625,7 @@ extern int pfs_stream(const char *path, i32 stream_flags) {
 		eh->parent = peh;
 		eh->load_count = 1;
 		eh->children.entrycount = 0;
-		eh->children.setsize = 0;
+		eh->children.maxi = 0;
 		eh->children.equalizer = childset_equal;
 		eh->children.hashmaker = childset_hash;
 		eh->children.entries = NULL;
@@ -737,7 +737,7 @@ extern int pfs_iter_next(int ih) {
 			return -1;
 		}
 		c->children.entrycount = 0;
-		c->children.setsize = 0;
+		c->children.maxi = 0;
 		c->children.equalizer = childset_equal;
 		c->children.hashmaker = childset_hash;
 		c->children.entries = NULL;

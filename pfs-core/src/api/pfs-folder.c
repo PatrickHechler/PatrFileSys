@@ -45,7 +45,7 @@ extern i64 pfs_folder_child_count(int eh) {
 			c = oc; \
 		} else { \
 			c->children.entrycount = 0; \
-			c->children.setsize = 0; \
+			c->children.maxi = 0; \
 			c->children.equalizer = childset_equal; \
 			c->children.hashmaker = childset_hash; \
 			c->children.entries = NULL; \

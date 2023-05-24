@@ -23,6 +23,7 @@
 
 #define I_AM_CORE_PFS
 #include "pfs.h"
+#include "../include/pfs-constants.h"
 
 extern const char* pfs_error() {
 	switch ((*pfs_err_loc)) {
@@ -651,7 +652,7 @@ static inline i64 allocate_block_without_bm(i64 btfb) {
 		ui8 *block_data = current_block;
 		i32 remain = pfs->block_size - 8;
 		for (; remain > 0; block_data++, remain--) {
-			if (block_count == 255) {
+			if ((*block_data) == 0xFF) {
 				result += 8;
 				if (result >= block_count) {
 					(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
@@ -691,7 +692,7 @@ static inline i64 allocate_block_without_bm(i64 btfb) {
 			}
 			current_block = pfs->get(pfs, result);
 			memset(current_block, 0, pfs->block_size - 8);
-			*(unsigned int*) current_block = 3;
+			*(unsigned char*) current_block = 3;
 			*(i64*) (current_block + pfs->block_size - 8) = -1L;
 			if (!pfs->set(pfs, result)) {
 				return -1L;

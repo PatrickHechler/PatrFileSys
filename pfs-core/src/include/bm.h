@@ -24,8 +24,8 @@
 #ifndef BM_H_
 #define BM_H_
 
-#include "hashset.h"
 #include "patr-file-sys.h"
+#include "hashset.h"
 #include "pfs-constants.h"
 
 #include <unistd.h>
@@ -69,8 +69,8 @@ struct bm_block_manager {
 	const ui32 block_size;
 	/**
 	 * the number of bits usable for block flagging
-	 * (maximum value is 63)
-	 * if not all the value is lower than 63 the lowest bits will be used for the flags
+	 * (maximum value is 64)
+	 * if not all bits are supported the value is lower than 64 the lowest bits will be used for the flags
 	 */
 	const int block_flag_bits;
 	/**
@@ -79,14 +79,14 @@ struct bm_block_manager {
 	 * the unsupported bits are filled with zeros
 	 * if an error occurred -1 is returned
 	 */
-	i64 (*const get_flags)(struct bm_block_manager *bm, i64 block);
+	ui64 (*const get_flags)(struct bm_block_manager *bm, i64 block);
 	/**
 	 * set the flags of a block
 	 * if not all block_flag_bits is lower than 63 the lowest block_flag_bits bits will be used for the flags
 	 * the unsupported bits are ignored
 	 * if an error occurred 0 is returned otherwise 1
 	 */
-	int (*const set_flags)(struct bm_block_manager *bm, i64 block, i64 flags);
+	int (*const set_flags)(struct bm_block_manager *bm, i64 block, ui64 flags);
 	/**
 	 * gets the first zero-flagged block
 	 * if all blocks are flagged (or block flagging is not supported) or an error occurred -1 is returned
@@ -98,28 +98,6 @@ struct bm_block_manager {
 	 */
 	int (*const delete_all_flags)(struct bm_block_manager *bm);
 };
-
-static_assert(offsetof(struct bm_block_manager, get)
-== 32);
-static_assert(offsetof(struct bm_block_manager, unget)
-== 40);
-static_assert(offsetof(struct bm_block_manager, set)
-== 48);
-static_assert(offsetof(struct bm_block_manager, sync_bm)
-== 56);
-static_assert(offsetof(struct bm_block_manager, close_bm)
-== 64);
-static_assert(offsetof(struct bm_block_manager, block_size)
-== 72);
-static_assert(offsetof(struct bm_block_manager, block_flag_bits)
-== 76);
-static_assert(offsetof(struct bm_block_manager, get_flags)
-== 80);
-static_assert(offsetof(struct bm_block_manager, set_flags)
-== 88);
-static_assert(offsetof(struct bm_block_manager, first_zero_flagged_block)
-== 96);
-static_assert(offsetof(struct bm_block_manager, delete_all_flags) == 104);
 
 /**
  * creates a new ram block manager
