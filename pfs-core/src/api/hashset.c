@@ -47,17 +47,17 @@ extern void* hashset_get(const struct hashset *set, uint64_t hash,
 		return NULL;
 	}
 	hash &= mi;
-	void *entry = ((void**) set->entries)[hash];
+	int64_t entry = ((int64_t*) set->entries)[hash];
 	if (entry > 0) {
-		if (set->equalizer(entry, equalto)) {
-			return entry;
+		if (set->equalizer((void*)entry, equalto)) {
+			return (void*) entry;
 		}
 		return NULL;
 	} else if (entry < 0) {
-		struct hs_list *list = (struct hs_list*) -(int64_t) entry;
+		struct hs_list *list = (struct hs_list*) -entry;
 		for (uint64_t i = list->len; i; i--) { // possibly search the new elements more often
 			if (set->equalizer(list->datam1[i], equalto)) {
-				return entry;
+				return list->datam1[i];
 			}
 		}
 		return NULL;
@@ -87,7 +87,7 @@ static inline unsigned hs_bitcnt(uint64_t val) {
 
 struct no_check_put_arg {
 	uint64_t (*hashmaker)(const void*);
-	void **elements;
+	int64_t*elements;
 	uint64_t mi;
 };
 
@@ -95,24 +95,24 @@ static int hs_no_check_put(void *arg0, void *element) {
 	struct no_check_put_arg *arg = arg0;
 	uint64_t hash = arg->hashmaker(element);
 	hash &= arg->mi;
-	void *es = arg->elements[hash];
+	int64_t es = arg->elements[hash];
 	// no need to check for equal here
 	if (es > 0) {
 		struct hs_list *list = malloc(sizeof(void*) * 4);
 		list->len = 2;
-		list->data[0] = es;
+		list->data[0] = (void*) es;
 		list->data[1] = element;
-		arg->elements[hash] = (void*) -(int64_t) list;
+		arg->elements[hash] = -(int64_t) list;
 	} else if (es < 0) {
-		struct hs_list *list = (struct hs_list*) -(int64_t) es;
+		struct hs_list *list = (struct hs_list*) -es;
 		uint64_t i = ++list->len;
 		if (hs_bitcnt(i) == 1) {
 			list = realloc(list, sizeof(void*) * 2 * list->len);
-			arg->elements[hash] = (void*) -(int64_t) list;
+			arg->elements[hash] = -(int64_t) list;
 		}
 		list->datam1[i] = element;
 	} else {
-		arg->elements[hash] = element;
+		arg->elements[hash] = (int64_t) element;
 	}
 	return 1;
 }
@@ -146,22 +146,21 @@ extern void* hashset_put(struct hashset *set, uint64_t hash, void *newvalue) {
 		set->maxi = nmi;
 	}
 	hash &= set->maxi;
-	void *es = ((void**) set->entries)[hash];
+	int64_t es = ((int64_t*) set->entries)[hash];
 	if (es > 0) {
-		if (set->equalizer(es, newvalue)) {
-			void *res = es;
+		if (set->equalizer((void*) es, newvalue)) {
 			((void**) set->entries)[hash] = newvalue;
-			return res;
+			return (void*) es;
 		}
 		struct hs_list *list = malloc(sizeof(void*) * 4);
 		list->len = 2;
-		list->data[0] = es;
+		list->data[0] = (void*) es;
 		list->data[1] = newvalue;
 		((void**) set->entries)[hash] = (void*) -(int64_t) list;
 		set->entrycount++;
 		return NULL;
 	} else if (es < 0) {
-		struct hs_list *list = (struct hs_list*) -(int64_t) es;
+		struct hs_list *list = (struct hs_list*) -es;
 		for (uint64_t i = list->len; i; i--) {
 			if (set->equalizer(list->datam1[i], newvalue)) {
 				void *res = list->datam1[i];
@@ -211,22 +210,21 @@ extern void* hashset_remove(struct hashset *set, uint64_t hash, void *oldvalue) 
 	if (!set->maxi)
 		return NULL;
 	hash &= set->maxi;
-	void *es = ((void**) set->entries)[hash];
+	int64_t es = ((int64_t*) set->entries)[hash];
 	if (es > 0) {
-		if (set->equalizer(es, oldvalue)) {
-			void *ov = es;
+		if (set->equalizer((void*) es, oldvalue)) {
 			((void**) set->entries)[hash] = NULL;
 			hs_shrink(set);
-			return ov;
+			return (void*) es;
 		}
 		return NULL;
 	} else if (es < 0) {
-		struct hs_list *list = (struct hs_list*) -(int64_t) es;
+		struct hs_list *list = (struct hs_list*) -es;
 		for (uint64_t i = list->len; i; i--) {
 			if (set->equalizer(list->datam1[i], oldvalue)) {
 				void *ov = list->datam1[i];
 				if (list->len == 1) {
-					((void**) set->entries)[hash] = NULL;
+					((int64_t*) set->entries)[hash] = 0;
 					free(list);
 				} else {
 					memmove(list->datam1 + i, list->datam1 + 1 + i,
@@ -252,13 +250,13 @@ extern void hashset_for_each(const struct hashset *set,
 		return;
 	}
 	for (uint64_t i = set->maxi + 1; i-- > 0;) {
-		void *val = ((void**) set->entries)[i];
+		int64_t val = ((int64_t*) set->entries)[i];
 		if (val > 0) {
-			if (!do_stuff(arg0, val)) {
+			if (!do_stuff(arg0, (void*) val)) {
 				return;
 			}
 		} else if (val < 0) {
-			struct hs_list *list = (struct hs_list*) -(int64_t) val;
+			struct hs_list *list = (struct hs_list*) -val;
 			for (uint64_t i = list->len; i > 0; i--) {
 				if (!do_stuff(arg0, list->datam1[i])) {
 					return;

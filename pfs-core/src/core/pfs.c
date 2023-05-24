@@ -651,6 +651,17 @@ static inline i64 allocate_block_without_bm(i64 btfb) {
 		i64 next_block_num = *(i64*) (current_block + pfs->block_size - 8);
 		ui8 *block_data = current_block;
 		i32 remain = pfs->block_size - 8;
+		for (; remain >= 8; block_data += 8, remain -= 8) {
+			if ((*(ui64*) block_data) != 0xFFFFFFFFFFFFFFFFL) {
+				break;
+			}
+			result += 64;
+			if (result >= block_count) {
+				(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
+				pfs->unget(pfs, current_block_num);
+				return -1L;
+			}
+		}
 		for (; remain > 0; block_data++, remain--) {
 			if ((*block_data) == 0xFF) {
 				result += 8;
@@ -679,6 +690,7 @@ static inline i64 allocate_block_without_bm(i64 btfb) {
 					return -1L;
 				}
 			}
+			abort();
 		}
 		if (next_block_num == -1L) {
 			if (result + 1 >= block_count) {
