@@ -28,7 +28,14 @@
 #include "hashset.h"
 #include "pfs-constants.h"
 
+#include <stdio.h>
+
+#ifdef __unix__
 #include <unistd.h>
+typedef int bm_fd;
+#else
+typedef FILE* bm_fd;
+#endif
 
 /**
  * block manager structure used by the patr-file-system
@@ -38,6 +45,12 @@ struct bm_block_manager {
 	 * this hash-set is only for intern use
 	 */
 	struct hashset loaded;
+	/**
+	 * like get, but this function is allowed to load garbage and not
+	 * the data from the block
+	 * this should be used when the old content is irrelevant/ignored
+	 */ // TODO
+//	void* (*const lazyget)(struct bm_block_manager *bm, i64 block);
 	/**
 	 * function to load/get a block
 	 */
@@ -116,24 +129,70 @@ extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count,
  *
  * block_size: the size of the blocks
  */
-extern struct bm_block_manager* bm_new_file_block_manager(int file,
+extern struct bm_block_manager* bm_new_file_block_manager(bm_fd file,
 		i32 block_size);
+
+/*
+ * operations with bm_fd:
+ *       bm_fd_read(bm_fd fd, void *buf, size_t len)
+ *       bm_fd_write(bm_fd fd, void *data, size_t len)
+ *       bm_fd_pos(bm_fd fd)
+ *       bm_fd_seek(bm_fd fd, size_t pos)
+ *       bm_fd_seek_eof(bm_fd fd)
+ *       bm_fd_flush(bm_fd fd)
+ * bm_fd bm_fd_open(const char *file, int read_only)
+ * bm_fd bm_fd_open_ro(const char *file)
+ * bm_fd bm_fd_open_rw(const char *file)
+ * bm_fd bm_fd_open_rw_trunc(const char *file)
+ *       bm_fd_close(bm_fd fd)
+ */
+
+#ifdef __unix__
+#define bm_fd_read(fd, buf, len) read(fd, buf, len)
+#define bm_fd_write(fd, data, len) write(fd, data, len)
+#define bm_fd_pos(fd) lseek64(fd, 0, SEEK_CUR)
+#define bm_fd_seek(fd, pos) lseek64(fd, pos, SEEK_SET)
+#define bm_fd_seek_eof(fd) lseek64(fd, 0, SEEK_END)
+#define bm_fd_flush(fd) // the kernel already knows everything
+#define bm_fd_open_ro(file) open64(file, O_RDONLY) // O_LARGEFILE is 0
+#define bm_fd_open_rw(file) open64(file, O_RDWR | O_CREAT \
+		, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+#define bm_fd_open_rw_trunc(file) open64(file, O_RDWR | O_CREAT | O_TRUNC \
+		, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+#define bm_fd_close(fd) close(fd)
+#else
+#define bm_fd_read(fd, buf, len) fread(buf, 1, len, fd)
+#define bm_fd_write(fd, data, len) fwrite(data, 1, len, fd)
+#define bm_fd_pos(fd) fseek(fd, 0, SEEK_CUR)
+#define bm_fd_seek(fd, pos) fseek(fd, pos, SEEK_SET)
+#define bm_fd_seek_eof(fd) fseek(fd, 0, SEEK_END)
+#define bm_fd_flush(fd) fflush(fd)
+#define bm_fd_open_ro(file) fopen(file, "rb")
+#define bm_fd_open_rw(file) fopen(file, "r+b")
+#define bm_fd_open_rw_trunc(file) fopen(file, "w+b")
+#define bm_fd_close(fd) fclose(fd)
+#endif
+
+#define bm_fd_open(file, read_only) read_only ? bm_fd_open_ro(file) : bm_fd_open_rw(file)
 
 #define sread(fd, buf, count, error) \
 	{ \
 		void *_pntr = buf; \
-		for (i64 _cnt = count; _cnt > 0; ) { \
-			i64 _reat = read(fd, _pntr, _cnt); \
+		for (i64 _remain = count; _remain > 0; ) { \
+			i64 _reat = bm_fd_read(fd, _pntr, _remain); \
 			if (_reat <= 0) { \
-				if (_reat == 0) { \
-					error \
-				} else if ((errno == EAGAIN) || (errno == EINTR)) { \
+				if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) { \
+					wait5ms(); \
+					errno = 0; \
+					continue; \
+				} else if ((errno == EINTR)) { \
+					errno = 0; \
 					continue; \
 				} else { \
 					error \
 				} \
 			} \
-			_cnt -= _reat; \
+			_remain -= _reat; \
 			_pntr += _reat; \
 		} \
 	}
@@ -141,14 +200,14 @@ extern struct bm_block_manager* bm_new_file_block_manager(int file,
 #define new_file_bm0(bm, file, wrong_magic_error, io_error) { \
 	ui64 magic; \
 	i32 block_size; \
-	if (lseek64(file, 0, SEEK_SET) == -1) { \
+	if (bm_fd_seek(file, 0) == -1) { \
 		io_error \
 	} \
 	sread(file, &magic, 8, io_error) \
 	if (magic != PFS_MAGIC_START) { \
 		wrong_magic_error \
 	} \
-	if (lseek64(file, PFS_B0_OFFSET_BLOCK_SIZE, SEEK_SET) == -1) { \
+	if (bm_fd_seek(file, PFS_B0_OFFSET_BLOCK_SIZE) == -1) { \
 		io_error \
 	} \
 	sread(file, &block_size, 4, io_error) \

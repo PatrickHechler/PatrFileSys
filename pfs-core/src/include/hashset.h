@@ -28,7 +28,7 @@
 
 struct hashset {
 	void *entries;
-	uint64_t maxi; // if set to zero the set size is zero and not the length
+	uint64_t maxi; // if set to zero the set size is zero
 	int (*equalizer)(const void*, const void*);
 	uint64_t (*hashmaker)(const void*);
 	uint64_t entrycount;

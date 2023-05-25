@@ -111,21 +111,30 @@ static inline int truncate_shrink(pfs_eh f, i64 new_length) {
 			+ f->element_place.pos;
 	i64 remain = file->file_length - new_length;
 	struct pfs_place place = find_place(file->first_block, new_length);
+	int first = 1;
 	if (new_length == 0) {
 		file->first_block = -1L;
+		first = 0;
 	}
 	file->file_length = new_length;
 	while (remain > 0) {
 		const i64 current_block_num = place.block;
 		void *current_block = pfs->get(pfs, current_block_num);
 		place.block = *(i64*) (current_block + pfs->block_size - 8);
-		*(i64*) (current_block + pfs->block_size - 8) = -1L;
-		if (place.pos == 0) {
+		if (first) {
+			*(i64*) (current_block + pfs->block_size - 8) = -1L;
+			pfs->set(pfs, current_block_num);
+			first = 0;
+		} else {
+			pfs->unget(pfs, current_block_num);
+		}
+		if (place.pos) {
+			place.pos = 0;
+		} else {
 			free_block(current_block_num);
 		}
 		i64 free_data = pfs->block_size - 8 - place.pos;
 		remain -= free_data;
-		pfs->set(pfs, current_block_num);
 	}
 	pfs->set(pfs, f->element_place.block);
 	return 1;
@@ -138,7 +147,7 @@ int pfsc_file_truncate_grow(pfs_eh f, i64 new_length) {
 	struct pfs_place file_end = find_place(file->first_block, old_length);
 	if (old_length == 0) {
 		file->first_block = file_end.block = allocate_block(
-		BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
+		/*		*/BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
 		if (file_end.block == -1L) {
 			(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 			pfs->unget(pfs, f->element_place.block);

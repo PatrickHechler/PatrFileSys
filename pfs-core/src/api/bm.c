@@ -46,12 +46,7 @@ struct bm_ram {
 
 struct bm_file {
 	struct bm_block_manager bm;
-#ifdef __linux__
-	int
-#else
-	FILE * // TODO use FILE api
-#endif
-	file;
+	bm_fd file;
 };
 
 struct bm_flag_ram {
@@ -129,7 +124,7 @@ extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count,
 	return &(bm->bm);
 }
 
-extern struct bm_block_manager* bm_new_file_block_manager(int fd,
+extern struct bm_block_manager* bm_new_file_block_manager(bm_fd fd,
 		i32 block_size) {
 	struct bm_file *bm = malloc(sizeof(struct bm_file));
 	if (bm == NULL) {
@@ -302,27 +297,25 @@ static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 		free(loaded);
 		return NULL;
 	}
-	if (lseek64(bf->file, block * bf->bm.block_size, SEEK_SET) == -1) {
-		perror("error");
+	if (bm_fd_seek(bf->file, block * bf->bm.block_size) == -1) {
+		perror("seek");
 		fflush(NULL);
 		abort();
 	}
-	for (i64 need = bf->bm.block_size; need;) {
-		i64 size = read(bf->file, loaded->data, bf->bm.block_size);
-		if (size == -1) {
-			switch (errno) {
-			case EINTR:
-			case EAGAIN:
-				continue;
-			}
-			abort();
-		} else if (size == 0) { // EOF
-			memset((void*) ((i64) loaded->data + bf->bm.block_size - need), 0,
-					need);
-			break;
-		}
-		need -= size;
-	}
+	sread(bf->file, loaded->data, loaded->count, //
+			/*	*/if (errno) { //
+			/*		*/abort();//
+			/*	*/} //
+#ifndef __unix__
+			/*	*/if (feof(bf->file)) {
+			/*		*/clearerr(bf->file);
+			/*	*/} else {
+			/*		*/abort();
+			/*	*/}
+#endif
+			/*	*/memset((void*) ((i64) loaded->data + bf->bm.block_size - _remain), 0, _remain); //
+			/*	*/break;//
+			)
 	if (hashset_put(&bf->bm.loaded, (uint64_t) block, loaded) != NULL) {
 		abort();
 	}
@@ -330,17 +323,21 @@ static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 }
 
 static inline int save_block(struct bm_file *bf, struct bm_loaded *loaded) {
-	if (lseek64(bf->file, loaded->block * (i64) bf->bm.block_size, SEEK_SET)
-			== -1) {
+	if (bm_fd_seek(bf->file, loaded->block * (i64) bf->bm.block_size) == -1) {
 		abort();
 	}
 	void *data = loaded->data;
-	for (i64 need = bf->bm.block_size; need;) {
-		i64 wrote = write(bf->file, data, need);
+	for (i64 need = bf->bm.block_size; ;) {
+		i64 wrote = bm_fd_write(bf->file, data, need);
 		if (wrote == -1) {
-			switch (errno) {
-			case EINTR:
+			int e = errno;
+			errno = 0;
+			switch (e) {
+#if EWOULDBLOCK != EAGAIN
+			case EWOULDBLOCK:
+#endif
 			case EAGAIN:
+			case EINTR:
 				continue;
 			case EIO:
 				(*pfs_err_loc) = PFS_ERRNO_IO_ERR;
@@ -350,8 +347,11 @@ static inline int save_block(struct bm_file *bf, struct bm_loaded *loaded) {
 				return 0;
 			}
 		}
-		need -= wrote;
-		data += wrote;
+		if (need -= wrote) {
+			data += wrote;
+			continue;
+		}
+		break;
 	}
 	return 1;
 }
@@ -386,7 +386,6 @@ static int bm_file_set(struct bm_block_manager *bm, i64 block) {
 	if (loaded == NULL) {
 		abort();
 	}
-	loaded->save = 1;
 	if (--loaded->count == 0) {
 		if (hashset_remove(&bf->bm.loaded, (uint64_t) block, loaded)
 				!= loaded) {
@@ -397,12 +396,23 @@ static int bm_file_set(struct bm_block_manager *bm, i64 block) {
 		free(loaded);
 		return res;
 	}
+	loaded->save = 1;
 	return 1;
 }
 
 static int bm_file_sync(struct bm_block_manager *bm) {
 	struct bm_file *bf = (struct bm_file*) bm;
-	return -1 != fsync(bf->file);
+	bm_fd_flush(bf->file);
+	if (errno) {
+		if (errno == EIO) {
+			(*pfs_err_loc) = PFS_ERRNO_IO_ERR;
+		} else {
+			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+		}
+		errno = 0;
+		return 0;
+	}
+	return 1;
 }
 
 static int save_block_ret1(void *arg0, void *element) {
@@ -417,7 +427,7 @@ static int bm_file_close(struct bm_block_manager *bm) {
 		abort();
 	}
 	free(bm->loaded.entries);
-	if (close(bf->file) == -1) {
+	if (bm_fd_close(bf->file) == -1) {
 		switch (errno) {
 		case EIO:
 			(*pfs_err_loc) = PFS_ERRNO_IO_ERR;
@@ -425,6 +435,7 @@ static int bm_file_close(struct bm_block_manager *bm) {
 		default:
 			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
 		}
+		errno = 0;
 		free(bm);
 		return 0;
 	}

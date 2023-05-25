@@ -34,8 +34,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#define USED_MODE (S_IRWXU | S_IRWXG | S_IRWXG)
-
 #define BLOCK_COUNT (1L << 20)
 
 static void checks();
@@ -313,8 +311,11 @@ static int print_folder(struct pfs_place fp, const char *name,
 				start, deep, f->entries[i].flags,
 				(PFS_F_FOLDER & f->entries[i].flags) ?
 						"folder" :
-						((PFS_F_FILE & f->entries[i].flags) ? "file" : "invalid"),
-				start, deep, f->entries[i].create_time);
+						((PFS_F_FILE & f->entries[i].flags) ?
+								"file" :
+								((PFS_F_PIPE & f->entries[i].flags) ?
+										"pipe" : "invalid")), start, deep,
+				f->entries[i].create_time);
 		if ((f->entries[i].flags & (PFS_F_FILE | PFS_F_FOLDER)) == 0) {
 			res++;
 		}
@@ -398,7 +399,7 @@ int main(int argc, char **argv) {
 		}
 		test_file = argv[1];
 	}
-	int fd = open(test_file, O_RDWR | O_CREAT, USED_MODE);
+	int fd = bm_fd_open_rw(test_file);
 	if (fd == -1) {
 		printf("%scould not open testfile ('%s') [3]\n", start, test_file);
 		exit(EXIT_FAILURE);
@@ -407,7 +408,7 @@ int main(int argc, char **argv) {
 	checks();
 	pfs->close_bm(pfs);
 	printf("%sstart checks with a file block manager (again) [4]\n", start);
-	fd = open(test_file, O_RDWR, USED_MODE);
+	fd = bm_fd_open_rw(test_file);
 	if (fd == -1) {
 		printf("%scould not open testfile ('%s') [5]\n", start, test_file);
 		exit(EXIT_FAILURE);
@@ -1265,9 +1266,9 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 		ui64 flags = pfsc_element_get_flags(f);
 		if (flags & PFS_F_FILE) {
 			void *buf = malloc(1 << 15);
-			int fd = open64(*name, O_WRONLY | O_CREAT | O_TRUNC, USED_MODE);
-			if (fd == -1) {
-				perror("open64");
+			bm_fd fd = bm_fd_open_rw(*name);
+			if (fd <= 0) {
+				perror("open");
 				printf("%scould not open the file %s [3]\n", start, *name);
 				exit(1);
 			}
@@ -1282,7 +1283,7 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 							start, *name, pfs_error);
 					exit(1);
 				}
-				cpy = write(fd, buf, cpy);
+				cpy = bm_fd_write(fd, buf, cpy);
 				if (cpy == -1) {
 					switch (errno) {
 					case EAGAIN:
@@ -1298,10 +1299,10 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 				len -= cpy;
 				pos += cpy;
 			}
-			close(fd);
+			bm_fd_close(fd);
 			free(buf);
 		} else if (flags & PFS_F_FOLDER) {
-			if (mkdir(*name, USED_MODE) == -1) {
+			if (mkdir(*name, 0777) == -1) {
 				switch (errno) {
 				case EEXIST:
 					if (rmdir(*name) == -1) {
@@ -1318,7 +1319,7 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 						break;
 					} else {
 						errno = 0;
-						if (mkdir(*name, USED_MODE) == -1) {
+						if (mkdir(*name, 0777) == -1) {
 							perror("mkdir");
 							printf("%scould not mkdir %s [6]\n", start, *name);
 							exit(1);

@@ -27,7 +27,7 @@
 #define _GNU_SOURCE
 #define _LARGEFILE64_SOURCE
 #define _FILE_OFFSET_BITS 64
-//#define __USE_TIME_BITS64
+//#define __USE_TIME_BITS64 // leads to an error
 
 #include <stddef.h>
 #include <limits.h>
@@ -37,6 +37,9 @@
 #include <time.h>
 #include <assert.h>
 #include <string.h>
+#ifndef __unix__
+#include <threads.h>
+#endif
 
 typedef int64_t i64;
 typedef int32_t i32;
@@ -44,7 +47,7 @@ typedef uint64_t ui64;
 typedef uint32_t ui32;
 typedef uint8_t ui8;
 
-#define export __attribute__ ((visibility ("default"))) export
+#define extern __attribute__ ((visibility ("default"))) extern
 
 static_assert(CHAR_BIT == 8, "Error!");
 static_assert(sizeof(__time_t) == 8, "Error!");
@@ -53,5 +56,23 @@ static_assert(sizeof(i32) == 4, "Error!");
 static_assert(sizeof(ui64) == 8, "Error!");
 static_assert(sizeof(ui32) == 4, "Error!");
 static_assert(sizeof(char) == 1, "Error!");
+
+#ifdef __unix__
+#define wait5ms() { \
+	struct timespec wait_time = { \
+			/*	  */.tv_sec = 0, /* 0 sec */ \
+					.tv_nsec = 5000000 /* 5 ms */ \
+			}; \
+	nanosleep(&wait_time, NULL); \
+}
+#else
+#define wait5ms() { \
+	struct timespec wait_time = { \
+			/*	  */.tv_sec = 0, /* 0 sec */ \
+					.tv_nsec = 5000000 /* 5 ms */ \
+			}; \
+	thrd_sleep(&wait_time, NULL); \
+}
+#endif
 
 #endif /* PATR_FILE_SYS_H_ */
