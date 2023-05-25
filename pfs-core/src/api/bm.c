@@ -14,13 +14,13 @@
 //
 //You should have received a copy of the GNU General Public License
 //along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 /*
  * bm.c
  *
  *  Created on: Jul 7, 2022
  *      Author: pat
  */
-
 #include "../include/bm.h"
 #include "../include/pfs-err.h"
 
@@ -46,7 +46,12 @@ struct bm_ram {
 
 struct bm_file {
 	struct bm_block_manager bm;
-	int file;
+#ifdef __linux__
+	int
+#else
+	FILE * // TODO use FILE api
+#endif
+	file;
 };
 
 struct bm_flag_ram {
@@ -318,8 +323,7 @@ static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 		}
 		need -= size;
 	}
-	if (hashset_put(&bf->bm.loaded, (uint64_t) block, loaded)
-			!= NULL) {
+	if (hashset_put(&bf->bm.loaded, (uint64_t) block, loaded) != NULL) {
 		abort();
 	}
 	return loaded->data;
