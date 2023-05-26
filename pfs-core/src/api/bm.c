@@ -23,6 +23,7 @@
  */
 #include "../include/bm.h"
 #include "../include/pfs-err.h"
+#include "../core/pfs-intern.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -126,6 +127,10 @@ extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count,
 
 extern struct bm_block_manager* bm_new_file_block_manager(bm_fd fd,
 		i32 block_size) {
+	if (block_size <= 0) {
+		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
+		return NULL;
+	}
 	struct bm_file *bm = malloc(sizeof(struct bm_file));
 	if (bm == NULL) {
 		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
@@ -139,6 +144,24 @@ extern struct bm_block_manager* bm_new_file_block_manager(bm_fd fd,
 	setNoFlagVals(file)
 	bm->file = fd;
 	return &(bm->bm);
+}
+
+extern struct bm_block_manager* bm_new_file_block_manager_path_bs(
+		const char *file, i32 block_size, int read_only) {
+	bm_fd fd = bm_fd_open(file, read_only);
+	return bm_new_file_block_manager(fd, block_size);
+}
+
+extern struct bm_block_manager* bm_new_file_block_manager_path(const char *file,
+		int read_only) {
+	bm_fd fd = bm_fd_open(file, read_only);
+	struct pfs_b0 b0;
+	bm_fd_read(fd, &b0, sizeof(struct pfs_b0));
+	pfs_validate_b0(b0,
+		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_SUPER_BLOCK;
+		return NULL;
+	)
+	return bm_new_file_block_manager(fd, b0.block_size);
 }
 
 extern struct bm_block_manager* bm_new_flaggable_ram_block_manager(
@@ -303,7 +326,7 @@ static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 		abort();
 	}
 	void *buf = loaded->data;
-	for (i64 remain = loaded->count; remain > 0;) {
+	for (i64 remain = bf->bm.block_size; remain > 0;) {
 		i64 reat = bm_fd_read(bf->file, buf, remain);
 		if (reat <= 0) {
 			if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
@@ -316,7 +339,7 @@ static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 			} else if (errno) {
 				abort();
 			} else {
-#ifdef __unix__
+#if !defined LINUX_PORTABLE_BUILD && defined __unix__
 				if (reat) {
 					abort();
 				}
@@ -328,10 +351,11 @@ static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 				}
 #endif
 				memset(buf, 0, remain);
+				break;
 			}
 		}
-		_remain -= _reat;
-		_pntr += _reat;
+		remain -= reat;
+		buf += reat;
 	}
 	if (hashset_put(&bf->bm.loaded, (uint64_t) block, loaded) != NULL) {
 		abort();

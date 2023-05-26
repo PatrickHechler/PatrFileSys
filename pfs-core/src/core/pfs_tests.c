@@ -24,6 +24,7 @@
 #define PRINT_PFS
 
 #include "pfs.h"
+#include "../include/pfs-constants.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -382,13 +383,10 @@ static int my_set_flags(struct bm_block_manager *bm, i64 block, ui64 flags) {
 	return other_set_flags(bm, block, flags & flag_and);
 }
 
-static void exit_fail() {
-	exit(EXIT_FAILURE);
-}
-
 int main(int argc, char **argv) {
 	const char *start = "[main]:                                               ";
 	printf("%sstart checks with a ram block manager [0]\n", start);
+	fflush(NULL);
 	pfs = bm_new_ram_block_manager(BLOCK_COUNT, 1024);
 	checks();
 	pfs->close_bm(pfs);
@@ -403,7 +401,7 @@ int main(int argc, char **argv) {
 		}
 		test_file = argv[1];
 	}
-	int fd = bm_fd_open_rw(test_file);
+	bm_fd fd = bm_fd_open_rw(test_file);
 	if (fd == -1) {
 		printf("%scould not open testfile ('%s') [3]\n", start, test_file);
 		exit(EXIT_FAILURE);
@@ -412,22 +410,42 @@ int main(int argc, char **argv) {
 	checks();
 	pfs->close_bm(pfs);
 	printf("%sstart checks with a file block manager (again) [4]\n", start);
+	fflush(NULL);
 	fd = bm_fd_open_rw(test_file);
 	if (fd == -1) {
 		printf("%scould not open testfile ('%s') [5]\n", start, test_file);
 		exit(EXIT_FAILURE);
 	}
-	new_file_pfs(fd, exit_fail)
+	{
+		ui64 magic;
+		i32 block_size;
+		if (bm_fd_seek(fd, 0) == -1) {
+			exit(EXIT_FAILURE);
+		}
+		sread(fd, &magic, 8, exit(EXIT_FAILURE););
+		if (magic != PFS_MAGIC_START) {
+			puts("illegal magic");
+			exit(EXIT_FAILURE);
+		}
+		if (bm_fd_seek(fd, PFS_B0_OFFSET_BLOCK_SIZE) == -1) {
+			puts("illegal magic");
+			exit(EXIT_FAILURE);
+		}
+		sread(fd, &block_size, 4, exit(EXIT_FAILURE););
+		pfs = bm_new_file_block_manager(fd, block_size);
+	}
 	checks();
 	pfs->close_bm(pfs);
 	printf("%sstart checks with block-flaggable ram block manager [6]\n",
 			start);
+	fflush(NULL);
 	pfs = bm_new_flaggable_ram_block_manager(BLOCK_COUNT, 1024);
 	checks();
 	pfs->close_bm(pfs);
 	printf(
 			"%sstart checks with block-one-bit-flaggable ram block manager [7]\n",
 			start);
+	fflush(NULL);
 	pfs = bm_new_flaggable_ram_block_manager(BLOCK_COUNT, 1024);
 	other_set_flags = pfs->set_flags;
 	*((int (**)(struct bm_block_manager*, i64, ui64)) &pfs->set_flags) =
@@ -439,6 +457,7 @@ int main(int argc, char **argv) {
 	printf(
 			"%sstart checks with block-two-bit-flaggable ram block manager [8]\n",
 			start);
+ 	fflush(NULL);
 	pfs = bm_new_flaggable_ram_block_manager(BLOCK_COUNT, 1024);
 	other_set_flags = pfs->set_flags;
 	*((int (**)(struct bm_block_manager*, i64, ui64)) &pfs->set_flags) =
@@ -450,6 +469,7 @@ int main(int argc, char **argv) {
 	printf(
 			"%sstart checks with block-three-bit-flaggable ram block manager [9]\n",
 			start);
+	fflush(NULL);
 	pfs = bm_new_flaggable_ram_block_manager(BLOCK_COUNT, 1024);
 	other_set_flags = pfs->set_flags;
 	*((int (**)(struct bm_block_manager*, i64, ui64)) &pfs->set_flags) =
@@ -465,7 +485,7 @@ int main(int argc, char **argv) {
 static void checks() {
 	const char *start = "[main.checks]:                                        ";
 	if (!pfsc_format(BLOCK_COUNT)) {
-		printf("%scould not format the file system! [0]\n", start);
+		printf("%scould not format the file system! [0]: %s\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
 #ifdef PRINT_PFS

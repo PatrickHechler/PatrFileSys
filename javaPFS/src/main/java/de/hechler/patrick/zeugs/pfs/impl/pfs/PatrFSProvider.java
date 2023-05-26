@@ -1,19 +1,19 @@
-//This file is part of the Patr File System Project
-//DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
-//Copyright (C) 2023  Patrick Hechler
+// This file is part of the Patr File System Project
+// DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+// Copyright (C) 2023 Patrick Hechler
 //
-//This program is free software: you can redistribute it and/or modify
-//it under the terms of the GNU General Public License as published by
-//the Free Software Foundation, either version 3 of the License, or
-//(at your option) any later version.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-//This program is distributed in the hope that it will be useful,
-//but WITHOUT ANY WARRANTY; without even the implied warranty of
-//MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//GNU General Public License for more details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
 //
-//You should have received a copy of the GNU General Public License
-//along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 package de.hechler.patrick.zeugs.pfs.impl.pfs;
 
 import java.io.IOException;
@@ -21,8 +21,6 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
 import java.lang.foreign.MemorySegment;
-import java.lang.foreign.SegmentScope;
-import java.lang.foreign.SymbolLookup;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
@@ -43,16 +41,8 @@ import de.hechler.patrick.zeugs.pfs.opts.PatrRamFSOpts;
  * 
  * @see FSProvider#PATR_FS_PROVIDER_NAME
  */
+@SuppressWarnings("javadoc")
 public class PatrFSProvider extends FSProvider {
-	
-	private static final long MAGIC_START       = 0x31756539FC422698L;
-	private static final long OFFSET_BLOCK_SIZE = 20;
-	
-	private static final int SEEK_SET = 0;
-	private static final int O_RDWR   = 02;
-	private static final int O_CREAT  = 0100;
-	
-	private static final SymbolLookup GLIBC_LIBARY_LOCKUP = SymbolLookup.libraryLookup("/lib/libc.so.6", SegmentScope.global());
 	
 	static volatile PatrFS loaded;
 	
@@ -61,8 +51,8 @@ public class PatrFSProvider extends FSProvider {
 	public PatrFSProvider() {
 		super(FSProvider.PATR_FS_PROVIDER_NAME, 1);
 		synchronized (PatrFSProvider.class) {
-			if (exists) { throw new IllegalStateException("this class is only allowed to be created once"); }
-			exists = true;
+			if (this.exists) { throw new IllegalStateException("this class is only allowed to be created once"); }
+			this.exists = true;
 		}
 	}
 	
@@ -96,9 +86,9 @@ public class PatrFSProvider extends FSProvider {
 	
 	private static void loadPatrRamOpts(Linker linker, PatrRamFSOpts opts) throws Throwable {
 		MethodHandle  newBm            = linker.downcallHandle(PatrFS.LOCKUP.find("bm_new_ram_block_manager").orElseThrow(),
-			FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT));
+				FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT));
 		MethodHandle  pfsLoadAndFormat = linker.downcallHandle(PatrFS.LOCKUP.find("pfs_load_and_format").orElseThrow(),
-			FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
 		MemorySegment bm               = (MemorySegment) newBm.invoke(opts.blockCount(), opts.blockSize());
 		if (0 == (int) pfsLoadAndFormat.invoke(bm, opts.blockCount())) {
 			throw thrw(PFSErrorCause.LOAD_PFS_AND_FORMAT, opts);
@@ -106,50 +96,41 @@ public class PatrFSProvider extends FSProvider {
 	}
 	
 	private static void loadPatrOpts(Linker linker, Arena local, PatrFSOptions opts) throws Throwable {
-		MethodHandle  open  = linker.downcallHandle(GLIBC_LIBARY_LOCKUP.find("open").orElseThrow(),
-			FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
-		MethodHandle  newBm = linker.downcallHandle(PatrFS.LOCKUP.find("bm_new_file_block_manager").orElseThrow(),
-			FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
-		MemorySegment path  = local.allocateUtf8String(opts.path());
-		int           fd    = (int) open.invoke(path, opts.format() ? O_RDWR | O_CREAT : O_RDWR, 0666);
-		if (fd == -1) {
-			throw new IOException("could not open the pfs '" + opts.path() + "' file");
-		}
+		MemorySegment path = local.allocateUtf8String(opts.path());
 		if (opts.format()) {
-			loadWithFormat(linker, opts, newBm, fd);
+			loadWithFormat(linker, opts, path);
 		} else {
-			loadWithoutFormat(linker, local, opts, newBm, fd);
+			loadWithoutFormat(linker, opts, path);
 		}
 	}
 	
-	private static void loadWithFormat(Linker linker, PatrFSOptions opts, MethodHandle newBm, int fd) throws Throwable {
+	private static void loadWithFormat(Linker linker, PatrFSOptions opts, MemorySegment path) throws Throwable {
+		MethodHandle  newBm            = linker.downcallHandle(PatrFS.LOCKUP.find("bm_new_file_block_manager_path_bs").orElseThrow(),
+				FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
 		MethodHandle  pfsLoadAndFormat = linker.downcallHandle(PatrFS.LOCKUP.find("pfs_load_and_format").orElseThrow(),
-			FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
-		MemorySegment bm               = (MemorySegment) newBm.invoke(fd, opts.blockSize());
-		if (0 == (int) pfsLoadAndFormat.invoke(bm, opts.blockCount())) {
+				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+		MemorySegment bm               = (MemorySegment) newBm.invoke(path, opts.blockSize());
+		if (0 == (int) pfsLoadAndFormat.invoke(bm, opts.blockCount(), 0)) {
 			throw thrw(PFSErrorCause.LOAD_PFS_AND_FORMAT, opts);
 		}
 	}
 	
-	private static void loadWithoutFormat(Linker linker, Arena local, PatrFSOptions opts, MethodHandle newBm, int fd) throws Throwable {
-		MethodHandle  pfsLoad = linker.downcallHandle(PatrFS.LOCKUP.find("pfs_load").orElseThrow(),
-			FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
-		MethodHandle  lseek   = linker.downcallHandle(GLIBC_LIBARY_LOCKUP.find("lseek").orElseThrow(),
-			FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT, ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT));
-		MethodHandle  read    = linker.downcallHandle(GLIBC_LIBARY_LOCKUP.find("read").orElseThrow(),
-			FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
-		MemorySegment buf     = local.allocate(8);
-		if (8L != (long) read.invoke(fd, buf, 8L)) { throw new IOException("error on read"); }
-		if (MAGIC_START != buf.get(ValueLayout.JAVA_LONG, 0)) {
-			throw new IOException("the file system does not start with my magic!");
+	private static void loadWithoutFormat(Linker linker, PatrFSOptions opts, MemorySegment path) throws Throwable {
+		MemorySegment bm;
+		if (opts.blockSize() != -1L) {
+			MethodHandle newBm = linker.downcallHandle(PatrFS.LOCKUP.find("bm_new_file_block_manager_path").orElseThrow(),
+					FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+			bm = (MemorySegment) newBm.invoke(path, 0);
+		} else {
+			MethodHandle newBm = linker.downcallHandle(PatrFS.LOCKUP.find("bm_new_file_block_manager_path_bs").orElseThrow(),
+					FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
+			bm = (MemorySegment) newBm.invoke(path, opts.blockSize(), 0);
 		}
-		if (OFFSET_BLOCK_SIZE != (long) lseek.invoke(fd, OFFSET_BLOCK_SIZE, SEEK_SET)) {
-			throw new IOException("error on lseek");
+		MethodHandle pfsLoad = linker.downcallHandle(PatrFS.LOCKUP.find("pfs_load").orElseThrow(),
+				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+		if (0 == (int) pfsLoad.invoke(bm, MemorySegment.NULL)) {
+			throw thrw(PFSErrorCause.LOAD_PFS, opts.path());
 		}
-		if (4L != (long) read.invoke(fd, buf, 4L)) { throw new IOException("error on read"); }
-		int           bs = buf.get(ValueLayout.JAVA_INT, 0);
-		MemorySegment bm = (MemorySegment) newBm.invoke(fd, bs);
-		if (0 == (int) pfsLoad.invoke(bm, MemorySegment.NULL)) { throw thrw(PFSErrorCause.LOAD_PFS, opts.path()); }
 	}
 	
 	public static IOException thrw(Throwable t) throws IOException {
@@ -196,9 +177,8 @@ public class PatrFSProvider extends FSProvider {
 	public Collection<? extends FS> loadedFS() {
 		if (loaded != null) {
 			return Arrays.asList(loaded);
-		} else {
-			return Collections.emptyList();
 		}
+		return Collections.emptyList();
 	}
 	
 }

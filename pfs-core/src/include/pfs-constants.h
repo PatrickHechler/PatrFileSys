@@ -29,8 +29,8 @@
  * not backwards compatible
  */
 #define PFS_MAGIC_START 0x31756539FC422698UL
-#define PFS_B0_OFFSET_BLOCK_COUNT 24
-#define PFS_B0_OFFSET_BLOCK_SIZE 20
+#define PFS_B0_OFFSET_BLOCK_SIZE  28
+#define PFS_B0_OFFSET_BLOCK_COUNT 32
 #ifdef PFS_INTERN_H_
 static_assert(PFS_B0_OFFSET_BLOCK_COUNT == offsetof(struct pfs_b0, block_count), "error!");
 static_assert(PFS_B0_OFFSET_BLOCK_SIZE == offsetof(struct pfs_b0, block_size), "error!");

@@ -31,8 +31,9 @@
 #include <stdio.h>
 #include <errno.h>
 #include <stdarg.h>
+#include <fcntl.h>
 
-#ifdef __unix__
+#if !defined LINUX_PORTABLE_BUILD && defined __unix__
 #include <unistd.h>
 typedef int bm_fd;
 #else
@@ -134,6 +135,12 @@ extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count,
 extern struct bm_block_manager* bm_new_file_block_manager(bm_fd file,
 		i32 block_size);
 
+extern struct bm_block_manager* bm_new_file_block_manager_path_bs(const char *file,
+		i32 block_size, int read_only);
+
+extern struct bm_block_manager* bm_new_file_block_manager_path(const char *file,
+		int read_only);
+
 /*
  * operations with bm_fd:
  *       bm_fd_read(bm_fd fd, void *buf, size_t len)
@@ -149,7 +156,7 @@ extern struct bm_block_manager* bm_new_file_block_manager(bm_fd file,
  *       bm_fd_close(bm_fd fd)
  */
 
-#ifdef __unix__
+#if !defined LINUX_PORTABLE_BUILD && defined __unix__
 #define bm_fd_read(fd, buf, len) read(fd, buf, len)
 #define bm_fd_write(fd, data, len) write(fd, data, len)
 #define bm_fd_pos(fd) lseek64(fd, 0, SEEK_CUR)
@@ -198,26 +205,24 @@ extern struct bm_block_manager* bm_new_file_block_manager(bm_fd file,
 	} \
 }
 
-#define new_file_bm0(bm, file, wrong_magic_error, io_error, ...) { \
+#define new_file_bm0(bm, file, wrong_magic_error, io_error) { \
 	ui64 magic; \
 	i32 block_size; \
 	if (bm_fd_seek(file, 0) == -1) { \
 		io_error \
 	} \
-	sread(file, &magic, 8, __VA_ARGS__); \
+	sread(file, &magic, 8, io_error); \
 	if (magic != PFS_MAGIC_START) { \
 		wrong_magic_error \
 	} \
 	if (bm_fd_seek(file, PFS_B0_OFFSET_BLOCK_SIZE) == -1) { \
 		io_error \
 	} \
-	sread(file, &block_size, 4, __VA_ARGS__); \
+	sread(file, &block_size, 4, io_error); \
 	bm = bm_new_file_block_manager(file, block_size); \
 }
 
-#define new_file_bm(bm, file, error) new_file_bm0(bm, file, \
-		if (error) { error(); } else { abort(); }, \
-		if (error) { error(); } else { abort(); }, (void(*)()) error, 0)
+#define new_file_bm(bm, file, error) new_file_bm0(bm, file, error, error)
 
 #define new_file_pfs(file, error) new_file_bm(pfs, file, error)
 

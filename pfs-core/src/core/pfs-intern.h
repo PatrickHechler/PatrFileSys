@@ -29,12 +29,12 @@
 /*
  * only the used flag is important, the other flags are optional
  * if the used flag is is not available (block manager supports zero bits)
- * the flag is replaced by the patr-file-system
+ * the flags are managed by the patr-file-system
  */
 // the bit number of the used block flag
 #define BLOCK_FLAG_USED_BIT      0
 // the bit number of the file data block flag
-#define BLOCK_FLAG_DATA_BIT 1
+#define BLOCK_FLAG_DATA_BIT      1
 // the bit number of the file system entries block flag
 #define BLOCK_FLAG_ENTRIES_BIT   2
 // this flag indicates that the block is used by the file system
@@ -43,6 +43,33 @@
 #define BLOCK_FLAG_DATA         (1UL << BLOCK_FLAG_DATA_BIT)
 // this flag indicates that the block is used and stores file system entries
 #define BLOCK_FLAG_ENTRIES      (1UL << BLOCK_FLAG_ENTRIES_BIT)
+
+#define PFS_MIN_BLOCK_SIZE (sizeof(struct pfs_b0) + sizeof(struct pfs_folder) + (sizeof(struct pfs_folder_entry) * 2) + 30)
+
+#define pfs_validate_b0(b0, invalid) \
+	if ((b0).MAGIC != PFS_MAGIC_START) { \
+		invalidb0:; \
+		invalid \
+	} \
+	if ((b0).block_table_first_block == 0 || (b0).block_table_first_block < -1) { \
+		goto invalidb0; \
+	} \
+	if ((b0).block_count < 2) { \
+		goto invalidb0; \
+	} \
+	if ((b0).block_size < PFS_MIN_BLOCK_SIZE) { \
+		goto invalidb0; \
+	} \
+	if ((b0).root.block < 0) { \
+		goto invalidb0; \
+	} \
+	if ((b0).root.pos < 0) { \
+		goto invalidb0; \
+	} \
+	if ((b0).root.block == 0 && (b0).root.pos < PFS_MIN_BLOCK_SIZE) { \
+		goto invalidb0; \
+	}
+
 
 struct pfs_place {
 	i64 block;

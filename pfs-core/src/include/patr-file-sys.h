@@ -37,7 +37,7 @@
 #include <time.h>
 #include <assert.h>
 #include <string.h>
-#ifndef __unix__
+#if defined LINUX_PORTABLE_BUILD || !defined __unix__
 #include <threads.h>
 #endif
 
@@ -57,7 +57,7 @@ static_assert(sizeof(ui64) == 8, "Error!");
 static_assert(sizeof(ui32) == 4, "Error!");
 static_assert(sizeof(char) == 1, "Error!");
 
-#ifdef __unix__
+#if !defined LINUX_PORTABLE_BUILD && defined __unix__
 #define wait5ms() { \
 	struct timespec wait_time = { \
 			/*	  */.tv_sec = 0, /* 0 sec */ \

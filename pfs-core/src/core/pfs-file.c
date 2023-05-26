@@ -166,13 +166,31 @@ int pfsc_file_truncate_grow(pfs_eh f, i64 new_length) {
 		if (file->file_length >= new_length) {
 			*(i64*) (current_block + pfs->block_size - 8) = -1L;
 			pfs->set(pfs, file_end.block);
+#if 21
+			current_block = pfs->get(pfs, file_end.block);
+			printf("next block is: %ld (it should be -1)\n",
+					*(i64*) (current_block + pfs->block_size - 8), file_end.block);
+			pfs->unget(pfs, file_end.block);
+			current_block = pfs->get(pfs, 2);
+			printf("block after 2 is: %ld\n",
+					*(i64*) (current_block + pfs->block_size - 8));
+			pfs->unget(pfs, 2);
+			fflush(NULL);
+#endif
 			break;
 		}
 		const i64 current_block_num = file_end.block;
-		*(i64*) (current_block + pfs->block_size - 8) = file_end.block =
-				allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
+		file_end.block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
+		*(i64*) (current_block + pfs->block_size - 8) = file_end.block;
 		file_end.pos = 0;
 		pfs->set(pfs, current_block_num);
+#if 21
+		current_block = pfs->get(pfs, current_block_num);
+		printf("next block is: %ld (it should be %ld)\n",
+				*(i64*) (current_block + pfs->block_size - 8), file_end.block);
+		pfs->unget(pfs, current_block_num);
+		fflush(NULL);
+#endif
 		if (file_end.block == -1L) {
 			truncate_shrink(f, old_length);
 			pfs->set(pfs, f->element_place.block);

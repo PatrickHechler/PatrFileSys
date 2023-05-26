@@ -67,9 +67,7 @@ int pfsc_format(i64 block_count) {
 		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
-	if (pfs->block_size
-			< (sizeof(struct pfs_b0) + sizeof(struct pfs_folder)
-					+ (sizeof(struct pfs_folder_entry) * 2) + 30)) {
+	if (pfs->block_size < PFS_MIN_BLOCK_SIZE) {
 		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
 		/*
 		 * absolute minimum:
