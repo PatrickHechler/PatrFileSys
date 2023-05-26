@@ -322,6 +322,10 @@ static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 				} else {
 					abort();
 				}
+#else
+				if (reat) {
+					abort();
+				}
 #endif
 				memset(buf, 0, remain);
 			}
