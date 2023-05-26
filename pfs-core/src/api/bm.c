@@ -277,20 +277,6 @@ static int bm_ram_close(struct bm_block_manager *bm) {
 	return 1;
 }
 
-void sread_fail(struct bm_file *bf, void *data, size_t remain) {
-	if (errno) {
-		abort();
-	}
-#ifndef __unix__
-				if (feof(bf->file)) {
-				clearerr(bf->file);
-				} else {
-				abort();
-				}
-	#endif
-	memset((void*) ((i64) data + bf->bm.block_size - remain), 0, remain);
-}
-
 static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 	struct bm_file *bf = (struct bm_file*) bm;
 	struct bm_loaded *loaded = hashset_get(&bf->bm.loaded, (uint64_t) block,
@@ -316,7 +302,33 @@ static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 		fflush(NULL);
 		abort();
 	}
-	sread(bf->file, loaded->data, loaded->count, sread_fail, 2, bf);
+	void *buf = loaded->data;
+	for (i64 remain = loaded->count; remain > 0;) {
+		i64 reat = bm_fd_read(bf->file, buf, remain);
+		if (reat <= 0) {
+			if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
+				wait5ms();
+				errno = 0;
+				continue;
+			} else if ((errno == EINTR)) {
+				errno = 0;
+				continue;
+			} else if (errno) {
+				abort();
+			} else {
+#ifndef __unix__
+				if (feof(bf->file)) {
+					clearerr(bf->file);
+				} else {
+					abort();
+				}
+#endif
+				memset(buf, 0, remain);
+			}
+		}
+		_remain -= _reat;
+		_pntr += _reat;
+	}
 	if (hashset_put(&bf->bm.loaded, (uint64_t) block, loaded) != NULL) {
 		abort();
 	}
