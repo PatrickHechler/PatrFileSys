@@ -316,14 +316,14 @@ static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 			} else if (errno) {
 				abort();
 			} else {
-#ifndef __unix__
-				if (feof(bf->file)) {
-					clearerr(bf->file);
-				} else {
+#ifdef __unix__
+				if (reat) {
 					abort();
 				}
 #else
-				if (reat) {
+				if (feof(bf->file)) {
+					clearerr(bf->file);
+				} else {
 					abort();
 				}
 #endif
