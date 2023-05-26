@@ -277,6 +277,20 @@ static int bm_ram_close(struct bm_block_manager *bm) {
 	return 1;
 }
 
+void sread_fail(struct bm_file *bf, void *data, size_t remain) {
+	if (errno) {
+		abort();
+	}
+#ifndef __unix__
+				if (feof(bf->file)) {
+				clearerr(bf->file);
+				} else {
+				abort();
+				}
+	#endif
+	memset((void*) ((i64) data + bf->bm.block_size - remain), 0, remain);
+}
+
 static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 	struct bm_file *bf = (struct bm_file*) bm;
 	struct bm_loaded *loaded = hashset_get(&bf->bm.loaded, (uint64_t) block,
@@ -302,20 +316,7 @@ static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 		fflush(NULL);
 		abort();
 	}
-	sread(bf->file, loaded->data, loaded->count, //
-			/*	*/if (errno) { //
-			/*		*/abort();//
-			/*	*/} //
-#ifndef __unix__
-			/*	*/if (feof(bf->file)) {
-			/*		*/clearerr(bf->file);
-			/*	*/} else {
-			/*		*/abort();
-			/*	*/}
-#endif
-			/*	*/memset((void*) ((i64) loaded->data + bf->bm.block_size - _remain), 0, _remain); //
-			/*	*/break;//
-			)
+	sread(bf->file, loaded->data, loaded->count, sread_fail, 2, bf);
 	if (hashset_put(&bf->bm.loaded, (uint64_t) block, loaded) != NULL) {
 		abort();
 	}
@@ -327,7 +328,7 @@ static inline int save_block(struct bm_file *bf, struct bm_loaded *loaded) {
 		abort();
 	}
 	void *data = loaded->data;
-	for (i64 need = bf->bm.block_size; ;) {
+	for (i64 need = bf->bm.block_size;;) {
 		i64 wrote = bm_fd_write(bf->file, data, need);
 		if (wrote == -1) {
 			int e = errno;

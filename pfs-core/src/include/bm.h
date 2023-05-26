@@ -29,6 +29,8 @@
 #include "pfs-constants.h"
 
 #include <stdio.h>
+#include <errno.h>
+#include <stdarg.h>
 
 #ifdef __unix__
 #include <unistd.h>
@@ -175,46 +177,69 @@ extern struct bm_block_manager* bm_new_file_block_manager(bm_fd file,
 
 #define bm_fd_open(file, read_only) read_only ? bm_fd_open_ro(file) : bm_fd_open_rw(file)
 
-#define sread(fd, buf, count, error) \
-	{ \
-		void *_pntr = buf; \
-		for (i64 _remain = count; _remain > 0; ) { \
-			i64 _reat = bm_fd_read(fd, _pntr, _remain); \
-			if (_reat <= 0) { \
-				if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) { \
-					wait5ms(); \
-					errno = 0; \
-					continue; \
-				} else if ((errno == EINTR)) { \
-					errno = 0; \
-					continue; \
-				} else { \
-					error \
-				} \
-			} \
-			_remain -= _reat; \
-			_pntr += _reat; \
-		} \
+static inline _Bool sread(bm_fd fd, void *buf, size_t count,
+		void *error, int et, ...) {
+	void *_pntr = buf;
+	for (i64 _remain = count; _remain > 0;) {
+		i64 _reat = bm_fd_read(fd, _pntr, _remain);
+		if (_reat <= 0) {
+			if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
+				wait5ms();
+				errno = 0;
+				continue;
+			} else if ((errno == EINTR)) {
+				errno = 0;
+				continue;
+			} else if (error) {
+				switch (et) {
+				case 0:
+					((void(*)())error)();
+					break;
+				case 1:
+					((void(*)(void*, size_t))error)(buf, _remain);
+					break;
+				case 2: {
+					va_list v;
+					va_start(v, et);
+					void *arg = va_arg(v, void*);
+					va_end(v);
+					((void (*)(void*, void*, size_t)) error)(arg, buf, _remain);
+					break;
+				}
+				default:
+					abort();
+				}
+				return 0;
+			} else {
+				abort();
+			}
+		}
+		_remain -= _reat;
+		_pntr += _reat;
 	}
+	return 1;
+}
 
-#define new_file_bm0(bm, file, wrong_magic_error, io_error) { \
+#define new_file_bm0(bm, file, wrong_magic_error, io_error, ...) { \
 	ui64 magic; \
 	i32 block_size; \
 	if (bm_fd_seek(file, 0) == -1) { \
 		io_error \
 	} \
-	sread(file, &magic, 8, io_error) \
+	sread(file, &magic, 8, __VA_ARGS__); \
 	if (magic != PFS_MAGIC_START) { \
 		wrong_magic_error \
 	} \
 	if (bm_fd_seek(file, PFS_B0_OFFSET_BLOCK_SIZE) == -1) { \
 		io_error \
 	} \
-	sread(file, &block_size, 4, io_error) \
+	sread(file, &block_size, 4, __VA_ARGS__); \
 	bm = bm_new_file_block_manager(file, block_size); \
 }
 
-#define new_file_bm(bm, file, error) new_file_bm0(bm, file, error, error)
+#define new_file_bm(bm, file, error) new_file_bm0(bm, file, \
+		if (error) { error(); } else { abort(); }, \
+		if (error) { error(); } else { abort(); }, (void(*)()) error, 0)
 
 #define new_file_pfs(file, error) new_file_bm(pfs, file, error)
 

@@ -382,6 +382,10 @@ static int my_set_flags(struct bm_block_manager *bm, i64 block, ui64 flags) {
 	return other_set_flags(bm, block, flags & flag_and);
 }
 
+static void exit_fail() {
+	exit(EXIT_FAILURE);
+}
+
 int main(int argc, char **argv) {
 	const char *start = "[main]:                                               ";
 	printf("%sstart checks with a ram block manager [0]\n", start);
@@ -413,7 +417,7 @@ int main(int argc, char **argv) {
 		printf("%scould not open testfile ('%s') [5]\n", start, test_file);
 		exit(EXIT_FAILURE);
 	}
-	new_file_pfs(fd, exit(EXIT_FAILURE);)
+	new_file_pfs(fd, exit_fail)
 	checks();
 	pfs->close_bm(pfs);
 	printf("%sstart checks with block-flaggable ram block manager [6]\n",
