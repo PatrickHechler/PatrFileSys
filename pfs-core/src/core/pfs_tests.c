@@ -363,7 +363,7 @@ static int print_pfs() {
 	}
 	struct pfs_place rp = b0->root;
 	pfs->unget(pfs, 0);
-	printf("%sprint now pfs [2]\n", start);
+	printf("%sprint now pfs (block_size=%d, block_count=%ld) [2]\n", start, b0->block_size, b0->block_count);
 	struct pfs_place np;
 	np.block = -1L;
 	np.pos = -1;
@@ -420,9 +420,13 @@ int main(int argc, char **argv) {
 		ui64 magic;
 		i32 block_size;
 		if (bm_fd_seek(fd, 0) == -1) {
+			printf("%scould not seek (%s) [5.0]\n", start, pfs_error());
 			exit(EXIT_FAILURE);
 		}
-		sread(fd, &magic, 8, exit(EXIT_FAILURE););
+		if (bm_fd_read(fd, &magic, 8) != 8) {
+			printf("%scould not read (%s) [5.1]\n", start, pfs_error());
+			exit(EXIT_FAILURE);
+		}
 		if (magic != PFS_MAGIC_START) {
 			puts("illegal magic");
 			exit(EXIT_FAILURE);
@@ -431,8 +435,15 @@ int main(int argc, char **argv) {
 			puts("illegal magic");
 			exit(EXIT_FAILURE);
 		}
-		sread(fd, &block_size, 4, exit(EXIT_FAILURE););
+		if (bm_fd_read(fd, &block_size, 4) != 4) {
+			printf("%scould not read (%s) [5.2]\n", start, pfs_error());
+			exit(EXIT_FAILURE);
+		}
 		pfs = bm_new_file_block_manager(fd, block_size);
+		if (pfs == NULL) {
+			printf("%scould not create the block manager (%s) [5.3]\n", start, pfs_error());
+			exit(EXIT_FAILURE);
+		}
 	}
 	checks();
 	pfs->close_bm(pfs);
