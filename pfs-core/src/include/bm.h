@@ -205,27 +205,6 @@ extern struct bm_block_manager* bm_new_file_block_manager_path(const char *file,
 	} \
 }
 
-#define new_file_bm0(bm, file, wrong_magic_error, io_error) { \
-	ui64 magic; \
-	i32 block_size; \
-	if (bm_fd_seek(file, 0) == -1) { \
-		io_error \
-	} \
-	sread(file, &magic, 8, io_error); \
-	if (magic != PFS_MAGIC_START) { \
-		wrong_magic_error \
-	} \
-	if (bm_fd_seek(file, PFS_B0_OFFSET_BLOCK_SIZE) == -1) { \
-		io_error \
-	} \
-	sread(file, &block_size, 4, io_error); \
-	bm = bm_new_file_block_manager(file, block_size); \
-}
-
-#define new_file_bm(bm, file, error) new_file_bm0(bm, file, error, error)
-
-#define new_file_pfs(file, error) new_file_bm(pfs, file, error)
-
 /**
  * creates a new ram block manager
  * the returned block manager will support the flagging of blocks
