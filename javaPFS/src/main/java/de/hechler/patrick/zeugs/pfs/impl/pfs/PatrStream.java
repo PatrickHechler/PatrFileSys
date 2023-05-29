@@ -43,6 +43,7 @@ import de.hechler.patrick.zeugs.pfs.opts.StreamOpenOptions;
  * 
  * @author pat
  */
+@SuppressWarnings("javadoc")
 public abstract sealed class PatrStream implements Stream permits PatrWriteStream, PatrReadStream, PatrReadWriteStream {
 	
 	private boolean closed = false;
@@ -95,10 +96,10 @@ public abstract sealed class PatrStream implements Stream permits PatrWriteStrea
 	 * @see WriteStream#write(MemorySegment)
 	 */
 	public long write(MemorySegment seg) throws IOException {
-		if (closed) { throw new ClosedChannelException(); }
+		if (this.closed) { throw new ClosedChannelException(); }
 		try {
 			long res = (long) PFS_STREAM_WRITE.invoke(this.handle, seg, seg.byteSize());
-			if (res == -1L) { throw thrw(PFSErrorCause.WRITE, seg.byteSize()); }
+			if (res == -1L) { throw thrw(PFSErrorCause.WRITE, Long.valueOf(seg.byteSize())); }
 			return res;
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -119,10 +120,10 @@ public abstract sealed class PatrStream implements Stream permits PatrWriteStrea
 	 * @see ReadStream#read(MemorySegment)
 	 */
 	public long read(MemorySegment seg) throws IOException {
-		if (closed) { throw new ClosedChannelException(); }
+		if (this.closed) { throw new ClosedChannelException(); }
 		try {
 			long res = (long) PFS_STREAM_READ.invoke(this.handle, seg, seg.byteSize());
-			if (res == -1L) throw thrw(PFSErrorCause.READ, seg.byteSize());
+			if (res == -1L) throw thrw(PFSErrorCause.READ, Long.valueOf(seg.byteSize()));
 			else if (res == 0) return -1;
 			else return res;
 		} catch (Throwable e) {
@@ -132,12 +133,12 @@ public abstract sealed class PatrStream implements Stream permits PatrWriteStrea
 	
 	@Override
 	public StreamOpenOptions options() {
-		return opts;
+		return this.opts;
 	}
 	
 	@Override
 	public void seek(long pos) throws IOException {
-		if (closed) { throw new ClosedChannelException(); }
+		if (this.closed) { throw new ClosedChannelException(); }
 		try {
 			if (0 == (int) PFS_STREAM_SET_POS.invoke(this.handle, pos)) { throw thrw(PFSErrorCause.SET_POS, null); }
 		} catch (Throwable e) {
@@ -147,7 +148,7 @@ public abstract sealed class PatrStream implements Stream permits PatrWriteStrea
 	
 	@Override
 	public long seekAdd(long add) throws IOException {
-		if (closed) { throw new ClosedChannelException(); }
+		if (this.closed) { throw new ClosedChannelException(); }
 		try {
 			long res = (long) PFS_STREAM_ADD_POS.invoke(this.handle, add);
 			if (res == -1L) { throw thrw(PFSErrorCause.ADD_POS, null); }
@@ -159,7 +160,7 @@ public abstract sealed class PatrStream implements Stream permits PatrWriteStrea
 	
 	@Override
 	public long position() throws IOException {
-		if (closed) { throw new ClosedChannelException(); }
+		if (this.closed) { throw new ClosedChannelException(); }
 		try {
 			long res = (long) PFS_STREAM_GET_POS.invoke(this.handle);
 			if (res == -1L) { throw thrw(PFSErrorCause.GET_POS, null); }
@@ -171,7 +172,7 @@ public abstract sealed class PatrStream implements Stream permits PatrWriteStrea
 	
 	@Override
 	public long seekEOF() throws IOException {
-		if (closed) { throw new ClosedChannelException(); }
+		if (this.closed) { throw new ClosedChannelException(); }
 		try {
 			long res = (long) PFS_STREAM_SEEK_EOF.invoke(this.handle);
 			if (res == -1L) { throw thrw(PFSErrorCause.SEEK_EOF, null); }
@@ -183,8 +184,8 @@ public abstract sealed class PatrStream implements Stream permits PatrWriteStrea
 	
 	@Override
 	public void close() throws IOException {
-		if (closed) { return; }
-		closed = true;
+		if (this.closed) { return; }
+		this.closed = true;
 		try {
 			if (0 == (int) PFS_STREAM_CLOSE.invoke(this.handle)) { throw thrw(PFSErrorCause.CLOSE_STREAM, null); }
 		} catch (Throwable e) {

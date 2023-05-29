@@ -158,9 +158,7 @@ extern struct bm_block_manager* bm_new_file_block_manager_path(const char *file,
 	struct pfs_b0 b0;
 	bm_fd_read(fd, &b0, sizeof(struct pfs_b0));
 	pfs_validate_b0(b0,
-		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_SUPER_BLOCK;
-		return NULL;
-	)
+			(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_SUPER_BLOCK; return NULL;)
 	return bm_new_file_block_manager(fd, b0.block_size);
 }
 
@@ -329,30 +327,32 @@ static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 	for (i64 remain = bf->bm.block_size; remain > 0;) {
 		i64 reat = bm_fd_read(bf->file, buf, remain);
 		if (reat <= 0) {
-			if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
-				wait5ms();
-				errno = 0;
-				continue;
-			} else if ((errno == EINTR)) {
-				errno = 0;
-				continue;
-			} else if (errno) {
-				abort();
-			} else {
-#if !defined LINUX_PORTABLE_BUILD && defined __unix__
-				if (reat) {
-					abort();
-				}
+#ifdef PORTABLE_BUILD
+			if (!feof(bf->file)) {
 #else
-				if (feof(bf->file)) {
-					clearerr(bf->file);
-				} else {
+			if (reat) {
+#endif
+				switch (errno) {
+#if EWOULDBLOCK != EAGAIN
+				case EWOULDBLOCK:
+#endif
+				case EAGAIN:
+					wait5ms();
+					errno = 0;
+					continue;
+				case EINTR:
+					errno = 0;
+					continue;
+				default:
+					perror("read");
 					abort();
 				}
-#endif
-				memset(buf, 0, remain);
-				break;
 			}
+#ifdef PORTABLE_BUILD
+			clearerr(bf->file);
+#endif
+			memset(buf, 0, remain);
+			break;
 		}
 		remain -= reat;
 		buf += reat;

@@ -109,8 +109,8 @@ public class PatrFSProvider extends FSProvider {
 				FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
 		MethodHandle  pfsLoadAndFormat = linker.downcallHandle(PatrFS.LOCKUP.find("pfs_load_and_format").orElseThrow(),
 				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
-		MemorySegment bm               = (MemorySegment) newBm.invoke(path, opts.blockSize());
-		if (0 == (int) pfsLoadAndFormat.invoke(bm, opts.blockCount(), 0)) {
+		MemorySegment bm               = (MemorySegment) newBm.invoke(path, opts.blockSize(), 0);
+		if (0 == (int) pfsLoadAndFormat.invoke(bm, opts.blockCount())) {
 			throw thrw(PFSErrorCause.LOAD_PFS_AND_FORMAT, opts);
 		}
 	}

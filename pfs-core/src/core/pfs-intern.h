@@ -44,7 +44,15 @@
 // this flag indicates that the block is used and stores file system entries
 #define BLOCK_FLAG_ENTRIES      (1UL << BLOCK_FLAG_ENTRIES_BIT)
 
-#define PFS_MIN_BLOCK_SIZE (sizeof(struct pfs_b0) + sizeof(struct pfs_folder) + (sizeof(struct pfs_folder_entry) * 2) + 30)
+#define PFS_MIN_BLOCK_SIZE ( \
+		sizeof(struct pfs_b0) \
+		+ sizeof(struct pfs_folder) \
+		+ ( \
+			sizeof(struct pfs_folder_entry) \
+			* 2 \
+		) \
+		+ 30 \
+	)
 
 #define pfs_validate_b0(b0, invalid) \
 	if ((b0).MAGIC != PFS_MAGIC_START) { \
@@ -66,7 +74,7 @@
 	if ((b0).root.pos < 0) { \
 		goto invalidb0; \
 	} \
-	if ((b0).root.block == 0 && (b0).root.pos < PFS_MIN_BLOCK_SIZE) { \
+	if ((b0).root.block == 0 && (b0).root.pos < sizeof(struct pfs_b0)) { \
 		goto invalidb0; \
 	}
 

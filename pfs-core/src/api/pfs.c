@@ -582,7 +582,7 @@ static i64 fd_read(struct delegate_stream *ds, void *buf, i64 len) {
 	struct fd_del_str *fdds = (struct fd_del_str*) ds;
 	i64 reat = read(fdds->fd, buf, len);
 	if (reat == -1) {
-#if !defined __unix__ || defined  LINUX_PORTABLE_BUILD
+#ifdef PORTABLE_BUILD
 		if (feof(fdds->fd)) {
 			clearerr(bf->fd);
 		} else {

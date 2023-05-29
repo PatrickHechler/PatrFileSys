@@ -44,9 +44,8 @@ public enum PFSErrorCause {
 	GET_PARENT("get parent", (msg, errno) -> {
 		if (errno == ErrConsts.ROOT_FOLDER) {
 			throw new IllegalStateException(msg);
-		} else {
-			return ErrConsts.FUNC.apply(msg, errno);
 		}
+		return ErrConsts.FUNC.apply(msg, errno);
 	}),
 	
 	GET_FLAGS(path -> path != null ? " get flags for '" + path + "'" : "get flags"), MODIFY_FLAGS("modify flags"),

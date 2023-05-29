@@ -28,15 +28,15 @@
 
 extern i64 pfs_stream_write(int sh, void *data, i64 len) {
 	sh(0)
-	if ((pfs_shs[sh]->flags & (PFS_SO_APPEND | PFS_SO_WRITE)) == 0) {
-		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
-		return 0;
-	} else if (!pfs_shs[sh]->element) {
+	if (!pfs_shs[sh]->element) {
 		if (pfs_shs[sh]->delegate->write) {
 			return pfs_shs[sh]->delegate->write(pfs_shs[sh]->delegate, data,
 					len);
 		}
 		(*pfs_err_loc) = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+		return 0;
+	} else if ((pfs_shs[sh]->flags & (PFS_SO_APPEND | PFS_SO_WRITE)) == 0) {
+		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	if (len <= 0) {
@@ -101,14 +101,14 @@ extern i64 pfs_stream_write(int sh, void *data, i64 len) {
 
 extern i64 pfs_stream_read(int sh, void *buffer, i64 len) {
 	sh(0)
-	if ((pfs_shs[sh]->flags & PFS_SO_READ) == 0) {
-		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
-		return 0;
-	} else if (!pfs_shs[sh]->element) {
+	if (!pfs_shs[sh]->element) {
 		if (pfs_shs[sh]->delegate->read) {
 			return pfs_shs[sh]->delegate->read(pfs_shs[sh]->delegate, buffer, len);
 		}
 		(*pfs_err_loc) = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+		return 0;
+	} else if ((pfs_shs[sh]->flags & PFS_SO_READ) == 0) {
+		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	if (len <= 0) {

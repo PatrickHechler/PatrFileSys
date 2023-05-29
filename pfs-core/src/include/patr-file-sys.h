@@ -37,7 +37,7 @@
 #include <time.h>
 #include <assert.h>
 #include <string.h>
-#if defined LINUX_PORTABLE_BUILD || !defined __unix__
+#ifdef PORTABLE_BUILD
 #include <threads.h>
 #endif
 
@@ -47,8 +47,6 @@ typedef uint64_t ui64;
 typedef uint32_t ui32;
 typedef uint8_t ui8;
 
-#define extern __attribute__ ((visibility ("default"))) extern
-
 static_assert(CHAR_BIT == 8, "Error!");
 static_assert(sizeof(__time_t) == 8, "Error!");
 static_assert(sizeof(i64) == 8, "Error!");
@@ -57,13 +55,17 @@ static_assert(sizeof(ui64) == 8, "Error!");
 static_assert(sizeof(ui32) == 4, "Error!");
 static_assert(sizeof(char) == 1, "Error!");
 
-#if !defined LINUX_PORTABLE_BUILD && defined __unix__
+#ifndef __unix__
+#define PORTABLE_BUILD
+#endif
+
+#ifndef PORTABLE_BUILD
 typedef int bm_fd;
 #else
 typedef FILE* bm_fd;
 #endif
 
-#if !defined LINUX_PORTABLE_BUILD && defined __unix__
+#ifndef PORTABLE_BUILD
 #define wait5ms() { \
 	struct timespec wait_time = { \
 			/*	  */.tv_sec = 0, /* 0 sec */ \

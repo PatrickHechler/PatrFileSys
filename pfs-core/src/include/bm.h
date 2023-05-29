@@ -33,7 +33,7 @@
 #include <stdarg.h>
 #include <fcntl.h>
 
-#if !defined LINUX_PORTABLE_BUILD && defined __unix__
+#ifndef PORTABLE_BUILD
 #include <unistd.h>
 #endif
 
@@ -153,7 +153,7 @@ extern struct bm_block_manager* bm_new_file_block_manager_path(const char *file,
  *       bm_fd_close(bm_fd fd)
  */
 
-#if !defined LINUX_PORTABLE_BUILD && defined __unix__
+#ifndef PORTABLE_BUILD
 #define bm_fd_read(fd, buf, len) read(fd, buf, len)
 #define bm_fd_write(fd, data, len) write(fd, data, len)
 #define bm_fd_pos(fd) lseek64(fd, 0, SEEK_CUR)
