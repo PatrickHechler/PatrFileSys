@@ -108,6 +108,7 @@ int pfsc_format(i64 block_count) {
 	super_data->root.pos = sizeof(struct pfs_b0);
 	super_data->block_size = pfs->block_size;
 	super_data->block_count = block_count;
+	super_data->newly_allocated = 0L;
 	if (pfs->block_flag_bits > 0) {
 		super_data->block_table_first_block = -1L;
 		if (!pfs->delete_all_flags(pfs)) {
@@ -498,7 +499,7 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos,
 		return -1;
 	}
 }
-
+// TODO check references
 int allocate_new_entry(struct pfs_place *write, i64 base_block, i32 size) {
 	if (base_block != -1L) {
 		i32 pos = allocate_in_block_table(base_block, size);
@@ -631,21 +632,12 @@ i32 add_name(i64 block_num, const char *name, i64 str_len) {
 	}
 }
 
-i64 get_block_table_first_block() {
-	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
-	if (b0 == NULL) {
-		return 0;
-	}
-	i64 btfb = b0->block_table_first_block;
-	pfs->unget(pfs, 0L);
-	return btfb;
-}
-
-static inline i64 allocate_block_without_bm(i64 btfb) {
+static inline i64 allocate_block_without_bm(struct pfs_b0 *b0) {
 	const i64 block_count = pfs_block_count();
-	i64 current_block_num = btfb;
+	i64 current_block_num = b0->block_table_first_block;
 	void *current_block = pfs->get(pfs, current_block_num);
-	for (i64 result = 0L; 1;) {
+	i64 result = 0L;
+	while (987) {
 		i64 next_block_num = *(i64*) (current_block + pfs->block_size - 8);
 		ui8 *block_data = current_block;
 		i32 remain = pfs->block_size - 8;
@@ -657,6 +649,7 @@ static inline i64 allocate_block_without_bm(i64 btfb) {
 			if (result >= block_count) {
 				(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 				pfs->unget(pfs, current_block_num);
+				pfs->unget(pfs, 0L);
 				return -1L;
 			}
 		}
@@ -666,6 +659,7 @@ static inline i64 allocate_block_without_bm(i64 btfb) {
 				if (result >= block_count) {
 					(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 					pfs->unget(pfs, current_block_num);
+					pfs->unget(pfs, 0L);
 					return -1L;
 				}
 				continue;
@@ -674,6 +668,11 @@ static inline i64 allocate_block_without_bm(i64 btfb) {
 				if (((*block_data) & (1U << bit)) == 0) {
 					*block_data |= 1U << bit;
 					if (!pfs->set(pfs, current_block_num)) {
+						pfs->unget(pfs, 0L);
+						return -1L;
+					}
+					b0->newly_allocated = result;
+					if (!pfs->set(pfs, 0L)) {
 						return -1L;
 					}
 					if (result == 0L) {
@@ -685,6 +684,7 @@ static inline i64 allocate_block_without_bm(i64 btfb) {
 				if (result >= block_count) {
 					(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 					pfs->unget(pfs, current_block_num);
+					pfs->unget(pfs, 0L);
 					return -1L;
 				}
 			}
@@ -700,7 +700,7 @@ static inline i64 allocate_block_without_bm(i64 btfb) {
 			if (!pfs->set(pfs, current_block_num)) {
 				return -1L;
 			}
-			current_block = pfs->get(pfs, result);
+			current_block = pfs->lazy_get(pfs, result);
 			memset(current_block, 0, pfs->block_size - 8);
 			*(unsigned char*) current_block = 3;
 			*(i64*) (current_block + pfs->block_size - 8) = -1L;
@@ -722,10 +722,14 @@ static inline i64 allocate_block_without_bm(i64 btfb) {
 }
 
 i64 allocate_block(ui64 block_flags) {
-	i64 btfb = get_block_table_first_block();
-	if (btfb == 0L) {
-		return -1L;
-	} else if (btfb == -1L) {
+	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
+	if (b0->newly_allocated) {
+		if (b0->block_table_first_block != -1) {
+			pfs->set_flags(pfs, b0->newly_allocated, block_flags);
+		}
+		return b0->newly_allocated;
+	}
+	if (b0->block_table_first_block == -1L) {
 		i64 fzfb = pfs->first_zero_flagged_block(pfs);
 		if (fzfb == -1L) {
 			if (pfs->block_flag_bits <= 0) {
@@ -739,10 +743,12 @@ i64 allocate_block(ui64 block_flags) {
 			(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 			return -1L;
 		}
+		b0->newly_allocated = fzfb;
+		pfs->set(pfs, 0L);
 		pfs->set_flags(pfs, fzfb, block_flags);
 		return fzfb;
 	} else {
-		return allocate_block_without_bm(btfb);
+		return allocate_block_without_bm(b0);
 	}
 }
 

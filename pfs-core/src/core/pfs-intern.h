@@ -89,17 +89,33 @@ struct pfs_b0 {
 	struct pfs_place root;
 	i32 block_size;
 	i64 block_count;
-	i64 block_table_first_block;
+	i64 newly_allocated;
+	struct pfs_place used_place;
+	ui32 flags;
 } __attribute__((packed));
 
 static_assert(offsetof(struct pfs_b0, MAGIC) == 0, "error!");
+
+//TODO
+#define B0_FLAG_BM_ALLOC              0x00000001U
+#define B0_FLAG_NA_UNUSET             0x00000002U
+#define B0_FLAG_NA_FILE               0x00000004U
+#define B0_FLAG_NA_FOLDER             0x00000008U
+#define B0_FLAG_NA_FLAGS              (B0_FLAG_NA_UNUSET | B0_FLAG_NA_FILE | B0_FLAG_NA_FOLDER)
+#define B0_FLAG_NA_FOLDER_INDEX_SHIFT 8
+#define B0_FLAG_NA_FOLDER_INDEX_AND   0xFFFFFFF0U
+#define B0_FLAG_NA_FOLDER_INDEX_AND0  (B0_FLAG_NA_FOLDER_INDEX_AND >> B0_FLAG_NA_FOLDER_INDEX_SHIFT)
+
+void set_alloc_place(struct place used_place, i32 flags);
+
+void finish_alloc();
 
 struct pfs_element {
 	i64 last_mod_time;
 } __attribute__((packed));
 
 struct pfs_folder_entry {
-	i32 name_pos; // for correct alignment of the place
+	i32 name_pos;
 	struct pfs_place child_place;
 	i64 create_time;
 	ui32 flags;

@@ -63,12 +63,15 @@ i64 pfsc_file_append(pfs_eh f, void *data, i64 length) {
 	get_file(-1)
 	file->element.last_mod_time = time(NULL);
 	struct pfs_place file_end;
+	_Bool allocated;
 	if (file->file_length == 0) {
 		file_end.block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
 		file->first_block = file_end.block;
 		file_end.pos = 0;
+		allocated = 1;
 	} else {
 		file_end = find_place(file->first_block, file->file_length);
+		allocated = 0;
 	}
 	i64 appended = 0L;
 	int cpy = pfs->block_size - 8 - file_end.pos;
@@ -80,7 +83,6 @@ i64 pfsc_file_append(pfs_eh f, void *data, i64 length) {
 			block_data = pfs->lazy_get(pfs, file_end.block);
 		}
 		if (block_data == NULL) {
-			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
 			break;
 		}
 		void *cpy_target = block_data + file_end.pos;
@@ -91,6 +93,7 @@ i64 pfsc_file_append(pfs_eh f, void *data, i64 length) {
 		length -= cpy;
 		data += cpy;
 		appended += cpy;
+		file->file_length += cpy;
 		i64 next_block;
 		if (length > 0) {
 			next_block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
@@ -98,14 +101,19 @@ i64 pfsc_file_append(pfs_eh f, void *data, i64 length) {
 			next_block = -1L;
 		}
 		*(i64*) (block_data + pfs->block_size - 8) = next_block;
-		pfs->set(pfs, file_end.block);
+		pfs->save(pfs, file_end.block, 1);
+		pfs->save(pfs, f->element_place.block, 0);
+		if (allocated) {
+			finish_allocate_block(file_end.block);
+		} else {
+			allocated = 1;
+		}
 		file_end.block = next_block;
 		if (file_end.pos) {// no need to set them to the values they already have
 			file_end.pos = 0;
 			cpy = pfs->block_size - 8;
 		}
 	}
-	file->file_length += appended;
 	pfs->set(pfs, f->element_place.block);
 	return appended;
 }
@@ -145,69 +153,58 @@ static inline int truncate_shrink(pfs_eh f, i64 new_length) {
 }
 
 int pfsc_file_truncate_grow(pfs_eh f, i64 new_length) {
-	struct pfs_file *file = pfs->get(pfs, f->element_place.block)
-			+ f->element_place.pos;
+	get_file(0)
 	const i64 old_length = file->file_length;
-	struct pfs_place file_end = find_place(file->first_block, old_length);
-	if (old_length == 0) {
+	file->element.last_mod_time = time(NULL);
+	struct pfs_place file_end;
+	_Bool allocated;
+	if (file->file_length == 0) {
 		file_end.block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
 		file->first_block = file_end.block;
-		if (file_end.block == -1L) {
-			pfs->unget(pfs, f->element_place.block);
-			return 0;
-		}
+		file_end.pos = 0;
+		allocated = 1;
+	} else {
+		file_end = find_place(file->first_block, file->file_length);
+		allocated = 0;
 	}
-	while (1) {
-		i64 set = pfs->block_size - 8 - file_end.pos;
-		if (set + file->file_length > new_length) {
-			set = new_length - file->file_length;
-		}
-		void *current_block;
+	i64 add_length = new_length - file->file_length;
+	int set_len = pfs->block_size - 8 - file_end.pos;
+	while (file_end.block != -1) {
+		void *block_data;
 		if (file_end.pos) {
-			current_block = pfs->get(pfs, file_end.block);
+			block_data = pfs->get(pfs, file_end.block);
 		} else {
-			current_block = pfs->lazy_get(pfs, file_end.block);
+			block_data = pfs->lazy_get(pfs, file_end.block);
 		}
-		void *set_data = current_block + file_end.pos;
-		memset(set_data, 0, set);
-		file->file_length += set;
-		if (file->file_length >= new_length) {
-			*(i64*) (current_block + pfs->block_size - 8) = -1L;
-			pfs->set(pfs, file_end.block);
-#if 21
-			current_block = pfs->get(pfs, file_end.block);
-			printf("next block is: %ld (it should be -1)\n",
-					*(i64*) (current_block + pfs->block_size - 8),
-					file_end.block);
-			pfs->unget(pfs, file_end.block);
-			current_block = pfs->get(pfs, 2);
-			printf("block after 2 is: %ld\n",
-					*(i64*) (current_block + pfs->block_size - 8));
-			pfs->unget(pfs, 2);
-			fflush(NULL);
-#endif
+		if (block_data == NULL) {
 			break;
 		}
-		const i64 current_block_num = file_end.block;
-		file_end.block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
-		*(i64*) (current_block + pfs->block_size - 8) = file_end.block;
-		file_end.pos = 0;
-		pfs->set(pfs, current_block_num);
-#if 21
-		current_block = pfs->get(pfs, current_block_num);
-		printf("next block is: %ld (it should be %ld)\n",
-				*(i64*) (current_block + pfs->block_size - 8), file_end.block);
-		pfs->unget(pfs, current_block_num);
-		fflush(NULL);
-#endif
-		if (file_end.block == -1L) {
-			truncate_shrink(f, old_length);
-			pfs->set(pfs, f->element_place.block);
-			return 0;
+		void *set_target = block_data + file_end.pos;
+		if (set_len > add_length) {
+			set_len = add_length;
 		}
-	}
-	if (file->file_length != new_length) {
-		abort();
+		memset(set_target, 0, set_len);
+		add_length -= set_len;
+		file->file_length += set_len;
+		i64 next_block;
+		if (add_length > 0) {
+			next_block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
+		} else {
+			next_block = -1L;
+		}
+		*(i64*) (block_data + pfs->block_size - 8) = next_block;
+		pfs->save(pfs, file_end.block, 1);
+		pfs->save(pfs, f->element_place.block, 0);
+		if (allocated) {
+			finish_allocate_block(file_end.block);
+		} else {
+			allocated = 1;
+		}
+		file_end.block = next_block;
+		if (file_end.pos) {// no need to set them to the values they already have
+			file_end.pos = 0;
+			set_len = pfs->block_size - 8;
+		}
 	}
 	pfs->set(pfs, f->element_place.block);
 	return 1;

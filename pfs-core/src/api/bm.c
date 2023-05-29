@@ -35,7 +35,7 @@
 static int bm_equal(const void *a, const void *b);
 static uint64_t bm_hash(const void *a);
 
-static ui64 get_none_flags(struct bm_block_manager *bm, i64 block);
+static i64 get_none_flags(struct bm_block_manager *bm, i64 block);
 static void set_none_flags(struct bm_block_manager *bm, i64 block, ui64 flags);
 static i64 not_get_first_zero_flagged_block(struct bm_block_manager *bm);
 static void not_delete_all_flags(struct bm_block_manager *bm);
@@ -62,13 +62,13 @@ static_assert(offsetof(struct bm_file, bm)
 == 0, "error!");
 static_assert(offsetof(struct bm_flag_ram, bm) == 0, "error!");
 
+static void* bm_lazy_get(struct bm_block_manager *bm, i64 block);
+
 static void* bm_ram_get(struct bm_block_manager *bm, i64 block);
 static int bm_ram_unget(struct bm_block_manager *bm, i64 block);
 static int bm_ram_set(struct bm_block_manager *bm, i64 block);
 static int bm_ram_sync(struct bm_block_manager *bm);
 static int bm_ram_close(struct bm_block_manager *bm);
-
-static void* bm_common_lazy_get(struct bm_block_manager *bm, i64 block);
 
 static void* bm_file_get(struct bm_block_manager *bm, i64 block);
 static int bm_file_unget(struct bm_block_manager *bm, i64 block);
@@ -77,14 +77,14 @@ static int bm_file_sync(struct bm_block_manager *bm);
 static int bm_file_close(struct bm_block_manager *bm);
 
 static int bm_flag_ram_close(struct bm_block_manager *bm);
-static ui64 get_flag_ram_flags(struct bm_block_manager *bm, i64 block);
+static i64 get_flag_ram_flags(struct bm_block_manager *bm, i64 block);
 static void set_flag_ram_flags(struct bm_block_manager *bm, i64 block,
 		ui64 flags);
 static i64 get_flag_ram_first_zero_flagged_block(struct bm_block_manager *bm);
 static void delete_flag_ram_all_flags(struct bm_block_manager *bm);
 
 #define setValues(name, bm_close_name, set_flags_name, get_flags_name, block_flag_bit_count, get_first_zero_flagged_block_name, delete_all_flags_name) \
-	setVal(void* (**)(struct bm_block_manager*, i64)       , get                      , bm_common_lazy_get) \
+	setVal(void* (**)(struct bm_block_manager*, i64)       , get                      , bm_lazy_get) \
 	setVal(void* (**)(struct bm_block_manager*, i64)       , get                      , bm_##name##_get) \
 	setVal(int   (**)(struct bm_block_manager*, i64)       , unget                    , bm_##name##_unget) \
 	setVal(int   (**)(struct bm_block_manager*, i64)       , set                      , bm_##name##_set) \
@@ -212,7 +212,7 @@ struct bm_loaded {
 
 static_assert(offsetof(struct bm_loaded, block) == 0, "Error!");
 
-static void* bm_common_lazy_get(struct bm_block_manager *bm, i64 block) {
+static void* bm_lazy_get(struct bm_block_manager *bm, i64 block) {
 	struct bm_loaded *loaded = hashset_get(&bm->loaded, (uint64_t) block,
 			&block);
 	if (loaded) {
@@ -523,7 +523,7 @@ static int bm_file_close(struct bm_block_manager *bm) {
 	return 1;
 }
 
-static ui64 get_none_flags(struct bm_block_manager *bm, i64 block) {
+static i64 get_none_flags(struct bm_block_manager *bm, i64 block) {
 	return 0L;
 }
 static void set_none_flags(struct bm_block_manager *bm, i64 block, ui64 flags) {
@@ -542,7 +542,7 @@ static int bm_flag_ram_close(struct bm_block_manager *bm) {
 	return bm_ram_close(bm);
 }
 
-static ui64 get_flag_ram_flags(struct bm_block_manager *bm, i64 block) {
+static i64 get_flag_ram_flags(struct bm_block_manager *bm, i64 block) {
 	return ((struct bm_flag_ram*) bm)->flags[block];
 }
 

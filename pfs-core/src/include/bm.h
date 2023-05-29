@@ -62,6 +62,13 @@ struct bm_block_manager {
 	 */
 	int (*const unget)(struct bm_block_manager *bm, i64 block);
 	/**
+	 * this function will save the block immediately even if the block is
+	 * still loaded somewhere else
+	 *
+	 * if also_unget has a non_zero value also an unget is performed (see the unget field)
+	 */
+	int (*const save)(struct bm_block_manager *bm, i64 block, int also_unget);
+	/**
 	 * function to unload/un-get a block with saving
 	 */
 	int (*const set)(struct bm_block_manager *bm, i64 block);
@@ -82,8 +89,8 @@ struct bm_block_manager {
 	const ui32 block_size;
 	/**
 	 * the number of bits usable for block flagging
-	 * (maximum value is 64)
-	 * if not all bits are supported the value is lower than 64 the lowest bits will be used for the flags
+	 * (maximum value is 63)
+	 * the lowest bits will be used for the flags
 	 */
 	const int block_flag_bits;
 	/**
@@ -92,7 +99,7 @@ struct bm_block_manager {
 	 * the unsupported bits are filled with zeros
 	 * if an error occurred -1 is returned
 	 */
-	ui64 (*const get_flags)(struct bm_block_manager *bm, i64 block);
+	i64 (*const get_flags)(struct bm_block_manager *bm, i64 block);
 	/**
 	 * set the flags of a block
 	 * if not all block_flag_bits is lower than 63 the lowest block_flag_bits bits will be used for the flags
