@@ -269,7 +269,7 @@ int init_block(i64 block, i64 size) {
 		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 		return 0;
 	}
-	void *data = pfs->get(pfs, block);
+	void *data = pfs->lazy_get(pfs, block);
 	if (data == NULL) {
 		return 0;
 	}

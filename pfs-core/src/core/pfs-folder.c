@@ -401,7 +401,7 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 			pfs->unget(pfs, my_place.block);
 			return 0;
 		}
-		struct pfs_folder *helper = pfs->get(pfs, helper_block);
+		struct pfs_folder *helper = pfs->lazy_get(pfs, helper_block);
 		if (helper == NULL) {
 			if (grow_success) {
 				shrink_folder_entry(my_place, my_new_size);

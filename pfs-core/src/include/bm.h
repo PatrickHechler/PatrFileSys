@@ -49,8 +49,8 @@ struct bm_block_manager {
 	 * like get, but this function is allowed to load garbage and not
 	 * the data from the block
 	 * this should be used when the old content is irrelevant/ignored
-	 */ // TODO
-//	void* (*const lazyget)(struct bm_block_manager *bm, i64 block);
+	 */
+	void* (*const lazy_get)(struct bm_block_manager *bm, i64 block);
 	/**
 	 * function to load/get a block
 	 */

@@ -64,8 +64,8 @@ i64 pfsc_file_append(pfs_eh f, void *data, i64 length) {
 	file->element.last_mod_time = time(NULL);
 	struct pfs_place file_end;
 	if (file->file_length == 0) {
-		file->first_block = file_end.block = allocate_block(
-		BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
+		file_end.block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
+		file->first_block = file_end.block;
 		file_end.pos = 0;
 	} else {
 		file_end = find_place(file->first_block, file->file_length);
@@ -73,7 +73,12 @@ i64 pfsc_file_append(pfs_eh f, void *data, i64 length) {
 	i64 appended = 0L;
 	int cpy = pfs->block_size - 8 - file_end.pos;
 	while (file_end.block != -1) {
-		void *block_data = pfs->get(pfs, file_end.block);
+		void *block_data;
+		if (file_end.pos) {
+			block_data = pfs->get(pfs, file_end.block);
+		} else {
+			block_data = pfs->lazy_get(pfs, file_end.block);
+		}
 		if (block_data == NULL) {
 			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
 			break;
@@ -89,17 +94,16 @@ i64 pfsc_file_append(pfs_eh f, void *data, i64 length) {
 		i64 next_block;
 		if (length > 0) {
 			next_block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
-			if (next_block == -1) {
-				(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
-			}
 		} else {
 			next_block = -1L;
 		}
 		*(i64*) (block_data + pfs->block_size - 8) = next_block;
 		pfs->set(pfs, file_end.block);
 		file_end.block = next_block;
-		file_end.pos = 0;
-		cpy = pfs->block_size - 8;
+		if (file_end.pos) {// no need to set them to the values they already have
+			file_end.pos = 0;
+			cpy = pfs->block_size - 8;
+		}
 	}
 	file->file_length += appended;
 	pfs->set(pfs, f->element_place.block);
@@ -146,10 +150,9 @@ int pfsc_file_truncate_grow(pfs_eh f, i64 new_length) {
 	const i64 old_length = file->file_length;
 	struct pfs_place file_end = find_place(file->first_block, old_length);
 	if (old_length == 0) {
-		file->first_block = file_end.block = allocate_block(
-		/*		*/BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
+		file_end.block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
+		file->first_block = file_end.block;
 		if (file_end.block == -1L) {
-			(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 			pfs->unget(pfs, f->element_place.block);
 			return 0;
 		}
@@ -159,7 +162,12 @@ int pfsc_file_truncate_grow(pfs_eh f, i64 new_length) {
 		if (set + file->file_length > new_length) {
 			set = new_length - file->file_length;
 		}
-		void *current_block = pfs->get(pfs, file_end.block);
+		void *current_block;
+		if (file_end.pos) {
+			current_block = pfs->get(pfs, file_end.block);
+		} else {
+			current_block = pfs->lazy_get(pfs, file_end.block);
+		}
 		void *set_data = current_block + file_end.pos;
 		memset(set_data, 0, set);
 		file->file_length += set;
@@ -169,7 +177,8 @@ int pfsc_file_truncate_grow(pfs_eh f, i64 new_length) {
 #if 21
 			current_block = pfs->get(pfs, file_end.block);
 			printf("next block is: %ld (it should be -1)\n",
-					*(i64*) (current_block + pfs->block_size - 8), file_end.block);
+					*(i64*) (current_block + pfs->block_size - 8),
+					file_end.block);
 			pfs->unget(pfs, file_end.block);
 			current_block = pfs->get(pfs, 2);
 			printf("block after 2 is: %ld\n",

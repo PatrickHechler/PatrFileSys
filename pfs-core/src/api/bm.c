@@ -68,6 +68,8 @@ static int bm_ram_set(struct bm_block_manager *bm, i64 block);
 static int bm_ram_sync(struct bm_block_manager *bm);
 static int bm_ram_close(struct bm_block_manager *bm);
 
+static void* bm_common_lazy_get(struct bm_block_manager *bm, i64 block);
+
 static void* bm_file_get(struct bm_block_manager *bm, i64 block);
 static int bm_file_unget(struct bm_block_manager *bm, i64 block);
 static int bm_file_set(struct bm_block_manager *bm, i64 block);
@@ -82,6 +84,7 @@ static i64 get_flag_ram_first_zero_flagged_block(struct bm_block_manager *bm);
 static void delete_flag_ram_all_flags(struct bm_block_manager *bm);
 
 #define setValues(name, bm_close_name, set_flags_name, get_flags_name, block_flag_bit_count, get_first_zero_flagged_block_name, delete_all_flags_name) \
+	setVal(void* (**)(struct bm_block_manager*, i64)       , get                      , bm_common_lazy_get) \
 	setVal(void* (**)(struct bm_block_manager*, i64)       , get                      , bm_##name##_get) \
 	setVal(int   (**)(struct bm_block_manager*, i64)       , unget                    , bm_##name##_unget) \
 	setVal(int   (**)(struct bm_block_manager*, i64)       , set                      , bm_##name##_set) \
@@ -209,6 +212,36 @@ struct bm_loaded {
 
 static_assert(offsetof(struct bm_loaded, block) == 0, "Error!");
 
+static void* bm_common_lazy_get(struct bm_block_manager *bm, i64 block) {
+	struct bm_loaded *loaded = hashset_get(&bm->loaded, (uint64_t) block,
+			&block);
+	if (loaded) {
+		loaded->count++;
+		return loaded->data;
+	}
+	loaded = malloc(sizeof(struct bm_loaded));
+	if (loaded == NULL) {
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+		errno = 0;
+		return NULL;
+	}
+	loaded->block = block;
+	loaded->count = 1;
+	loaded->data = malloc(bm->block_size);
+	loaded->save = 0;
+	if (loaded->data == NULL) {
+		free(loaded);
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+		errno = 0;
+		return NULL;
+	}
+	if (hashset_put(&bm->loaded, (uint64_t) block, loaded) != NULL) {
+		abort();
+	}
+	return loaded->data;
+}
+
+
 static void* bm_ram_get(struct bm_block_manager *bm, i64 block) {
 	struct bm_ram *br = (struct bm_ram*) bm;
 	struct bm_loaded *loaded = hashset_get(&br->bm.loaded, (uint64_t) block,
@@ -220,6 +253,7 @@ static void* bm_ram_get(struct bm_block_manager *bm, i64 block) {
 	loaded = malloc(sizeof(struct bm_loaded));
 	if (loaded == NULL) {
 		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+		errno = 0;
 		return NULL;
 	}
 	loaded->block = block;
@@ -229,6 +263,7 @@ static void* bm_ram_get(struct bm_block_manager *bm, i64 block) {
 	if (loaded->data == NULL) {
 		free(loaded);
 		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+		errno = 0;
 		return NULL;
 	}
 	memcpy(loaded->data, br->blocks + (block * (i64) br->bm.block_size),
@@ -308,6 +343,8 @@ static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 	}
 	loaded = malloc(sizeof(struct bm_loaded));
 	if (loaded == NULL) {
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+		errno = 0;
 		return NULL;
 	}
 	loaded->block = block;
@@ -316,6 +353,8 @@ static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 	loaded->save = 0;
 	if (loaded->data == NULL) {
 		free(loaded);
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+		errno = 0;
 		return NULL;
 	}
 	if (bm_fd_seek(bf->file, block * bf->bm.block_size) == -1) {
