@@ -35,9 +35,6 @@
 
 #if !defined LINUX_PORTABLE_BUILD && defined __unix__
 #include <unistd.h>
-typedef int bm_fd;
-#else
-typedef FILE* bm_fd;
 #endif
 
 /**

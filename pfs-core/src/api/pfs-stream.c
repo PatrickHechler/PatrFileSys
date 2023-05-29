@@ -32,12 +32,12 @@ extern i64 pfs_stream_write(int sh, void *data, i64 len) {
 		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	} else if (!pfs_shs[sh]->element) {
-		i64 wrote = write(pfs_shs[sh]->is_file, data, len);
-		if (wrote == -1) {
-			wrote = 0;
-			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+		if (pfs_shs[sh]->delegate->write) {
+			return pfs_shs[sh]->delegate->write(pfs_shs[sh]->delegate, data,
+					len);
 		}
-		return wrote;
+		(*pfs_err_loc) = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+		return 0;
 	}
 	if (len <= 0) {
 		if (len < 0) {
@@ -105,12 +105,11 @@ extern i64 pfs_stream_read(int sh, void *buffer, i64 len) {
 		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	} else if (!pfs_shs[sh]->element) {
-		i64 reat = read(pfs_shs[sh]->is_file, buffer, len);
-		if (reat == -1) {
-			reat = 0;
-			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+		if (pfs_shs[sh]->delegate->read) {
+			return pfs_shs[sh]->delegate->read(pfs_shs[sh]->delegate, buffer, len);
 		}
-		return reat;
+		(*pfs_err_loc) = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+		return 0;
 	}
 	if (len <= 0) {
 		if (len < 0) {
@@ -156,6 +155,9 @@ extern i64 pfs_stream_read(int sh, void *buffer, i64 len) {
 extern i64 pfs_stream_get_pos(int sh) {
 	sh(-1)
 	if (!pfs_shs[sh]->element) {
+		if (pfs_shs[sh]->delegate->get_pos) {
+			return pfs_shs[sh]->delegate->get_pos(pfs_shs[sh]->delegate);
+		}
 		if ((pfs_shs[sh]->flags & PFS_SO_FILE) == 0) {
 			(*pfs_err_loc) = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 			return -1L;

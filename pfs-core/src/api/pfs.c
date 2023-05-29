@@ -24,6 +24,7 @@
 #include "pfs.h"
 #include "../core/pfs-intern.h"
 #include "../include/pfs.h"
+#include "../include/pfs-stream.h"
 
 int childset_equal(const void *a, const void *b) {
 	const struct element_handle *ha = a, *hb = b;
@@ -168,10 +169,7 @@ extern int pfs_load(struct bm_block_manager *bm, const char *cur_work_dir) {
 	}
 	struct pfs_b0 *b0 = bm->get(bm, 0L);
 	pfs_validate_b0(*b0,
-		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_SUPER_BLOCK;
-		bm->unget(bm, 0L);
-		return 0;
-	)
+			(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_SUPER_BLOCK; bm->unget(bm, 0L); return 0;)
 	struct element_handle **nehs = malloc(sizeof(struct element_handle*));
 	struct stream_handle **nshs = malloc(sizeof(struct stream_handle*));
 	struct iter_handle **nihs = malloc(sizeof(struct iter_handle*));
@@ -450,8 +448,9 @@ static int delete_element(struct element_handle **eh) {
 					abort();
 				}
 				pfs_ihs[i]->index--;
-				if (!pfsc_folder_fill_iterator_index(&pfs_ihs[i]->folder->handle,
-						&pfs_ihs[i]->handle, pfs_ihs[i]->index)) {
+				if (!pfsc_folder_fill_iterator_index(
+						&pfs_ihs[i]->folder->handle, &pfs_ihs[i]->handle,
+						pfs_ihs[i]->index)) {
 					abort(); // check what to do when it happens
 					// well, thats (possibly) better than a crash
 					// pfs_close_iter_impl(i);
@@ -465,8 +464,6 @@ static int delete_element(struct element_handle **eh) {
 	*eh = NULL;
 	return res;
 }
-
-#include <stdio.h>
 
 extern int pfs_delete(const char *path) {
 	struct element_handle *eh = open_eh(path, pfs_root, 1, NULL);
@@ -567,8 +564,136 @@ static inline int open_sh(struct element_handle *eh, ui32 stream_flags) {
 	return_handle(pfs_sh_len, pfs_shs, sh);
 }
 
-extern int pfs_stream_open_delegate(int fd, i32 stream_flags) {
-	if (stream_flags & (PFS_SO_ONLY_CREATE | PFS_SO_ALSO_CREATE)) {
+struct fd_del_str {
+	struct delegate_stream val;
+	bm_fd fd;
+};
+
+static i64 fd_write(struct delegate_stream *ds, void *data, i64 len) {
+	struct fd_del_str *fdds = (struct fd_del_str*) ds;
+	i64 wrote = write(fdds->fd, data, len);
+	if (wrote == -1) {
+		(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+		return 0;
+	}
+	return wrote;
+}
+static i64 fd_read(struct delegate_stream *ds, void *buf, i64 len) {
+	struct fd_del_str *fdds = (struct fd_del_str*) ds;
+	i64 reat = read(fdds->fd, buf, len);
+	if (reat == -1) {
+#if !defined __unix__ || defined  LINUX_PORTABLE_BUILD
+		if (feof(fdds->fd)) {
+			clearerr(bf->fd);
+		} else {
+			switch (errno) {
+			case EIO:
+				(*pfs_err_loc) = PFS_ERRNO_IO_ERR;
+				break;
+			default:
+				(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+				break;
+			}
+			errno = 0;
+		}
+		return 0;
+#else
+		switch (errno) {
+		case EIO:
+			(*pfs_err_loc) = PFS_ERRNO_IO_ERR;
+			break;
+		default:
+			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+			break;
+		}
+		errno = 0;
+		return 0;
+#endif
+	}
+	return reat;
+}
+static i64 fd_get_pos(struct delegate_stream *ds) {
+	struct fd_del_str *fdds = (struct fd_del_str*) ds;
+	i64 sek = bm_fd_pos(fdds->fd);
+	if (sek == -1) {
+		switch (errno) {
+		case EIO:
+			(*pfs_err_loc) = PFS_ERRNO_IO_ERR;
+			break;
+		default:
+			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+			break;
+		}
+		errno = 0;
+	}
+	return sek;
+}
+static int fd_set_pos(struct delegate_stream *ds, i64 pos) {
+	struct fd_del_str *fdds = (struct fd_del_str*) ds;
+	i64 sek = bm_fd_seek(fdds->fd, pos);
+	if (sek == -1) {
+		switch (errno) {
+		case EIO:
+			(*pfs_err_loc) = PFS_ERRNO_IO_ERR;
+			break;
+		default:
+			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+			break;
+		}
+		errno = 0;
+		return 0;
+	}
+	return 1;
+}
+static i64 fd_add_pos(struct delegate_stream *ds, i64 add) {
+	struct fd_del_str *fdds = (struct fd_del_str*) ds;
+	i64 sek = bm_fd_pos(fdds->fd); // add a signed value
+	if (sek == -1) {
+		switch (errno) {
+		case EIO:
+			(*pfs_err_loc) = PFS_ERRNO_IO_ERR;
+			break;
+		default:
+			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+			break;
+		}
+		errno = 0;
+	}
+	sek = bm_fd_seek(fdds->fd, sek + add);
+	if (sek == -1) {
+		switch (errno) {
+		case EIO:
+			(*pfs_err_loc) = PFS_ERRNO_IO_ERR;
+			break;
+		default:
+			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+			break;
+		}
+		errno = 0;
+		return 0;
+	}
+	return 1;
+}
+static i64 fd_seek_eof(struct delegate_stream *ds) {
+	struct fd_del_str *fdds = (struct fd_del_str*) ds;
+	i64 sek = bm_fd_seek_eof(fdds->fd);
+	if (sek == -1) {
+		switch (errno) {
+		case EIO:
+			(*pfs_err_loc) = PFS_ERRNO_IO_ERR;
+			break;
+		default:
+			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+			break;
+		}
+		errno = 0;
+	}
+	return sek;
+}
+
+extern int pfs_stream_open_delegate_fd(bm_fd fd, i32 stream_flags) {
+	if (stream_flags
+			& (PFS_SO_ONLY_CREATE | PFS_SO_ALSO_CREATE | PFS_SO_FILE_TRUNC)) {
 		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
 		return -1;
 	}
@@ -576,19 +701,63 @@ extern int pfs_stream_open_delegate(int fd, i32 stream_flags) {
 		if (!pfs_shs[i]) {
 			continue;
 		}
-		if (pfs_shs[i]->element) {
+		if (pfs_shs[i]->element || !pfs_shs[i]->is_file) {
 			continue;
 		}
-		if (pfs_shs[i]->is_file == fd) {
+		if (((struct fd_del_str*)pfs_shs[i]->delegate)->fd == fd) {
+			pfs_shs[i]->pos++;
+			return_handle(pfs_sh_len, pfs_shs, pfs_shs[i]);
+		}
+	}
+	struct stream_handle *res = malloc(
+			sizeof(struct stream_handle) + sizeof(struct fd_del_str));
+	struct delegate_stream *del = (struct delegate_stream*) (res + 1);
+	res->element = NULL;
+	res->delegate = del;
+	res->is_file = 1;
+	res->delegate_ref_count = 1;
+	if (stream_flags & PFS_SO_FILE) {
+		del->get_pos = fd_get_pos;
+		del->set_pos = fd_set_pos;
+		del->add_pos = fd_add_pos;
+		del->seek_eof = fd_seek_eof;
+	} else {
+		del->get_pos = NULL;
+		del->set_pos = NULL;
+		del->add_pos = NULL;
+		del->seek_eof = NULL;
+	}
+	if (stream_flags & PFS_SO_READ) {
+		del->read = fd_read;
+	} else {
+		del->read = NULL;
+	}
+	if (stream_flags & (PFS_SO_WRITE | PFS_SO_APPEND)) {
+		del->write = fd_write;
+	} else {
+		del->write = NULL;
+	}
+	return_handle(pfs_sh_len, pfs_shs, res);
+}
+
+extern int pfs_stream_open_delegate(struct delegate_stream *stream) {
+	for (int i = 0; i < pfs_sh_len; i++) {
+		if (!pfs_shs[i]) {
+			continue;
+		}
+		if (pfs_shs[i]->element || pfs_shs[i]->is_file) {
+			continue;
+		}
+		if (pfs_shs[i]->delegate == stream) {
 			pfs_shs[i]->pos++;
 			return_handle(pfs_sh_len, pfs_shs, pfs_shs[i]);
 		}
 	}
 	struct stream_handle *res = malloc(sizeof(struct stream_handle));
 	res->element = NULL;
-	res->flags = stream_flags;
-	res->is_file = fd;
-	res->pos = 1;
+	res->delegate = stream;
+	res->is_file = 1;
+	res->delegate_ref_count = 1;
 	return_handle(pfs_sh_len, pfs_shs, res);
 }
 

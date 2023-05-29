@@ -58,6 +58,12 @@ static_assert(sizeof(ui32) == 4, "Error!");
 static_assert(sizeof(char) == 1, "Error!");
 
 #if !defined LINUX_PORTABLE_BUILD && defined __unix__
+typedef int bm_fd;
+#else
+typedef FILE* bm_fd;
+#endif
+
+#if !defined LINUX_PORTABLE_BUILD && defined __unix__
 #define wait5ms() { \
 	struct timespec wait_time = { \
 			/*	  */.tv_sec = 0, /* 0 sec */ \

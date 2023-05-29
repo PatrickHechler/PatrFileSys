@@ -37,7 +37,23 @@ extern int pfs_stream_close(int sh);
 /**
  * creates a delegate stream for the given file descriptor and with the given flags
  */
-extern int pfs_stream_open_delegate(int fd, i32 stream_flags);
+extern int pfs_stream_open_delegate_fd(bm_fd fd, i32 stream_flags);
+
+struct delegate_stream {
+	i64 (*write)(struct delegate_stream*,void*,i64);
+	i64 (*read)(struct delegate_stream*,void*,i64);
+	i64 (*get_pos)(struct delegate_stream*);
+	int (*set_pos)(struct delegate_stream*,i64);
+	i64 (*add_pos)(struct delegate_stream*,i64);
+	i64 (*seek_eof)(struct delegate_stream*);
+};
+
+/**
+ * creates a delegate stream for the given stream and with the given flags
+ *
+ * all unsupported operations are symbolized by a NULL pointer
+ */
+extern int pfs_stream_open_delegate(struct delegate_stream *stream);
 
 /*
  * writes some data to the stream

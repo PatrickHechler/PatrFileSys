@@ -29,12 +29,6 @@
  * not backwards compatible
  */
 #define PFS_MAGIC_START 0x31756539FC422698UL
-#define PFS_B0_OFFSET_BLOCK_SIZE  28
-#define PFS_B0_OFFSET_BLOCK_COUNT 32
-#ifdef PFS_INTERN_H_
-static_assert(PFS_B0_OFFSET_BLOCK_COUNT == offsetof(struct pfs_b0, block_count), "error!");
-static_assert(PFS_B0_OFFSET_BLOCK_SIZE == offsetof(struct pfs_b0, block_size), "error!");
-#endif
 
 #define	PFS_INTERN_ENTRY_FLAGS (PFS_F_HELPER_FOLDER) /* entries with one of these flags are not allowed to be passed to the outside */
 #define PFS_ESSENTIAL_FLAGS (PFS_F_FILE | PFS_F_FOLDER | PFS_F_PIPE)

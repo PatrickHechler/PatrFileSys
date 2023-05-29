@@ -110,9 +110,15 @@ struct element_handle {
 
 struct stream_handle {
 	struct element_handle *element;
-	i64 pos; /* also used as reference count for delegate streams */
-	ui32 flags;
-	int is_file; /* also used as fd for delegate streams */
+	union {
+		i64 pos;
+		struct delegate_stream *delegate;
+	};
+	union {
+		ui32 flags;
+		ui32 delegate_ref_count;
+	};
+	int is_file;
 };
 
 struct iter_handle {
@@ -122,7 +128,8 @@ struct iter_handle {
 	i64 index;
 };
 
-static_assert((offsetof(struct iter_handle, ieh) & 7) == 0, "err");
+static_assert((offsetof(struct iter_handle, ieh)
+& 7) == 0, "err");
 static_assert((offsetof(struct iter_handle, folder) & 7) == 0, "err");
 
 #ifndef I_AM_API_PFS
