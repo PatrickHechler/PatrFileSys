@@ -102,11 +102,8 @@ static_assert(offsetof(struct pfs_b0, MAGIC) == 0, "error!");
 #define B0_FLAG_NA_FILE               0x00000004U
 #define B0_FLAG_NA_FOLDER             0x00000008U
 #define B0_FLAG_NA_FLAGS              (B0_FLAG_NA_UNUSET | B0_FLAG_NA_FILE | B0_FLAG_NA_FOLDER)
-#define B0_FLAG_NA_FOLDER_INDEX_SHIFT 8
-#define B0_FLAG_NA_FOLDER_INDEX_AND   0xFFFFFFF0U
-#define B0_FLAG_NA_FOLDER_INDEX_AND0  (B0_FLAG_NA_FOLDER_INDEX_AND >> B0_FLAG_NA_FOLDER_INDEX_SHIFT)
 
-void set_alloc_place(struct place used_place, i32 flags);
+void set_alloc_place(struct pfs_place used_place, i32 flags);
 
 void finish_alloc();
 

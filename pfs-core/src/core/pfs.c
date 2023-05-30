@@ -110,7 +110,7 @@ int pfsc_format(i64 block_count) {
 	super_data->block_count = block_count;
 	super_data->newly_allocated = 0L;
 	if (pfs->block_flag_bits > 0) {
-		super_data->block_table_first_block = -1L;
+		super_data->flags = B0_FLAG_BM_ALLOC;
 		if (!pfs->delete_all_flags(pfs)) {
 			pfs->unget(pfs, 0);
 			return 0;
@@ -120,7 +120,7 @@ int pfsc_format(i64 block_count) {
 			return 0;
 		}
 	} else {
-		super_data->block_table_first_block = 1L;
+		super_data->flags = 0;
 		void *b1 = pfs->get(pfs, 1L);
 		memset(b1, 0, pfs->block_size - 8);
 		*(ui8*) b1 = 3;
@@ -158,14 +158,20 @@ static inline i64 pfs_free_and_used_block_count_impl(_Bool free) {
 	if (b0 == NULL) {
 		return -1L;
 	}
-	i64 btfb = b0->block_table_first_block;
 	i64 total_block_count = b0->block_count;
 	if (!pfs->unget(pfs, 0L)) {
 		return -1L;
 	}
-	if (btfb == -1) {
+	if (b0->flags & B0_FLAG_BM_ALLOC) {
+		i64 fzfb = pfs->first_zero_flagged_block(pfs);
+		if (fzfb == -1) {
+			return 0;
+		} else {
+			return 1;
+		}
+	} else {
 		i64 free_blocks = 0;
-		i64 current_block = btfb;
+		i64 current_block = 1;
 		while (1) {
 			void *block_data = pfs->get(pfs, current_block);
 			if (block_data == NULL) {
@@ -202,13 +208,6 @@ static inline i64 pfs_free_and_used_block_count_impl(_Bool free) {
 				return free_blocks;
 			}
 			current_block = next;
-		}
-	} else {
-		i64 fzfb = pfs->first_zero_flagged_block(pfs);
-		if (fzfb == -1) {
-			return 0;
-		} else {
-			return 1;
 		}
 	}
 }
@@ -633,8 +632,8 @@ i32 add_name(i64 block_num, const char *name, i64 str_len) {
 }
 
 static inline i64 allocate_block_without_bm(struct pfs_b0 *b0) {
-	const i64 block_count = pfs_block_count();
-	i64 current_block_num = b0->block_table_first_block;
+	const i64 block_count = b0->block_count;
+	i64 current_block_num = 1;
 	void *current_block = pfs->get(pfs, current_block_num);
 	i64 result = 0L;
 	while (987) {
@@ -724,12 +723,12 @@ static inline i64 allocate_block_without_bm(struct pfs_b0 *b0) {
 i64 allocate_block(ui64 block_flags) {
 	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
 	if (b0->newly_allocated) {
-		if (b0->block_table_first_block != -1) {
+		if (b0->flags & B0_FLAG_BM_ALLOC) {
 			pfs->set_flags(pfs, b0->newly_allocated, block_flags);
 		}
 		return b0->newly_allocated;
 	}
-	if (b0->block_table_first_block == -1L) {
+	if (b0->flags & B0_FLAG_BM_ALLOC) {
 		i64 fzfb = pfs->first_zero_flagged_block(pfs);
 		if (fzfb == -1L) {
 			if (pfs->block_flag_bits <= 0) {
@@ -753,58 +752,48 @@ i64 allocate_block(ui64 block_flags) {
 }
 
 void free_block(i64 free_this_block) {
-	i64 btfb = get_block_table_first_block();
-	if (btfb == 0) {
-		abort();
-	} else if (btfb == -1L) {
+	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
+	ui32 flags = b0->flags;
+	pfs->unget(pfs, 0L);
+	if (flags & B0_FLAG_BM_ALLOC) {
 		if (!pfs->set_flags(pfs, free_this_block, 0L)) {
 			abort();
 		}
 	} else {
 		i64 remain = free_this_block >> 3;
-		struct pfs_place place = find_place(btfb, remain);
+		struct pfs_place place = find_place(1, remain);
 		ui8 *data = pfs->get(pfs, place.block) + place.pos;
 		*data &= ~(1U << (free_this_block & 7));
 		pfs->set(pfs, place.block);
 	}
 }
 
-void ensure_block_is_file_data(i64 block) {
-	i64 btfb = get_block_table_first_block();
-	if (btfb != -1L)
-		return;
-	if (pfs->block_flag_bits > BLOCK_FLAG_USED_BIT) {
+static inline void ensure_used_block_has_flag(i64 block, ui64 flag) {
+	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
+	ui32 flags = b0->flags;
+	pfs->unget(pfs, 0L);
+	if (flags & B0_FLAG_BM_ALLOC) {
 		ui64 block_flags = pfs->get_flags(pfs, block);
-		if ((block_flags & BLOCK_FLAG_DATA) == 0) {
+		if ((block_flags & BLOCK_FLAG_USED) == 0) {
 			abort();
 		}
-		if ((block_flags & BLOCK_FLAG_ENTRIES) != 0) {
+		if (block_flags & flag) {
+			if (pfs->block_flag_bits >= flag) {
+				abort();
+			}
+		}
+		if (block_flags & ~(BLOCK_FLAG_USED | flag)) {
 			abort();
 		}
 	}
 }
 
+void ensure_block_is_file_data(i64 block) {
+	ensure_used_block_has_flag(block, BLOCK_FLAG_DATA);
+}
+
 void ensure_block_is_entry(i64 block) {
-	i64 btfb = get_block_table_first_block();
-	if (btfb != -1L)
-		return;
-	if (pfs->block_flag_bits <= 0) {
-		abort();
-	}
-	ui64 block_flags = pfs->get_flags(pfs, block);
-	if ((block_flags & BLOCK_FLAG_USED) == 0) {
-		abort();
-	}
-	if (pfs->block_flag_bits > BLOCK_FLAG_USED_BIT) {
-		if ((block_flags & BLOCK_FLAG_DATA) != 0) {
-			abort();
-		}
-		if ((block_flags & BLOCK_FLAG_ENTRIES) == 0) {
-			if (pfs->block_flag_bits >= BLOCK_FLAG_ENTRIES) {
-				abort();
-			}
-		}
-	}
+	ensure_used_block_has_flag(block, BLOCK_FLAG_ENTRIES);
 }
 
 struct pfs_place find_place(const i64 first_block, i64 remain) {
