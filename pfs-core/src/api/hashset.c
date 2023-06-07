@@ -76,12 +76,12 @@ static inline unsigned hs_bitcnt(uint64_t val) {
 		val = val + (val >> 32);
 		return val & 0x7f;
 	} else { // see java: Integer.bitCount
-		unsigned val0 = val0 - ((val0 >> 1) & 0x55555555);
-		val0 = (val0 & 0x33333333) + ((val0 >> 2) & 0x33333333);
-		val0 = (val0 + (val0 >> 4)) & 0x0f0f0f0f;
-		val0 = val0 + (val0 >> 8);
-		val0 = val0 + (val0 >> 16);
-		return val0 & 0x3f;
+		val = val - ((val >> 1) & 0x55555555);
+		val = (val & 0x33333333) + ((val >> 2) & 0x33333333);
+		val = (val + (val >> 4)) & 0x0f0f0f0f;
+		val = val + (val >> 8);
+		val = val + (val >> 16);
+		return val & 0x3f;
 	}
 }
 
