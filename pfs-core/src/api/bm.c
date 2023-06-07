@@ -26,6 +26,7 @@
 #include "../core/pfs-intern.h"
 
 #include <stdlib.h>
+#include <errno.h>
 #include <assert.h>
 #include <string.h>
 #include <unistd.h>
@@ -84,7 +85,7 @@ static i64 get_flag_ram_first_zero_flagged_block(struct bm_block_manager *bm);
 static void delete_flag_ram_all_flags(struct bm_block_manager *bm);
 
 #define setValues(name, bm_close_name, set_flags_name, get_flags_name, block_flag_bit_count, get_first_zero_flagged_block_name, delete_all_flags_name) \
-	setVal(void* (**)(struct bm_block_manager*, i64)       , get                      , bm_lazy_get) \
+	setVal(void* (**)(struct bm_block_manager*, i64)       , lazy_get                 , bm_lazy_get) \
 	setVal(void* (**)(struct bm_block_manager*, i64)       , get                      , bm_##name##_get) \
 	setVal(int   (**)(struct bm_block_manager*, i64)       , unget                    , bm_##name##_unget) \
 	setVal(int   (**)(struct bm_block_manager*, i64)       , set                      , bm_##name##_set) \
@@ -92,7 +93,7 @@ static void delete_flag_ram_all_flags(struct bm_block_manager *bm);
 	setVal(int   (**)(struct bm_block_manager*)            , close_bm                 , bm_close_name) \
 	setVal(i32*                                            , block_size               , block_size) \
 	setVal(i32*                                            , block_flag_bits          , block_flag_bit_count) \
-	setVal(ui64  (**)(struct bm_block_manager*, i64)       , get_flags                , get_flags_name) \
+	setVal(i64   (**)(struct bm_block_manager*, i64)       , get_flags                , get_flags_name) \
 	setVal(void  (**)(struct bm_block_manager*, i64, ui64) , set_flags                , set_flags_name) \
 	setVal(i64   (**)(struct bm_block_manager*)            , first_zero_flagged_block , get_first_zero_flagged_block_name) \
 	setVal(void  (**)(struct bm_block_manager *bm)         , delete_all_flags         , delete_all_flags_name) \
@@ -160,8 +161,8 @@ extern struct bm_block_manager* bm_new_file_block_manager_path(const char *file,
 	bm_fd fd = bm_fd_open(file, read_only);
 	struct pfs_b0 b0;
 	bm_fd_read(fd, &b0, sizeof(struct pfs_b0));
-	pfs_validate_b0(b0,
-			(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_SUPER_BLOCK; return NULL;)
+	long value = sizeof(struct pfs_folder_entry);
+	pfs_validate_b0(&b0, (*pfs_err_loc) = PFS_ERRNO_ILLEGAL_SUPER_BLOCK; return NULL;, 0);
 	return bm_new_file_block_manager(fd, b0.block_size);
 }
 
@@ -240,7 +241,6 @@ static void* bm_lazy_get(struct bm_block_manager *bm, i64 block) {
 	}
 	return loaded->data;
 }
-
 
 static void* bm_ram_get(struct bm_block_manager *bm, i64 block) {
 	struct bm_ram *br = (struct bm_ram*) bm;
@@ -376,7 +376,8 @@ static void* bm_file_get(struct bm_block_manager *bm, i64 block) {
 				case EWOULDBLOCK:
 #endif
 				case EAGAIN:
-					wait5ms();
+					wait5ms()
+					;
 					errno = 0;
 					continue;
 				case EINTR:

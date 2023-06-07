@@ -62,13 +62,6 @@ struct bm_block_manager {
 	 */
 	int (*const unget)(struct bm_block_manager *bm, i64 block);
 	/**
-	 * this function will save the block immediately even if the block is
-	 * still loaded somewhere else
-	 *
-	 * if also_unget has a non_zero value also an unget is performed (see the unget field)
-	 */
-	int (*const save)(struct bm_block_manager *bm, i64 block, int also_unget);
-	/**
 	 * function to unload/un-get a block with saving
 	 */
 	int (*const set)(struct bm_block_manager *bm, i64 block);

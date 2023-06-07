@@ -108,7 +108,6 @@ int pfsc_format(i64 block_count) {
 	super_data->root.pos = sizeof(struct pfs_b0);
 	super_data->block_size = pfs->block_size;
 	super_data->block_count = block_count;
-	super_data->newly_allocated = 0L;
 	if (pfs->block_flag_bits > 0) {
 		super_data->flags = B0_FLAG_BM_ALLOC;
 		if (!pfs->delete_all_flags(pfs)) {
@@ -281,13 +280,13 @@ int init_block(i64 block, i64 size) {
 	return pfs->set(pfs, block);
 }
 
-union pov {
+union pntr_val {
 	i32 *pntr;
 	ui64 val;
 };
 
 i32 get_size_from_block_table(void *block_data, const i32 pos) {
-	union pov max, min, mid;
+	union pntr_val max, min, mid;
 	max.pntr = block_data + pfs->block_size - 4;
 	min.pntr = block_data + *max.pntr;
 	max.val -= 4;
@@ -498,7 +497,6 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos,
 		return -1;
 	}
 }
-// TODO check references
 int allocate_new_entry(struct pfs_place *write, i64 base_block, i32 size) {
 	if (base_block != -1L) {
 		i32 pos = allocate_in_block_table(base_block, size);
@@ -670,8 +668,7 @@ static inline i64 allocate_block_without_bm(struct pfs_b0 *b0) {
 						pfs->unget(pfs, 0L);
 						return -1L;
 					}
-					b0->newly_allocated = result;
-					if (!pfs->set(pfs, 0L)) {
+					if (!pfs->unget(pfs, 0L)) {
 						return -1L;
 					}
 					if (result == 0L) {
@@ -722,12 +719,6 @@ static inline i64 allocate_block_without_bm(struct pfs_b0 *b0) {
 
 i64 allocate_block(ui64 block_flags) {
 	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
-	if (b0->newly_allocated) {
-		if (b0->flags & B0_FLAG_BM_ALLOC) {
-			pfs->set_flags(pfs, b0->newly_allocated, block_flags);
-		}
-		return b0->newly_allocated;
-	}
 	if (b0->flags & B0_FLAG_BM_ALLOC) {
 		i64 fzfb = pfs->first_zero_flagged_block(pfs);
 		if (fzfb == -1L) {
@@ -737,13 +728,11 @@ i64 allocate_block(ui64 block_flags) {
 			(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 			return -1L;
 		}
-		const i64 block_count = pfs_block_count();
-		if (fzfb >= block_count) {
+		if (fzfb >= b0->block_count) {
 			(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
 			return -1L;
 		}
-		b0->newly_allocated = fzfb;
-		pfs->set(pfs, 0L);
+		pfs->unget(pfs, 0L);
 		pfs->set_flags(pfs, fzfb, block_flags);
 		return fzfb;
 	} else {
@@ -777,8 +766,8 @@ static inline void ensure_used_block_has_flag(i64 block, ui64 flag) {
 		if ((block_flags & BLOCK_FLAG_USED) == 0) {
 			abort();
 		}
-		if (block_flags & flag) {
-			if (pfs->block_flag_bits >= flag) {
+		if ((block_flags & flag) != flag) {
+			if ((1L << (pfs->block_flag_bits - 1)) >= flag) {
 				abort();
 			}
 		}

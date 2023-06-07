@@ -22,6 +22,7 @@
  */
 
 #include "pfs-folder.h"
+#include "../include/pfs-constants.h"
 
 #define get_any(struct_name, any_name, block_name, place_block, place_pos, error) \
 	ensure_block_is_entry(place_block); \
@@ -460,12 +461,6 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 						sizeof(struct pfs_folder);
 				pfs->set(pfs, helper->entries[0].child_place.block);
 			}
-			struct pfs_b0 *b0 = pfs->get(pfs, 0L);
-			if (b0->newly_allocated != helper_block) {
-				abort();
-			}
-			b0->newly_allocated = 0L;
-			pfs->save(pfs, 0L, 1);
 		}
 		helper->folder_entry.block = my_place.block;
 		helper->folder_entry.pos = my_place.pos + sizeof(struct pfs_folder)
@@ -476,9 +471,6 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 		me->entries[me->helper_index].name_pos = -1;
 		me->entries[me->helper_index].create_time = -1;
 		me->entries[me->helper_index].flags = PFS_F_FOLDER | PFS_F_HELPER_FOLDER;
-		pfs->save(pfs, my_place.block, 0);
-		pfs->save(pfs, me->entries[me->helper_index].child_place.block, 0);
-		finish_allocate_block(helper_block);
 	} else {
 		helper_block = me->entries[me->helper_index].child_place.block;
 		pfs->get(pfs, helper_block);

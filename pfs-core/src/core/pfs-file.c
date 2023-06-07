@@ -63,15 +63,12 @@ i64 pfsc_file_append(pfs_eh f, void *data, i64 length) {
 	get_file(-1)
 	file->element.last_mod_time = time(NULL);
 	struct pfs_place file_end;
-	_Bool allocated;
 	if (file->file_length == 0) {
 		file_end.block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
 		file->first_block = file_end.block;
 		file_end.pos = 0;
-		allocated = 1;
 	} else {
 		file_end = find_place(file->first_block, file->file_length);
-		allocated = 0;
 	}
 	i64 appended = 0L;
 	int cpy = pfs->block_size - 8 - file_end.pos;
@@ -101,13 +98,7 @@ i64 pfsc_file_append(pfs_eh f, void *data, i64 length) {
 			next_block = -1L;
 		}
 		*(i64*) (block_data + pfs->block_size - 8) = next_block;
-		pfs->save(pfs, file_end.block, 1);
-		pfs->save(pfs, f->element_place.block, 0);
-		if (allocated) {
-			finish_allocate_block(file_end.block);
-		} else {
-			allocated = 1;
-		}
+		pfs->set(pfs, file_end.block);
 		file_end.block = next_block;
 		if (file_end.pos) {// no need to set them to the values they already have
 			file_end.pos = 0;
@@ -157,15 +148,12 @@ int pfsc_file_truncate_grow(pfs_eh f, i64 new_length) {
 	const i64 old_length = file->file_length;
 	file->element.last_mod_time = time(NULL);
 	struct pfs_place file_end;
-	_Bool allocated;
 	if (file->file_length == 0) {
 		file_end.block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
 		file->first_block = file_end.block;
 		file_end.pos = 0;
-		allocated = 1;
 	} else {
 		file_end = find_place(file->first_block, file->file_length);
-		allocated = 0;
 	}
 	i64 add_length = new_length - file->file_length;
 	int set_len = pfs->block_size - 8 - file_end.pos;
@@ -193,13 +181,7 @@ int pfsc_file_truncate_grow(pfs_eh f, i64 new_length) {
 			next_block = -1L;
 		}
 		*(i64*) (block_data + pfs->block_size - 8) = next_block;
-		pfs->save(pfs, file_end.block, 1);
-		pfs->save(pfs, f->element_place.block, 0);
-		if (allocated) {
-			finish_allocate_block(file_end.block);
-		} else {
-			allocated = 1;
-		}
+		pfs->set(pfs, file_end.block);
 		file_end.block = next_block;
 		if (file_end.pos) {// no need to set them to the values they already have
 			file_end.pos = 0;

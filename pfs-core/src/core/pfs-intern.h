@@ -47,37 +47,41 @@
 #define PFS_MIN_BLOCK_SIZE ( \
 		sizeof(struct pfs_b0) \
 		+ sizeof(struct pfs_folder) \
-		+ ( \
-			sizeof(struct pfs_folder_entry) \
-			* 2 \
-		) \
+		+ sizeof(struct pfs_folder_entry) \
+		+ sizeof(struct pfs_folder_entry) \
 		+ 30 \
 	)
 
-#define pfs_validate_b0(b0, invalid) \
-	if ((b0).MAGIC != PFS_MAGIC_START) { \
-		invalidb0:; \
-		invalid \
-	} \
-	if ((b0).block_table_first_block == 0 || (b0).block_table_first_block < -1) { \
-		goto invalidb0; \
-	} \
-	if ((b0).block_count < 2) { \
-		goto invalidb0; \
-	} \
-	if ((b0).block_size < PFS_MIN_BLOCK_SIZE) { \
-		goto invalidb0; \
-	} \
-	if ((b0).root.block < 0) { \
-		goto invalidb0; \
-	} \
-	if ((b0).root.pos < 0) { \
-		goto invalidb0; \
-	} \
-	if ((b0).root.block == 0 && (b0).root.pos < sizeof(struct pfs_b0)) { \
-		goto invalidb0; \
+#define pfs_validate_b0(b0, invalid, also_in_block_table) \
+	{ \
+		if ((b0)->MAGIC != PFS_MAGIC_START) { \
+			goto invalidb0; \
+		} \
+		if ((b0)->block_count < 2) { \
+			goto invalidb0; \
+		} \
+		if ((b0)->block_size < PFS_MIN_BLOCK_SIZE) { \
+			goto invalidb0; \
+		} \
+		if ((b0)->root.block < 0) { \
+			goto invalidb0; \
+		} \
+		if ((b0)->root.pos < 0) { \
+			goto invalidb0; \
+		} \
+		if (also_in_block_table) { \
+			i32 b0_end = *(i32*) ((void*) (b0) + 4 \
+				+ *(i32*) ((void*) (b0) + (b0)->block_size - 4)); \
+			if (b0_end < sizeof(struct pfs_b0)) { \
+				goto invalidb0; \
+			} \
+			if ((b0)->root.block == 0 && (b0)->root.pos < b0_end) { \
+				/* do invalid at the end, so if it 'returns', make no loop */ \
+				invalidb0:; \
+				invalid \
+			} \
+		} \
 	}
-
 
 struct pfs_place {
 	i64 block;
@@ -89,23 +93,16 @@ struct pfs_b0 {
 	struct pfs_place root;
 	i32 block_size;
 	i64 block_count;
-	i64 newly_allocated;
-	struct pfs_place used_place;
 	ui32 flags;
+	ui8 uuid[16];
+	char name[0];
 } __attribute__((packed));
 
 static_assert(offsetof(struct pfs_b0, MAGIC) == 0, "error!");
 
 //TODO
 #define B0_FLAG_BM_ALLOC              0x00000001U
-#define B0_FLAG_NA_UNUSET             0x00000002U
-#define B0_FLAG_NA_FILE               0x00000004U
-#define B0_FLAG_NA_FOLDER             0x00000008U
-#define B0_FLAG_NA_FLAGS              (B0_FLAG_NA_UNUSET | B0_FLAG_NA_FILE | B0_FLAG_NA_FOLDER)
-
-void set_alloc_place(struct pfs_place used_place, i32 flags);
-
-void finish_alloc();
+#define B0_FLAG_BM_READ_ONLY          0x00000002U
 
 struct pfs_element {
 	i64 last_mod_time;
@@ -116,7 +113,7 @@ struct pfs_folder_entry {
 	struct pfs_place child_place;
 	i64 create_time;
 	ui32 flags;
-// i32 padding; // no padding done here every second entry is miss-alinged
+//	i32 padding; // no padding done here every second entry is miss-alinged
 } __attribute__((packed));
 
 struct pfs_folder {
