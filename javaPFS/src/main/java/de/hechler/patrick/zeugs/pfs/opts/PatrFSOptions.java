@@ -83,6 +83,18 @@ public record PatrFSOptions(String path, boolean format, long blockCount, int bl
 	}
 	
 	/**
+	 * creates new {@link PatrFSOptions} with the given path, and the given {@link #format()}, {@link #blockCount()} and {@link #blockSize()} values
+	 * 
+	 * @param path       the path of the patr file system
+	 * @param format     the format value of the file system
+	 * @param blockCount the number of blocks available for the patr file system
+	 * @param blockSize  the size of each block available for the patr file system
+	 */
+	public PatrFSOptions(String path, boolean format, long blockCount, int blockSize) {
+		this(path, format, blockCount, blockSize, null, null);
+	}
+	
+	/**
 	 * creates new {@link PatrFSOptions} with the given path, {@link #format()} set to
 	 * <code>true</code> and the given {@link #blockCount()}, {@link #blockSize()}and {@link #name()}
 	 * 
