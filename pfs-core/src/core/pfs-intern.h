@@ -140,12 +140,14 @@ struct pfs_pipe {
 } __attribute__((packed));
 
 struct pfs_element_handle {
-	struct pfs_place real_parent_place;
+	struct pfs_place element_place;
 	i32 index_in_direct_parent_list;
 	struct pfs_place direct_parent_place;
 	i32 entry_pos;
-	struct pfs_place element_place;
+	struct pfs_place real_parent_place;
 };
+
+_Static_assert(offsetof(struct pfs_element_handle, element_place) == 0, "Error!");
 
 struct pfs_folder_iter {
 	struct pfs_place current_place;

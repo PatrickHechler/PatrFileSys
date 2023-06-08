@@ -26,6 +26,14 @@
 #include "../include/pfs.h"
 #include "../include/pfs-stream.h"
 
+static int pfs_eh_equal(const void *a, const void *b) {
+	return 0 == memcmp(a, b, sizeof(struct pfs_place));
+}
+static uint64_t pfs_eq_hash(const void *a) {
+	struct pfs_place *eh = (struct pfs_place*) a;
+	return ((ui64) eh->block) ^ ((ui32) eh->pos);
+}
+
 int childset_equal(const void *a, const void *b) {
 	const struct element_handle *ha = a, *hb = b;
 	return ha->handle.element_place.block == hb->handle.element_place.block
@@ -169,7 +177,8 @@ extern int pfs_load(struct bm_block_manager *bm, const char *cur_work_dir) {
 	}
 	struct pfs_b0 *b0 = bm->get(bm, 0L);
 	pfs_validate_b0(b0,
-			(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_SUPER_BLOCK; bm->unget(bm, 0L); return 0;, 1)
+			(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_SUPER_BLOCK; bm->unget(bm, 0L); return 0;,
+			1)
 	struct element_handle **nehs = malloc(sizeof(struct element_handle*));
 	struct stream_handle **nshs = malloc(sizeof(struct stream_handle*));
 	struct iter_handle **nihs = malloc(sizeof(struct iter_handle*));
@@ -234,7 +243,8 @@ extern int pfs_load(struct bm_block_manager *bm, const char *cur_work_dir) {
 	return 1;
 }
 
-extern int pfs_load_and_format(struct bm_block_manager *bm, i64 block_count, uuid_t uuid, char *name) {
+extern int pfs_load_and_format(struct bm_block_manager *bm, i64 block_count,
+		uuid_t uuid, char *name) {
 	if (bm == NULL) {
 		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
@@ -704,7 +714,7 @@ extern int pfs_stream_open_delegate_fd(bm_fd fd, i32 stream_flags) {
 		if (pfs_shs[i]->element || !pfs_shs[i]->is_file) {
 			continue;
 		}
-		if (((struct fd_del_str*)pfs_shs[i]->delegate)->fd == fd) {
+		if (((struct fd_del_str*) pfs_shs[i]->delegate)->fd == fd) {
 			pfs_shs[i]->pos++;
 			return_handle(pfs_sh_len, pfs_shs, pfs_shs[i]);
 		}

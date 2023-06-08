@@ -29,6 +29,12 @@
 #define _FILE_OFFSET_BITS 64
 //#define __USE_TIME_BITS64 // leads to an error
 
+#if !defined __unix__
+#	define PFS_PORTABLE_BUILD
+#elif !defined __linux__
+#	define PFS_HALF_PORTABLE_BUILD
+#endif
+
 #include <stddef.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -47,7 +53,7 @@ typedef uint64_t ui64;
 typedef uint32_t ui32;
 typedef uint8_t ui8;
 
-#ifdef PFS_PORTABLE_BUILD
+#ifdef PFS_HALF_PORTABLE_BUILD
 typedef ui8 uuid_t[16];
 #else
 #include <uuid/uuid.h>
@@ -60,10 +66,6 @@ static_assert(sizeof(i32) == 4, "Error!");
 static_assert(sizeof(ui64) == 8, "Error!");
 static_assert(sizeof(ui32) == 4, "Error!");
 static_assert(sizeof(char) == 1, "Error!");
-
-#ifndef __unix__
-#define PFS_PORTABLE_BUILD
-#endif
 
 #ifndef PFS_PORTABLE_BUILD
 typedef int bm_fd;

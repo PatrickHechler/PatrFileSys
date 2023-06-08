@@ -147,7 +147,7 @@ int pfsc_format(i64 block_count, uuid_t uuid, char *name) {
 	if (uuid) {
 		memcpy(super_data->uuid, uuid, 16);
 	} else {
-#ifdef PFS_PORTABLE_BUILD
+#ifdef PFS_HALF_PORTABLE_BUILD
 		// see java UUID.generateRandom()
 		for (int i = 0; i < 16; i++) {
 			super_data->uuid[i] = rand();

@@ -103,10 +103,10 @@ uint64_t childset_hash(const void *a);
 
 struct element_handle {
 	struct pfs_element_handle handle;
-	struct element_handle *parent;
 	i64 load_count;
-	struct hashset children;
 };
+
+_Static_assert(offsetof(struct element_handle, handle) == 0, "Error!");
 
 struct stream_handle {
 	struct element_handle *element;
@@ -138,7 +138,23 @@ static_assert((offsetof(struct iter_handle, folder) & 7) == 0, "err");
 #else
 #define EXT
 #define INIT(val) = val
+static int pfs_eh_equal(const void *a, const void *b);
+static uint64_t pfs_eq_hash(const void *a);
 #endif
+
+#define PFS_WELL_WDINTM(a,b,c,d,e) a, b, c, d, e
+
+EXT struct hashset element_handles INIT({
+		PFS_WELL_WDINTM(
+				.entries = NULL,
+				.entrycount = 0,
+				.equalizer = pfs_eh_equal,
+				.hashmaker = pfs_eq_hash,
+				.maxi = 0
+		)
+}
+);
+#undef PFS_WELL_WDINTM
 
 EXT struct element_handle **pfs_ehs INIT(NULL);
 EXT struct stream_handle **pfs_shs INIT(NULL);
