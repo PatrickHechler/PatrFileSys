@@ -1,20 +1,22 @@
-//This file is part of the Patr File System Project
-//DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
-//Copyright (C) 2023  Patrick Hechler
+// This file is part of the Patr File System Project
+// DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+// Copyright (C) 2023 Patrick Hechler
 //
-//This program is free software: you can redistribute it and/or modify
-//it under the terms of the GNU General Public License as published by
-//the Free Software Foundation, either version 3 of the License, or
-//(at your option) any later version.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-//This program is distributed in the hope that it will be useful,
-//but WITHOUT ANY WARRANTY; without even the implied warranty of
-//MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//GNU General Public License for more details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
 //
-//You should have received a copy of the GNU General Public License
-//along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 package de.hechler.patrick.zeugs.pfs.opts;
+
+import java.util.UUID;
 
 import de.hechler.patrick.zeugs.pfs.interfaces.FSOptions;
 
@@ -34,10 +36,12 @@ import de.hechler.patrick.zeugs.pfs.interfaces.FSOptions;
  * @param blockCount the number of blocks, which can be used by the file system
  * @param blockSize  the size of the blocks, which can be used by the file
  *                   system
+ * @param uuid       the UUID of the file system, ignored when {@link #format()} is <code>false</code>
+ * @param name       the name of the file system, ignored when {@link #format()} is <code>false</code>
  * 
- * @author pat
+ * @author Patrick Hechler
  */
-public record PatrFSOptions(String path, boolean format, long blockCount, int blockSize) implements FSOptions {
+public record PatrFSOptions(String path, boolean format, long blockCount, int blockSize, UUID uuid, String name) implements FSOptions {
 	
 	/**
 	 * creates new {@link PatrFSOptions} with the given parameters
@@ -53,7 +57,7 @@ public record PatrFSOptions(String path, boolean format, long blockCount, int bl
 	 * @return the newly created options
 	 */
 	public static PatrFSOptions create(String path, boolean format, long blockCount, int blockSize) {
-		return new PatrFSOptions(path, format, blockCount, blockSize);
+		return new PatrFSOptions(path, format, blockCount, blockSize, null, null);
 	}
 	
 	/**
@@ -63,7 +67,7 @@ public record PatrFSOptions(String path, boolean format, long blockCount, int bl
 	 * @param path the path of the patr file system
 	 */
 	public PatrFSOptions(String path) {
-		this(path, false, -1L, -1);
+		this(path, false, -1L, -1, null, null);
 	}
 	
 	/**
@@ -75,7 +79,34 @@ public record PatrFSOptions(String path, boolean format, long blockCount, int bl
 	 * @param blockSize  the size of each block available for the patr file system
 	 */
 	public PatrFSOptions(String path, long blockCount, int blockSize) {
-		this(path, true, blockCount, blockSize);
+		this(path, true, blockCount, blockSize, null, null);
+	}
+	
+	/**
+	 * creates new {@link PatrFSOptions} with the given path, {@link #format()} set to
+	 * <code>true</code> and the given {@link #blockCount()}, {@link #blockSize()}and {@link #name()}
+	 * 
+	 * @param path       the path of the patr file system
+	 * @param blockCount the number of blocks available for the patr file system
+	 * @param blockSize  the size of each block available for the patr file system
+	 * @param name       the name of the file system
+	 */
+	public PatrFSOptions(String path, long blockCount, int blockSize, String name) {
+		this(path, true, blockCount, blockSize, null, name);
+	}
+	
+	/**
+	 * creates new {@link PatrFSOptions} with the given path, {@link #format()} set to
+	 * <code>true</code> and the given {@link #blockCount()}, {@link #blockSize()}, {@link #uuid()} and {@link #name()}
+	 * 
+	 * @param path       the path of the patr file system
+	 * @param blockCount the number of blocks available for the patr file system
+	 * @param blockSize  the size of each block available for the patr file system
+	 * @param uuid       the UUID of the file system
+	 * @param name       the name of the file system
+	 */
+	public PatrFSOptions(String path, long blockCount, int blockSize, UUID uuid, String name) {
+		this(path, true, blockCount, blockSize, uuid, name);
 	}
 	
 }

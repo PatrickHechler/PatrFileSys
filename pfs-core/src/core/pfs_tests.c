@@ -476,7 +476,7 @@ int main(int argc, char **argv) {
 
 static void checks() {
 	const char *start = "[main.checks]:                                        ";
-	if (!pfsc_format(BLOCK_COUNT)) {
+	if (!pfsc_format(BLOCK_COUNT, NULL, "")) {
 		printf("%scould not format the file system! [0]: %s\n", start,
 				pfs_error());
 		exit(EXIT_FAILURE);
@@ -922,7 +922,7 @@ static void append_file_check() {
 
 static void folder_check() {
 	const char *start = "[main.checks.folder_check]:                           ";
-	if (!pfsc_format(BLOCK_COUNT)) {
+	if (!pfsc_format(BLOCK_COUNT, NULL, "")) {
 		printf("%scould not format the file system! [0]\n");
 		exit(EXIT_FAILURE);
 	}
@@ -1505,7 +1505,7 @@ static void compare(DIR *dir, DIR *dir2, char *name, char *name2) {
 
 static void real_file_sys_check() {
 	const char *start = "[main.checks.real_file_sys_check]:                    ";
-	if (!pfsc_format(BLOCK_COUNT)) {
+	if (!pfsc_format(BLOCK_COUNT, NULL, "")) {
 		printf("%scould not format the pfs! [0]\n", start);
 		exit(EXIT_FAILURE);
 	}
@@ -1727,7 +1727,7 @@ static void meta_check() {
 				pfs_error());
 		exit(EXIT_FAILURE);
 	}
-	if (!pfsc_format(BLOCK_COUNT)) {
+	if (!pfsc_format(BLOCK_COUNT, NULL, "")) {
 		printf("%scould not format the PFS! (%s) [0.3333333333]\n", start,
 				pfs_error());
 		exit(EXIT_FAILURE);

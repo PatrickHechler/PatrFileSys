@@ -14,16 +14,17 @@
 //
 //You should have received a copy of the GNU General Public License
 //along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 /*
  * pfs.c
  *
  *  Created on: Sep 3, 2022
  *      Author: pat
  */
-
 #define I_AM_CORE_PFS
 #include "pfs.h"
 #include "../include/pfs-constants.h"
+#include "../include/patr-file-sys.h"
 
 extern const char* pfs_error() {
 	switch ((*pfs_err_loc)) {
@@ -62,7 +63,7 @@ extern void pfs_perror(const char *msg) {
 	fprintf(stderr, "%s: %s\n", msg ? msg : "pfs-error", pfs_error());
 }
 
-int pfsc_format(i64 block_count) {
+int pfsc_format(i64 block_count, uuid_t uuid, char *name) {
 	if (pfs == NULL) {
 		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
@@ -95,13 +96,27 @@ int pfsc_format(i64 block_count) {
 		(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
 		return 0;
 	}
+	i64 name_len_ = name ? strlen(name) : 0;
+	i32 name_len = name_len_;
+	if (name_len != name_len_) {
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
+		pfs->unget(pfs, 0L);
+		return 0;
+	}
 	i32 table_offset = pfs->block_size - 20;
 	i32 *table = b0 + table_offset;
 	table[0] = 0; // table_entry0: super_block
-	table[1] = sizeof(struct pfs_b0);
-	table[2] = sizeof(struct pfs_b0); // table_entry1: root_folder
-	table[3] = sizeof(struct pfs_b0) + sizeof(struct pfs_folder);
+	table[1] = sizeof(struct pfs_b0) + name_len;
+	table[2] = sizeof(struct pfs_b0) + name_len; // table_entry1: root_folder
+	table[3] = sizeof(struct pfs_b0) + name_len + sizeof(struct pfs_folder);
 	table[4] = table_offset; // (table_entry2.start:) table_offset marker
+	if (table[4] - (i64) table[3]
+			< sizeof(struct pfs_folder_entry) + sizeof(struct pfs_folder_entry)
+					+ 3) {
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
+		pfs->unget(pfs, 0L);
+		return 0;
+	}
 	struct pfs_b0 *super_data = b0;
 	super_data->MAGIC = PFS_MAGIC_START;
 	super_data->root.block = 0L;
@@ -129,7 +144,26 @@ int pfsc_format(i64 block_count) {
 			return 0;
 		}
 	}
-	struct pfs_folder *root = b0 + sizeof(struct pfs_b0);
+	if (uuid) {
+		memcpy(super_data->uuid, uuid, 16);
+	} else {
+#ifdef PFS_PORTABLE_BUILD
+		// see java UUID.generateRandom()
+		for (int i = 0; i < 16; i++) {
+			super_data->uuid[i] = rand();
+		}
+        super_data->uuid[6]  &= 0x0f;  /* clear version        */
+        super_data->uuid[6]  |= 0x40;  /* set to version 4     */
+        super_data->uuid[8]  &= 0x3f;  /* clear variant        */
+        super_data->uuid[8]  |= 0x80;  /* set to IETF variant  */
+#else
+		uuid_generate(super_data->uuid);
+#endif
+	}
+	if (name_len) {
+		memcpy(super_data->name, name, name_len);
+	}
+	struct pfs_folder *root = b0 + sizeof(struct pfs_b0) + name_len;
 	const struct pfs_place no_parent = { .block = -1L, .pos = -1 };
 	i64 now = time(NULL);
 	root->element.last_mod_time = now;
@@ -229,6 +263,39 @@ extern i32 pfs_block_size() {
 		return -1;
 	}
 	return block_size;
+}
+
+extern i32 pfs_name_len() {
+	void *super = pfs->get(pfs, 0L);
+	i32 len = (*(i32*) (super + 4 + (*(i32*) (super + pfs->block_size))))
+			- offsetof(struct pfs_b0, name);
+	pfs->unget(pfs, 0L);
+	return len;
+}
+
+extern i32 pfs_name_cpy(char *buf, i32 buf_len) {
+	void *super = pfs->get(pfs, 0L);
+	i32 len = (*(i32*) (super + 4 + (*(i32*) (super + pfs->block_size))))
+			- offsetof(struct pfs_b0, name);
+	if (buf_len > len) {
+		memcpy(buf, super + offsetof(struct pfs_b0, name), len);
+		buf[len] = '\0';
+	} else {
+		memcpy(buf, super + offsetof(struct pfs_b0, name), buf_len);
+	}
+	pfs->unget(pfs, 0L);
+	return len;
+}
+
+extern char* pfs_name() {
+	void *super = pfs->get(pfs, 0L);
+	i32 len = (*(i32*) (super + 4 + (*(i32*) (super + pfs->block_size))))
+			- offsetof(struct pfs_b0, name);
+	char *name = malloc(len + 1);
+	memcpy(name, super + offsetof(struct pfs_b0, name), len);
+	name[len] = '\0';
+	pfs->unget(pfs, 0L);
+	return name;
 }
 
 int pfsc_fill_root(pfs_eh overwrite_me) {
@@ -557,26 +624,6 @@ void set_parent_place_from_childs(struct pfs_place e,
 	pfs->set(pfs, e.block);
 }
 
-///**
-// * only called with folder elements
-// */
-//static void change_place_in_parent_and_struct(i64 new_block, i32 new_pos, struct pfs_place *place) {
-//	const i32 old_block = place->block;
-//	const i32 old_pos = place->pos;
-//	place->block = new_block;
-//	place->pos = new_pos;
-//	struct pfs_folder *f = pfs->get(pfs, new_block) + new_pos;
-//	struct pfs_folder *parent = pfs->get(pfs, f->direct_parent.block) + f->direct_parent.pos;
-//	if (parent->entries[f->index_in_parent].child_place.pos == old_pos) {
-//		if (parent->entries[f->index_in_parent].child_place.block == old_block) {
-//			parent->entries[f->index_in_parent].child_place.block = place->block;
-//			parent->entries[f->index_in_parent].child_place.pos = place->pos;
-//			return;
-//		}
-//	}
-//	abort();
-//}
-
 i32 grow_folder_entry(const struct pfs_element_handle *e, i32 new_size,
 		struct pfs_place real_parent) {
 	i32 new_pos = reallocate_in_block_table(e->element_place.block,
@@ -634,7 +681,7 @@ static inline i64 allocate_block_without_bm(struct pfs_b0 *b0) {
 	i64 current_block_num = 1;
 	void *current_block = pfs->get(pfs, current_block_num);
 	i64 result = 0L;
-	while (987) {
+	while (1) {
 		i64 next_block_num = *(i64*) (current_block + pfs->block_size - 8);
 		ui8 *block_data = current_block;
 		i32 remain = pfs->block_size - 8;

@@ -8,6 +8,7 @@ ifeq ($(AR),)
 endif
 
 CFLAGS += -fPIC
+LDFLAGS += -luuid
 
 ifeq ($(BUILD_MODE),debug)
 	CFLAGS += -g -Og
@@ -74,7 +75,7 @@ INIT:
 	ln -sf -T $(EXPSOURCE) $(EXP)include
 
 $(CORE_TEST_TARGET): $(CORE_TEST_TARGET).o $(CORE_OBJS) $(API_BIN)hashset.o $(API_BIN)bm.o
-	$(CC) -o $(CORE_TEST_TARGET) $(CORE_TEST_TARGET).o $(CORE_OBJS) $(API_BIN)hashset.o $(API_BIN)bm.o
+	$(CC) -o $(CORE_TEST_TARGET) $(LDFLAGS) $(CORE_TEST_TARGET).o $(CORE_OBJS) $(API_BIN)hashset.o $(API_BIN)bm.o
 
 $(TARGET_SO):	INIT_SO $(OBJS)
 	$(CC) -shared -o $@ $(LDFLAGS) $(OBJS)

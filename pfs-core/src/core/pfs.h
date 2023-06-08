@@ -38,7 +38,7 @@ extern
 #endif
 struct bm_block_manager *pfs;
 
-int pfsc_format(i64 block_count);
+int pfsc_format(i64 block_count, uuid_t uuid, char *name);
 
 extern i64 pfs_block_count();
 

@@ -14,13 +14,13 @@
 //
 //You should have received a copy of the GNU General Public License
 //along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 /*
  * pfs.h
  *
  *  Created on: Oct 15, 2022
  *      Author: pat
  */
-
 #ifndef SRC_INCLUDE_PFS_H_
 #define SRC_INCLUDE_PFS_H_
 
@@ -40,16 +40,23 @@ extern int pfs_load(struct bm_block_manager *bm, const char *cwd);
 /*
  * formats and loads the PFS from the specified block manager
  *
+ * if UUID is NULL a new UUID will be generated
+ *
  * this function sets the current working directory to the root folder
  */
-extern int pfs_load_and_format(struct bm_block_manager *bm, i64 block_count);
+extern int pfs_load_and_format(struct bm_block_manager *bm, i64 block_count,
+		uuid_t uuid, char *fs_name);
 
 /*
  * formats the currently loaded PFS
  *
+ * if uuid is NULL a new uuid will be generated
+ *
+ * if fs_name is NULL it will be treated like an empty name
+ *
  * this function sets the current working directory to the root folder
  */
-extern int pfs_format(i64 block_count);
+extern int pfs_format(i64 block_count, uuid_t uuid, char *fs_name);
 
 /*
  * closes the file system
@@ -69,6 +76,37 @@ extern i64 pfs_block_count();
  * on error -1 is returned
  */
 extern i32 pfs_block_size();
+
+/*
+ * copies the name of the loaded file system to the given buffer
+ *
+ * if buf_len is larger than the names length, the name will be terminated by a \0 character
+ * if the name is larger than the buffer a truncated version of the name is saved in the buffer
+ *   the truncated name will not be stopped by a \0 character
+ *
+ * returns the length of the file system name
+ *
+ * on error -1 is returned
+ */
+extern i32 pfs_name_cpy(char *buf, i32 buf_len);
+
+/*
+ * returns the length of the name (without the \0 terminating character)
+ *
+ * on error -1 is returned
+ */
+extern i32 pfs_name_len();
+
+/**
+ * this method is like:
+ *   i32 len = pfs_name_len() + 1;
+ *   char *name = malloc(len);
+ *   pfs_name_cpy(name, len);
+ *   return name;
+ *
+ * on error NULL is returned
+ */
+extern char* pfs_name();
 
 /*
  * creates a new element handle from the given path

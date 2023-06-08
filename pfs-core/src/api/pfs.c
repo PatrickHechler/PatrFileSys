@@ -234,21 +234,21 @@ extern int pfs_load(struct bm_block_manager *bm, const char *cur_work_dir) {
 	return 1;
 }
 
-extern int pfs_load_and_format(struct bm_block_manager *bm, i64 block_count) {
+extern int pfs_load_and_format(struct bm_block_manager *bm, i64 block_count, uuid_t uuid, char *name) {
 	if (bm == NULL) {
 		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	struct bm_block_manager *old = pfs;
 	pfs = bm;
-	int res = pfs_format(block_count);
+	int res = pfs_format(block_count, uuid, name);
 	if (!res) {
 		pfs = old;
 	}
 	return res;
 }
 
-extern int pfs_format(i64 block_count) {
+extern int pfs_format(i64 block_count, uuid_t uuid, char *name) {
 	struct element_handle **nehs = malloc(sizeof(struct element_handle*));
 	struct stream_handle **nshs = malloc(sizeof(struct stream_handle*));
 	struct iter_handle **nihs = malloc(sizeof(struct iter_handle*));
@@ -269,7 +269,7 @@ extern int pfs_format(i64 block_count) {
 		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
 		return 0;
 	}
-	if (!pfsc_format(block_count)) {
+	if (!pfsc_format(block_count, uuid, name)) {
 		free(nehs);
 		free(nshs);
 		free(nihs);
@@ -582,7 +582,7 @@ static i64 fd_read(struct delegate_stream *ds, void *buf, i64 len) {
 	struct fd_del_str *fdds = (struct fd_del_str*) ds;
 	i64 reat = read(fdds->fd, buf, len);
 	if (reat == -1) {
-#ifdef PORTABLE_BUILD
+#ifdef PFS_PORTABLE_BUILD
 		if (feof(fdds->fd)) {
 			clearerr(bf->fd);
 		} else {

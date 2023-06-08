@@ -27,10 +27,7 @@
 #include <string.h>
 #include <stddef.h>
 
-#define I_AM_HASH_SET
 #include "../include/hashset.h"
-
-#define INIT_MAP_SIZE 8
 
 struct hs_list {
 	void *datam1[0];

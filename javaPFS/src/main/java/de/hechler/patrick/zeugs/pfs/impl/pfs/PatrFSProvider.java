@@ -108,10 +108,18 @@ public class PatrFSProvider extends FSProvider {
 		MethodHandle  newBm            = linker.downcallHandle(PatrFS.LOCKUP.find("bm_new_file_block_manager_path_bs").orElseThrow(),
 				FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
 		MethodHandle  pfsLoadAndFormat = linker.downcallHandle(PatrFS.LOCKUP.find("pfs_load_and_format").orElseThrow(),
-				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
 		MemorySegment bm               = (MemorySegment) newBm.invoke(path, opts.blockSize(), 0);
-		if (0 == (int) pfsLoadAndFormat.invoke(bm, opts.blockCount())) {
-			throw thrw(PFSErrorCause.LOAD_PFS_AND_FORMAT, opts);
+		try (Arena arena = Arena.openConfined()) {
+			MemorySegment uuid = opts.uuid() == null ? MemorySegment.NULL : arena.allocate(16L);
+			if (opts.uuid() != null) {
+				uuid.set(ValueLayout.JAVA_LONG, 0L, opts.uuid().getMostSignificantBits());
+				uuid.set(ValueLayout.JAVA_LONG, 8L, opts.uuid().getLeastSignificantBits());
+			}
+			MemorySegment name = opts.name() == null ? MemorySegment.NULL : arena.allocateUtf8String(opts.name());
+			if (0 == (int) pfsLoadAndFormat.invoke(bm, opts.blockCount(), uuid, name)) {
+				throw thrw(PFSErrorCause.LOAD_PFS_AND_FORMAT, opts);
+			}
 		}
 	}
 	
