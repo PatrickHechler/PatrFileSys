@@ -38,20 +38,13 @@ extern i64 pfs_folder_child_count(int eh) {
 
 #define get_child \
 	{ \
-		struct element_handle *oc = hashset_get(&pfs_ehs[eh]->children, eh_hash(c), c); \
+		struct element_handle *oc = hashset_add(&pfs_all_ehs_set, eh_hash(c), c); \
 		if (oc) { \
 			free(c); \
 			oc->load_count++; \
 			c = oc; \
 		} else { \
-			c->children.entrycount = 0; \
-			c->children.maxi = 0; \
-			c->children.equalizer = childset_equal; \
-			c->children.hashmaker = childset_hash; \
-			c->children.entries = NULL; \
 			c->load_count = 1; \
-			c->parent = pfs_ehs[eh]; \
-			hashset_put(&pfs_ehs[eh]->children, eh_hash(c), c); \
 		} \
 	}
 

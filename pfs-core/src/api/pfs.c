@@ -27,39 +27,19 @@
 #include "../include/pfs-stream.h"
 
 static int pfs_eh_equal(const void *a, const void *b) {
-	return 0 == memcmp(a, b, sizeof(struct pfs_place));
-}
-static uint64_t pfs_eq_hash(const void *a) {
-	struct pfs_place *eh = (struct pfs_place*) a;
-	return ((ui64) eh->block) ^ ((ui32) eh->pos);
-}
-
-int childset_equal(const void *a, const void *b) {
 	const struct element_handle *ha = a, *hb = b;
 	return ha->handle.element_place.block == hb->handle.element_place.block
 			&& ha->handle.element_place.pos == hb->handle.element_place.pos;
 }
-
-uint64_t childset_hash(const void *a) {
+static uint64_t pfs_eq_hash(const void *a) {
 	return eh_hash(a);
-}
-
-static inline void force_release_eh(struct element_handle *feh) {
-	for (struct element_handle *a = feh, *b;
-			a != NULL && (feh == a || !has_refs(a)); a = b) {
-		b = a->parent;
-		if (!b) { // root has no references
-			abort();
-		}
-		hashset_remove(&b->children, eh_hash(a), a);
-		free(a);
-	}
 }
 
 static inline void release_eh(struct element_handle *feh) {
 	feh->load_count--;
 	if (!has_refs(feh)) {
-		force_release_eh(feh);
+		hashset_remove(&pfs_all_ehs_set, eh_hash(feh), feh);
+		free(feh);
 	}
 }
 
@@ -116,16 +96,25 @@ static inline struct element_handle* open_eh(const char *path,
 			if (('.' != cur[1]) || ('.' != cur[0])) {
 				break;
 			}
-			if (!eh->parent) {
-				(*pfs_err_loc) = PFS_ERRNO_ROOT_FOLDER;
-				free(buf);
-				release_eh(eh);
+			struct element_handle *new = malloc(sizeof(struct element_handle));
+			new->handle = eh->handle;
+			release_eh(eh);
+			if (!pfsc_element_get_parent(&new->handle)) {
 				return 0;
 			}
-			struct element_handle *oeh = eh;
-			eh = oeh->parent;
-			eh->load_count++;
-			release_eh(oeh);
+			struct element_handle *al = hashset_get(&pfs_all_ehs_set,
+					eh_hash(new), new);
+			if (al != NULL) {
+				eh = al;
+				eh->load_count++;
+				free(new);
+			} else {
+				eh = new;
+				eh->load_count = 1;
+				if (hashset_put(&pfs_all_ehs_set, eh_hash(new), new) != NULL) {
+					abort();
+				}
+			}
 			continue;
 		}
 		struct element_handle *neh = malloc(sizeof(struct element_handle));
@@ -139,28 +128,23 @@ static inline struct element_handle* open_eh(const char *path,
 			if (!pfsc_folder_child_from_name(&neh->handle, buf)) {
 				*parent_on_err = eh;
 				free(buf);
+				free(neh);
 				return 0;
 			}
 		} else if (!pfsc_folder_child_from_name(&neh->handle, buf)) {
 			release_eh(eh);
+			free(neh);
 			free(buf);
 			return 0;
 		}
 		struct element_handle *oeh = eh;
-		struct element_handle *oneh = hashset_get(&eh->children, eh_hash(neh),
-				neh);
-		if (oneh) {
-			eh = oneh;
+		eh = hashset_get(&pfs_all_ehs_set, eh_hash(neh), neh);
+		if (eh) {
 			eh->load_count++;
+			free(neh);
 		} else {
-			hashset_put(&eh->children, eh_hash(neh), neh);
-			neh->parent = eh;
+			hashset_put(&pfs_all_ehs_set, eh_hash(neh), neh);
 			neh->load_count = 1;
-			neh->children.entrycount = 0;
-			neh->children.maxi = 0;
-			neh->children.equalizer = childset_equal;
-			neh->children.hashmaker = childset_hash;
-			neh->children.entries = NULL;
 			eh = neh;
 		}
 		release_eh(oeh);
@@ -206,13 +190,7 @@ extern int pfs_load(struct bm_block_manager *bm, const char *cur_work_dir) {
 		bm->unget(bm, 0L);
 		return 0;
 	}
-	nrot->parent = NULL;
 	nrot->load_count = 1;
-	nrot->children.maxi = 0;
-	nrot->children.entrycount = 0;
-	nrot->children.equalizer = childset_equal;
-	nrot->children.hashmaker = childset_hash;
-	nrot->children.entries = NULL;
 	if (cur_work_dir) {
 		struct element_handle *ncwd = open_eh(cur_work_dir, nrot, 0, NULL);
 		if (!ncwd) {
@@ -293,13 +271,7 @@ extern int pfs_format(i64 block_count, uuid_t uuid, char *name) {
 		free(nrot);
 		return 0;
 	}
-	nrot->parent = NULL;
 	nrot->load_count = 2;
-	nrot->children.maxi = 0;
-	nrot->children.entrycount = 0;
-	nrot->children.equalizer = childset_equal;
-	nrot->children.hashmaker = childset_hash;
-	nrot->children.entries = NULL;
 	free_old();
 	pfs_ehs = nehs;
 	pfs_shs = nshs;
@@ -432,11 +404,9 @@ static inline void pfs_close_iter_impl(int ih) {
 	pfs_ihs[ih] = NULL;
 }
 
-static int delete_element(struct element_handle **eh) {
-	if (has_refs0(*eh, 1)) { // 1 and 2 because this handle itself does not count
-		if (*eh == pfs_cwd && has_refs0(*eh, 2)) {
-			pfs_cwd = pfs_root;
-		} else {
+static int delete_element(struct element_handle **eh, int also_when_loaded) {
+	if (!also_when_loaded && has_refs0(*eh, 1)) { // 1 and 2 because this handle itself does not count
+		if (*eh != pfs_cwd || has_refs0(*eh, 2)) {
 			release_eh(*eh);
 			*eh = NULL;
 			(*pfs_err_loc) = PFS_ERRNO_ELEMENT_USED;
@@ -445,44 +415,25 @@ static int delete_element(struct element_handle **eh) {
 	}
 	i64 former_index;
 	int res = pfsc_element_delete(&(*eh)->handle, &former_index);
-	if (res) {
-		for (int i = pfs_ih_len; i--;) {
-			if (!pfs_ihs[i]) {
-				continue;
-			}
-			if (pfs_ihs[i]->folder != (*eh)->parent) {
-				continue;
-			}
-			if (pfs_ihs[i]->index >= former_index) {
-				if (pfs_ihs[i]->index == former_index) {
-					abort();
-				}
-				pfs_ihs[i]->index--;
-				if (!pfsc_folder_fill_iterator_index(
-						&pfs_ihs[i]->folder->handle, &pfs_ihs[i]->handle,
-						pfs_ihs[i]->index)) {
-					abort(); // check what to do when it happens
-					// well, thats (possibly) better than a crash
-					// pfs_close_iter_impl(i);
-				}
-			}
+	if (res && has_refs0(*eh, 1)) {
+		if (!also_when_loaded) {
+			abort();
 		}
-		force_release_eh(*eh);
-	} else {
-		release_eh(*eh);
+		memset(&(*eh)->handle, 0xFF, sizeof(struct pfs_element_handle));
 	}
+	release_eh(*eh);
 	*eh = NULL;
 	return res;
 }
 
-extern int pfs_delete(const char *path) {
+extern int pfs_delete(const char *path, int also_when_loaded) {
 	struct element_handle *eh = open_eh(path, pfs_root, 1, NULL);
-	return delete_element(&eh);
+	return delete_element(&eh, also_when_loaded);
 }
 
-extern int pfs_element_delete(int eh) {
+extern int pfs_element_delete(int eh, int also_when_loaded) {
 	eh(0)
-	return delete_element(&pfs_ehs[eh]);
+	return delete_element(&pfs_ehs[eh], also_when_loaded);
 }
 
 static inline int open_sh(struct element_handle *eh, ui32 stream_flags) {
@@ -786,13 +737,12 @@ extern int pfs_open_stream(int eh, i32 stream_flags) {
 
 extern int pfs_stream(const char *path, i32 stream_flags) {
 	const ui32 old_err = (*pfs_err_loc);
-	struct element_handle *peh;
+	struct element_handle *peh = NULL;
 	struct element_handle *eh = open_eh(path, pfs_root, 1, &peh);
 	if (!eh) {
-		if ((stream_flags & (PFS_SO_ONLY_CREATE | PFS_SO_ALSO_CREATE)) == 0) {
-			return -1;
-		}
-		if (!peh) {
+		if (!peh
+				|| (stream_flags & (PFS_SO_ONLY_CREATE | PFS_SO_ALSO_CREATE))
+						== 0) {
 			return -1;
 		}
 		(*pfs_err_loc) = old_err;
@@ -802,13 +752,6 @@ extern int pfs_stream(const char *path, i32 stream_flags) {
 			return -1;
 		}
 		eh->handle = peh->handle;
-		eh->parent = peh;
-		eh->load_count = 1;
-		eh->children.entrycount = 0;
-		eh->children.maxi = 0;
-		eh->children.equalizer = childset_equal;
-		eh->children.hashmaker = childset_hash;
-		eh->children.entries = NULL;
 		const char *name = strrchr(path, '/');
 		name = name == NULL ? path : (name + 1);
 		if (stream_flags & PFS_SO_PIPE) {
@@ -823,7 +766,16 @@ extern int pfs_stream(const char *path, i32 stream_flags) {
 			(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
 			return -1;
 		}
-		hashset_put(&peh->children, eh_hash(eh), eh);
+		struct element_handle *old = hashset_add(&pfs_all_ehs_set, eh_hash(eh),
+				eh);
+		if (old) {
+			free(eh);
+			eh = old;
+			eh->load_count++;
+		} else {
+			eh->load_count = 1;
+		}
+		release_eh(peh);
 	} else if (stream_flags & PFS_SO_ONLY_CREATE) {
 		release_eh(eh);
 		return -1;
@@ -906,7 +858,7 @@ extern int pfs_iter_next(int ih) {
 	if (!pfsc_folder_iter_next(&pfs_ihs[ih]->handle)) {
 		return -1;
 	}
-	struct element_handle *c = hashset_get(&pfs_ihs[ih]->folder->children,
+	struct element_handle *c = hashset_get(&pfs_all_ehs_set,
 			eh_hash(&pfs_ihs[ih]->ieh), &pfs_ihs[ih]->ieh);
 	if (c) {
 		c->load_count++;
@@ -916,22 +868,20 @@ extern int pfs_iter_next(int ih) {
 			(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
 			return -1;
 		}
-		c->children.entrycount = 0;
-		c->children.maxi = 0;
-		c->children.equalizer = childset_equal;
-		c->children.hashmaker = childset_hash;
-		c->children.entries = NULL;
 		c->handle = pfs_ihs[ih]->ieh;
 		c->load_count = 1;
-		c->parent = pfs_ihs[ih]->folder;
-		hashset_put(&pfs_ihs[ih]->folder->children, eh_hash(&pfs_ihs[ih]->ieh),
-				&pfs_ihs[ih]->ieh);
+		void *old = hashset_add(&pfs_all_ehs_set, eh_hash(c), c);
+		if (old) {
+			free(c);
+			c = old;
+			c->load_count++;
+		}
 	}
 	return_handle(pfs_eh_len, pfs_ehs, c)
 }
 
 extern int pfs_element_close(int eh) {
-	eh(0)
+	get_handle(0, pfs_eh_len, pfs_ehs, eh) // eh(0) fails when the element was deleted
 	release_eh(pfs_ehs[eh]);
 	pfs_ehs[eh] = NULL;
 	return 1;

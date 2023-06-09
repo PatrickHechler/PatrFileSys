@@ -52,12 +52,28 @@ extern void* hashset_get(const struct hashset *set, uint64_t hash,
 extern void* hashset_put(struct hashset *set, uint64_t hash, void *newval);
 
 /**
+ * adds the entry with the given hash and value
+ *
+ * if the set has already an entry mapped equal the the given value, this operation does
+ * nothing, otherwise the entry is added to the set
+ *
+ * this operation is like:
+ * void *old = hashset_get(set, hash, addval);
+ * if (!old) {
+ *   hashset_put(set, hash, addval);
+ * }
+ * return old;
+ *
+ * this function returns the previous entry (equal to the given entry) or NULL if there was no such entry perviusly
+ */
+extern void* hashset_add(struct hashset *set, uint64_t hash, void *addval);
+
+/**
  * removes the entry with the given hash and value
  *
  * this function returns the previous entry (equal to the given entry) or NULL if no such entry was found
  */
-extern void* hashset_remove(struct hashset *set, uint64_t hash,
-		void *oldval);
+extern void* hashset_remove(struct hashset *set, uint64_t hash, void *oldval);
 
 /**
  * execute the given function with each argument in this set.
@@ -67,7 +83,6 @@ extern void* hashset_remove(struct hashset *set, uint64_t hash,
  */
 extern void hashset_for_each(const struct hashset *set,
 		int (*do_stuff)(void *arg0, void *element), void *arg0);
-
 
 /**
  * execute the given function with each argument in this set.

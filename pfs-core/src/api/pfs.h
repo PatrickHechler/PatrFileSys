@@ -27,7 +27,7 @@
 #include "../include/patr-file-sys.h"
 #include "../include/pfs-err.h"
 
-#define has_refs0(eh, small) ( ( (eh)->load_count > small) ? 1 : ( (eh)->children.entrycount != 0) )
+#define has_refs0(eh, small) ( (eh)->load_count > small )
 #define has_refs(eh) has_refs0(eh, 0)
 
 #define get_handle(err_ret, h_len, hs, h_num) \
@@ -40,7 +40,13 @@
 		return err_ret; \
 	}
 
-#define get_eh(err_ret, eh_num) get_handle(err_ret, pfs_eh_len, pfs_ehs, eh_num)
+#define get_eh(err_ret, eh_num) \
+		get_handle(err_ret, pfs_eh_len, pfs_ehs, eh_num) \
+		if (pfs_ehs[eh_num]->handle.element_place.block == -1) { \
+			(*pfs_err_loc) = PFS_ERRNO_ELEMENT_DELETED; \
+			return err_ret; \
+		}
+
 #define get_sh(err_ret, sh_num) get_handle(err_ret, pfs_sh_len, pfs_shs, sh_num)
 #define get_ih(err_ret, ih_num) get_handle(err_ret, pfs_ih_len, pfs_ihs, ih_num)
 
@@ -48,8 +54,8 @@
 #define sh(err_ret) get_sh(err_ret, sh)
 #define ih(err_ret) get_ih(err_ret, ih)
 
-#define eh_hash(a) ( (uint64_t) ( ( (uint64_t) ((struct element_handle*)a)->handle.element_place.block) \
-		^ ( (uint64_t) ((struct element_handle*)a)->handle.element_place.pos) ) )
+#define eh_hash(a) ( ( (uint64_t) ((const struct element_handle*)a)->handle.element_place.block) \
+		^ ( (uint64_t) (uint32_t) ((const struct element_handle*)a)->handle.element_place.pos) )
 
 static inline int return_handle(i64 *len, void ***hs, void *h) {
 	for (int i = 0; i < (*len); i++) {
@@ -144,7 +150,7 @@ static uint64_t pfs_eq_hash(const void *a);
 
 #define PFS_WELL_WDINTM(a,b,c,d,e) a, b, c, d, e
 
-EXT struct hashset element_handles INIT({
+EXT struct hashset pfs_all_ehs_set INIT({
 		PFS_WELL_WDINTM(
 				.entries = NULL,
 				.entrycount = 0,

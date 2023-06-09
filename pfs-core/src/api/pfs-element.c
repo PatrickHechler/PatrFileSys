@@ -25,11 +25,25 @@
 
 extern int pfs_element_parent(int eh) {
 	eh(-1)
-	if (!pfs_ehs[eh]->parent) {
-		(*pfs_err_loc) = PFS_ERRNO_ROOT_FOLDER;
+	struct element_handle *peh = malloc(sizeof(struct element_handle));
+	if (!peh) {
+		errno = 0;
+		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
 		return -1;
 	}
-	return_handle(pfs_eh_len, pfs_ehs, pfs_ehs[eh]->parent)
+	memcpy(&peh->handle, &pfs_ehs[eh]->handle, sizeof(struct element_handle));
+	if (!pfsc_element_get_parent(&peh->handle)) {
+		free(peh);
+		return -1;
+	}
+	void *old = hashset_add(&pfs_all_ehs_set, eh_hash(peh), peh);
+	if (old) {
+		peh = old;
+		peh->load_count++;
+	} else {
+		peh->load_count = 1;
+	}
+	return_handle(pfs_eh_len, pfs_ehs, peh)
 }
 
 extern ui32 pfs_element_get_flags(int eh) {

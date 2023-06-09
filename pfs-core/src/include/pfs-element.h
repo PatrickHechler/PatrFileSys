@@ -50,7 +50,7 @@ extern int pfs_element_parent(int eh);
  *
  * on success 1 and on error 0 is returned
  */
-extern int pfs_element_delete(int eh);
+extern int pfs_element_delete(int eh, int also_when_loaded);
 
 /*
  * returns the flags of the element

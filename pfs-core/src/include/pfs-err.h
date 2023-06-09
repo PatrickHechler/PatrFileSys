@@ -52,7 +52,8 @@ enum pfs_errno {
 	PFS_ERRNO_PARENT_IS_CHILD               = 12, /* indicates that the parent can't be made to it's own child */
 	PFS_ERRNO_ELEMENT_USED                  = 13, /* indicates the element is still used somewhere else */
 	PFS_ERRNO_OUT_OF_RANGE                  = 14, /* indicates that some value was outside of the allowed range */
-	PFS_ERRNO_FOLDER_NOT_EMPTY              = 15, /* indicates that the operation was canceled, because only empty folders can be deleted */
+	PFS_ERRNO_FOLDER_NOT_EMPTY              = 15, /* indicates that the operation failed, because only empty folders can be deleted */
+	PFS_ERRNO_ELEMENT_DELETED               = 16, /* indicates that the operation failed, because the element was deleted */
 	
 	// here is the end of the automatic generated code-block
 	// GENERATED-CODE-END

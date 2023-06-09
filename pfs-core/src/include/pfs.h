@@ -197,7 +197,7 @@ extern int pfs_change_working_directoy(char *path);
  *
  * on success 1 and on error 0 is returned
  */
-extern int pfs_delete(const char *path);
+extern int pfs_delete(const char *path, int also_when_loaded);
 
 /*
  * creates a new stream handle for the file/pipe with the given path

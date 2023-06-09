@@ -73,12 +73,12 @@ static inline unsigned hs_bitcnt(uint64_t val) {
 		val = val + (val >> 32);
 		return val & 0x7f;
 	} else { // see java: Integer.bitCount
-		val = val - ((val >> 1) & 0x55555555);
-		val = (val & 0x33333333) + ((val >> 2) & 0x33333333);
-		val = (val + (val >> 4)) & 0x0f0f0f0f;
-		val = val + (val >> 8);
-		val = val + (val >> 16);
-		return val & 0x3f;
+		unsigned val0 = val - ((val >> 1) & 0x55555555);
+		val0 = (val0 & 0x33333333) + ((val0 >> 2) & 0x33333333);
+		val0 = (val0 + (val0 >> 4)) & 0x0f0f0f0f;
+		val0 = val0 + (val0 >> 8);
+		val0 = val0 + (val0 >> 16);
+		return val0 & 0x3f;
 	}
 }
 
@@ -119,15 +119,15 @@ static inline void hs_free_old(struct hashset *set) {
 		return;
 	}
 	for (uint64_t i = set->maxi + 1; i-- > 0;) {
-		void *es = ((void**) set->entries)[i];
+		int64_t es = ((int64_t*) set->entries)[i];
 		if (es < 0) {
-			free((void*) -(int64_t) es);
+			free((void*) -es);
 		}
 	}
 	free(set->entries);
 }
 
-extern void* hashset_put(struct hashset *set, uint64_t hash, void *newvalue) {
+static inline void* hashset_add_put(struct hashset *set, uint64_t hash, void *newvalue, _Bool also_replace) {
 	if (set->maxi >> 1 <= set->entrycount) {
 		uint64_t nmi = (set->maxi << 1) | 1;
 		void *newEntries = malloc((nmi + 1) * sizeof(void*));
@@ -146,7 +146,9 @@ extern void* hashset_put(struct hashset *set, uint64_t hash, void *newvalue) {
 	int64_t es = ((int64_t*) set->entries)[hash];
 	if (es > 0) {
 		if (set->equalizer((void*) es, newvalue)) {
-			((void**) set->entries)[hash] = newvalue;
+			if (also_replace) {
+				((void**) set->entries)[hash] = newvalue;
+			}
 			return (void*) es;
 		}
 		struct hs_list *list = malloc(sizeof(void*) * 4);
@@ -161,7 +163,9 @@ extern void* hashset_put(struct hashset *set, uint64_t hash, void *newvalue) {
 		for (uint64_t i = list->len; i; i--) {
 			if (set->equalizer(list->datam1[i], newvalue)) {
 				void *res = list->datam1[i];
-				list->datam1[i] = newvalue;
+				if (also_replace) {
+					list->datam1[i] = newvalue;
+				}
 				return res;
 			}
 		}
@@ -178,6 +182,14 @@ extern void* hashset_put(struct hashset *set, uint64_t hash, void *newvalue) {
 		set->entrycount++;
 		return NULL;
 	}
+}
+
+extern void* hashset_put(struct hashset *set, uint64_t hash, void *newvalue) {
+	return hashset_add_put(set, hash, newvalue, 1);
+}
+
+extern void* hashset_add(struct hashset *set, uint64_t hash, void *addvalue) {
+	return hashset_add_put(set, hash, addvalue, 0);
 }
 
 static inline void hs_shrink(struct hashset *set) {
