@@ -35,15 +35,11 @@
 #	define PFS_HALF_PORTABLE_BUILD
 #endif
 
-#include <stddef.h>
-#include <limits.h>
-#include <stdlib.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <time.h>
-#include <assert.h>
-#include <string.h>
+#include <limits.h>
+#include <stddef.h>
 #ifdef PFS_PORTABLE_BUILD
+#include <stdio.h>
 #include <threads.h>
 #endif
 
@@ -59,13 +55,13 @@ typedef ui8 uuid_t[16];
 #include <uuid/uuid.h>
 #endif
 
-static_assert(CHAR_BIT == 8, "Error!");
-static_assert(sizeof(__time_t) == 8, "Error!");
-static_assert(sizeof(i64) == 8, "Error!");
-static_assert(sizeof(i32) == 4, "Error!");
-static_assert(sizeof(ui64) == 8, "Error!");
-static_assert(sizeof(ui32) == 4, "Error!");
-static_assert(sizeof(char) == 1, "Error!");
+_Static_assert(CHAR_BIT == 8, "Error!");
+_Static_assert(sizeof(__time_t) == 8, "Error!");
+_Static_assert(sizeof(i64) == 8, "Error!");
+_Static_assert(sizeof(i32) == 4, "Error!");
+_Static_assert(sizeof(ui64) == 8, "Error!");
+_Static_assert(sizeof(ui32) == 4, "Error!");
+_Static_assert(sizeof(char) == 1, "Error!");
 
 #ifndef PFS_PORTABLE_BUILD
 typedef int bm_fd;

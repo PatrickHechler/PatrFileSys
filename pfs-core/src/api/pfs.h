@@ -27,6 +27,8 @@
 #include "../include/patr-file-sys.h"
 #include "../include/pfs-err.h"
 
+#include <stdlib.h>
+
 #define has_refs0(eh, small) ( (eh)->load_count > small )
 #define has_refs(eh) has_refs0(eh, 0)
 
@@ -134,9 +136,8 @@ struct iter_handle {
 	i64 index;
 };
 
-static_assert((offsetof(struct iter_handle, ieh)
-& 7) == 0, "err");
-static_assert((offsetof(struct iter_handle, folder) & 7) == 0, "err");
+_Static_assert((offsetof(struct iter_handle, ieh) & 7) == 0, "err");
+_Static_assert((offsetof(struct iter_handle, folder) & 7) == 0, "err");
 
 #ifndef I_AM_API_PFS
 #define EXT extern

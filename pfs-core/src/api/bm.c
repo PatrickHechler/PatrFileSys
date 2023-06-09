@@ -57,11 +57,11 @@ struct bm_flag_ram {
 	ui8 *flags;
 };
 
-static_assert(offsetof(struct bm_ram, bm)
+_Static_assert(offsetof(struct bm_ram, bm)
 == 0, "error!");
-static_assert(offsetof(struct bm_file, bm)
+_Static_assert(offsetof(struct bm_file, bm)
 == 0, "error!");
-static_assert(offsetof(struct bm_flag_ram, bm) == 0, "error!");
+_Static_assert(offsetof(struct bm_flag_ram, bm) == 0, "error!");
 
 static void* bm_lazy_get(struct bm_block_manager *bm, i64 block);
 
@@ -211,7 +211,7 @@ struct bm_loaded {
 	int save;
 };
 
-static_assert(offsetof(struct bm_loaded, block) == 0, "Error!");
+_Static_assert(offsetof(struct bm_loaded, block) == 0, "Error!");
 
 static void* bm_lazy_get(struct bm_block_manager *bm, i64 block) {
 	struct bm_loaded *loaded = hashset_get(&bm->loaded, (uint64_t) block,

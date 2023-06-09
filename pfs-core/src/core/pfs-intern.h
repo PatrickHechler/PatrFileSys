@@ -25,6 +25,8 @@
 #define SRC_CORE_PFS_INTERN_H_
 
 #include "../include/patr-file-sys.h"
+#include <string.h>
+#include <stdlib.h>
 
 /*
  * only the used flag is important, the other flags are optional
@@ -98,9 +100,8 @@ struct pfs_b0 {
 	char name[0];
 } __attribute__((packed));
 
-static_assert(offsetof(struct pfs_b0, MAGIC) == 0, "error!");
+_Static_assert(offsetof(struct pfs_b0, MAGIC) == 0, "error!");
 
-//TODO
 #define B0_FLAG_BM_ALLOC              0x00000001U
 #define B0_FLAG_BM_READ_ONLY          0x00000002U
 
@@ -126,7 +127,7 @@ struct pfs_folder {
 	struct pfs_folder_entry entries[];
 } __attribute__((packed));
 
-static_assert(offsetof(struct pfs_folder, entries) == sizeof(struct pfs_folder));
+_Static_assert(offsetof(struct pfs_folder, entries) == sizeof(struct pfs_folder));
 
 struct pfs_file {
 	struct pfs_element element;

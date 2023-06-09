@@ -824,8 +824,8 @@ static void read_write_file_check() {
 		}
 		exit(EXIT_FAILURE);
 	}
-	static_assert(start1 == 0, "error");
-	static_assert((start3 + len3) == 4098, "error");
+	_Static_assert(start1 == 0, "error");
+	_Static_assert((start3 + len3) == 4098, "error");
 }
 
 static void append_file_check() {

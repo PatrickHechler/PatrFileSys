@@ -205,8 +205,7 @@ extern int pfsc_element_set_name(pfs_eh e, char *name) {
 	struct pfs_folder *new_parent = new_block + dpplace.pos;
 	memcpy(new_parent, direct_parent, parent_size);
 	for (int i = 0; i < new_parent->direct_child_count; i++) {
-		if (new_parent->entries[i].name_pos == -1) {
-			assert(i == new_parent->helper_index);
+		if (i == new_parent->helper_index) {
 			continue; // helper
 		}
 		char *pcn;
