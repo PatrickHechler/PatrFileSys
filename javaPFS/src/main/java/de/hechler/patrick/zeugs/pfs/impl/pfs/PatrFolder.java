@@ -1,19 +1,19 @@
-//This file is part of the Patr File System Project
-//DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
-//Copyright (C) 2023  Patrick Hechler
+// This file is part of the Patr File System Project
+// DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+// Copyright (C) 2023 Patrick Hechler
 //
-//This program is free software: you can redistribute it and/or modify
-//it under the terms of the GNU General Public License as published by
-//the Free Software Foundation, either version 3 of the License, or
-//(at your option) any later version.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-//This program is distributed in the hope that it will be useful,
-//but WITHOUT ANY WARRANTY; without even the implied warranty of
-//MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//GNU General Public License for more details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
 //
-//You should have received a copy of the GNU General Public License
-//along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 package de.hechler.patrick.zeugs.pfs.impl.pfs;
 
 import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.INT;
@@ -47,24 +47,15 @@ public class PatrFolder extends PatrFSElement implements Folder {
 	private static final MethodHandle PFS_FOLDER_CREATE_PIPE;
 	
 	static {
-		PFS_FOLDER_OPEN_ITER = LINKER.downcallHandle(LOCKUP.find("pfs_folder_open_iter").orElseThrow(),
-				FunctionDescriptor.of(INT, INT, INT));
-		PFS_FOLDER_CHILD_COUNT = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child_count").orElseThrow(),
-				FunctionDescriptor.of(LONG, INT));
-		PFS_FOLDER_CHILD = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child").orElseThrow(),
-				FunctionDescriptor.of(INT, INT, PNTR));
-		PFS_FOLDER_CHILD_FOLDER = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child_folder").orElseThrow(),
-				FunctionDescriptor.of(INT, INT, PNTR));
-		PFS_FOLDER_CHILD_FILE = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child_file").orElseThrow(),
-				FunctionDescriptor.of(INT, INT, PNTR));
-		PFS_FOLDER_CHILD_PIPE = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child_pipe").orElseThrow(),
-				FunctionDescriptor.of(INT, INT, PNTR));
-		PFS_FOLDER_CREATE_FOLDER = LINKER.downcallHandle(LOCKUP.find("pfs_folder_create_folder").orElseThrow(),
-				FunctionDescriptor.of(INT, INT, PNTR));
-		PFS_FOLDER_CREATE_FILE = LINKER.downcallHandle(LOCKUP.find("pfs_folder_create_file").orElseThrow(),
-				FunctionDescriptor.of(INT, INT, PNTR));
-		PFS_FOLDER_CREATE_PIPE = LINKER.downcallHandle(LOCKUP.find("pfs_folder_create_pipe").orElseThrow(),
-				FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_OPEN_ITER     = LINKER.downcallHandle(LOCKUP.find("pfs_folder_open_iter").orElseThrow(), FunctionDescriptor.of(INT, INT, INT));
+		PFS_FOLDER_CHILD_COUNT   = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child_count").orElseThrow(), FunctionDescriptor.of(LONG, INT));
+		PFS_FOLDER_CHILD         = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_CHILD_FOLDER  = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child_folder").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_CHILD_FILE    = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child_file").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_CHILD_PIPE    = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child_pipe").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_CREATE_FOLDER = LINKER.downcallHandle(LOCKUP.find("pfs_folder_create_folder").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_CREATE_FILE   = LINKER.downcallHandle(LOCKUP.find("pfs_folder_create_file").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_CREATE_PIPE   = LINKER.downcallHandle(LOCKUP.find("pfs_folder_create_pipe").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
 	}
 	
 	public PatrFolder(int handle) {
@@ -88,10 +79,8 @@ public class PatrFolder extends PatrFSElement implements Folder {
 		private static final MethodHandle PFS_ITER_NEXT;
 		
 		static {
-			PFS_ITER_CLOSE = LINKER.downcallHandle(LOCKUP.find("pfs_iter_close").orElseThrow(),
-					FunctionDescriptor.of(INT, INT));
-			PFS_ITER_NEXT = LINKER.downcallHandle(LOCKUP.find("pfs_iter_next").orElseThrow(),
-					FunctionDescriptor.of(INT, INT));
+			PFS_ITER_CLOSE = LINKER.downcallHandle(LOCKUP.find("pfs_iter_close").orElseThrow(), FunctionDescriptor.of(INT, INT));
+			PFS_ITER_NEXT  = LINKER.downcallHandle(LOCKUP.find("pfs_iter_next").orElseThrow(), FunctionDescriptor.of(INT, INT));
 		}
 		
 		private final int handle;
@@ -105,23 +94,23 @@ public class PatrFolder extends PatrFSElement implements Folder {
 		}
 		
 		private void ensureIterOpen() throws ClosedChannelException {
-			if (iterClosed) { throw new ClosedChannelException(); }
+			if (this.iterClosed) { throw new ClosedChannelException(); }
 		}
 		
 		@Override
 		public FSElement nextElement() throws IOException {
 			ensureIterOpen();
-			FSElement n = next;
+			FSElement n = this.next;
 			if (n != null) {
-				last = n;
-				next = null;
+				this.last = n;
+				this.next = null;
 				return n;
 			}
 			try {
 				int res = (int) PFS_ITER_NEXT.invoke(this.handle);
 				if (res == -1) { throw thrw(PFSErrorCause.ITER_NEXT, null); }
-				n = new PatrFSElement(res);
-				last = n;
+				n         = new PatrFSElement(res);
+				this.last = n;
 				return n;
 			} catch (Throwable e) {
 				throw thrw(e);
@@ -131,18 +120,22 @@ public class PatrFolder extends PatrFSElement implements Folder {
 		@Override
 		public boolean hasNextElement() throws IOException {
 			ensureIterOpen();
-			if (next != null) {
+			if (this.next != null) {
 				return true;
 			}
 			try {
+				int old = PatrFSProvider.pfsErrno();
 				int res = (int) PFS_ITER_NEXT.invoke(this.handle);
-				if (res == -1) { throw thrw(PFSErrorCause.ITER_NEXT, null); }
-				next = new PatrFSElement(res);
+				if (res == -1) {
+					if (PatrFSProvider.pfsErrno() == ErrConsts.NO_MORE_ELEMENTS) {
+						PatrFSProvider.pfsErrno(old);
+						return false;
+					}
+					throw thrw(PFSErrorCause.ITER_NEXT, null);
+				}
+				this.next = new PatrFSElement(res);
 				return true;
 			} catch (Throwable e) {
-				if (PatrFSProvider.pfsErrno() == ErrConsts.NO_MORE_ELEMENTS) {
-					return false;
-				}
 				throw thrw(e);
 			}
 		}
@@ -150,18 +143,18 @@ public class PatrFolder extends PatrFSElement implements Folder {
 		@Override
 		public void delete() throws IOException, IllegalStateException {
 			ensureIterOpen();
-			if (last == null) {
+			if (this.last == null) {
 				throw new IllegalStateException("there is no last element");
 			}
-			last.delete();
-			last = null;
+			this.last.delete();
+			this.last = null;
 		}
 		
 		@Override
 		public void close() throws IOException {
-			if (iterClosed) { return; }
+			if (this.iterClosed) { return; }
 			try {
-				iterClosed = true;
+				this.iterClosed = true;
 				if (0 == (int) PFS_ITER_CLOSE.invoke(this.handle)) { throw thrw(PFSErrorCause.CLOSE_ITER, null); }
 			} catch (Throwable e) {
 				throw thrw(e);

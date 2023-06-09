@@ -30,6 +30,7 @@ import java.util.Collections;
 import de.hechler.patrick.zeugs.pfs.FSProvider;
 import de.hechler.patrick.zeugs.pfs.interfaces.FS;
 import de.hechler.patrick.zeugs.pfs.interfaces.FSOptions;
+import de.hechler.patrick.zeugs.pfs.interfaces.Folder;
 import de.hechler.patrick.zeugs.pfs.opts.PatrFSOptions;
 import de.hechler.patrick.zeugs.pfs.opts.PatrRamFSOpts;
 
@@ -43,6 +44,17 @@ import de.hechler.patrick.zeugs.pfs.opts.PatrRamFSOpts;
  */
 @SuppressWarnings("javadoc")
 public class PatrFSProvider extends FSProvider {
+	
+	// TODO remove
+	public static void main(String[] args) throws Throwable {
+		FSProvider prov = FSProvider.ofName(FSProvider.PATR_FS_PROVIDER_NAME);
+		try (FS fs = prov.loadFS(new PatrFSOptions("/home/pat/git/AdvenrOfCode/AdvenrOfCode2017/d07-pvm/patr-fs", 1024, 1024))) {
+			try (Folder root = fs.folder("/")) {
+				root.createFolder("bin").close();
+			}
+		}
+		System.out.println("finish");
+	}
 	
 	static volatile PatrFS loaded;
 	
@@ -125,7 +137,7 @@ public class PatrFSProvider extends FSProvider {
 	
 	private static void loadWithoutFormat(Linker linker, PatrFSOptions opts, MemorySegment path) throws Throwable {
 		MemorySegment bm;
-		if (opts.blockSize() != -1L) {
+		if (opts.blockSize() == -1) {
 			MethodHandle newBm = linker.downcallHandle(PatrFS.LOCKUP.find("bm_new_file_block_manager_path").orElseThrow(),
 					FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
 			bm = (MemorySegment) newBm.invoke(path, 0);
@@ -163,17 +175,33 @@ public class PatrFSProvider extends FSProvider {
 	private static MemorySegment cach2;
 	
 	public static int pfsErrno() {
-		MemorySegment val = cach;
-		if (val == null) {
-			val  = MemorySegment.ofAddress(PatrFS.LOCKUP.find("pfs_err_loc").orElseThrow().address(), 8L);
-			cach = val;
+		MemorySegment c1 = cach;
+		if (c1 == null) {
+			c1   = MemorySegment.ofAddress(PatrFS.LOCKUP.find("pfs_err_loc").orElseThrow().address(), 8L);
+			cach = c1;
 		}
-		long addr = val.get(ValueLayout.JAVA_LONG, 0L);
-		if (cach2 == null || addr != cach2.address()) {
-			val   = MemorySegment.ofAddress(addr, 4);
-			cach2 = val;
+		long          addr = c1.get(ValueLayout.JAVA_LONG, 0L);
+		MemorySegment c2   = cach2;
+		if (c2 == null || addr != c2.address()) {
+			c2    = MemorySegment.ofAddress(addr, 4);
+			cach2 = c2;
 		}
-		return val.get(ValueLayout.JAVA_INT, 0);
+		return c2.get(ValueLayout.JAVA_INT, 0);
+	}
+	
+	public static void pfsErrno(int newErrno) {
+		MemorySegment c1 = cach;
+		if (c1 == null) {
+			c1   = MemorySegment.ofAddress(PatrFS.LOCKUP.find("pfs_err_loc").orElseThrow().address(), 8L);
+			cach = c1;
+		}
+		long          addr = c1.get(ValueLayout.JAVA_LONG, 0L);
+		MemorySegment c2   = cach2;
+		if (c2 == null || addr != c2.address()) {
+			c2    = MemorySegment.ofAddress(addr, 4);
+			cach2 = c2;
+		}
+		c2.set(ValueLayout.JAVA_INT, 0, newErrno);
 	}
 	
 	public static void unload(FS loaded) {

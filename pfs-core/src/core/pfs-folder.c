@@ -470,7 +470,8 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 		me->entries[me->helper_index].child_place.pos = 0;
 		me->entries[me->helper_index].name_pos = -1;
 		me->entries[me->helper_index].create_time = -1;
-		me->entries[me->helper_index].flags = PFS_F_FOLDER | PFS_F_HELPER_FOLDER;
+		me->entries[me->helper_index].flags =
+				PFS_F_FOLDER | PFS_F_HELPER_FOLDER;
 	} else {
 		helper_block = me->entries[me->helper_index].child_place.block;
 		pfs->get(pfs, helper_block);
@@ -741,6 +742,11 @@ int pfsc_element_get_parent(pfs_eh e) {
 	e->entry_pos = parent->folder_entry.pos;
 	e->direct_parent_place.block = parent->folder_entry.block;
 	e->real_parent_place = parent->real_parent;
+	if (parent->real_parent.block == -1L) { // parent is root
+		e->direct_parent_place.pos = -1;
+		e->index_in_direct_parent_list = -1;
+		return 1;
+	}
 	block_data = pfs->get(pfs, parent->folder_entry.block);
 	pfs->unget(pfs, e->element_place.block);
 	if (block_data == NULL) {
@@ -750,7 +756,6 @@ int pfsc_element_get_parent(pfs_eh e) {
 			e->direct_parent_place.block = direct_parent_block;
 			e->entry_pos = entry_pos;
 			e->element_place = old_place;
-			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
 			return 0;
 		}
 	}

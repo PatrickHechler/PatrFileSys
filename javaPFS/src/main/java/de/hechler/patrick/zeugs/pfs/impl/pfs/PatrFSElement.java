@@ -184,7 +184,9 @@ public class PatrFSElement implements FSElement {
 			if (0 == (int) PFS_ELEMENT_GET_NAME.invoke(this.handle, data, data.asSlice(8L, 8L))) {
 				throw thrw(PFSErrorCause.GET_NAME, null);
 			}
-			return data.get(PNTR, 0L).getUtf8String(0L);
+			MemorySegment seg = data.get(PNTR, 0L);
+			seg = MemorySegment.ofAddress(seg.address(), 1L << 31);
+			return seg.getUtf8String(0L);
 		} catch (Throwable e) {
 			throw thrw(e);
 		}

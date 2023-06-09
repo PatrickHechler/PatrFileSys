@@ -1,23 +1,24 @@
-//This file is part of the Patr File System Project
-//DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
-//Copyright (C) 2023  Patrick Hechler
+// This file is part of the Patr File System Project
+// DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+// Copyright (C) 2023 Patrick Hechler
 //
-//This program is free software: you can redistribute it and/or modify
-//it under the terms of the GNU General Public License as published by
-//the Free Software Foundation, either version 3 of the License, or
-//(at your option) any later version.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-//This program is distributed in the hope that it will be useful,
-//but WITHOUT ANY WARRANTY; without even the implied warranty of
-//MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//GNU General Public License for more details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
 //
-//You should have received a copy of the GNU General Public License
-//along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 package de.hechler.patrick.zeugs.pfs.impl.pfs;
 
 import java.io.IOError;
 import java.io.IOException;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.NoSuchFileException;
 import java.util.NoSuchElementException;
@@ -34,8 +35,8 @@ public enum PFSErrorCause {
 	
 	WRITE(info -> "write " + info + " bytes"), READ(info -> "read " + info + " bytes"),
 	
-	SET_POS("set position of a stream"), GET_POS("get position of a stream"),
-	ADD_POS("add a value to the position of a stream"), SEEK_EOF("set the position of a stream to EOF"),
+	SET_POS("set position of a stream"), GET_POS("get position of a stream"), ADD_POS("add a value to the position of a stream"),
+	SEEK_EOF("set the position of a stream to EOF"),
 	
 	CLOSE_STREAM("close stream handle"),
 	
@@ -50,8 +51,8 @@ public enum PFSErrorCause {
 	
 	GET_FLAGS(path -> path != null ? " get flags for '" + path + "'" : "get flags"), MODIFY_FLAGS("modify flags"),
 	
-	GET_LAST_MODIFY_TIME("get the last modification time"), SET_LAST_MODIFY_TIME("set the last modification time"),
-	GET_CREATE_TIME("get createion time"), SET_CREATE_TIME("set createion time"),
+	GET_LAST_MODIFY_TIME("get the last modification time"), SET_LAST_MODIFY_TIME("set the last modification time"), GET_CREATE_TIME("get createion time"),
+	SET_CREATE_TIME("set createion time"),
 	
 	GET_NAME("get name"), SET_NAME("set name"), SET_PARENT("set parent folder"), MOVE_ELEMENT("move element"),
 	
@@ -75,8 +76,7 @@ public enum PFSErrorCause {
 	
 	GET_CHILD_COUNT("get the child count of a folder"),
 	
-	GET_CHILD(name -> "get the child with name '" + name + "'"),
-	CREATE_CHILD(name -> "create a child with name '" + name + "'"),
+	GET_CHILD(name -> "get the child with name '" + name + "'"), CREATE_CHILD(name -> "create a child with name '" + name + "'"),
 	
 	;
 	
@@ -84,17 +84,17 @@ public enum PFSErrorCause {
 	public final IntObjectFunction<String, IOException> func;
 	
 	private PFSErrorCause(String str) {
-		this.str = info -> str;
+		this.str  = info -> str;
 		this.func = ErrConsts.FUNC;
 	}
 	
 	private PFSErrorCause(Function<Object, String> str) {
-		this.str = str;
+		this.str  = str;
 		this.func = ErrConsts.FUNC;
 	}
 	
 	private PFSErrorCause(String str, IntObjectFunction<String, IOException> func) {
-		this.str = info -> str;
+		this.str  = info -> str;
 		this.func = func;
 	}
 	
@@ -104,62 +104,42 @@ class ErrConsts {
 	
 	private ErrConsts() {}
 	
-	/**
-	 * if pfs_errno is not set/no error occurred
-	 */
+	// TODO at least generate these constants
+	
+	/** indicates no error */
 	static final int NONE                  = 0;
-	/**
-	 * if an operation failed because of an unknown/unspecified error
-	 */
+	/** indicates an unknown error */
 	static final int UNKNOWN               = 1;
-	/**
-	 * if the iterator has no next element
-	 */
+	/** indicates that there are no more params */
 	static final int NO_MORE_ELEMENTS      = 2;
-	/**
-	 * if an IO operation failed because the element is not of the correct type (file expected, but folder or reverse)
-	 */
+	/** indicates that the element has not the wanted/allowed type */
 	static final int ELEMENT_WRONG_TYPE    = 3;
-	/**
-	 * if an IO operation failed because the element does not exist
-	 */
+	/** indicates that the element does not exist */
 	static final int ELEMENT_NOT_EXIST     = 4;
-	/**
-	 * if an IO operation failed because the element already existed
-	 */
+	/** indicates that the element already exists */
 	static final int ELEMENT_ALREADY_EXIST = 5;
-	/**
-	 * if an IO operation failed because there was not enough space in the file system
-	 */
+	/** indicates that there is not enough space on the device */
 	static final int OUT_OF_SPACE          = 6;
-	/**
-	 * if an unspecified IO error occurred
-	 */
+	/** indicates an IO error */
 	static final int IO_ERR                = 7;
-	/**
-	 * if there was at least one invalid argument
-	 */
+	/** indicates an illegal argument */
 	static final int ILLEGAL_ARG           = 8;
-	/**
-	 * if there was an invalid magic value
-	 */
-	static final int ILLEGAL_MAGIC         = 9;
-	/**
-	 * if an IO operation failed because there was not enough memory available
-	 */
+	/** indicates that some state is invalid */
+	static final int ILLEGAL_STATE         = 9;
+	/** indicates that the system is out of memory */
 	static final int OUT_OF_MEMORY         = 10;
-	/**
-	 * if an IO operation failed because the root folder has some restrictions
-	 */
+	/** indicates that the root folder does not support this operation */
 	static final int ROOT_FOLDER           = 11;
-	/**
-	 * if an folder can not be moved because the new child (maybe a deep/indirect child) is a child of the folder
-	 */
+	/** indicates that the parent can't be made to it's own child */
 	static final int PARENT_IS_CHILD       = 12;
-	/**
-	 * if an element which is opened elsewhere is tried to be deleted
-	 */
+	/** indicates the element is still used somewhere else */
 	static final int ELEMENT_USED          = 13;
+	/** indicates that some value was outside of the allowed range */
+	static final int OUT_OF_RANGE          = 14;
+	/** indicates that the operation failed, because only empty folders can be deleted */
+	static final int FOLDER_NOT_EMPTY      = 15;
+	/** indicates that the operation failed, because the element was deleted */
+	static final int ELEMENT_DELETED       = 16;
 	
 	static final IntObjectFunction<String, IOException> FUNC = (msg, errno) -> {
 		switch (errno) {
@@ -181,7 +161,7 @@ class ErrConsts {
 			return new IOException("IO error: " + msg);
 		case ILLEGAL_ARG:
 			throw new IllegalArgumentException("illegal argument: " + msg);
-		case ILLEGAL_MAGIC:
+		case ILLEGAL_STATE:
 			throw new IOError(new IOException("invalid magic: " + msg));
 		case OUT_OF_MEMORY:
 			throw new OutOfMemoryError("out of memory: " + msg);
@@ -191,8 +171,14 @@ class ErrConsts {
 			return new IOException("I won't move a folder to a child of it self: " + msg);
 		case ELEMENT_USED:
 			return new IOException("The element is curently used somewhere different: " + msg);
+		case OUT_OF_RANGE:
+			throw new IndexOutOfBoundsException("a value was outside of the allowed range: " + msg);
+		case FOLDER_NOT_EMPTY:
+			return new DirectoryNotEmptyException("the folder is not empty: " + msg);
+		case ELEMENT_DELETED:
+			return new NoSuchFileException("the element was deleted: " + msg);
 		default:
-			throw new InternalError("unknown PFS errno (" + errno + "): " + msg);
+			throw new AssertionError("unknown PFS errno (" + errno + "): " + msg);
 		}
 	};
 	

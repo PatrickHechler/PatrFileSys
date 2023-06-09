@@ -110,7 +110,7 @@ public class PatrFS implements FS {
 	
 	@Override
 	public long blockCount() throws IOException {
-		if (closed) { throw new ClosedChannelException(); }
+		if (this.closed) { throw new ClosedChannelException(); }
 		try {
 			long res = (long) PFS_BLOCK_COUNT.invoke();
 			if (res == -1L) { throw thrw(PFSErrorCause.GET_BLOCK_COUNT, null); }
@@ -122,7 +122,7 @@ public class PatrFS implements FS {
 	
 	@Override
 	public int blockSize() throws IOException {
-		if (closed) { throw new ClosedChannelException(); }
+		if (this.closed) { throw new ClosedChannelException(); }
 		try {
 			int res = (int) PFS_BLOCK_SIZE.invoke();
 			if (res == -1) { throw thrw(PFSErrorCause.GET_BLOCK_SIZE, null); }
@@ -134,7 +134,7 @@ public class PatrFS implements FS {
 	
 	@Override
 	public FSElement element(String path) throws IOException {
-		if (closed) { throw new ClosedChannelException(); }
+		if (this.closed) { throw new ClosedChannelException(); }
 		try {
 			try (Arena ses = Arena.openConfined()) {
 				int res = (int) PFS_HANDLE.invoke(ses.allocateUtf8String(path));
@@ -148,7 +148,7 @@ public class PatrFS implements FS {
 	
 	@Override
 	public Folder folder(String path) throws IOException {
-		if (closed) { throw new ClosedChannelException(); }
+		if (this.closed) { throw new ClosedChannelException(); }
 		try {
 			try (Arena ses = Arena.openConfined()) {
 				int res = (int) PFS_HANDLE_FOLDER.invoke(ses.allocateUtf8String(path));
@@ -162,7 +162,7 @@ public class PatrFS implements FS {
 	
 	@Override
 	public File file(String path) throws IOException {
-		if (closed) { throw new ClosedChannelException(); }
+		if (this.closed) { throw new ClosedChannelException(); }
 		try {
 			try (Arena ses = Arena.openConfined()) {
 				int res = (int) PFS_HANDLE_FILE.invoke(ses.allocateUtf8String(path));
@@ -176,7 +176,7 @@ public class PatrFS implements FS {
 	
 	@Override
 	public Pipe pipe(String path) throws IOException {
-		if (closed) { throw new ClosedChannelException(); }
+		if (this.closed) { throw new ClosedChannelException(); }
 		try {
 			try (Arena ses = Arena.openConfined()) {
 				int res = (int) PFS_HANDLE_PIPE.invoke(ses.allocateUtf8String(path));
@@ -199,7 +199,7 @@ public class PatrFS implements FS {
 	static final int SO_FILE_EOF    = 0x00020000;
 	
 	public Stream stream(String path, StreamOpenOptions opts) throws IOException {
-		if (closed) { throw new ClosedChannelException(); }
+		if (this.closed) { throw new ClosedChannelException(); }
 		try {
 			try (Arena ses = Arena.openConfined()) {
 				int o = 0;
@@ -271,7 +271,7 @@ public class PatrFS implements FS {
 	
 	@Override
 	public void cwd(Folder f) throws IOException {
-		if (closed) { throw new ClosedChannelException(); }
+		if (this.closed) { throw new ClosedChannelException(); }
 		try {
 			if (f instanceof PatrFolder pf) {
 				if (0 == (int) PFS_CHANGE_DIR.invoke(pf.handle)) { throw thrw(PFSErrorCause.SET_CWD, null); }
@@ -285,18 +285,18 @@ public class PatrFS implements FS {
 	
 	@Override
 	public void close() throws IOException {
-		if (closed) { return; }
-		closed = true;
+		if (this.closed) { return; }
+		this.closed = true;
 		PatrFSProvider.unload(this);
 		try {
 			if (0 == (int) PFS_CLOSE.invoke()) {
 				throw thrw(PFSErrorCause.CLOSE_PFS, null);
 			}
 		} catch (Throwable e) {
-			session.close();
+			this.session.close();
 			throw thrw(e);
 		}
-		session.close();
+		this.session.close();
 	}
 	
 }
