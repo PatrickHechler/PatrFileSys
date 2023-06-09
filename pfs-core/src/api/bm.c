@@ -162,7 +162,7 @@ extern struct bm_block_manager* bm_new_file_block_manager_path(const char *file,
 	struct pfs_b0 b0;
 	bm_fd_read(fd, &b0, sizeof(struct pfs_b0));
 	long value = sizeof(struct pfs_folder_entry);
-	pfs_validate_b0(&b0, (*pfs_err_loc) = PFS_ERRNO_ILLEGAL_SUPER_BLOCK; return NULL;, 0);
+	pfs_validate_b0(&b0, (*pfs_err_loc) = PFS_ERRNO_ILLEGAL_STATE; return NULL;, 0);
 	return bm_new_file_block_manager(fd, b0.block_size);
 }
 

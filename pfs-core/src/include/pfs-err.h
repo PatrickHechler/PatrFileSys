@@ -46,7 +46,7 @@ enum pfs_errno {
 	PFS_ERRNO_OUT_OF_SPACE                  = 6, /* indicates that there is not enough space on the device */
 	PFS_ERRNO_IO_ERR                        = 7, /* indicates an IO error */
 	PFS_ERRNO_ILLEGAL_ARG                   = 8, /* indicates an illegal argument */
-	PFS_ERRNO_ILLEGAL_SUPER_BLOCK           = 9, /* indicates that some magic value is invalid */
+	PFS_ERRNO_ILLEGAL_STATE                 = 9, /* indicates that some state is invalid */
 	PFS_ERRNO_OUT_OF_MEMORY                 = 10, /* indicates that the system is out of memory */
 	PFS_ERRNO_ROOT_FOLDER                   = 11, /* indicates that the root folder does not support this operation */
 	PFS_ERRNO_PARENT_IS_CHILD               = 12, /* indicates that the parent can't be made to it's own child */

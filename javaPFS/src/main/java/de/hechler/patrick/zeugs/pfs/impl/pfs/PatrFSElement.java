@@ -58,7 +58,7 @@ public class PatrFSElement implements FSElement {
 	static {
 		PFS_ELEMENT_CLOSE                = LINKER.downcallHandle(LOCKUP.find("pfs_element_close").orElseThrow(), FunctionDescriptor.of(INT, INT));
 		PFS_ELEMENT_PARENT               = LINKER.downcallHandle(LOCKUP.find("pfs_element_parent").orElseThrow(), FunctionDescriptor.of(INT, INT));
-		PFS_ELEMENT_DELETE               = LINKER.downcallHandle(LOCKUP.find("pfs_element_delete").orElseThrow(), FunctionDescriptor.of(INT, INT));
+		PFS_ELEMENT_DELETE               = LINKER.downcallHandle(LOCKUP.find("pfs_element_delete").orElseThrow(), FunctionDescriptor.of(INT, INT, INT));
 		PFS_ELEMENT_GET_FLAGS            = LINKER.downcallHandle(LOCKUP.find("pfs_element_get_flags").orElseThrow(), FunctionDescriptor.of(INT, INT));
 		PFS_ELEMENT_MODIFY_FLAGS         = LINKER.downcallHandle(LOCKUP.find("pfs_element_modify_flags").orElseThrow(), FunctionDescriptor.of(INT, INT, INT, INT));
 		PFS_ELEMENT_GET_CREATE_TIME      = LINKER.downcallHandle(LOCKUP.find("pfs_element_get_create_time").orElseThrow(), FunctionDescriptor.of(LONG, INT));
@@ -238,7 +238,7 @@ public class PatrFSElement implements FSElement {
 	public void delete() throws IOException {
 		ensureOpen();
 		try {
-			if (0 == (int) PFS_ELEMENT_DELETE.invoke(this.handle)) { throw thrw(PFSErrorCause.DELETE_ELEMENT, null); }
+			if (0 == (int) PFS_ELEMENT_DELETE.invoke(this.handle, 1)) { throw thrw(PFSErrorCause.DELETE_ELEMENT, null); }
 			this.closed = true;
 		} catch (Throwable e) {
 			throw thrw(e);
