@@ -31,7 +31,7 @@ extern int pfs_element_parent(int eh) {
 		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
 		return -1;
 	}
-	memcpy(&peh->handle, &pfs_ehs[eh]->handle, sizeof(struct element_handle));
+	memcpy(&peh->handle, &pfs_ehs[eh]->handle, sizeof(struct pfs_element_handle));
 	if (!pfsc_element_get_parent(&peh->handle)) {
 		free(peh);
 		return -1;

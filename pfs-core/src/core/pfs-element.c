@@ -179,8 +179,12 @@ extern int pfsc_element_set_name(pfs_eh e, char *name) {
 		(*pfs_err_loc) = PFS_ERRNO_ROOT_FOLDER;
 		return 0;
 	}
-	get_entry0(entry, direct_parent, entry_block_data, 0)
 	i64 name_len = strlen(name);
+	if (!name_len) { // only root folder has an empty name
+		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
+		return 0;
+	}
+	get_entry0(entry, direct_parent, entry_block_data, 0)
 	i32 new_name_pos = reallocate_in_block_table(e->direct_parent_place.block, entry->name_pos,
 	        name_len, 0);
 	if (new_name_pos != -1) {

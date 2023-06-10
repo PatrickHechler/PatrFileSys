@@ -745,6 +745,7 @@ int pfsc_element_get_parent(pfs_eh e) {
 	if (parent->real_parent.block == -1L) { // parent is root
 		e->direct_parent_place.pos = -1;
 		e->index_in_direct_parent_list = -1;
+		pfs->unget(pfs, e->element_place.block);
 		return 1;
 	}
 	block_data = pfs->get(pfs, parent->folder_entry.block);

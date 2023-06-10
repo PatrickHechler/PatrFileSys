@@ -1,19 +1,19 @@
-//This file is part of the Patr File System Project
-//DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
-//Copyright (C) 2023  Patrick Hechler
+// This file is part of the Patr File System Project
+// DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+// Copyright (C) 2023 Patrick Hechler
 //
-//This program is free software: you can redistribute it and/or modify
-//it under the terms of the GNU General Public License as published by
-//the Free Software Foundation, either version 3 of the License, or
-//(at your option) any later version.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-//This program is distributed in the hope that it will be useful,
-//but WITHOUT ANY WARRANTY; without even the implied warranty of
-//MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//GNU General Public License for more details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
 //
-//You should have received a copy of the GNU General Public License
-//along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 package de.hechler.patrick.zeugs.pfs.impl.pfs;
 
 import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.INT;
@@ -112,6 +112,12 @@ public class PatrFSElement implements FSElement {
 		} catch (Throwable e) {
 			throw thrw(e);
 		}
+	}
+	
+	@Override
+	public boolean isFolder() throws IOException {
+		// the root folder has an empty name
+		return name().isEmpty() || (flags() & FLAG_FOLDER) != 0;
 	}
 	
 	@Override
@@ -330,27 +336,34 @@ public class PatrFSElement implements FSElement {
 	
 	@Override
 	public String toString() {
+		if (this.closed) {
+			return "closed element handle";
+		}
 		FSElement e = this;
 		try {
 			StringBuilder b = new StringBuilder();
 			if (isFolder()) {
+				b.append("//");
+			} else {
 				b.append('/');
 			}
 			while (true) {
 				String n = e.name();
 				if (n.isEmpty()) { // root has an empty name
+					if (e == this) return "/";
 					break;
 				}
-				b.insert(0, '/').insert(0, n);
+				b.insert(1, n);
+				if (e != this) {
+					b.insert(1 + n.length(), '/');
+				}
 				FSElement p = e.parent();
 				if (e != this) {
 					e.close();
 				}
 				e = p;
 			}
-			if (e != this) {
-				e.close();
-			}
+			e.close();
 			return b.toString();
 		} catch (Throwable t) {
 			if (e != this) {
