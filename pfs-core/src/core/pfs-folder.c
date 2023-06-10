@@ -292,11 +292,11 @@ static int pfs_folder_child_from_name_impl(pfs_eh f, const char *name,
 			f->element_place = folder->entries[i].child_place;
 			int res = pfs_folder_child_from_name_impl(f, name, 1, neededflag);
 			if (res != 0) {
-				f->element_place = f->direct_parent_place;
-				f->direct_parent_place = old_place;
 				pfs->unget(pfs, old_block_num);
-				return res;
+				return 1;
 			}
+			f->element_place = f->direct_parent_place;
+			f->direct_parent_place = old_place;
 		}
 		char *cn = block_data + folder->entries[i].name_pos;
 		if (get_size_from_block_table(block_data, folder->entries[i].name_pos)

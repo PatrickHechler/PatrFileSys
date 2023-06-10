@@ -56,7 +56,6 @@
 	ensure_entry_blocks \
 	void *block_name = pfs->get(pfs, e->direct_parent_place.block); \
 	if (block_name == NULL) { \
-		(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR; \
 		return error_result; \
 	} \
 	struct pfs_folder *parent_name = block_name + e->direct_parent_place.pos; \
