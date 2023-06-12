@@ -46,7 +46,7 @@ extern void* hashset_get(const struct hashset *set, uint64_t hash,
 	hash &= mi;
 	int64_t entry = ((int64_t*) set->entries)[hash];
 	if (entry > 0) {
-		if (set->equalizer((void*)entry, equalto)) {
+		if (set->equalizer((void*) entry, equalto)) {
 			return (void*) entry;
 		}
 		return NULL;
@@ -84,7 +84,7 @@ static inline unsigned hs_bitcnt(uint64_t val) {
 
 struct no_check_put_arg {
 	uint64_t (*hashmaker)(const void*);
-	int64_t*elements;
+	int64_t *elements;
 	uint64_t mi;
 };
 
@@ -127,7 +127,8 @@ static inline void hs_free_old(struct hashset *set) {
 	free(set->entries);
 }
 
-static inline void* hashset_add_put(struct hashset *set, uint64_t hash, void *newvalue, _Bool also_replace) {
+static inline void* hashset_add_put(struct hashset *set, uint64_t hash,
+		void *newvalue, _Bool also_replace) {
 	if (set->maxi >> 1 <= set->entrycount) {
 		uint64_t nmi = (set->maxi << 1) | 1;
 		void *newEntries = malloc((nmi + 1) * sizeof(void*));
@@ -232,8 +233,14 @@ extern void* hashset_remove(struct hashset *set, uint64_t hash, void *oldvalue) 
 		for (uint64_t i = list->len; i; i--) {
 			if (set->equalizer(list->datam1[i], oldvalue)) {
 				void *ov = list->datam1[i];
-				if (list->len == 1) {
-					((int64_t*) set->entries)[hash] = 0;
+				if (list->len <= 2) {
+					if (list->len == 1) {
+						fputs("this should never happen\n", stderr);
+						((int64_t*) set->entries)[hash] = 0;
+					} else {
+						((int64_t*) set->entries)[hash] =
+								(int64_t) list->datam1[i == 1 ? 2 : 1];
+					}
 					free(list);
 				} else {
 					memmove(list->datam1 + i, list->datam1 + 1 + i,

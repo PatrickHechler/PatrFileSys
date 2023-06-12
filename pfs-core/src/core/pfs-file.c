@@ -79,7 +79,7 @@ i64 pfsc_file_append(pfs_eh f, void *data, i64 length) {
 		} else {
 			block_data = pfs->lazy_get(pfs, file_end.block);
 		}
-		if (block_data == NULL) {
+		if (!block_data) {
 			break;
 		}
 		void *cpy_target = block_data + file_end.pos;

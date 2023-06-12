@@ -1513,7 +1513,7 @@ static void real_file_sys_check() {
 	char *name = malloc(name_size);
 	strcpy(name, "./testin");
 	i64 name2_size = 128;
-	char *name2 = malloc(name_size);
+	char *name2 = malloc(name2_size);
 	strcpy(name2, "./testout/fs-root");
 	DIR *dir = opendir("./testin/");
 	if (dir == NULL) {

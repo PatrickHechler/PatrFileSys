@@ -752,6 +752,7 @@ static inline i64 allocate_block_without_bm(struct pfs_b0 *b0) {
 			}
 			*(i64*) (current_block + pfs->block_size - 8) = result;
 			if (!pfs->set(pfs, current_block_num)) {
+				pfs->unget(pfs, 0L);
 				return -1L;
 			}
 			current_block = pfs->lazy_get(pfs, result);
@@ -759,6 +760,10 @@ static inline i64 allocate_block_without_bm(struct pfs_b0 *b0) {
 			*(unsigned char*) current_block = 3;
 			*(i64*) (current_block + pfs->block_size - 8) = -1L;
 			if (!pfs->set(pfs, result)) {
+				pfs->unget(pfs, 0L);
+				return -1L;
+			}
+			if (!pfs->unget(pfs, 0L)) {
 				return -1L;
 			}
 			return result + 1;
@@ -768,7 +773,7 @@ static inline i64 allocate_block_without_bm(struct pfs_b0 *b0) {
 			}
 			current_block_num = next_block_num;
 			current_block = pfs->get(pfs, current_block_num);
-			if (current_block == NULL) {
+			if (!current_block) {
 				return -1L;
 			}
 		}
@@ -846,12 +851,14 @@ void ensure_block_is_entry(i64 block) {
 struct pfs_place find_place(const i64 first_block, i64 remain) {
 	for (i64 current_block = first_block; 1; remain -= pfs->block_size - 8) {
 		if (remain < (pfs->block_size - 8)) {
-			struct pfs_place result = { .block = current_block, .pos =
-					(i32) remain };
+			struct pfs_place result = { //
+					/*	  */.block = current_block, //
+							.pos = (i32) remain //
+					};
 			return result;
 		} else if (remain == (pfs->block_size - 8)) {
 			void *cb = pfs->get(pfs, current_block);
-			if (cb == NULL) {
+			if (!cb) {
 				struct pfs_place res = { .block = -1, .pos = -1 };
 				return res;
 			}
@@ -871,6 +878,10 @@ struct pfs_place find_place(const i64 first_block, i64 remain) {
 			return result;
 		}
 		void *cb = pfs->get(pfs, current_block);
+		if (!cb) {
+			struct pfs_place res = { .block = -1, .pos = -1 };
+			return res;
+		}
 		i64 next_block = *(i64*) (cb + pfs->block_size - 8);
 		if (!pfs->unget(pfs, current_block)) {
 			struct pfs_place res = { .block = -1, .pos = -1 };
