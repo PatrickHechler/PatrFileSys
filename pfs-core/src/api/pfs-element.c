@@ -28,7 +28,7 @@ extern int pfs_element_parent(int eh) {
 	struct element_handle *peh = malloc(sizeof(struct element_handle));
 	if (!peh) {
 		errno = 0;
-		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+		(pfs_err) = PFS_ERRNO_OUT_OF_MEMORY;
 		return -1;
 	}
 	memcpy(&peh->handle, &pfs_ehs[eh]->handle, sizeof(struct pfs_element_handle));

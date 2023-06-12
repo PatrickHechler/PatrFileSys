@@ -57,13 +57,13 @@ static inline struct element_handle* open_eh(const char *path,
 		struct element_handle *rot, int allow_relative,
 		struct element_handle **parent_on_err) {
 	if (*path == '\0') {
-		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
+		pfs_err = PFS_ERRNO_ILLEGAL_ARG;
 		return NULL;
 	}
 	i64 buf_len = 1;
 	char *buf = malloc(buf_len);
 	if (buf == NULL) {
-		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+		pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
 		return NULL;
 	}
 	struct element_handle *eh =
@@ -120,7 +120,7 @@ static inline struct element_handle* open_eh(const char *path,
 		struct element_handle *neh = malloc(sizeof(struct element_handle));
 		if (!neh) {
 			release_eh(eh);
-			(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+			pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
 			return 0;
 		}
 		neh->handle = eh->handle;
@@ -156,12 +156,12 @@ static inline struct element_handle* open_eh(const char *path,
 
 extern int pfs_load(struct bm_block_manager *bm, const char *cur_work_dir) {
 	if (bm == NULL) {
-		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
+		pfs_err = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	struct pfs_b0 *b0 = bm->get(bm, 0L);
 	pfs_validate_b0(b0,
-			(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_STATE; bm->unget(bm, 0L); return 0;,
+			pfs_err = PFS_ERRNO_ILLEGAL_STATE; bm->unget(bm, 0L); return 0;,
 			1)
 	struct element_handle **nehs = malloc(sizeof(struct element_handle*));
 	struct stream_handle **nshs = malloc(sizeof(struct stream_handle*));
@@ -177,7 +177,7 @@ extern int pfs_load(struct bm_block_manager *bm, const char *cur_work_dir) {
 		if (nihs) {
 			free(nihs);
 		}
-		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+		pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
 		bm->unget(bm, 0L);
 		return 0;
 	}
@@ -224,7 +224,7 @@ extern int pfs_load(struct bm_block_manager *bm, const char *cur_work_dir) {
 extern int pfs_load_and_format(struct bm_block_manager *bm, i64 block_count,
 		uuid_t uuid, char *name) {
 	if (bm == NULL) {
-		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
+		pfs_err = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	struct bm_block_manager *old = pfs;
@@ -254,7 +254,7 @@ extern int pfs_format(i64 block_count, uuid_t uuid, char *name) {
 		if (nrot) {
 			free(nrot);
 		}
-		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+		pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
 		return 0;
 	}
 	if (!pfsc_format(block_count, uuid, name)) {
@@ -321,7 +321,7 @@ extern int pfs_handle(const char *path) {
 	void *nehs = realloc(pfs_ehs,
 			(pfs_eh_len + 1) * sizeof(struct element_handle*));
 	if (!nehs) {
-		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+		pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
 		return -1;
 	}
 	pfs_ehs = nehs;
@@ -337,7 +337,7 @@ static inline int handle(const char *path, ui32 flag) {
 	if (eh->handle.real_parent_place.block == -1) {
 		// the root folder has no flags
 		if ((flag & PFS_F_FOLDER) != flag) {
-			(*pfs_err_loc) = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+			pfs_err = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 			return -1;
 		}
 	} else {
@@ -346,7 +346,7 @@ static inline int handle(const char *path, ui32 flag) {
 			return -1;
 		}
 		if ((flag & flags) != flag) {
-			(*pfs_err_loc) = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+			pfs_err = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 			return -1;
 		}
 	}
@@ -372,7 +372,7 @@ extern int pfs_change_dir(int eh) {
 		return 0;
 	}
 	if ((flags & PFS_F_FOLDER) != 0) {
-		(*pfs_err_loc) = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+		pfs_err = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 		return 0;
 	}
 	release_eh(pfs_cwd);
@@ -391,7 +391,7 @@ extern int pfs_change_working_directoy(char *path) {
 		return -1;
 	}
 	if ((flags & PFS_F_FOLDER) != 0) {
-		(*pfs_err_loc) = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+		pfs_err = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 		return -1;
 	}
 	release_eh(pfs_cwd);
@@ -409,7 +409,7 @@ static int delete_element(struct element_handle **eh, int also_when_loaded) {
 		if (*eh != pfs_cwd || has_refs0(*eh, 2)) {
 			release_eh(*eh);
 			*eh = NULL;
-			(*pfs_err_loc) = PFS_ERRNO_ELEMENT_USED;
+			pfs_err = PFS_ERRNO_ELEMENT_USED;
 			return 0;
 		}
 	}
@@ -439,7 +439,7 @@ extern int pfs_element_delete(int eh, int also_when_loaded) {
 static inline int open_sh(struct element_handle *eh, ui32 stream_flags) {
 	struct stream_handle *sh = malloc(sizeof(struct stream_handle));
 	if (!sh) {
-		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+		pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
 		release_eh(eh);
 		return -1;
 	}
@@ -448,7 +448,7 @@ static inline int open_sh(struct element_handle *eh, ui32 stream_flags) {
 	sh->flags = stream_flags;
 	void *block_data = pfs->get(pfs, eh->handle.direct_parent_place.block);
 	if (!block_data) {
-		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+		pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
 		free(sh);
 		release_eh(eh);
 		return -1;
@@ -459,7 +459,7 @@ static inline int open_sh(struct element_handle *eh, ui32 stream_flags) {
 		sh->pos = -1;
 		if ((e->flags & PFS_F_PIPE) == 0) {
 			pfs->unget(pfs, eh->handle.direct_parent_place.block);
-			(*pfs_err_loc) = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+			pfs_err = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 			free(sh);
 			release_eh(eh);
 			return -1;
@@ -475,7 +475,7 @@ static inline int open_sh(struct element_handle *eh, ui32 stream_flags) {
 					== eh->handle.element_place.block) {
 				pfs->unget(pfs, eh->handle.direct_parent_place.block);
 			}
-			(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
+			pfs_err = PFS_ERRNO_ILLEGAL_ARG;
 			free(sh);
 			release_eh(eh);
 			return -1;
@@ -485,7 +485,7 @@ static inline int open_sh(struct element_handle *eh, ui32 stream_flags) {
 				== eh->handle.element_place.block) {
 			pfs->unget(pfs, eh->handle.direct_parent_place.block);
 		}
-		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
+		pfs_err = PFS_ERRNO_ILLEGAL_ARG;
 		free(sh);
 		release_eh(eh);
 		return -1;
@@ -495,7 +495,7 @@ static inline int open_sh(struct element_handle *eh, ui32 stream_flags) {
 		block_data = pfs->get(pfs, eh->handle.element_place.block);
 	}
 	if (!block_data) {
-		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+		pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
 		free(sh);
 		release_eh(eh);
 		return -1;
@@ -504,7 +504,7 @@ static inline int open_sh(struct element_handle *eh, ui32 stream_flags) {
 	if (stream_flags & PFS_SO_FILE_TRUNC) {
 		if (!sh->is_file) {
 			pfs->unget(pfs, eh->handle.element_place.block);
-			(*pfs_err_loc) = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+			pfs_err = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 			free(sh);
 			release_eh(eh);
 			return -1;
@@ -534,7 +534,7 @@ static i64 fd_write(struct delegate_stream *ds, void *data, i64 len) {
 	struct fd_del_str *fdds = (struct fd_del_str*) ds;
 	i64 wrote = write(fdds->fd, data, len);
 	if (wrote == -1) {
-		(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+		pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
 		return 0;
 	}
 	return wrote;
@@ -549,10 +549,10 @@ static i64 fd_read(struct delegate_stream *ds, void *buf, i64 len) {
 		} else {
 			switch (errno) {
 			case EIO:
-				(*pfs_err_loc) = PFS_ERRNO_IO_ERR;
+				pfs_err = PFS_ERRNO_IO_ERR;
 				break;
 			default:
-				(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+				pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
 				break;
 			}
 			errno = 0;
@@ -561,10 +561,10 @@ static i64 fd_read(struct delegate_stream *ds, void *buf, i64 len) {
 #else
 		switch (errno) {
 		case EIO:
-			(*pfs_err_loc) = PFS_ERRNO_IO_ERR;
+			pfs_err = PFS_ERRNO_IO_ERR;
 			break;
 		default:
-			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+			pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
 			break;
 		}
 		errno = 0;
@@ -579,10 +579,10 @@ static i64 fd_get_pos(struct delegate_stream *ds) {
 	if (sek == -1) {
 		switch (errno) {
 		case EIO:
-			(*pfs_err_loc) = PFS_ERRNO_IO_ERR;
+			pfs_err = PFS_ERRNO_IO_ERR;
 			break;
 		default:
-			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+			pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
 			break;
 		}
 		errno = 0;
@@ -595,10 +595,10 @@ static int fd_set_pos(struct delegate_stream *ds, i64 pos) {
 	if (sek == -1) {
 		switch (errno) {
 		case EIO:
-			(*pfs_err_loc) = PFS_ERRNO_IO_ERR;
+			pfs_err = PFS_ERRNO_IO_ERR;
 			break;
 		default:
-			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+			pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
 			break;
 		}
 		errno = 0;
@@ -612,10 +612,10 @@ static i64 fd_add_pos(struct delegate_stream *ds, i64 add) {
 	if (sek == -1) {
 		switch (errno) {
 		case EIO:
-			(*pfs_err_loc) = PFS_ERRNO_IO_ERR;
+			pfs_err = PFS_ERRNO_IO_ERR;
 			break;
 		default:
-			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+			pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
 			break;
 		}
 		errno = 0;
@@ -624,10 +624,10 @@ static i64 fd_add_pos(struct delegate_stream *ds, i64 add) {
 	if (sek == -1) {
 		switch (errno) {
 		case EIO:
-			(*pfs_err_loc) = PFS_ERRNO_IO_ERR;
+			pfs_err = PFS_ERRNO_IO_ERR;
 			break;
 		default:
-			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+			pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
 			break;
 		}
 		errno = 0;
@@ -641,10 +641,10 @@ static i64 fd_seek_eof(struct delegate_stream *ds) {
 	if (sek == -1) {
 		switch (errno) {
 		case EIO:
-			(*pfs_err_loc) = PFS_ERRNO_IO_ERR;
+			pfs_err = PFS_ERRNO_IO_ERR;
 			break;
 		default:
-			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+			pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
 			break;
 		}
 		errno = 0;
@@ -655,7 +655,7 @@ static i64 fd_seek_eof(struct delegate_stream *ds) {
 extern int pfs_stream_open_delegate_fd(bm_fd fd, i32 stream_flags) {
 	if (stream_flags
 			& (PFS_SO_ONLY_CREATE | PFS_SO_ALSO_CREATE | PFS_SO_FILE_TRUNC)) {
-		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
+		pfs_err = PFS_ERRNO_ILLEGAL_ARG;
 		return -1;
 	}
 	for (int i = 0; i < pfs_sh_len; i++) {
@@ -725,7 +725,7 @@ extern int pfs_stream_open_delegate(struct delegate_stream *stream) {
 extern int pfs_open_stream(int eh, i32 stream_flags) {
 	eh(-1)
 	if (stream_flags & PFS_SO_ONLY_CREATE) {
-		(*pfs_err_loc) = PFS_ERRNO_ELEMENT_ALREADY_EXIST;
+		pfs_err = PFS_ERRNO_ELEMENT_ALREADY_EXIST;
 		return -1;
 	}
 	int res = open_sh(pfs_ehs[eh], stream_flags);
@@ -736,7 +736,7 @@ extern int pfs_open_stream(int eh, i32 stream_flags) {
 }
 
 extern int pfs_stream(const char *path, i32 stream_flags) {
-	const ui32 old_err = (*pfs_err_loc);
+	const ui32 old_err = pfs_err;
 	struct element_handle *peh = NULL;
 	struct element_handle *eh = open_eh(path, pfs_root, 1, &peh);
 	if (!eh) {
@@ -745,10 +745,10 @@ extern int pfs_stream(const char *path, i32 stream_flags) {
 						== 0) {
 			return -1;
 		}
-		(*pfs_err_loc) = old_err;
+		pfs_err = old_err;
 		eh = malloc(sizeof(struct element_handle));
 		if (!eh) {
-			(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
+			pfs_err = PFS_ERRNO_ILLEGAL_ARG;
 			return -1;
 		}
 		eh->handle = peh->handle;
@@ -763,7 +763,7 @@ extern int pfs_stream(const char *path, i32 stream_flags) {
 				return -1;
 			}
 		} else {
-			(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
+			pfs_err = PFS_ERRNO_ILLEGAL_ARG;
 			return -1;
 		}
 		struct element_handle *old = hashset_add(&pfs_all_ehs_set, eh_hash(eh),
@@ -789,14 +789,14 @@ extern int pfs_folder_open_iter(int eh, int show_hidden) {
 	pfs_ehs[eh]->load_count++;
 	struct iter_handle *ih = malloc(sizeof(struct iter_handle));
 	if (!ih) {
-		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+		pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
 		release_eh(pfs_ehs[eh]);
 		pfs->unget(pfs, pfs_ehs[eh]->handle.direct_parent_place.block);
 		return -1;
 	}
 	ih->ieh = pfs_ehs[eh]->handle;
 	if (!pfsc_folder_fill_iterator(&ih->ieh, &ih->handle, show_hidden)) {
-		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+		pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
 		release_eh(pfs_ehs[eh]);
 		pfs->unget(pfs, pfs_ehs[eh]->handle.direct_parent_place.block);
 		return -1;
@@ -823,7 +823,7 @@ extern int pfs_iter(const char *path, int show_hidden) {
 			return -1;
 		}
 		if ((flags & PFS_F_FOLDER) == 0) {
-			(*pfs_err_loc) = PFS_ERRNO_ELEMENT_WRONG_TYPE;
+			pfs_err = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 			release_eh(eh);
 			pfs->unget(pfs, eh->handle.direct_parent_place.block);
 			return -1;
@@ -831,14 +831,14 @@ extern int pfs_iter(const char *path, int show_hidden) {
 	}
 	struct iter_handle *ih = malloc(sizeof(struct iter_handle));
 	if (!ih) {
-		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+		pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
 		release_eh(eh);
 		pfs->unget(pfs, eh->handle.direct_parent_place.block);
 		return -1;
 	}
 	ih->ieh = eh->handle;
 	if (!pfsc_folder_fill_iterator(&ih->ieh, &ih->handle, show_hidden)) {
-		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+		pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
 		release_eh(eh);
 		pfs->unget(pfs, eh->handle.direct_parent_place.block);
 		return -1;
@@ -865,7 +865,7 @@ extern int pfs_iter_next(int ih) {
 	} else {
 		c = malloc(sizeof(struct element_handle));
 		if (!c) {
-			(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+			pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
 			return -1;
 		}
 		c->handle = pfs_ihs[ih]->ieh;
@@ -902,7 +902,7 @@ extern int pfs_stream_close(int sh) {
 			abort();
 		}
 		if (close(pfs_shs[sh]->is_file) == -1) {
-			(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+			pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
 			return 0;
 		}
 	}

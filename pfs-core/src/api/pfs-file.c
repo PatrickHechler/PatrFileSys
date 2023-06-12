@@ -38,7 +38,7 @@ extern i64 pfs_file_length(int eh) {
 
 extern int pfs_file_truncate(int eh, i64 length) {
 	if (length < 0) {
-		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
+		(pfs_err) = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	ch(0)

@@ -26,36 +26,47 @@
 #include "../include/pfs-constants.h"
 #include "../include/patr-file-sys.h"
 
+static char pfs_error_buf[128];
+
 extern const char* pfs_error() {
-	switch ((*pfs_err_loc)) {
-	case PFS_ERRNO_NONE: /* if no error occurred */
-		return "no error/success";
-	case PFS_ERRNO_UNKNOWN_ERROR: /* if an operation failed because there was not enough space in the file system */
-		return "some unknown/unspecified error";
-	case PFS_ERRNO_NO_MORE_ELEMENTS: /* if the iterator has no next element */
-		return "no more elements";
-	case PFS_ERRNO_ELEMENT_WRONG_TYPE: /* if an IO operation failed because the element is not of the correct type (file expected, but folder or reverse) */
-		return "wrong type";
-	case PFS_ERRNO_ELEMENT_NOT_EXIST: /* if an IO operation failed because the element does not exist */
-		return "element does not exist";
-	case PFS_ERRNO_ELEMENT_ALREADY_EXIST: /* if an IO operation failed because the element already existed */
-		return "element exists already";
-	case PFS_ERRNO_OUT_OF_SPACE: /* if an IO operation failed because there was not enough space in the file system */
-		return "out of space";
-	case PFS_ERRNO_IO_ERR: /* if an unspecified IO error occurred */
-		return "some IO error";
-	case PFS_ERRNO_ILLEGAL_ARG: /* if there was at least one invalid argument */
-		return "Illegal argument(s)";
-	case PFS_ERRNO_OUT_OF_MEMORY: /* if an IO operation failed because there was not enough space in the file system */
-		return "out of ram";
-	case PFS_ERRNO_ROOT_FOLDER: /* if an IO operation failed because the root folder has some restrictions */
-		return "root folder restrictions";
+	switch (pfs_err) {
+	case PFS_ERRNO_NONE:
+		return "no error";
+	case PFS_ERRNO_UNKNOWN_ERROR:
+		return "unknown error";
+	case PFS_ERRNO_NO_MORE_ELEMENTS:
+		return "there are no more params";
+	case PFS_ERRNO_ELEMENT_WRONG_TYPE:
+		return "the element has not the wanted/allowed type";
+	case PFS_ERRNO_ELEMENT_NOT_EXIST:
+		return "the element does not exist";
+	case PFS_ERRNO_ELEMENT_ALREADY_EXIST:
+		return "the element already exists";
+	case PFS_ERRNO_OUT_OF_SPACE:
+		return "there is not enough space on the device";
+	case PFS_ERRNO_IO_ERR:
+		return "IO error";
+	case PFS_ERRNO_ILLEGAL_ARG:
+		return "illegal argument";
+	case PFS_ERRNO_ILLEGAL_STATE:
+		return "some state is invalid";
+	case PFS_ERRNO_OUT_OF_MEMORY:
+		return "the system is out of memory";
+	case PFS_ERRNO_ROOT_FOLDER:
+		return "the root folder does not support this operation";
 	case PFS_ERRNO_PARENT_IS_CHILD:
-		return "new parent folder is a child folder";
+		return "the parent can't be made to it's own child";
+	case PFS_ERRNO_ELEMENT_USED:
+		return "the element is still used somewhere else";
+	case PFS_ERRNO_OUT_OF_RANGE:
+		return "some value was outside of the allowed range";
+	case PFS_ERRNO_FOLDER_NOT_EMPTY:
+		return "the operation failed, because only empty folders can be deleted";
+	case PFS_ERRNO_ELEMENT_DELETED:
+		return "the operation failed, because the element was deleted";
 	default:
-		char *buf = malloc(33);
-		sprintf(buf, "unknown value [%lx]", (*pfs_err_loc));
-		return buf;
+		sprintf(pfs_error_buf, "unknown value [%lx]", pfs_err);
+		return pfs_error_buf;
 	}
 }
 
@@ -65,11 +76,11 @@ extern void pfs_perror(const char *msg) {
 
 int pfsc_format(i64 block_count, uuid_t uuid, char *name) {
 	if (pfs == NULL) {
-		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
+		pfs_err = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	if (pfs->block_size < PFS_MIN_BLOCK_SIZE) {
-		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
+		pfs_err = PFS_ERRNO_ILLEGAL_ARG;
 		/*
 		 * absolute minimum:
 		 *    'super_block'
@@ -81,11 +92,11 @@ int pfsc_format(i64 block_count, uuid_t uuid, char *name) {
 		return 0;
 	}
 	if ((pfs->block_size & 7) != 0) {
-		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
+		pfs_err = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	if (block_count < 2) {
-		(*pfs_err_loc) = PFS_ERRNO_ILLEGAL_ARG;
+		pfs_err = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	if (pfs->loaded.entrycount > 0) {
@@ -93,13 +104,13 @@ int pfsc_format(i64 block_count, uuid_t uuid, char *name) {
 	}
 	void *b0 = pfs->get(pfs, 0L);
 	if (b0 == NULL) {
-		(*pfs_err_loc) = PFS_ERRNO_UNKNOWN_ERROR;
+		pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
 		return 0;
 	}
 	i64 name_len_ = name ? strlen(name) : 0;
 	i32 name_len = name_len_;
 	if (name_len != name_len_) {
-		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
+		pfs_err = PFS_ERRNO_OUT_OF_SPACE;
 		pfs->unget(pfs, 0L);
 		return 0;
 	}
@@ -113,7 +124,7 @@ int pfsc_format(i64 block_count, uuid_t uuid, char *name) {
 	if (table[4] - (i64) table[3]
 			< sizeof(struct pfs_folder_entry) + sizeof(struct pfs_folder_entry)
 					+ 3) {
-		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
+		pfs_err = PFS_ERRNO_OUT_OF_SPACE;
 		pfs->unget(pfs, 0L);
 		return 0;
 	}
@@ -320,7 +331,7 @@ int pfsc_fill_root(pfs_eh overwrite_me) {
 pfs_eh pfsc_root() {
 	struct pfs_element_handle *res = malloc(sizeof(struct pfs_element_handle));
 	if (res == NULL) {
-		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY;
+		pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
 		return NULL;
 	}
 	if (!pfsc_fill_root(res)) {
@@ -332,7 +343,7 @@ pfs_eh pfsc_root() {
 
 int init_block(i64 block, i64 size) {
 	if (size > pfs->block_size - 12) {
-		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
+		pfs_err = PFS_ERRNO_OUT_OF_SPACE;
 		return 0;
 	}
 	void *data = pfs->lazy_get(pfs, block);
@@ -406,7 +417,7 @@ i32 allocate_in_block_table(i64 block, i64 size) {
 	i32 *table_end = block_data + pfs->block_size - 4;
 	i32 *table = block_data + *table_end;
 	if (table_end[0] - 8 < table_end[-1]) {
-		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
+		pfs_err = PFS_ERRNO_OUT_OF_SPACE;
 		pfs->unget(pfs, block);
 		return -1;
 	}
@@ -559,7 +570,7 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos,
 				return new_pos;
 			}
 		} // could not resize
-		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
+		pfs_err = PFS_ERRNO_OUT_OF_SPACE;
 		pfs->unget(pfs, block);
 		return -1;
 	}
@@ -691,7 +702,7 @@ static inline i64 allocate_block_without_bm(struct pfs_b0 *b0) {
 			}
 			result += 64;
 			if (result >= block_count) {
-				(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
+				pfs_err = PFS_ERRNO_OUT_OF_SPACE;
 				pfs->unget(pfs, current_block_num);
 				pfs->unget(pfs, 0L);
 				return -1L;
@@ -701,7 +712,7 @@ static inline i64 allocate_block_without_bm(struct pfs_b0 *b0) {
 			if ((*block_data) == 0xFF) {
 				result += 8;
 				if (result >= block_count) {
-					(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
+					pfs_err = PFS_ERRNO_OUT_OF_SPACE;
 					pfs->unget(pfs, current_block_num);
 					pfs->unget(pfs, 0L);
 					return -1L;
@@ -725,7 +736,7 @@ static inline i64 allocate_block_without_bm(struct pfs_b0 *b0) {
 				}
 				result++;
 				if (result >= block_count) {
-					(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
+					pfs_err = PFS_ERRNO_OUT_OF_SPACE;
 					pfs->unget(pfs, current_block_num);
 					pfs->unget(pfs, 0L);
 					return -1L;
@@ -735,7 +746,7 @@ static inline i64 allocate_block_without_bm(struct pfs_b0 *b0) {
 		}
 		if (next_block_num == -1L) {
 			if (result + 1 >= block_count) {
-				(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
+				pfs_err = PFS_ERRNO_OUT_OF_SPACE;
 				pfs->unget(pfs, current_block_num);
 				return -1L;
 			}
@@ -772,11 +783,11 @@ i64 allocate_block(ui64 block_flags) {
 			if (pfs->block_flag_bits <= 0) {
 				abort();
 			}
-			(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
+			pfs_err = PFS_ERRNO_OUT_OF_SPACE;
 			return -1L;
 		}
 		if (fzfb >= b0->block_count) {
-			(*pfs_err_loc) = PFS_ERRNO_OUT_OF_SPACE;
+			pfs_err = PFS_ERRNO_OUT_OF_SPACE;
 			return -1L;
 		}
 		pfs->unget(pfs, 0L);

@@ -34,6 +34,8 @@ ui32 pfs_err_val;
 ui32 *pfs_err_loc = &pfs_err_val;
 #endif
 
+#define pfs_err (*pfs_err_loc)
+
 enum pfs_errno {
 	// GENERATED-CODE-START
 	// this code-block is automatic generated, do not modify

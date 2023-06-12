@@ -61,7 +61,7 @@ extern int pfs_stream_open_delegate(struct delegate_stream *stream);
  * returns the number of bytes actually written
  *
  * on success len bytes will be written and thus len will be returned
- * on error less then len (potentially 0) bytes will be written and (*pfs_err_loc) will be set
+ * on error less then len (potentially 0) bytes will be written and (pfs_err) will be set
  */
 extern i64 pfs_stream_write(int sh, void *data, i64 len);
 

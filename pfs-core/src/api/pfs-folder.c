@@ -52,7 +52,7 @@ extern i64 pfs_folder_child_count(int eh) {
 	ch(-1) \
 	struct element_handle *c = malloc(sizeof(struct element_handle)); \
 	if (!c) { \
-		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY; \
+		pfs_err = PFS_ERRNO_OUT_OF_MEMORY; \
 		cr(-1) \
 		return -1; \
 	} \
@@ -85,7 +85,7 @@ extern int pfs_folder_child_pipe(int eh, const char *name) {
 	ch(-1) \
 	struct element_handle *c = malloc(sizeof(struct element_handle)); \
 	if (!c) { \
-		(*pfs_err_loc) = PFS_ERRNO_OUT_OF_MEMORY; \
+		pfs_err = PFS_ERRNO_OUT_OF_MEMORY; \
 		cr(-1) \
 		return -1; \
 	} \

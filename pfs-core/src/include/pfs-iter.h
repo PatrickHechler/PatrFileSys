@@ -37,7 +37,7 @@ extern int pfs_iter_close(int ih);
 /*
  * opens a new element handle for the next child element
  *
- * when there is no next child element -1 is returned and (*pfs_err_loc) is set to PFS_ERRNO_NO_MORE_ELEMENTS
+ * when there is no next child element -1 is returned and (pfs_err) is set to PFS_ERRNO_NO_MORE_ELEMENTS
  *
  * returns on success the child element handle and on error -1
  */
