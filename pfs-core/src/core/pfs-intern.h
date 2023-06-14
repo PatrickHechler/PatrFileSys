@@ -56,7 +56,10 @@
 
 #define pfs_validate_b0(b0, invalid, also_in_block_table) \
 	{ \
-		if ((b0)->MAGIC != PFS_MAGIC_START) { \
+		if ((b0)->MAGIC0 != PFS_MAGIC_START0) { \
+			goto invalidb0; \
+		} \
+		if ((b0)->MAGIC1 != PFS_MAGIC_START1) { \
 			goto invalidb0; \
 		} \
 		if ((b0)->block_count < 2) { \
@@ -91,7 +94,8 @@ struct pfs_place {
 } __attribute__((packed));
 
 struct pfs_b0 {
-	ui64 MAGIC;
+	ui64 MAGIC0;
+	ui64 MAGIC1;
 	struct pfs_place root;
 	i32 block_size;
 	i64 block_count;
@@ -100,7 +104,7 @@ struct pfs_b0 {
 	char name[0];
 } __attribute__((packed));
 
-_Static_assert(offsetof(struct pfs_b0, MAGIC) == 0, "error!");
+_Static_assert(offsetof(struct pfs_b0, MAGIC0) == 0, "error!");
 
 #define B0_FLAG_BM_ALLOC              0x00000001U
 #define B0_FLAG_BM_READ_ONLY          0x00000002U

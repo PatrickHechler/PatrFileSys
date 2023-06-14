@@ -27,8 +27,11 @@
  * the magic should be changed when the version changes,
  * so old version does not load a new version which is
  * not backwards compatible
+ *
+ * note that the 11 first bytes should not be changed (they represent "#!/bin/pvm\n")
  */
-#define PFS_MAGIC_START 0x31756539FC422698UL
+#define PFS_MAGIC_START0 0x702f6e69622f2123UL
+#define PFS_MAGIC_START1 0x51fcd99d300a6d76UL
 
 #define	PFS_INTERN_ENTRY_FLAGS (PFS_F_HELPER_FOLDER) /* entries with one of these flags are not allowed to be passed to the outside */
 #define PFS_ESSENTIAL_FLAGS (PFS_F_FILE | PFS_F_FOLDER | PFS_F_PIPE)

@@ -129,7 +129,8 @@ int pfsc_format(i64 block_count, uuid_t uuid, char *name) {
 		return 0;
 	}
 	struct pfs_b0 *super_data = b0;
-	super_data->MAGIC = PFS_MAGIC_START;
+	super_data->MAGIC0 = PFS_MAGIC_START0;
+	super_data->MAGIC1 = PFS_MAGIC_START1;
 	super_data->root.block = 0L;
 	super_data->root.pos = sizeof(struct pfs_b0);
 	super_data->block_size = pfs->block_size;
