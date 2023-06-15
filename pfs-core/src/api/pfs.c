@@ -161,8 +161,7 @@ extern int pfs_load(struct bm_block_manager *bm, const char *cur_work_dir) {
 	}
 	struct pfs_b0 *b0 = bm->get(bm, 0L);
 	pfs_validate_b0(b0,
-			pfs_err = PFS_ERRNO_ILLEGAL_STATE; bm->unget(bm, 0L); return 0;,
-			1)
+			pfs_err = PFS_ERRNO_ILLEGAL_STATE; bm->unget(bm, 0L); return 0;, 1)
 	struct element_handle **nehs = malloc(sizeof(struct element_handle*));
 	struct stream_handle **nshs = malloc(sizeof(struct stream_handle*));
 	struct iter_handle **nihs = malloc(sizeof(struct iter_handle*));
@@ -532,7 +531,7 @@ struct fd_del_str {
 
 static i64 fd_write(struct delegate_stream *ds, void *data, i64 len) {
 	struct fd_del_str *fdds = (struct fd_del_str*) ds;
-	i64 wrote = write(fdds->fd, data, len);
+	i64 wrote = bm_fd_write(fdds->fd, data, len);
 	if (wrote == -1) {
 		pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
 		return 0;
@@ -541,11 +540,11 @@ static i64 fd_write(struct delegate_stream *ds, void *data, i64 len) {
 }
 static i64 fd_read(struct delegate_stream *ds, void *buf, i64 len) {
 	struct fd_del_str *fdds = (struct fd_del_str*) ds;
-	i64 reat = read(fdds->fd, buf, len);
+	i64 reat = bm_fd_read(fdds->fd, buf, len);
 	if (reat == -1) {
 #ifdef PFS_PORTABLE_BUILD
 		if (feof(fdds->fd)) {
-			clearerr(bf->fd);
+			clearerr(fdds->fd);
 		} else {
 			switch (errno) {
 			case EIO:
@@ -651,7 +650,12 @@ static i64 fd_seek_eof(struct delegate_stream *ds) {
 	}
 	return sek;
 }
-
+static int fd_close(struct delegate_stream *ds) {
+	struct fd_del_str *fdds = (struct fd_del_str*) ds;
+	int res = bm_fd_close(fdds->fd);
+	free(fdds);
+	return res;
+}
 extern int pfs_stream_open_delegate_fd(bm_fd fd, i32 stream_flags) {
 	if (stream_flags
 			& (PFS_SO_ONLY_CREATE | PFS_SO_ALSO_CREATE | PFS_SO_FILE_TRUNC)) {
@@ -698,6 +702,7 @@ extern int pfs_stream_open_delegate_fd(bm_fd fd, i32 stream_flags) {
 	} else {
 		del->write = NULL;
 	}
+	del->close = fd_close;
 	return_handle(pfs_sh_len, pfs_shs, res);
 }
 
@@ -881,7 +886,8 @@ extern int pfs_iter_next(int ih) {
 }
 
 extern int pfs_element_close(int eh) {
-	get_handle(0, pfs_eh_len, pfs_ehs, eh) // eh(0) fails when the element was deleted
+	get_handle(0, pfs_eh_len, pfs_ehs, eh)
+	// eh(0) fails when the element was deleted
 	release_eh(pfs_ehs[eh]);
 	pfs_ehs[eh] = NULL;
 	return 1;
@@ -897,15 +903,16 @@ extern int pfs_stream_close(int sh) {
 	sh(0)
 	if (pfs_shs[sh]->element) {
 		release_eh(pfs_shs[sh]->element);
-	} else if (--pfs_shs[sh]->pos <= 0) {
+		pfs_shs[sh] = NULL;
+	} else if (--pfs_shs[sh]->delegate_ref_count <= 0) {
 		if (pfs_shs[sh]->pos < 0) {
 			abort();
 		}
-		if (close(pfs_shs[sh]->is_file) == -1) {
-			pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
-			return 0;
+		struct delegate_stream *del = pfs_shs[sh]->delegate;
+		pfs_shs[sh] = NULL;
+		if (del->close) {
+			return pfs_shs[sh]->delegate->close(pfs_shs[sh]->delegate);
 		}
 	}
-	pfs_shs[sh] = NULL;
 	return 1;
 }

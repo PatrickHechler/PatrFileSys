@@ -402,8 +402,14 @@ int main(int argc, char **argv) {
 		}
 		test_file = argv[1];
 	}
+#ifdef PFS_PORTABLE_BUILD
+	bm_fd fd = bm_fd_open_rw_trunc(test_file);
+	if (fd == NULL)
+#else
 	bm_fd fd = bm_fd_open_rw(test_file);
-	if (fd == -1) {
+	if (fd == -1)
+#endif
+	{
 		printf("%scould not open testfile ('%s') [3]\n", start, test_file);
 		exit(EXIT_FAILURE);
 	}
@@ -420,7 +426,8 @@ int main(int argc, char **argv) {
 	}
 	checks();
 	pfs->close_bm(pfs);
-	printf("%sstart checks with a file block manager (again, again) [4]\n", start);
+	printf("%sstart checks with a file block manager (again, again) [4]\n",
+			start);
 	pfs = bm_new_file_block_manager_path_bs(test_file, 07770, 0);
 	if (pfs == NULL) {
 		printf("%scould not create the block manager (%s) [5]\n", start,
@@ -1092,8 +1099,7 @@ static void deep_folder_check() {
 		exit(EXIT_FAILURE);
 	}
 	if (pfs_err != PFS_ERRNO_ELEMENT_ALREADY_EXIST) {
-		printf(
-				"%spfs_err has not the expected value! (pfs_err=%s) [18]\n",
+		printf("%spfs_err has not the expected value! (pfs_err=%s) [18]\n",
 				start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
@@ -1249,8 +1255,7 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 	pfs_fi iter = pfsc_folder_iterator(f, 0);
 	i64 cur_len = strlen(*name);
 	if (iter == NULL) {
-		printf(
-				"%sfailed to get a iterator for the folder! (pfs_err=%s) [0]\n",
+		printf("%sfailed to get a iterator for the folder! (pfs_err=%s) [0]\n",
 				start, pfs_error());
 		exit(1);
 	}
@@ -1273,8 +1278,7 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 		if (!pfsc_element_get_name(f, name, name_size)) {
 			*name_size += cur_len;
 			*name -= cur_len;
-			printf(
-					"%scould not get the name of the element (pfs_err=%s) [2]\n",
+			printf("%scould not get the name of the element (pfs_err=%s) [2]\n",
 					start, pfs_error);
 			exit(1);
 		}
@@ -1283,7 +1287,7 @@ static void write_to(pfs_eh f, char **name, i64 *name_size) {
 		ui64 flags = pfsc_element_get_flags(f);
 		if (flags & PFS_F_FILE) {
 			void *buf = malloc(1 << 15);
-			bm_fd fd = bm_fd_open_rw(*name);
+			bm_fd fd = bm_fd_open_rw_trunc(*name);
 			if (fd <= 0) {
 				perror("open");
 				printf("%scould not open the file %s [3]\n", start, *name);
@@ -1689,8 +1693,8 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		exit(EXIT_FAILURE);
 	} else if (pfs_err != PFS_ERRNO_ILLEGAL_ARG) {
 		if (is_not_root || pfs_err != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%spfs_err has an unexpected value (%s)! [1A]\n",
-					start, pfs_error());
+			printf("%spfs_err has an unexpected value (%s)! [1A]\n", start,
+					pfs_error());
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -1700,8 +1704,8 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		exit(EXIT_FAILURE);
 	} else if (pfs_err != PFS_ERRNO_ILLEGAL_ARG) {
 		if (is_not_root || pfs_err != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%spfs_err has an unexpected value (%s)! [1C]\n",
-					start, pfs_error());
+			printf("%spfs_err has an unexpected value (%s)! [1C]\n", start,
+					pfs_error());
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -1711,8 +1715,8 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		exit(EXIT_FAILURE);
 	} else if (pfs_err != PFS_ERRNO_ILLEGAL_ARG) {
 		if (is_not_root || pfs_err != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%spfs_err has an unexpected value (%s)! [1E]\n",
-					start, pfs_error());
+			printf("%spfs_err has an unexpected value (%s)! [1E]\n", start,
+					pfs_error());
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -1855,8 +1859,8 @@ static void pipe_check() {
 		printf("%scould read form the pipe! [F]\n", start);
 		exit(EXIT_FAILURE);
 	} else if (pfs_err != PFS_ERRNO_ILLEGAL_ARG) {
-		printf("%spfs_err has not the expected value (%s)! [10]\n",
-				start, pfs_error());
+		printf("%spfs_err has not the expected value (%s)! [10]\n", start,
+				pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	pfs_err = PFS_ERRNO_NONE;

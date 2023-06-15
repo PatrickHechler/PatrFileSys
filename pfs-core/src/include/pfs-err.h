@@ -63,6 +63,8 @@ enum pfs_errno {
 
 extern const char* pfs_error();
 
+extern const char* pfs_error0(int pfs_err_val);
+
 extern void pfs_perror(const char *msg);
 
 #endif /* PFS_ERR_H_ */

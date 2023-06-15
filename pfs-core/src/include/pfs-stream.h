@@ -46,6 +46,7 @@ struct delegate_stream {
 	int (*set_pos)(struct delegate_stream*,i64);
 	i64 (*add_pos)(struct delegate_stream*,i64);
 	i64 (*seek_eof)(struct delegate_stream*);
+	int (*close)(struct delegate_stream*);
 };
 
 /**

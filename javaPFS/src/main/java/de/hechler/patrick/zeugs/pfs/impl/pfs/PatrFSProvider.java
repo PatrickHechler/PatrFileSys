@@ -122,6 +122,9 @@ public class PatrFSProvider extends FSProvider {
 		MethodHandle  pfsLoadAndFormat = linker.downcallHandle(PatrFS.LOCKUP.find("pfs_load_and_format").orElseThrow(),
 				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
 		MemorySegment bm               = (MemorySegment) newBm.invoke(path, opts.blockSize(), 0);
+		if (bm.address() == 0) {
+			throw thrw(PFSErrorCause.LOAD_PFS_AND_FORMAT, opts);
+		}
 		try (Arena arena = Arena.openConfined()) {
 			MemorySegment uuid = opts.uuid() == null ? MemorySegment.NULL : arena.allocate(16L);
 			if (opts.uuid() != null) {

@@ -28,8 +28,8 @@
 
 static char pfs_error_buf[128];
 
-extern const char* pfs_error() {
-	switch (pfs_err) {
+extern const char* pfs_error0(int pfs_err_val) {
+	switch (pfs_err_val) {
 	case PFS_ERRNO_NONE:
 		return "no error";
 	case PFS_ERRNO_UNKNOWN_ERROR:
@@ -65,9 +65,13 @@ extern const char* pfs_error() {
 	case PFS_ERRNO_ELEMENT_DELETED:
 		return "the operation failed, because the element was deleted";
 	default:
-		sprintf(pfs_error_buf, "unknown value [%lx]", pfs_err);
+		sprintf(pfs_error_buf, "unknown value [%lx]", pfs_err_val);
 		return pfs_error_buf;
 	}
+}
+
+extern const char* pfs_error() {
+	return pfs_error0(pfs_err);
 }
 
 extern void pfs_perror(const char *msg) {
@@ -159,7 +163,7 @@ int pfsc_format(i64 block_count, uuid_t uuid, char *name) {
 	if (uuid) {
 		memcpy(super_data->uuid, uuid, 16);
 	} else {
-#ifdef PFS_HALF_PORTABLE_BUILD
+#if defined PFS_HALF_PORTABLE_BUILD || defined PFS_PORTABLE_BUILD
 		// see java UUID.generateRandom()
 		for (int i = 0; i < 16; i++) {
 			super_data->uuid[i] = rand();

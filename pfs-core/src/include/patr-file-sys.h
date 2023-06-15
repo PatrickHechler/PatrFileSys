@@ -35,6 +35,10 @@
 #	define PFS_HALF_PORTABLE_BUILD
 #endif
 
+#ifdef PFS_PORTABLE_BUILD
+#	undef PFS_HALF_PORTABLE_BUILD
+#endif
+
 #include <stdint.h>
 #include <limits.h>
 #include <stddef.h>
@@ -49,7 +53,7 @@ typedef uint64_t ui64;
 typedef uint32_t ui32;
 typedef uint8_t ui8;
 
-#ifdef PFS_HALF_PORTABLE_BUILD
+#if defined PFS_HALF_PORTABLE_BUILD || defined PFS_PORTABLE_BUILD
 typedef ui8 uuid_t[16];
 #else
 #include <uuid/uuid.h>
@@ -63,10 +67,10 @@ _Static_assert(sizeof(ui64) == 8, "Error!");
 _Static_assert(sizeof(ui32) == 4, "Error!");
 _Static_assert(sizeof(char) == 1, "Error!");
 
-#ifndef PFS_PORTABLE_BUILD
-typedef int bm_fd;
-#else
+#ifdef PFS_PORTABLE_BUILD
 typedef FILE* bm_fd;
+#else
+typedef int bm_fd;
 #endif
 
 #ifndef PFS_PORTABLE_BUILD

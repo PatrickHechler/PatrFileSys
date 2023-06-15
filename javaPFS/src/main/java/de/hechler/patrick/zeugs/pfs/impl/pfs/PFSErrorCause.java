@@ -40,7 +40,7 @@ public enum PFSErrorCause {
 	
 	CLOSE_STREAM("close stream handle"),
 	
-	LOAD_PFS_AND_FORMAT(info -> "load and format ram PFS (" + info + ")"), LOAD_PFS(info -> "load PFS (" + info + ")"),
+	LOAD_PFS_AND_FORMAT(info -> "load and format PFS (" + info + ")"), LOAD_PFS(info -> "load PFS (" + info + ")"),
 	
 	GET_PARENT("get parent", (msg, errno) -> {
 		if (errno == ErrConsts.ROOT_FOLDER) {

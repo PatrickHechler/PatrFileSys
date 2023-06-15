@@ -153,20 +153,7 @@ extern struct bm_block_manager* bm_new_file_block_manager_path(const char *file,
  *       bm_fd_close(bm_fd fd)
  */
 
-#ifndef PFS_PORTABLE_BUILD
-#define bm_fd_read(fd, buf, len) read(fd, buf, len)
-#define bm_fd_write(fd, data, len) write(fd, data, len)
-#define bm_fd_pos(fd) lseek64(fd, 0, SEEK_CUR)
-#define bm_fd_seek(fd, pos) lseek64(fd, pos, SEEK_SET)
-#define bm_fd_seek_eof(fd) lseek64(fd, 0, SEEK_END)
-#define bm_fd_flush(fd) // the kernel already knows everything
-#define bm_fd_open_ro(file) open64(file, O_RDONLY) // O_LARGEFILE is 0
-#define bm_fd_open_rw(file) open64(file, O_RDWR | O_CREAT \
-		, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
-#define bm_fd_open_rw_trunc(file) open64(file, O_RDWR | O_CREAT | O_TRUNC \
-		, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
-#define bm_fd_close(fd) close(fd)
-#else
+#ifdef PFS_PORTABLE_BUILD
 #define bm_fd_read(fd, buf, len) fread(buf, 1, len, fd)
 #define bm_fd_write(fd, data, len) fwrite(data, 1, len, fd)
 #define bm_fd_pos(fd) fseek(fd, 0, SEEK_CUR)
@@ -177,6 +164,19 @@ extern struct bm_block_manager* bm_new_file_block_manager_path(const char *file,
 #define bm_fd_open_rw(file) fopen(file, "r+b")
 #define bm_fd_open_rw_trunc(file) fopen(file, "w+b")
 #define bm_fd_close(fd) fclose(fd)
+#else
+#define bm_fd_read(fd, buf, len) read(fd, buf, len)
+#define bm_fd_write(fd, data, len) write(fd, data, len)
+#define bm_fd_pos(fd) lseek64(fd, 0, SEEK_CUR)
+#define bm_fd_seek(fd, pos) lseek64(fd, pos, SEEK_SET)
+#define bm_fd_seek_eof(fd) lseek64(fd, 0, SEEK_END)
+#define bm_fd_flush(fd) // the kernel already knows everything
+#define bm_fd_open_ro(file) open64(file, O_RDONLY) // O_LARGEFILE is 0
+#define bm_fd_open_rw(file) open64(file, O_RDWR \
+		, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+#define bm_fd_open_rw_trunc(file) open64(file, O_RDWR | O_CREAT | O_TRUNC \
+		, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+#define bm_fd_close(fd) close(fd)
 #endif
 
 #define bm_fd_open(file, read_only) read_only ? bm_fd_open_ro(file) : bm_fd_open_rw(file)

@@ -131,6 +131,12 @@ extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count,
 
 extern struct bm_block_manager* bm_new_file_block_manager(bm_fd fd,
 		i32 block_size) {
+#ifdef PFS_PORTABLE_BUILD
+	if (!fd) {
+		(pfs_err) = PFS_ERRNO_ILLEGAL_ARG;
+		return NULL;
+	}
+#endif // PFS_PORTABLE_BUILD
 	if (block_size <= 0) {
 		(pfs_err) = PFS_ERRNO_ILLEGAL_ARG;
 		return NULL;
@@ -152,7 +158,54 @@ extern struct bm_block_manager* bm_new_file_block_manager(bm_fd fd,
 
 extern struct bm_block_manager* bm_new_file_block_manager_path_bs(
 		const char *file, i32 block_size, int read_only) {
-	bm_fd fd = bm_fd_open(file, read_only);
+	bm_fd fd;
+	if (read_only) {
+		fd = bm_fd_open_ro(file);
+	} else {
+#if PFS_PORTABLE_BUILD // fopen has no mode for open existing (but do not truncate) or create new
+		fd = bm_fd_open_rw(file);
+		if (!fd) {
+			int e = errno;
+			if (e == EINVAL || e == ENOENT) {
+				errno = 0;
+				fd = bm_fd_open_rw_trunc(file);
+			}
+		}
+#else
+		fd = open64(file, O_RDONLY | O_CREAT);
+#endif
+	}
+#ifdef PFS_PORTABLE_BUILD
+	if (!fd) {
+		switch (errno) {
+		case EEXIST:
+			pfs_err = PFS_ERRNO_ELEMENT_NOT_EXIST;
+			break;
+		case EIO:
+			pfs_err = PFS_ERRNO_IO_ERR;
+			break;
+		default:
+			pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
+			break;
+		}
+		return NULL;
+	}
+#else // PFS_PORTABLE_BUILD
+	if (fd == -1) {
+		switch (errno) {
+		case EEXIST:
+			pfs_err = PFS_ERRNO_ELEMENT_NOT_EXIST;
+			break;
+		case EIO:
+			pfs_err = PFS_ERRNO_IO_ERR;
+			break;
+		default:
+			pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
+			break;
+		}
+		return NULL;
+	}
+#endif // PFS_PORTABLE_BUILD
 	return bm_new_file_block_manager(fd, block_size);
 }
 

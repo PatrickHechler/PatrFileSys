@@ -103,7 +103,8 @@ extern i64 pfs_stream_read(int sh, void *buffer, i64 len) {
 	sh(0)
 	if (!pfs_shs[sh]->element) {
 		if (pfs_shs[sh]->delegate->read) {
-			return pfs_shs[sh]->delegate->read(pfs_shs[sh]->delegate, buffer, len);
+			return pfs_shs[sh]->delegate->read(pfs_shs[sh]->delegate, buffer,
+					len);
 		}
 		pfs_err = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 		return 0;
@@ -155,18 +156,11 @@ extern i64 pfs_stream_read(int sh, void *buffer, i64 len) {
 extern i64 pfs_stream_get_pos(int sh) {
 	sh(-1)
 	if (!pfs_shs[sh]->element) {
-		if (pfs_shs[sh]->delegate->get_pos) {
-			return pfs_shs[sh]->delegate->get_pos(pfs_shs[sh]->delegate);
-		}
-		if ((pfs_shs[sh]->flags & PFS_SO_FILE) == 0) {
+		if (!pfs_shs[sh]->delegate->get_pos) {
 			pfs_err = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 			return -1L;
 		}
-		i64 sek = lseek(pfs_shs[sh]->is_file, 0, SEEK_CUR);
-		if (sek == -1) {
-			pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
-		}
-		return sek;
+		return pfs_shs[sh]->delegate->get_pos(pfs_shs[sh]->delegate);
 	} else if (!pfs_shs[sh]->is_file) {
 		pfs_err = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 		return -1L;
@@ -177,15 +171,11 @@ extern i64 pfs_stream_get_pos(int sh) {
 extern int pfs_stream_set_pos(int sh, i64 pos) {
 	sh(0)
 	if (!pfs_shs[sh]->element) {
-		if ((pfs_shs[sh]->flags & PFS_SO_FILE) == 0) {
+		if (!pfs_shs[sh]->delegate->set_pos) {
 			pfs_err = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 			return -1L;
 		}
-		i64 sek = lseek(pfs_shs[sh]->is_file, pos, SEEK_SET);
-		if (sek == -1) {
-			pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
-		}
-		return sek;
+		return pfs_shs[sh]->delegate->set_pos(pfs_shs[sh]->delegate, pos);
 	} else if (!pfs_shs[sh]->is_file) {
 		pfs_err = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 		return 0;
@@ -201,15 +191,11 @@ extern int pfs_stream_set_pos(int sh, i64 pos) {
 extern i64 pfs_stream_add_pos(int sh, i64 add) {
 	sh(-1)
 	if (!pfs_shs[sh]->element) {
-		if ((pfs_shs[sh]->flags & PFS_SO_FILE) == 0) {
+		if (!pfs_shs[sh]->delegate->add_pos) {
 			pfs_err = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 			return -1L;
 		}
-		i64 sek = lseek(pfs_shs[sh]->is_file, add, SEEK_CUR);
-		if (sek == -1) {
-			pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
-		}
-		return sek;
+		return pfs_shs[sh]->delegate->add_pos(pfs_shs[sh]->delegate, add);
 	} else if (!pfs_shs[sh]->is_file) {
 		pfs_err = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 		return -1;
@@ -225,15 +211,11 @@ extern i64 pfs_stream_add_pos(int sh, i64 add) {
 extern i64 pfs_stream_seek_eof(int sh) {
 	sh(-1)
 	if (!pfs_shs[sh]->element) {
-		if ((pfs_shs[sh]->flags & PFS_SO_FILE) == 0) {
+		if (!pfs_shs[sh]->delegate->seek_eof) {
 			pfs_err = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 			return -1L;
 		}
-		i64 sek = lseek(pfs_shs[sh]->is_file, 0, SEEK_END);
-		if (sek == -1) {
-			pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
-		}
-		return sek;
+		return pfs_shs[sh]->delegate->seek_eof(pfs_shs[sh]->delegate);
 	} else if (!pfs_shs[sh]->is_file) {
 		pfs_err = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 		return -1;
