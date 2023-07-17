@@ -106,7 +106,7 @@ int pfsc_format(i64 block_count, uuid_t uuid, char *name) {
 	if (pfs->loaded.entrycount > 0) {
 		abort();
 	}
-	void *b0 = pfs->get(pfs, 0L);
+	void *b0 = pfs->lazy_get(pfs, 0L);
 	if (b0 == NULL) {
 		pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
 		return 0;
@@ -151,7 +151,7 @@ int pfsc_format(i64 block_count, uuid_t uuid, char *name) {
 		}
 	} else {
 		super_data->flags = 0;
-		void *b1 = pfs->get(pfs, 1L);
+		void *b1 = pfs->lazy_get(pfs, 1L);
 		memset(b1, 0, pfs->block_size - 8);
 		*(ui8*) b1 = 3;
 		*(i64*) (b1 + pfs->block_size - 8) = -1L;

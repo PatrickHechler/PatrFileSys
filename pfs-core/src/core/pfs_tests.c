@@ -402,15 +402,16 @@ int main(int argc, char **argv) {
 		}
 		test_file = argv[1];
 	}
-#ifdef PFS_PORTABLE_BUILD
 	bm_fd fd = bm_fd_open_rw_trunc(test_file);
+#ifdef PFS_PORTABLE_BUILD
 	if (fd == NULL)
 #else
-	bm_fd fd = bm_fd_open_rw(test_file);
 	if (fd == -1)
 #endif
-	{
+			{
 		printf("%scould not open testfile ('%s') [3]\n", start, test_file);
+		perror("open");
+		fflush(NULL);
 		exit(EXIT_FAILURE);
 	}
 	pfs = bm_new_file_block_manager(fd, 1024);

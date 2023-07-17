@@ -172,7 +172,7 @@ extern struct bm_block_manager* bm_new_file_block_manager_path_bs(
 			}
 		}
 #else
-		fd = open64(file, O_RDONLY | O_CREAT);
+		fd = open64(file, O_RDWR | O_CREAT);
 #endif
 	}
 #ifdef PFS_PORTABLE_BUILD
