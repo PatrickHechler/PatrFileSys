@@ -8,7 +8,7 @@ ifeq ($(AR),)
 endif
 
 CFLAGS += -fPIC
-LDFLAGS += -luuid
+LDFLAGS += 
 
 ifeq ($(BUILD_MODE),debug)
 	CFLAGS += -g -Og
@@ -47,7 +47,9 @@ CORE_TEST_TARGET = $(CORE_BIN)pfs_tests
 
 CORE_OBJS = $(CORE_BIN)pfs.o $(CORE_BIN)pfs-element.o $(CORE_BIN)pfs-folder.o $(CORE_BIN)pfs-file.o
 
-OBJS = $(CORE_OBJS) $(API_BIN)hashset.o $(API_BIN)bm.o $(API_BIN)pfs.o $(API_BIN)pfs-element.o $(API_BIN)pfs-folder.o $(API_BIN)pfs-file.o $(API_BIN)pfs-pipe.o $(API_BIN)pfs-stream.o $(API_BIN)pfs-iter.o
+CORE_API_OBJS = $(API_BIN)hashset.o $(API_BIN)bm.o $(API_BIN)random.o
+
+OBJS = $(CORE_OBJS) $(CORE_API_OBJS) $(API_BIN)pfs.o $(API_BIN)pfs-element.o $(API_BIN)pfs-folder.o $(API_BIN)pfs-file.o $(API_BIN)pfs-pipe.o $(API_BIN)pfs-stream.o $(API_BIN)pfs-iter.o
 
 all:	INIT $(CORE_TEST_TARGET) $(TARGET_A) $(TARGET_SO)
 	$(CORE_TEST_TARGET)
@@ -74,8 +76,8 @@ INIT:
 	mkdir -p $(EXP)
 	ln -sf -T $(EXPSOURCE) $(EXP)include
 
-$(CORE_TEST_TARGET): $(CORE_TEST_TARGET).o $(CORE_OBJS) $(API_BIN)hashset.o $(API_BIN)bm.o
-	$(CC) -o $(CORE_TEST_TARGET) $(LDFLAGS) $(CORE_TEST_TARGET).o $(CORE_OBJS) $(API_BIN)hashset.o $(API_BIN)bm.o
+$(CORE_TEST_TARGET): $(CORE_TEST_TARGET).o $(CORE_OBJS) $(CORE_API_OBJS)
+	$(CC) -o $(CORE_TEST_TARGET) $(LDFLAGS) $(CORE_TEST_TARGET).o $(CORE_OBJS) $(CORE_API_OBJS)
 
 $(TARGET_SO):	INIT_SO $(OBJS)
 	$(CC) -shared -o $@ $(LDFLAGS) $(OBJS)

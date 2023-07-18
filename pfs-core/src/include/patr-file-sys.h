@@ -42,6 +42,7 @@
 #include <stdint.h>
 #include <limits.h>
 #include <stddef.h>
+#include <time.h>
 #ifdef PFS_PORTABLE_BUILD
 #include <stdio.h>
 #include <threads.h>
@@ -53,11 +54,7 @@ typedef uint64_t ui64;
 typedef uint32_t ui32;
 typedef uint8_t ui8;
 
-#if defined PFS_HALF_PORTABLE_BUILD || defined PFS_PORTABLE_BUILD
 typedef ui8 uuid_t[16];
-#else
-#include <uuid/uuid.h>
-#endif
 
 _Static_assert(CHAR_BIT == 8, "Error!");
 _Static_assert(sizeof(__time_t) == 8, "Error!");

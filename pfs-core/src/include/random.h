@@ -11,6 +11,7 @@
 #ifndef SRC_INCLUDE_PFS_RANDOM_H_
 #define SRC_INCLUDE_PFS_RANDOM_H_
 
+#include "patr-file-sys.h"
 #include <stdint.h>
 
 /*
@@ -24,7 +25,7 @@
  *   if this is done PFS_COMPILER_INT128 will be defined
  * otherwise create a struct pfs_uint128_t { uint64_t low; uint64_t high; }
  */
-#ifdef __SIZEOF_INT128__
+#if !defined PFS_PORTABLE_BUILD && defined __SIZEOF_INT128__
 /*
  * defined if the pfs_uint128_t supports arithmetic operations
  */
@@ -34,12 +35,24 @@
  */
 typedef unsigned __int128 pfs_uint128_t;
 #else // __SIZEOF_INT128__
+#include <endian.h>
 struct pfs_uint128_t {
+#if BYTE_ORDER == LITTLE_ENDIAN
 	uint64_t low;
 	uint64_t high;
+#else // well PGP_ENDIAN also gets BIG_ENDIAN
+	uint64_t high;
+	uint64_t low;
+#endif
 };
 typedef struct pfs_uint128_t pfs_uint128_t;
 #endif // __SIZEOF_INT128__
+
+#ifdef I_AM_RANDOM
+void (*random_free)(void *__ptr);
+#else
+extern void (*random_free)(void *__ptr);
+#endif
 
 /*
  * if the generator is already initialized, the old seed will be free'd
@@ -56,14 +69,19 @@ typedef struct pfs_uint128_t pfs_uint128_t;
  * - all entries of the given array are truncated to values below (2^120)-1
  *   - if at least one value needs to be truncated a warning may be displayed
  */
-void init(uint64_t seed_entries, pfs_uint128_t *seed);
+void random_init(uint64_t seed_entries, pfs_uint128_t *seed);
 
 /*
  * if already initialized this function just returns
  * otherwise it will try to get a random seed and than
  * use it for initializing
  */
-void ensure_init();
+void random_ensure_init();
+
+/*
+ * fills the given array with random values
+ */
+void random_data(void *data, size_t len);
 
 /*
  * returns an integer with random bits
@@ -71,12 +89,16 @@ void ensure_init();
 uint64_t random_num();
 
 /*
- * returns a random value from 0 to 1 (0 inclusive, 1 exclusive)
+ * returns a random value from 0 to 1 (both inclusive)
+ * note that this function may return zero, when the result is rounded
+ *   and one, when the original random number is exactly zero
  */
 long double random_num_ld();
 
 /*
- * returns a random value from 0 to 1 (0 inclusive, 1 exclusive)
+ * returns a random value from 0 to 1 (both inclusive)
+ * note that this function may return zero, when the result is rounded
+ *   and one, when the original random number is exactly zero
  */
 double random_num_d();
 

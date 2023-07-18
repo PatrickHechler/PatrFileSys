@@ -23,8 +23,8 @@
  */
 #define I_AM_CORE_PFS
 #include "pfs.h"
+#include "../include/random.h"
 #include "../include/pfs-constants.h"
-#include "../include/patr-file-sys.h"
 
 static char pfs_error_buf[128];
 
@@ -163,18 +163,13 @@ int pfsc_format(i64 block_count, uuid_t uuid, char *name) {
 	if (uuid) {
 		memcpy(super_data->uuid, uuid, 16);
 	} else {
-#if defined PFS_HALF_PORTABLE_BUILD || defined PFS_PORTABLE_BUILD
+		random_ensure_init();
+		random_data(&super_data->uuid, 16);
 		// see java UUID.generateRandom()
-		for (int i = 0; i < 16; i++) {
-			super_data->uuid[i] = rand();
-		}
         super_data->uuid[6]  &= 0x0f;  /* clear version        */
         super_data->uuid[6]  |= 0x40;  /* set to version 4     */
         super_data->uuid[8]  &= 0x3f;  /* clear variant        */
         super_data->uuid[8]  |= 0x80;  /* set to IETF variant  */
-#else
-		uuid_generate(super_data->uuid);
-#endif
 	}
 	if (name_len) {
 		memcpy(super_data->name, name, name_len);
