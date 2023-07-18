@@ -25,7 +25,7 @@
  *      Author: pat
  */
 #define I_AM_RANDOM
-#include "../include/random.h"
+#include "../include/pfs-random.h"
 
 #include <endian.h>
 #include <time.h>
@@ -86,7 +86,9 @@ void random_ensure_init() {
 				if (fd == -1) {
 					portable_rnd: ;
 #endif // half- or non-portable
-					srandom(time(NULL));
+					// clock may have a higher resolution than seconds
+					// but clock only has the CPU time of this process, so the value is still low
+					srandom(time(NULL) ^ clock());
 					while (remain--) {
 						*(char*) p++ = random();
 					}
@@ -156,13 +158,13 @@ void random_init(uint64_t seed_entries, pfs_uint128_t *seed) {
 	}
 	// truncate all numbers in Y to max 2^120-1
 	_Bool already_warned = 0;
-#if BYTE_ORDER == LITTLE_ENDIAN || !defined  PFS_COMPILER_INT128
+#if BYTE_ORDER == LITTLE_ENDIAN || !defined  RND_COMPILER_INT128
 	for (int i = 1; i < (seed_entries << 1); i += 2)
 #else
 	for (int i = 0; i < seed_entries; i ++)
 #endif
 			{
-#if BYTE_ORDER == LITTLE_ENDIAN || !defined  PFS_COMPILER_INT128
+#if BYTE_ORDER == LITTLE_ENDIAN || !defined  RND_COMPILER_INT128
 		if (((int64_t*) seed)[i] & ~Mm1) {
 			if (already_warned) {
 				fputs(
@@ -196,10 +198,30 @@ void random_init(uint64_t seed_entries, pfs_uint128_t *seed) {
 	}
 }
 
-pfs_uint128_t random_num0() {
+static pfs_uint128_t random_state_num0(uint64_t state_entries,
+		pfs_uint128_t *state) {
+	pfs_uint128_t res = state[0];
+	for (int_fast64_t i = 1; i < state_entries; i++) {
+#ifdef RND_COMPILER_INT128
+		res += state[i];
+		res = ((uint64_t) res) | (((res >> 64) & Mm1) << 64);
+#else // res %= 2^120
+		if (res.low & Y[i].low & INT64_MIN) {
+			res.high++;
+		}
+		res.low += state[i].low;
+		res.high += state[i].high;
+		res.high &= Mm1;
+#endif // RND_COMPILER_INT128
+		state[i] = res;
+	}
+	return res;
+}
+
+static pfs_uint128_t random_num0() {
 	pfs_uint128_t res = Y[0];
 	for (int_fast64_t i = 1; i < k; i++) {
-#ifdef PFS_COMPILER_INT128
+#ifdef RND_COMPILER_INT128
 		res += Y[i];
 		res = ((uint64_t) res) | (((res >> 64) & Mm1) << 64);
 #else // res %= 2^120
@@ -209,10 +231,82 @@ pfs_uint128_t random_num0() {
 		res.low += Y[i].low;
 		res.high += Y[i].high;
 		res.high &= Mm1;
-#endif // PFS_COMPILER_INT128
+#endif // RND_COMPILER_INT128
 		Y[i] = res;
 	}
 	return res;
+}
+
+uint64_t random_num() {
+	// do a right shift because the lower bits are less random
+#ifdef RND_COMPILER_INT128
+	return random_num0() >> 56;
+#else
+	pfs_uint128_t res = random_num0();
+	return (res.low >> 56) | (res.high << 8);
+#endif
+}
+
+uint64_t random_state_num(uint64_t state_entries, pfs_uint128_t *state) {
+	// do a right shift because the lower bits are less random
+#ifdef RND_COMPILER_INT128
+	return random_state_num0(state_entries, state) >> 56;
+#else
+	pfs_uint128_t res = random_state_num0(state_entries, state);
+	return (res.low >> 56) | (res.high << 8);
+#endif
+}
+
+long double random_num_ld() {
+	pfs_uint128_t val = random_num0();
+#ifdef RND_COMPILER_INT128
+	if (val == 0) {
+		return 1.0L; // prevent NaN
+	}
+	return 1.0L / val;
+#else
+	if (val.low == 0 && val.high == 0) return 1.0L; // prevent NaN
+	return (1.0L / val.low) + (1.0L / (0x10000000000000000.0L * val.high));
+#endif
+}
+
+long double random_state_num_ld(uint64_t state_entries, pfs_uint128_t *state) {
+	pfs_uint128_t val = random_state_num0(state_entries, state);
+#ifdef RND_COMPILER_INT128
+	if (val == 0) {
+		return 1.0L; // prevent NaN
+	}
+	return 1.0L / val;
+#else
+	if (val.low == 0 && val.high == 0) return 1.0L; // prevent NaN
+	return (1.0L / val.low) + (1.0L / (0x10000000000000000.0L * val.high));
+#endif
+}
+
+double random_num_d() {
+	pfs_uint128_t val = random_num0();
+#ifdef RND_COMPILER_INT128
+	if (val == 0) {
+		return 1.0; // prevent NaN
+	}
+	return 1.0 / val;
+#else
+	if (val.low == 0 && val.high == 0) return 1.0; // prevent NaN
+	return (1.0 / val.low) + (1.0 / (0x10000000000000000.0 * val.high));
+#endif
+}
+
+double random_state_num_d(uint64_t state_entries, pfs_uint128_t *state) {
+	pfs_uint128_t val = random_state_num0(state_entries, state);
+#ifdef RND_COMPILER_INT128
+	if (val == 0) {
+		return 1.0; // prevent NaN
+	}
+	return 1.0 / val;
+#else
+	if (val.low == 0 && val.high == 0) return 1.0; // prevent NaN
+	return (1.0 / val.low) + (1.0 / (0x10000000000000000.0 * val.high));
+#endif
 }
 
 void random_data(void *data, size_t len) {
@@ -239,36 +333,27 @@ void random_data(void *data, size_t len) {
 	}
 }
 
-uint64_t random_num() {
-	// do a right shift because the lower bits are less random
-#ifdef PFS_COMPILER_INT128
-	return random_num0() >> 56;
-#else
-	pfs_uint128_t res = random_num0();
-	return (res.low >> 56) | (res.high << 8);
-#endif
-}
-
-long double random_num_ld() {
-	pfs_uint128_t val = random_num0();
-#ifdef PFS_COMPILER_INT128
-	if (val == 0)
-		return 1.0L; // prevent NaN
-	return 1.0L / val;
-#else
-	if (val.low == 0 && val.high == 0) return 1.0L; // prevent NaN
-	return (1.0L / val.low) + (1.0L / (0x10000000000000000.0L * val.high));
-#endif
-}
-
-double random_num_d() {
-	pfs_uint128_t val = random_num0();
-#ifdef PFS_COMPILER_INT128
-	if (val == 0)
-		return 1.0; // prevent NaN
-	return 1.0 / val;
-#else
-	if (val.low == 0 && val.high == 0) return 1.0; // prevent NaN
-	return (1.0 / val.low) + (1.0 / (0x10000000000000000.0 * val.high));
-#endif
+void random_state_data(uint64_t state_entries, pfs_uint128_t *state, void *data,
+		size_t len) {
+	if (((long) data) & 7) { // align data
+		if (len == 0) {
+			return;
+		}
+		uint64_t val = random_state_num(state_entries, state);
+		do {
+			*(char*) data = val;
+			val >>= 8;
+		} while ((((long) ++data) & 7) && --len);
+	}
+	for (; len >= 8; len -= 8, data += 8) {
+		*(uint64_t*) data = random_state_num(state_entries, state);
+	}
+	if (len) {
+		uint64_t val = random_state_num(state_entries, state);
+		do {
+			*(char*) data = val;
+			val >>= 8;
+			data++;
+		} while (--len);
+	}
 }

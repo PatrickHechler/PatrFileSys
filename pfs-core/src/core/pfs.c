@@ -23,7 +23,7 @@
  */
 #define I_AM_CORE_PFS
 #include "pfs.h"
-#include "../include/random.h"
+#include "../include/pfs-random.h"
 #include "../include/pfs-constants.h"
 
 static char pfs_error_buf[128];
