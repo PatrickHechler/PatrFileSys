@@ -86,12 +86,12 @@ void random_ensure_init() {
 				if (fd == -1) {
 					portable_rnd: ;
 #endif // half- or non-portable
-					// clock may have a higher resolution than seconds
-					// but clock only has the CPU time of this process, so the value is still low
-					srandom(time(NULL) ^ clock());
-					while (remain--) {
-						*(char*) p++ = random();
-					}
+	// clock may have a higher resolution than seconds
+	// but clock only has the CPU time of this process, so the value is still low
+	srandom(time(NULL) ^ clock());
+	while (remain--) {
+		*(char*) p++ = random();
+	}
 #if !defined PFS_PORTABLE_BUILD
 					goto after_rnd_data;
 				}
@@ -170,8 +170,8 @@ void random_init(uint64_t seed_entries, pfs_uint128_t *seed) {
 				fputs(
 						"[WARN]: at least one number in the seed is not below 2^120\n",
 						stderr);
+				already_warned = 1;
 			}
-			already_warned = 1;
 			((int64_t*) seed)[i] &= Mm1;
 		}
 #else
@@ -180,8 +180,8 @@ void random_init(uint64_t seed_entries, pfs_uint128_t *seed) {
 				fputs(
 						"[WARN]: at least one number in the seed is not below 2^120\n",
 						stderr);
+				already_warned = 1;
 			}
-			already_warned = 1;
 			res = ((uint64_t) seed[i]) | (((seed[i] >> 64) & Mm1) << 64);
 		}
 #endif
@@ -195,6 +195,61 @@ void random_init(uint64_t seed_entries, pfs_uint128_t *seed) {
 		if (rf) {
 			rf(old);
 		}
+	}
+}
+
+void random_state_init(uint64_t state_entries, pfs_uint128_t *state,
+		_Bool suppress_warnings) {
+	if (seed_entries <= 1) {
+		fputs(
+				"I need at least two 128-bit entries in the seed (a minimum of 11 is recommended)\n",
+				stderr);
+		abort();
+	}
+	if (!suppress_warnings) {
+		if (seed_entries < 11) {
+			fprintf(stderr,
+					"[WARN]: at least 11 128-bit seed entries are recommended (there are %d)\n",
+					(int) seed_entries);
+		}
+	}
+	if ((1 & (*seed)) == 0) {
+		if (!suppress_warnings) {
+			fputs(
+					"[WARN]: the first number of the seed is even (I will or it with 1)\n",
+					stderr);
+		}
+		*seed |= 1;
+	}
+	// truncate all numbers in Y to max 2^120-1
+	_Bool already_warned = suppress_warnings;
+#if BYTE_ORDER == LITTLE_ENDIAN || !defined  RND_COMPILER_INT128
+	for (int i = 1; i < (seed_entries << 1); i += 2)
+#else
+	for (int i = 0; i < seed_entries; i ++)
+#endif
+			{
+#if BYTE_ORDER == LITTLE_ENDIAN || !defined  RND_COMPILER_INT128
+		if (((int64_t*) seed)[i] & ~Mm1) {
+			if (already_warned) {
+				fputs(
+						"[WARN]: at least one number in the seed is not below 2^120\n",
+						stderr);
+				already_warned = 1;
+			}
+			((int64_t*) seed)[i] &= Mm1;
+		}
+#else
+		if ( ( (uint64_t) (seed[i] >> 64) ) & ~Mm1) {
+			if (already_warned) {
+				fputs(
+						"[WARN]: at least one number in the seed is not below 2^120\n",
+						stderr);
+				already_warned = 1;
+			}
+			res = ((uint64_t) seed[i]) | (((seed[i] >> 64) & Mm1) << 64);
+		}
+#endif
 	}
 }
 
@@ -265,8 +320,10 @@ long double random_num_ld() {
 	}
 	return 1.0L / val;
 #else
-	if (val.low == 0 && val.high == 0) return 1.0L; // prevent NaN
-	return (1.0L / val.low) + (1.0L / (0x10000000000000000.0L * val.high));
+	if (val.low == 0 && val.high == 0) {
+		return 1.0L; // prevent NaN
+	}
+	return 1.0L / (val.low + (0x10000000000000000.0L * val.high));
 #endif
 }
 
@@ -278,8 +335,10 @@ long double random_state_num_ld(uint64_t state_entries, pfs_uint128_t *state) {
 	}
 	return 1.0L / val;
 #else
-	if (val.low == 0 && val.high == 0) return 1.0L; // prevent NaN
-	return (1.0L / val.low) + (1.0L / (0x10000000000000000.0L * val.high));
+	if (val.low == 0 && val.high == 0) {
+		return 1.0L; // prevent NaN
+	}
+	return 1.0L / (val.low + (0x10000000000000000.0L * val.high));
 #endif
 }
 
@@ -291,8 +350,10 @@ double random_num_d() {
 	}
 	return 1.0 / val;
 #else
-	if (val.low == 0 && val.high == 0) return 1.0; // prevent NaN
-	return (1.0 / val.low) + (1.0 / (0x10000000000000000.0 * val.high));
+	if (val.low == 0 && val.high == 0) {
+		return 1.0; // prevent NaN
+	}
+	return 1.0 / (val.low + (0x10000000000000000.0 * val.high));
 #endif
 }
 
@@ -304,8 +365,16 @@ double random_state_num_d(uint64_t state_entries, pfs_uint128_t *state) {
 	}
 	return 1.0 / val;
 #else
-	if (val.low == 0 && val.high == 0) return 1.0; // prevent NaN
-	return (1.0 / val.low) + (1.0 / (0x10000000000000000.0 * val.high));
+	if (val.low) { // prevent NaNs
+		if (val.high) {
+			return 1.0 / (val.low + (0x10000000000000000.0 * val.high));
+		}
+		return 1.0 / val.low;
+	}
+	if (val.high) {
+		return 1.0 / (0x10000000000000000.0 * val.high);
+	}
+	return 1.0;
 #endif
 }
 
