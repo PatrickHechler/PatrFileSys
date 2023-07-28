@@ -25,6 +25,7 @@
 
 #include "pfs.h"
 #include "../include/pfs-constants.h"
+#include "../include/pfs-random.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -36,6 +37,16 @@
 #include <sys/stat.h>
 
 #define BLOCK_COUNT (1L << 20)
+
+static void* random_data0(const char *log_start, size_t len) {
+	void *data = malloc(len);
+	if (!data) {
+		fprintf(stderr, "%scould not allocate %lu bytes\n", log_start, len);
+		abort();
+	}
+	random_data(data, len);
+	return data;
+}
 
 static void checks();
 
@@ -550,43 +561,6 @@ static void simple_check() {
 	}
 }
 
-/**
- * this function exits on failure and returns never a NULL pointer
- */
-static void* random_data(const char *start, i64 size) {
-	void *data = malloc(size);
-	if (data == NULL) {
-		printf("%could not allocate enough memory (size=%ld) [0]\n", start,
-				size);
-		exit(EXIT_FAILURE);
-	}
-	int urnd = open("/dev/urandom", O_RDONLY);
-	if (urnd == -1) {
-		printf("%could not open a read stream of file /dev/urandom [1]\n",
-				start);
-		exit(EXIT_FAILURE);
-	}
-	for (i64 remain = size, reat; remain > 0;) {
-		i64 reat = read(urnd, data, remain);
-		if (reat == -1) {
-			if (errno == EAGAIN) {
-				continue;
-			}
-			perror("read");
-			printf("%serror at reading from /dev/urandom errno=%d [2]\n", start,
-			/*			*/errno);
-			fflush(NULL);
-			exit(1);
-		} else if (reat == 0) {
-			printf("%swarning: reached EOF at file /dev/urandom [3]\n", start);
-			break;
-		}
-		remain -= reat;
-	}
-	close(urnd);
-	return data;
-}
-
 int debug_print(void *arg0, void *element) {
 	const char *identy = arg0;
 	printf("debug print [0]: %s pointer=%p\n", identy, element);
@@ -610,7 +584,7 @@ static void file_check() {
 	print_blocks("[:6:]");
 	const char *start = "[main.checks.file_check]:                             ";
 	const char *rd_start =
-			"[main.checks.file_check.random_data]:                 ";
+			"[main.checks.file_check.random_data0]:                 ";
 	pfs_eh file = pfsc_root();
 	if (file == NULL) {
 		printf("%scould not get the root element [0]\n", start);
@@ -631,7 +605,7 @@ static void file_check() {
 		printf("%sfile length != 0 (%ld) [3]\n", start, length);
 		exit(EXIT_FAILURE);
 	}
-	void *data = random_data(rd_start, 1016);
+	void *data = random_data0(rd_start, 1016);
 	res = pfsc_file_append(file, data, 1016);
 	if (res != 1016) {
 		printf("%scould not append to the file (appended: %ld) [4]\n", start,
@@ -717,9 +691,9 @@ static void file_check() {
 static void read_write_file_check() {
 	const char *start = "[main.checks.read_write_file_check]:                  ";
 	const char *rd0_start =
-			"[main.checks.read_write_file_check.random_data[0]:   ";
+			"[main.checks.read_write_file_check.random_data0[0]:   ";
 	const char *rd1_start =
-			"[main.checks.read_write_file_check.random_data[1]:   ";
+			"[main.checks.read_write_file_check.random_data0[1]:   ";
 	pfs_eh file = pfsc_root();
 	if (file == NULL) {
 		printf("%scould not get the root element [0]\n", start);
@@ -730,7 +704,7 @@ static void read_write_file_check() {
 		exit(EXIT_FAILURE);
 	}
 	void *data = malloc(4098);
-	void *rnd = random_data(rd0_start, 4098);
+	void *rnd = random_data0(rd0_start, 4098);
 	memcpy(data, rnd, 4098);
 	i64 res = pfsc_file_append(file, rnd, 4098);
 	if (res != 4098) {
@@ -774,7 +748,7 @@ static void read_write_file_check() {
 		exit(EXIT_FAILURE);
 	}
 	const i64 start1 = 0, len1 = 100;
-	void *rnd2 = random_data(rd1_start, 2048);
+	void *rnd2 = random_data0(rd1_start, 2048);
 	memcpy(data + start1, rnd2, len1);
 	if (!pfsc_file_write(file, start1, rnd2, len1)) {
 		printf("%sfailed to write to the file [B]\n", start);
@@ -839,7 +813,7 @@ static void read_write_file_check() {
 static void append_file_check() {
 	const char *start = "[main.checks.append_file_check]:                      ";
 	const char *rd0_start =
-			"[main.checks.append_file_check.random_data[0]:       ";
+			"[main.checks.append_file_check.random_data0[0]:       ";
 	pfs_eh file = pfsc_root();
 	if (file == NULL) {
 		printf("%scould not get the root element [0]\n", start);
@@ -849,8 +823,8 @@ static void append_file_check() {
 		printf("%scould not create the file [1]\n", start);
 		exit(EXIT_FAILURE);
 	}
-	void *data = random_data(rd0_start, 10000);
-	void *data2 = random_data(rd0_start, 1000);
+	void *data = random_data0(rd0_start, 10000);
+	void *data2 = random_data0(rd0_start, 1000);
 	void *orig;
 	i64 res = pfsc_file_append(file, data, 10);
 	if (res != 10) {
@@ -1768,7 +1742,7 @@ static void meta_check() {
 static void pipe_check() {
 	const char *start = "[main.checks.pipe_check]:                             ";
 	const char *rnd_start =
-			"[main.checks.pipe_check.random_data]:                 ";
+			"[main.checks.pipe_check.random_data0]:                 ";
 	pfs_eh p = pfsc_root();
 	if (p == NULL) {
 		printf("%scould not get the root directory! (%s) [0]\n", start,
@@ -1783,7 +1757,7 @@ static void pipe_check() {
 		printf("%spipe is no empty! (%s) [2]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
-	void *write_buf = random_data(rnd_start, 10000);
+	void *write_buf = random_data0(rnd_start, 10000);
 	void *read_buf = malloc(10000);
 	if (read_buf == NULL) {
 		printf("%scould not allocate the read buffer! [3]\n", start);

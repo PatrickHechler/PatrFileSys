@@ -8,7 +8,7 @@ ifeq ($(AR),)
 endif
 
 CFLAGS += -fPIC
-LDFLAGS += 
+LDFLAGS +=
 
 ifeq ($(BUILD_MODE),debug)
 	CFLAGS += -g -Og

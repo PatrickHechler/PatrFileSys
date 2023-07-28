@@ -99,6 +99,13 @@ void random_state_init(uint64_t state_entries, pfs_uint128_t *state, _Bool suppr
 void random_ensure_init();
 
 /*
+ * creates and initializes a new state
+ * if state_entries points to zero it will be replaced by a default value
+ * the returned state will have *state_entries 128-bit entries
+ */
+pfs_uint128_t* random_init_new_state(uint64_t *state_entries);
+
+/*
  * returns an integer with random bits
  */
 uint64_t random_num();
@@ -109,21 +116,7 @@ uint64_t random_num();
 uint64_t random_state_num(uint64_t state_entries, pfs_uint128_t *state);
 
 /*
- * returns a random value from 0 to 1 (both inclusive)
- * note that this function may return zero, when the result is rounded
- *   and one, when the original random number is exactly zero
- */
-long double random_num_ld();
-
-/*
- * like random_num_ld() but uses the given state
- */
-long double random_state_num_ld(uint64_t state_entries, pfs_uint128_t *state);
-
-/*
- * returns a random value from 0 to 1 (both inclusive)
- * note that this function may return zero, when the result is rounded
- *   and one, when the original random number is exactly zero
+ * returns a random value from 0 to 1 (zero inclusive, one exclusive)
  */
 double random_num_d();
 

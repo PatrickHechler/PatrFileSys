@@ -43,8 +43,8 @@
 #include <sys/random.h>
 #endif // non-portable
 
-static uint64_t k;
-static pfs_uint128_t *Y = NULL;
+static uint64_t k = 0;
+static pfs_uint128_t *Y;
 
 // M is 2^120
 // Mm1 holds the high bits of 2^120-1
@@ -53,10 +53,22 @@ static const uint64_t Mm1 = UINT64_C(0x00FFFFFFFFFFFFFF); //2^56-1 (interpreted 
 #define DEFAULT_ENTRY_COUNT 32
 
 void random_ensure_init() {
-	if (Y) {
+	if (k) {
 		return;
 	}
-	void *data = malloc(DEFAULT_ENTRY_COUNT * sizeof(pfs_uint128_t));
+	Y = random_init_new_state(&k);
+}
+
+pfs_uint128_t* random_init_new_state(uint64_t *state_entries) {
+	if ((*state_entries) == 0) {
+		(*state_entries) = DEFAULT_ENTRY_COUNT;
+	} else if ((*state_entries) <= 1) {
+		fputs(
+				"I need at least two 128-bit entries in the seed (a minimum of 11 is recommended)\n",
+				stderr);
+		abort();
+	}
+	void *data = malloc((*state_entries) * sizeof(pfs_uint128_t));
 	/*
 	 * 1: try getrandom()
 	 * 2: try /dev/urandom
@@ -86,12 +98,12 @@ void random_ensure_init() {
 				if (fd == -1) {
 					portable_rnd: ;
 #endif // half- or non-portable
-	// clock may have a higher resolution than seconds
-	// but clock only has the CPU time of this process, so the value is still low
-	srandom(time(NULL) ^ clock());
-	while (remain--) {
-		*(char*) p++ = random();
-	}
+					// clock may have a higher resolution than seconds
+					// but clock only has the CPU time of this process, so the value is still low
+					srandom(time(NULL) ^ clock());
+					while (remain--) {
+						*(char*) p++ = random();
+					}
 #if !defined PFS_PORTABLE_BUILD
 					goto after_rnd_data;
 				}
@@ -134,8 +146,7 @@ void random_ensure_init() {
 			((int64_t*) data)[i] &= Mm1;
 		}
 	}
-	Y = data;
-	k = DEFAULT_ENTRY_COUNT - 1;
+	return data;
 }
 
 void random_init(uint64_t seed_entries, pfs_uint128_t *seed) {
@@ -200,46 +211,48 @@ void random_init(uint64_t seed_entries, pfs_uint128_t *seed) {
 
 void random_state_init(uint64_t state_entries, pfs_uint128_t *state,
 		_Bool suppress_warnings) {
-	if (seed_entries <= 1) {
+	if (state_entries <= 1) {
 		fputs(
 				"I need at least two 128-bit entries in the seed (a minimum of 11 is recommended)\n",
 				stderr);
 		abort();
 	}
 	if (!suppress_warnings) {
-		if (seed_entries < 11) {
+		if (state_entries < 11) {
 			fprintf(stderr,
 					"[WARN]: at least 11 128-bit seed entries are recommended (there are %d)\n",
-					(int) seed_entries);
+					(int) state_entries);
 		}
 	}
-	if ((1 & (*seed)) == 0) {
+#ifdef RND_COMPILER_INT128
+	if ((1 & (*state)) == 0)
+#else
+	if ((1 & (*state).low) == 0)
+#endif
+			{
 		if (!suppress_warnings) {
 			fputs(
 					"[WARN]: the first number of the seed is even (I will or it with 1)\n",
 					stderr);
 		}
-		*seed |= 1;
+		*state |= 1;
 	}
 	// truncate all numbers in Y to max 2^120-1
 	_Bool already_warned = suppress_warnings;
 #if BYTE_ORDER == LITTLE_ENDIAN || !defined  RND_COMPILER_INT128
-	for (int i = 1; i < (seed_entries << 1); i += 2)
-#else
-	for (int i = 0; i < seed_entries; i ++)
-#endif
-			{
-#if BYTE_ORDER == LITTLE_ENDIAN || !defined  RND_COMPILER_INT128
-		if (((int64_t*) seed)[i] & ~Mm1) {
+	for (int i = 1; i < (state_entries << 1); i += 2) {
+		if (((int64_t*) state)[i] & ~Mm1) {
 			if (already_warned) {
 				fputs(
 						"[WARN]: at least one number in the seed is not below 2^120\n",
 						stderr);
 				already_warned = 1;
 			}
-			((int64_t*) seed)[i] &= Mm1;
+			((int64_t*) state)[i] &= Mm1;
 		}
+	}
 #else
+	for (int i = 0; i < state_entries; i ++) {
 		if ( ( (uint64_t) (seed[i] >> 64) ) & ~Mm1) {
 			if (already_warned) {
 				fputs(
@@ -247,10 +260,10 @@ void random_state_init(uint64_t state_entries, pfs_uint128_t *state,
 						stderr);
 				already_warned = 1;
 			}
-			res = ((uint64_t) seed[i]) | (((seed[i] >> 64) & Mm1) << 64);
+			((uint64_t) state[i]) | (((state[i] >> 64) & Mm1) << 64);
 		}
-#endif
 	}
+#endif
 }
 
 static pfs_uint128_t random_state_num0(uint64_t state_entries,
@@ -312,70 +325,14 @@ uint64_t random_state_num(uint64_t state_entries, pfs_uint128_t *state) {
 #endif
 }
 
-long double random_num_ld() {
-	pfs_uint128_t val = random_num0();
-#ifdef RND_COMPILER_INT128
-	if (val == 0) {
-		return 1.0L; // prevent NaN
-	}
-	return 1.0L / val;
-#else
-	if (val.low == 0 && val.high == 0) {
-		return 1.0L; // prevent NaN
-	}
-	return 1.0L / (val.low + (0x10000000000000000.0L * val.high));
-#endif
-}
-
-long double random_state_num_ld(uint64_t state_entries, pfs_uint128_t *state) {
-	pfs_uint128_t val = random_state_num0(state_entries, state);
-#ifdef RND_COMPILER_INT128
-	if (val == 0) {
-		return 1.0L; // prevent NaN
-	}
-	return 1.0L / val;
-#else
-	if (val.low == 0 && val.high == 0) {
-		return 1.0L; // prevent NaN
-	}
-	return 1.0L / (val.low + (0x10000000000000000.0L * val.high));
-#endif
-}
-
 double random_num_d() {
-	pfs_uint128_t val = random_num0();
-#ifdef RND_COMPILER_INT128
-	if (val == 0) {
-		return 1.0; // prevent NaN
-	}
-	return 1.0 / val;
-#else
-	if (val.low == 0 && val.high == 0) {
-		return 1.0; // prevent NaN
-	}
-	return 1.0 / (val.low + (0x10000000000000000.0 * val.high));
-#endif
+	uint64_t val = random_num();
+	return (val >> (64 - 53)) * 0x1.0p-53;
 }
 
 double random_state_num_d(uint64_t state_entries, pfs_uint128_t *state) {
-	pfs_uint128_t val = random_state_num0(state_entries, state);
-#ifdef RND_COMPILER_INT128
-	if (val == 0) {
-		return 1.0; // prevent NaN
-	}
-	return 1.0 / val;
-#else
-	if (val.low) { // prevent NaNs
-		if (val.high) {
-			return 1.0 / (val.low + (0x10000000000000000.0 * val.high));
-		}
-		return 1.0 / val.low;
-	}
-	if (val.high) {
-		return 1.0 / (0x10000000000000000.0 * val.high);
-	}
-	return 1.0;
-#endif
+	uint64_t val = random_state_num(state_entries, state);
+	return (val >> (64 - 53)) * 0x1.0p-53;
 }
 
 void random_data(void *data, size_t len) {
