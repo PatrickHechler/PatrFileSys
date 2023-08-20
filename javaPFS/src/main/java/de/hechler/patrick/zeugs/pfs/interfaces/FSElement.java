@@ -347,19 +347,20 @@ public interface FSElement extends Closeable {
 	 * <p>
 	 * this method will work like:
 	 * 
-	 * <pre><code>if (obj == null) { 
-	 *   return false; 
+	 * <pre><code>if (obj == null) {
+	 *   return false;
 	 * } else if (obj instanceof FSElement e) {
-	 *   return {@link #equals(FSElement) equals(e)}; 
-	 * } else { 
-	 *   return false; 
+	 *   return {@link #equals(FSElement) equals(e)};
+	 * } else {
+	 *   return false;
 	 * }</code></pre>
 	 * 
-	 * @param obj the object which is potentially
+	 * @param obj the object which is potentially equal to this fs-element
 	 * 
 	 * @return <code>true</code> if this {@link FSElement} represents the same
 	 *         {@link FSElement} as the given {@link Object}
 	 */
+	@Override
 	boolean equals(Object obj);
 	
 	/**
