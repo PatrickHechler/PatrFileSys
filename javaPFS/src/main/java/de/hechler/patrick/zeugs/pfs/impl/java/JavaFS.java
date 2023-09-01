@@ -120,8 +120,10 @@ public class JavaFS implements FS {
 			if (p.isAbsolute()) {
 				Path r = fs.getPath(fs.getSeparator());
 				p = r.relativize(p);
+				p = this.root.resolve(p);
+			} else {
+				p = this.cwd.f().resolve(p);
 			}
-			p = this.root.resolve(p);
 			if (!Files.exists(p)) {
 				Path pp = p.getParent();
 				if (!p.startsWith(pp)) {
