@@ -244,7 +244,7 @@ extern void* hashset_remove(struct hashset *set, uint64_t hash, void *oldvalue) 
 					free(list);
 				} else {
 					memmove(list->datam1 + i, list->datam1 + 1 + i,
-							(list->len - i) * sizeof(void*));
+							(list->len - i - 1) * sizeof(void*));
 					if (hs_bitcnt(list->len) == 1) {
 						list = realloc(list, sizeof(void*) * list->len);
 					}
