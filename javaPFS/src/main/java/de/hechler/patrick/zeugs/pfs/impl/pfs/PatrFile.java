@@ -16,7 +16,7 @@
 //along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package de.hechler.patrick.zeugs.pfs.impl.pfs;
 
-import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.INT;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.*;
 import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LINKER;
 import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LOCKUP;
 import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LONG;
@@ -85,6 +85,9 @@ public class PatrFile extends PatrFSElement implements File {
 		} else if (options.write()) {
 			o |= SO_WRITE;
 		}
+		if (options.truncate()) {
+			o |= SO_FILE_TRUNC;
+		}
 		options = options.ensureType(ElementType.FILE);
 		try {
 			int res = (int) PFS_OPEN_STREAM.invoke(this.handle, o);
@@ -92,12 +95,10 @@ public class PatrFile extends PatrFSElement implements File {
 			if (options.read()) {
 				if (options.write()) {
 					return new PatrReadWriteStream(res, options);
-				} else {
-					return new PatrReadStream(res, options);
 				}
-			} else {
-				return new PatrWriteStream(res, options);
+				return new PatrReadStream(res, options);
 			}
+			return new PatrWriteStream(res, options);
 		} catch (Throwable e) {
 			throw thrw(e);
 		}

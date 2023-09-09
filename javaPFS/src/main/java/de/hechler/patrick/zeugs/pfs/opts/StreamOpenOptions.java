@@ -1,20 +1,22 @@
-//This file is part of the Patr File System Project
-//DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
-//Copyright (C) 2023  Patrick Hechler
+// This file is part of the Patr File System Project
+// DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+// Copyright (C) 2023 Patrick Hechler
 //
-//This program is free software: you can redistribute it and/or modify
-//it under the terms of the GNU General Public License as published by
-//the Free Software Foundation, either version 3 of the License, or
-//(at your option) any later version.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-//This program is distributed in the hope that it will be useful,
-//but WITHOUT ANY WARRANTY; without even the implied warranty of
-//MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//GNU General Public License for more details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
 //
-//You should have received a copy of the GNU General Public License
-//along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 package de.hechler.patrick.zeugs.pfs.opts;
+
+import java.util.StringJoiner;
 
 import de.hechler.patrick.zeugs.pfs.interfaces.FSElement;
 import de.hechler.patrick.zeugs.pfs.misc.ElementType;
@@ -32,9 +34,25 @@ import de.hechler.patrick.zeugs.pfs.misc.ElementType;
  * @param createAlso if the element should be created if it doesn't exist already (needs a non <code>null</code>
  *                   <code>type</code>)
  * @param createOnly if the open operation should fail if the element already exists (implicit <code>createAlso</code>)
+ * @param truncate   truncate the existing file to a length of zero bytes
  */
-public record StreamOpenOptions(boolean read, boolean write, boolean append, ElementType type, boolean createAlso,
-		boolean createOnly) {
+public record StreamOpenOptions(boolean read, boolean write, boolean append, ElementType type, boolean createAlso, boolean createOnly, boolean truncate) {
+	
+	public static final StreamOpenOptions READ_OPTS = new StreamOpenOptions(true, false, false, null, false, false, false);
+	public static final StreamOpenOptions READ_WRITE_OPTS = new StreamOpenOptions(true, true, false, null, false, false, false);
+	public static final StreamOpenOptions WRITE_EXISTING_OPTS = new StreamOpenOptions(false, true, false, null, false, false, false);
+	public static final StreamOpenOptions FILE_WRITE_EXISTING_OPTS = new StreamOpenOptions(false, true, false, ElementType.FILE, false, false, false);
+	public static final StreamOpenOptions PIPE_WRITE_EXISTING_OPTS = new StreamOpenOptions(false, true, false, ElementType.PIPE, false, false, false);
+	public static final StreamOpenOptions FILE_WRITE_CREATE_TRUNCATE_OPTS = new StreamOpenOptions(false, true, false, ElementType.FILE, true, false, true);
+	public static final StreamOpenOptions FILE_WRITE_CREATE_ONLY_OPTS = new StreamOpenOptions(false, true, false, ElementType.FILE, true, true, false);
+	public static final StreamOpenOptions PIPE_WRITE_CREATE_ONLY_OPTS = new StreamOpenOptions(false, true, false, ElementType.PIPE, true, true, false);
+	public static final StreamOpenOptions FILE_APPEND_ALSO_CREATE_OPTS = new StreamOpenOptions(false, true, true, ElementType.FILE, true, false, false);
+	public static final StreamOpenOptions PIPE_APPEND_ALSO_CREATE_OPTS = new StreamOpenOptions(false, true, true, ElementType.PIPE, true, false, false);
+	public static final StreamOpenOptions FILE_READ_WRITE_ALSO_CREATE_OPTS = new StreamOpenOptions(true, true, false, ElementType.FILE, true, false, false);
+	public static final StreamOpenOptions PIPE_READ_WRITE_ALSO_CREATE_OPTS = new StreamOpenOptions(true, true, false, ElementType.PIPE, true, false, false);
+	public static final StreamOpenOptions FILE_READ_WRITE_CREATE_ONLY_OPTS = new StreamOpenOptions(true, true, false, ElementType.FILE, true, true, false);
+	public static final StreamOpenOptions PIPE_READ_WRITE_CREATE_ONLY_OPTS = new StreamOpenOptions(true, true, false, ElementType.PIPE, true, true, false);
+	public static final StreamOpenOptions FILE_READ_WRITE_CREATE_TRUNCATE_OPTS = new StreamOpenOptions(true, true, false, ElementType.FILE, true, false, true);
 	
 	/**
 	 * creates a new {@link StreamOpenOptions} instance from the given parameters:
@@ -48,7 +66,9 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	 * <li><code>createAlso</code>: if the element should be created if it doesn't exist already (needs a non
 	 * <code>null</code> <code>type</code>)</li>
 	 * <li><code>createOnly</code>: if the open operation should fail if the element already exists (implicit
-	 * <code>createAlso</code>)</li>
+	 * <code>createAlso</code>) (only allowed when <code>write</code> is set (or implicitly set) and <code>truncate</code> is not set</li>
+	 * <li><code>truncate</code>: if a existing file should be truncated to a length of zero bytes (implicit <code>type</code> of {@link ElementType#FILE})</li>
+	 * (only allowed when <code>write</code> is set (or implicitly set) and <code>createOnly</code> is not set)
 	 * </ul>
 	 * 
 	 * @param read       if the stream should be opened for read access
@@ -60,34 +80,50 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	 *                   <code>type</code>)
 	 * @param createOnly if the open operation should fail if the element already exists (implicit
 	 *                   <code>createAlso</code>)
+	 * @param truncate   truncate the existing file to a length of zero bytes
 	 */
 	@SuppressWarnings("preview")
-	public StreamOpenOptions(boolean read, boolean write, boolean append, ElementType type, boolean createAlso,
-			boolean createOnly) {
+	public StreamOpenOptions(boolean read, boolean write, boolean append, ElementType type, boolean createAlso, boolean createOnly, boolean truncate) {
 		if (append) { write = true; }
 		if (createOnly) { createAlso = true; }
 		if (!read && !write) {
-			throw new IllegalArgumentException(
-					"can't open streams without read and without write access! spezify at least one of them.");
+			throw new IllegalArgumentException("can't open streams without read and without write access! spezify at least one of them.");
 		}
-		this.type = switch (type) {
-		case ElementType e when e == ElementType.FILE || e == ElementType.PIPE -> type;
-		case ElementType e when e == ElementType.FOLDER ->
-			throw new IllegalArgumentException("can't open folder streams");
-		case null -> {
-			if (createAlso) {
-				throw new IllegalArgumentException(
-						"can't open a streams when createAlso or createOnly is set, but type is null");
-			}
-			yield null;
+		if (createOnly && truncate) {
+			throw new IllegalArgumentException("create only with truncate existing makes no sense!");
 		}
-		case ElementType e -> throw new IllegalArgumentException("unknown element type: " + type.name());
-		};
-		this.read = read;
-		this.write = write;
-		this.append = append;
+		if (!write && truncate) {
+			throw new IllegalArgumentException("truncate makes only sense when write is set!");
+		}
+		if (!write && createOnly) {
+			throw new IllegalArgumentException("createOnly makes only sense when write is set!");
+		}
+		this.type       = switch (type) {
+						case ElementType e when e == ElementType.FILE -> type;
+						case ElementType e when e == ElementType.PIPE -> {
+							if (truncate) {
+								throw new IllegalArgumentException("I can not truncate pipes!");
+							}
+							yield type;
+						}
+						case ElementType e when e == ElementType.FOLDER -> throw new IllegalArgumentException("can't open folder streams");
+						case null -> {
+							if (createAlso) {
+								throw new IllegalArgumentException("can't open a streams when createAlso or createOnly is set, but type is null");
+							}
+							if (truncate) {
+								yield ElementType.FILE;
+							}
+							yield null;
+						}
+						case ElementType e -> throw new IllegalArgumentException("unknown element type: " + e.name());
+						};
+		this.read       = read;
+		this.write      = write;
+		this.append     = append;
 		this.createAlso = createAlso;
 		this.createOnly = createOnly;
+		this.truncate   = truncate;
 	}
 	
 	/**
@@ -102,7 +138,7 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	 * @param read  if the stream should be opened for read access
 	 * @param write if the stream should be opened for write access
 	 */
-	public StreamOpenOptions(boolean read, boolean write) { this(read, write, false, null, false, false); }
+	public StreamOpenOptions(boolean read, boolean write) { this(read, write, false, null, false, false, false); }
 	
 	/**
 	 * creates new {@link StreamOpenOptions} with the given parameters
@@ -117,7 +153,7 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	 * @param append if the stream should be opened for append access (implicit <code>write</code>)
 	 */
 	public StreamOpenOptions(boolean read, boolean write, boolean append) {
-		this(read, write, append, null, false, false);
+		this(read, write, append, null, false, false, false);
 	}
 	
 	/**
@@ -133,7 +169,7 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	 * @param type   the type of the element on which the stream should be opened
 	 */
 	public StreamOpenOptions(boolean read, boolean write, boolean append, ElementType type) {
-		this(read, write, append, type, true, false);
+		this(read, write, append, type, true, false, false);
 	}
 	
 	/**
@@ -141,7 +177,7 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	 * 
 	 * @return <code>true</code> if the stream can perform seek operations and <code>false</code> if not
 	 */
-	@SuppressWarnings({"preview", "unused"})
+	@SuppressWarnings({ "preview", "unused" })
 	public boolean seekable() {
 		try {
 			return switch (this.type) {
@@ -173,44 +209,32 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 	public StreamOpenOptions ensureType(ElementType type) throws IllegalArgumentException {
 		if (this.type == type) return this;
 		if (this.type != null) throw new IllegalArgumentException("this is a " + type + ", but type is set to " + this.type);
-		return new StreamOpenOptions(this.read, this.write, this.append, type, this.createAlso, this.createOnly);
+		return new StreamOpenOptions(this.read, this.write, this.append, type, this.createAlso, this.createOnly, this.truncate);
 	}
 	
 	@Override
 	public String toString() {
-		StringBuilder b = new StringBuilder();
-		b.append("Stream[");
-		boolean first = true;
-		if (type != null) {
-			first = checkFirst(b, first);
-			b.append(type);
+		StringJoiner sj = new StringJoiner(", ", "Stream[", "]");
+		if (this.type != null) {
+			sj.add(this.type.toString());
 		}
-		if (read) {
-			first = checkFirst(b, first);
-			b.append("read");
+		if (this.read) {
+			sj.add("read");
 		}
-		if (append) {
-			first = checkFirst(b, first);
-			b.append("append");
-		} else if (write) {
-			first = checkFirst(b, first);
-			b.append("write");
+		if (this.append) {
+			sj.add("append");
+		} else if (this.write) {
+			sj.add("write");
 		}
-		if (createOnly) {
-			first = checkFirst(b, first);
-			b.append("createOnly");
-		} else if (createAlso) {
-			first = checkFirst(b, first);
-			b.append("createAlso");
+		if (this.createOnly) {
+			sj.add("createOnly");
+		} else if (this.createAlso) {
+			sj.add("createAlso");
 		}
-		return b.append(']').toString();
-	}
-	
-	private static boolean checkFirst(StringBuilder b, boolean first) {
-		if (!first) {
-			b.append(", ");
+		if (this.truncate) {
+			sj.add("truncate");
 		}
-		return false;
+		return sj.toString();
 	}
 	
 }

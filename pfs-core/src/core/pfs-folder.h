@@ -94,6 +94,16 @@ int pfsc_folder_child_from_name(pfs_eh f, const char *name);
 int pfsc_folder_folder_child_from_name(pfs_eh f, const char *name);
 
 /**
+ * get the child mount point with the given name
+ *
+ * if there is a child entry with the given name, but the entry
+ * is no mount point this operation will fail
+ *
+ * on success a non-zero value will be returned and on error zero
+ */
+int pfsc_folder_mount_child_from_name(pfs_eh f, const char *name);
+
+/**
  * get the child file with the given name
  *
  * if there is a child entry with the given name, but the entry

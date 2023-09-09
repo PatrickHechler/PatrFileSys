@@ -25,6 +25,8 @@
 #define SRC_CORE_PFS_INTERN_H_
 
 #include "../include/patr-file-sys.h"
+#include "../include/pfs-mount.h"
+#include "../include/hashset.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -106,8 +108,8 @@ struct pfs_b0 {
 
 _Static_assert(offsetof(struct pfs_b0, MAGIC0) == 0, "error!");
 
-#define B0_FLAG_BM_ALLOC              0x00000001U
-#define B0_FLAG_BM_READ_ONLY          0x00000002U
+#define B0_FLAG_BM_ALLOC   0x00000001U
+#define B0_FLAG_READ_ONLY  0x00000002U
 
 struct pfs_element {
 	i64 last_mod_time;
@@ -144,15 +146,68 @@ struct pfs_pipe {
 	i32 start_offset;
 } __attribute__((packed));
 
+#define PFS_MOUNT_FLAGS_READ_ONLY 0x00000100U
+
+#define PFS_MOUNT_FLAGS_TEMP           mount_type_temp            /* 0 */
+#define PFS_MOUNT_FLAGS_INTERN         mount_type_intern          /* 1 */
+#define PFS_MOUNT_FLAGS_REAL_FS_FILE   mount_type_linux_pfs_file  /* 2 */
+#define PFS_MOUNT_FLAGS_TYPE_MASK      0x00000003U
+
+struct pfs_mount_point {
+	struct pfs_element element;
+	ui32 flags;
+} __attribute__((packed));
+
+struct pfs_mount_point_tmp {
+	struct pfs_mount_point generic;
+	i32 block_size;
+	i64 block_count;
+} __attribute__((packed));
+
+struct pfs_mount_point_real_fs_file {
+	struct pfs_mount_point generic;
+	i32 path_pos;
+} __attribute__((packed));
+
+struct pfs_mount_point_intern {
+	struct pfs_mount_point generic;
+	i32 block_size;
+	i64 block_count;
+	struct pfs_file file;
+} __attribute__((packed));
+
 struct pfs_element_handle {
 	struct pfs_place element_place;
 	i32 index_in_direct_parent_list;
+	struct pfs_file_sys_data *fs_data;
 	struct pfs_place direct_parent_place;
 	i32 entry_pos;
 	struct pfs_place real_parent_place;
+	// true if this is a mount point (for both the mount point entry and the root entry of the mounted file system)
+	i32 is_mount_point; // false for the root entry of the root file system
+};
+
+struct element_handle {
+	i64 load_count;
+	struct pfs_element_handle handle;
+};
+
+struct pfs_file_sys_data {
+	struct bm_block_manager *file_sys;
+	struct element_handle *root;
+	struct pfs_element_handle_mount *mount_point;
+	int read_only;
+};
+
+struct pfs_element_handle_mount {
+	struct pfs_element_handle handle;
+	i32 padding;
+	struct pfs_file_sys_data fs;
 };
 
 _Static_assert(offsetof(struct pfs_element_handle, element_place) == 0, "Error!");
+
+_Static_assert(offsetof(struct pfs_element_handle_mount, handle) == 0, "Error!"); // needed because converting is done by realloc
 
 struct pfs_folder_iter {
 	struct pfs_place current_place;
@@ -163,13 +218,17 @@ struct pfs_folder_iter {
 	int show_hidden;
 };
 
+typedef struct bm_block_manager *bm;
+
 typedef struct pfs_element_handle *pfs_eh;
+
+typedef struct pfs_element_handle_mount *pfs_meh;
 
 typedef struct pfs_folder_iter *pfs_fi;
 
-int init_block(i64 block, i64 size);
+int init_block(bm pfs, i64 block, i64 size);
 
-i32 get_size_from_block_table(void *block_data, const i32 pos);
+i32 get_size_from_block_table(void *block_data, const i32 pos, const i32 block_size);
 
 /**
  * tries to allocate a block-entry in the base block.
@@ -181,18 +240,18 @@ i32 get_size_from_block_table(void *block_data, const i32 pos);
  * if a new block was allocated write->pos will always
  * be set to zero
  */
-int allocate_new_entry(struct pfs_place *write, i64 base_block, i32 size);
+int allocate_new_entry(bm pfs, struct pfs_place *write, i64 base_block, i32 size);
 
-i32 allocate_in_block_table(i64 block, i64 size);
+i32 allocate_in_block_table(bm pfs, i64 block, i64 size);
 
-i32 reallocate_in_block_table(const i64 block, const i32 pos,
+i32 reallocate_in_block_table(bm pfs, const i64 block, const i32 pos,
 		const i64 new_size, const int copy);
 
-#define remove_from_block_table(block, pos) reallocate_in_block_table(block, pos, 0, 0)
+#define remove_from_block_table(pfs, block, pos) reallocate_in_block_table(pfs, block, pos, 0, 0)
 
-#define shrink_folder_entry(place, old_size) \
+#define shrink_folder_entry(pfs, place, old_size) \
 	{ \
-		i32 new_pos = reallocate_in_block_table(place.block, place.pos, \
+		i32 new_pos = reallocate_in_block_table(pfs, place.block, place.pos, \
 						(old_size) - sizeof(struct pfs_folder_entry), 1); \
 		if (new_pos == -1) { \
 			abort(); \
@@ -205,18 +264,55 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos,
 i32 grow_folder_entry(const struct pfs_element_handle *e, i32 new_size,
 		struct pfs_place real_parent);
 
-#define remove_table_entry(block, pos) reallocate_in_block_table(block, pos, 0, 0)
+#define remove_table_entry(pfs, block, pos) reallocate_in_block_table(pfs, block, pos, 0, 0)
 
-i32 add_name(i64 block_num, const char *name, i64 str_len);
+i32 add_name(bm pfs, i64 block_num, const char *name, i64 str_len);
 
-i64 allocate_block(ui64 block_flags);
+i64 allocate_block(bm pfs, ui64 block_flags);
 
-void free_block(i64 block);
+void free_block(bm pfs, i64 block);
 
-void ensure_block_is_file_data(i64 block);
+void ensure_block_is_file_data(bm pfs, i64 block);
 
-void ensure_block_is_entry(i64 block);
+void ensure_block_is_entry(bm pfs, i64 block);
 
-struct pfs_place find_place(i64 first_block, i64 remain);
+struct pfs_place find_place(bm pfs, i64 first_block, i64 remain);
+
+#ifdef I_AM_API_PFS
+#define PFS_EXT
+#define PFS_INIT(...) = __VA_ARGS__
+static int pfs_eh_equal(const void *a, const void *b);
+static uint64_t pfs_eq_hash(const void *a);
+#else
+#define PFS_EXT extern
+#define PFS_INIT(...)
+#endif
+
+PFS_EXT struct hashset pfs_all_ehs_set PFS_INIT( {
+			.entries = NULL,
+			.entrycount = 0,
+			.equalizer = pfs_eh_equal,
+			.hashmaker = pfs_eq_hash,
+			.maxi = 0
+		}
+);
+
+PFS_EXT struct element_handle **pfs_ehs PFS_INIT(NULL);
+PFS_EXT struct stream_handle **pfs_shs PFS_INIT(NULL);
+PFS_EXT struct iter_handle **pfs_ihs PFS_INIT(NULL);
+
+PFS_EXT i64 pfs_eh_len PFS_INIT(0);
+PFS_EXT i64 pfs_sh_len PFS_INIT(0);
+PFS_EXT i64 pfs_ih_len PFS_INIT(0);
+
+PFS_EXT struct element_handle *pfs_root PFS_INIT(NULL);
+PFS_EXT struct element_handle *pfs_cwd PFS_INIT(NULL);
+
+#undef PFS_EXT
+#undef PFS_INIT
+
+#define pfs(eh) (eh)->handle.fs_data->file_sys
+
+#define pfs0(e) (e)->fs_data->file_sys
 
 #endif /* SRC_CORE_PFS_INTERN_H_ */

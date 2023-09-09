@@ -56,8 +56,23 @@
 #define sh(err_ret) get_sh(err_ret, sh)
 #define ih(err_ret) get_ih(err_ret, ih)
 
-#define eh_hash(a) ( ( (uint64_t) ((const struct element_handle*)a)->handle.element_place.block) \
-		^ ( (uint64_t) (uint32_t) ((const struct element_handle*)a)->handle.element_place.pos) )
+#define check_write_access1(eh, err_act) \
+	if ((eh)->handle.fs_data->read_only) { \
+		pfs_err = PFS_ERRNO_READ_ONLY; \
+		err_act \
+	}
+
+#define check_write_access0(eh, err_ret) check_write_access1(eh, return err_ret;)
+
+#define check_write_access(err_ret) check_write_access0(pfs_ehs[eh], err_ret)
+
+#define eh_hash(a) ( \
+			( \
+				((uint64_t) ((const struct element_handle*)a)->handle.element_place.block) \
+				^ ((uint64_t) (uint32_t) ((const struct element_handle*)a)->handle.element_place.pos) \
+			) \
+			^ ((uint64_t) ((const struct element_handle*)a)->handle.fs_data) \
+		)
 
 static inline int return_handle(i64 *len, void ***hs, void *h) {
 	for (int i = 0; i < (*len); i++) {
@@ -86,35 +101,32 @@ static inline int return_handle(i64 *len, void ***hs, void *h) {
 			return err_ret; \
 		} \
 	} else { \
-		void *direct_parent_block_data = pfs->get(pfs, e->handle.direct_parent_place.block); \
+		void *direct_parent_block_data = pfs(e)->get(pfs(e), e->handle.direct_parent_place.block); \
 		if (!direct_parent_block_data) { \
 			return err_ret; \
 		} \
 		struct pfs_folder_entry *my_entry = direct_parent_block_data + e->handle.entry_pos; \
 		if ((my_entry->flags & flag) == 0) { \
 			pfs_err = PFS_ERRNO_ELEMENT_WRONG_TYPE; \
-			pfs->unget(pfs, pfs_ehs[eh]->handle.direct_parent_place.block); \
+			pfs(pfs_ehs[eh])->unget(pfs(pfs_ehs[eh]), pfs_ehs[eh]->handle.direct_parent_place.block); \
 			return err_ret; \
 		} \
 	} \
 
 #define c_r(e, err_ret) \
 	if ((e->handle.direct_parent_place.block != -1) \
-			&& (!pfs->unget(pfs, e->handle.direct_parent_place.block))) { \
+			&& (!pfs(e)->unget(pfs(e), e->handle.direct_parent_place.block))) { \
 		return err_ret; \
 	}
 
 #include "../core/pfs.h"
 
-int childset_equal(const void *a, const void *b);
-uint64_t childset_hash(const void *a);
+void pfs_modify_iterators(struct element_handle *eh, ui64 former_index);
 
-struct element_handle {
-	struct pfs_element_handle handle;
+struct element_handle_mount {
 	i64 load_count;
+	struct pfs_element_handle_mount handle;
 };
-
-_Static_assert(offsetof(struct element_handle, handle) == 0, "Error!");
 
 struct stream_handle {
 	struct element_handle *element;
@@ -133,48 +145,11 @@ struct iter_handle {
 	struct pfs_folder_iter handle;
 	struct pfs_element_handle ieh;
 	struct element_handle *folder;
-	i64 index;
+	ui64 index;
 };
 
-_Static_assert((offsetof(struct iter_handle, ieh) & 7) == 0, "err");
+_Static_assert((offsetof(struct iter_handle, ieh)
+& 7) == 0, "err");
 _Static_assert((offsetof(struct iter_handle, folder) & 7) == 0, "err");
-
-#ifndef I_AM_API_PFS
-#define EXT extern
-#define INIT(val)
-#else
-#define EXT
-#define INIT(val) = val
-static int pfs_eh_equal(const void *a, const void *b);
-static uint64_t pfs_eq_hash(const void *a);
-#endif
-
-#define PFS_WELL_WDINTM(a,b,c,d,e) a, b, c, d, e
-
-EXT struct hashset pfs_all_ehs_set INIT({
-		PFS_WELL_WDINTM(
-				.entries = NULL,
-				.entrycount = 0,
-				.equalizer = pfs_eh_equal,
-				.hashmaker = pfs_eq_hash,
-				.maxi = 0
-		)
-}
-);
-#undef PFS_WELL_WDINTM
-
-EXT struct element_handle **pfs_ehs INIT(NULL);
-EXT struct stream_handle **pfs_shs INIT(NULL);
-EXT struct iter_handle **pfs_ihs INIT(NULL);
-
-EXT i64 pfs_eh_len INIT(0L);
-EXT i64 pfs_sh_len INIT(0L);
-EXT i64 pfs_ih_len INIT(0L);
-
-EXT struct element_handle *pfs_root INIT(NULL);
-EXT struct element_handle *pfs_cwd INIT(NULL);
-
-#undef EXT
-#undef INIT
 
 #endif /* SRC_API_PFS_H_ */

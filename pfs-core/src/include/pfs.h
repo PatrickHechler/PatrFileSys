@@ -35,7 +35,7 @@
  *
  * when cwd is NULL the current working directory will be set to the root folder
  */
-extern int pfs_load(struct bm_block_manager *bm, const char *cwd);
+extern int pfs_load(struct bm_block_manager *bm, const char *cwd, int read_only);
 
 /*
  * formats and loads the PFS from the specified block manager
@@ -57,6 +57,21 @@ extern int pfs_load_and_format(struct bm_block_manager *bm, i64 block_count,
  * this function sets the current working directory to the root folder
  */
 extern int pfs_format(i64 block_count, uuid_t uuid, char *fs_name);
+
+/*
+ * marks the given PFS as read-only
+ *
+ * if the file system is opened in read only mode (or already marked as such) this function does noting
+ *
+ * on success the file system will be immediately marked as read only and all write attempts will fail
+ */
+extern int pfs_make_read_only();
+
+/*
+ * checks if the given PFS is read-only
+ * returns a non-zero value if the PFS is marked as read-only and zero if not
+ */
+extern int pfs_is_read_only();
 
 /*
  * closes the file system
@@ -109,6 +124,18 @@ extern i32 pfs_name_len();
 extern char* pfs_name();
 
 /*
+ * returns the UUID of the patr-file-system
+ * if result is a non-NULL value the UUID is copied to the argument and then returned
+ * if result is NULL a new UUID is allocated
+ */
+extern uuid_p_t pfs_uuid(int eh, uuid_t result);
+
+/*
+ * sets the UUID of the file system
+ */
+extern int pfs_set_uuid(const uuid_t uuid);
+
+/*
  * creates a new element handle from the given path
  *
  * the path is a null ('\0') terminated string
@@ -133,16 +160,32 @@ extern int pfs_handle(const char *path);
 /*
  * this function is like pfs_handle, but it fails if the given element is no folder
  *
- * this function works like:
+ * note that mount points are can be opened with this function, since all folder functions also work with mount points
+ *
+ * this function works like: (except for special handling of the root folder)
  *   int eh = pfs_handle(path);
  *   int flags = pfs_element_get_flags(eh);
- *   if ((flags == -1) || ((flags & PFS_F_FOLDER) == 0)) {
+ *   if ((flags == -1) || ((flags & (PFS_F_FOLDER | PFS_F_MOUNT)) == 0)) {
  *     pfs_element_close(eh);
  *     return -1;
  *   }
  *   return eh;
  */
 extern int pfs_handle_folder(const char *path);
+
+/*
+ * this function is like pfs_handle, but it fails if the given element is no mount point
+ *
+ * this function works like: (except for special handling of the root folder (which is accepted as mount point))
+ *   int eh = pfs_handle(path);
+ *   int flags = pfs_element_get_flags(eh);
+ *   if ((flags == -1) || ((flags & PFS_F_MOUNT) == 0)) {
+ *     pfs_element_close(eh);
+ *     return -1;
+ *   }
+ *   return eh;
+ */
+extern int pfs_handle_mount(const char *path);
 
 /*
  * this function is like pfs_handle, but it fails if the given element is no file
@@ -186,7 +229,7 @@ extern int pfs_change_dir(int eh);
  *   pfs_element_close(eh);
  *   return res;
  */
-extern int pfs_change_working_directoy(char *path);
+extern int pfs_change_dir_path(char *path);
 
 /*
  * deletes the element associated with the given path

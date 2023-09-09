@@ -131,8 +131,7 @@ static inline void* hashset_add_put(struct hashset *set, uint64_t hash,
 		void *newvalue, _Bool also_replace) {
 	if (set->maxi >> 1 <= set->entrycount) {
 		uint64_t nmi = (set->maxi << 1) | 1;
-		void *newEntries = malloc((nmi + 1) * sizeof(void*));
-		memset(newEntries, 0, (nmi + 1) * sizeof(void*));
+		void *newEntries = calloc(nmi + 1, sizeof(void*));
 		struct no_check_put_arg arg = { //
 				/*	  */.elements = newEntries, //
 						.hashmaker = set->hashmaker, //
@@ -197,8 +196,7 @@ static inline void hs_shrink(struct hashset *set) {
 	if (set->maxi >> 3 >= --set->entrycount) {
 		if (set->entrycount) {
 			uint64_t nmi = set->maxi >> 1;
-			void *newEntries = malloc((nmi + 1) * sizeof(void*));
-			memset(newEntries, 0, (nmi + 1) * sizeof(void*));
+			void *newEntries = calloc(nmi + 1, sizeof(void*));
 			struct no_check_put_arg arg = { //
 					/*	  */.elements = newEntries, //
 							.hashmaker = set->hashmaker, //
@@ -217,8 +215,9 @@ static inline void hs_shrink(struct hashset *set) {
 }
 
 extern void* hashset_remove(struct hashset *set, uint64_t hash, void *oldvalue) {
-	if (!set->maxi)
+	if (!set->entrycount) {
 		return NULL;
+	}
 	hash &= set->maxi;
 	int64_t es = ((int64_t*) set->entries)[hash];
 	if (es > 0) {
@@ -262,7 +261,7 @@ extern void* hashset_remove(struct hashset *set, uint64_t hash, void *oldvalue) 
 
 extern void hashset_for_each(const struct hashset *set,
 		int (*do_stuff)(void *arg0, void *element), void *arg0) {
-	if (!set->maxi) {
+	if (!set->entrycount) {
 		return;
 	}
 	for (uint64_t i = set->maxi + 1; i-- > 0;) {

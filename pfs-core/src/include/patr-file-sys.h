@@ -56,6 +56,8 @@ typedef uint8_t ui8;
 
 typedef ui8 uuid_t[16];
 
+typedef ui8 *uuid_p_t;
+
 _Static_assert(CHAR_BIT == 8, "Error!");
 _Static_assert(sizeof(__time_t) == 8, "Error!");
 _Static_assert(sizeof(i64) == 8, "Error!");

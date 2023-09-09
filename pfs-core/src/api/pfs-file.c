@@ -42,6 +42,7 @@ extern int pfs_file_truncate(int eh, i64 length) {
 		return 0;
 	}
 	ch(0)
+	check_write_access(0)
 	int res = pfsc_file_truncate(&pfs_ehs[eh]->handle, length);
 	cr(0)
 	return res;

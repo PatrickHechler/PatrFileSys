@@ -60,6 +60,20 @@ static void real_file_sys_check();
 static void meta_check();
 static void pipe_check();
 
+static bm pfs;
+
+static inline pfs_eh pfsc_root() {
+	static bm last = NULL;
+	static struct pfs_file_sys_data fs_data;
+	static struct element_handle root;
+	if (last != pfs) {
+		pfsc_fill_root(pfs, &root, &fs_data, 0);
+	}
+	pfs_eh res_cpy = malloc(sizeof(struct pfs_element_handle));
+	memcpy(res_cpy, &root.handle, sizeof(struct pfs_element_handle));
+	return res_cpy;
+}
+
 #ifdef PRINT_PFS
 
 void pfs_simple_print(i64 max_depth, pfs_eh folder, char **buf, i64 *len) {
@@ -495,7 +509,7 @@ int main(int argc, char **argv) {
 
 static void checks() {
 	const char *start = "[main.checks]:                                        ";
-	if (!pfsc_format(BLOCK_COUNT, NULL, "")) {
+	if (!pfsc_format(pfs, BLOCK_COUNT, NULL, "")) {
 		printf("%scould not format the file system! [0]: %s\n", start,
 				pfs_error());
 		exit(EXIT_FAILURE);
@@ -544,19 +558,6 @@ static void simple_check() {
 	i64 child_count = pfsc_folder_child_count(root);
 	if (child_count != 0) {
 		printf("%sroot child count != 0 (%ld) [1]\n", start, child_count);
-		exit(EXIT_FAILURE);
-	}
-	pfs_eh other_root = malloc(sizeof(struct pfs_element_handle));
-	if (other_root == NULL) {
-		printf("%scould not allocate a element handle [2]\n", start);
-		exit(EXIT_FAILURE);
-	}
-	if (!pfsc_fill_root(other_root)) {
-		printf("%scould not fill root element [3]\n", start);
-		exit(EXIT_FAILURE);
-	}
-	if (memcmp(root, other_root, sizeof(struct pfs_element_handle)) != 0) {
-		printf("%sthe two root elements differ [4]\n", start);
 		exit(EXIT_FAILURE);
 	}
 }
@@ -904,7 +905,7 @@ static void append_file_check() {
 
 static void folder_check() {
 	const char *start = "[main.checks.folder_check]:                           ";
-	if (!pfsc_format(BLOCK_COUNT, NULL, "")) {
+	if (!pfsc_format(pfs, BLOCK_COUNT, NULL, "")) {
 		printf("%scould not format the file system! [0]\n");
 		exit(EXIT_FAILURE);
 	}
@@ -1484,7 +1485,7 @@ static void compare(DIR *dir, DIR *dir2, char *name, char *name2) {
 
 static void real_file_sys_check() {
 	const char *start = "[main.checks.real_file_sys_check]:                    ";
-	if (!pfsc_format(BLOCK_COUNT, NULL, "")) {
+	if (!pfsc_format(pfs, BLOCK_COUNT, NULL, "")) {
 		printf("%scould not format the pfs! [0]\n", start);
 		exit(EXIT_FAILURE);
 	}
@@ -1509,9 +1510,11 @@ static void real_file_sys_check() {
 	pfs_simple_print(0, NULL, NULL, NULL);
 #endif // PRINT_PFS
 	fflush(NULL);
-	if (!pfsc_fill_root(root)) {
+	free(root);
+	root = pfsc_root();
+	if (!root) {
 		printf("%scould not get the root! (pfs_err=%s) [3]\n", start,
-				pfs_error);
+				pfs_error());
 		exit(EXIT_FAILURE);
 	}
 #ifdef  PRINT_PFS
@@ -1700,19 +1703,14 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 
 static void meta_check() {
 	const char *start = "[main.checks.meta_check]:                             ";
+	if (!pfsc_format(pfs, BLOCK_COUNT, NULL, "")) {
+		printf("%scould not format the PFS! (%s) [0]\n", start,
+				pfs_error());
+		exit(EXIT_FAILURE);
+	}
 	pfs_eh e = pfsc_root();
 	if (e == NULL) {
-		printf("%scould not get the root directory! (%s) [0]\n", start,
-				pfs_error());
-		exit(EXIT_FAILURE);
-	}
-	if (!pfsc_format(BLOCK_COUNT, NULL, "")) {
-		printf("%scould not format the PFS! (%s) [0.3333333333]\n", start,
-				pfs_error());
-		exit(EXIT_FAILURE);
-	}
-	if (!pfsc_fill_root(e)) {
-		printf("%scould not fill the root! (%s) [0.6666666666]\n", start,
+		printf("%scould not get the root directory! (%s) [0.5]\n", start,
 				pfs_error());
 		exit(EXIT_FAILURE);
 	}
@@ -1722,7 +1720,8 @@ static void meta_check() {
 		exit(EXIT_FAILURE);
 	}
 	sub_meta_check(e, 1);
-	if (!pfsc_fill_root(e)) {
+	e = pfsc_root();
+	if (e == NULL) {
 		printf("%scould not get the root directory! (%s) [2]\n", start,
 				pfs_error());
 		exit(EXIT_FAILURE);
@@ -1732,7 +1731,8 @@ static void meta_check() {
 		exit(EXIT_FAILURE);
 	}
 	sub_meta_check(e, 1);
-	if (!pfsc_fill_root(e)) {
+	e = pfsc_root();
+	if (e == NULL) {
 		printf("%scould not get the root directory! (%s) [4]\n", start,
 				pfs_error());
 		exit(EXIT_FAILURE);

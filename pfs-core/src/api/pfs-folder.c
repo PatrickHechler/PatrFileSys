@@ -22,21 +22,18 @@
  */
 #include "pfs.h"
 #include "../include/pfs-folder.h"
+#include "../core/pfs-mount.h"
 
 #define ch(err_ret) \
 	eh(err_ret) \
 	c_h(pfs_ehs[eh], err_ret, PFS_F_FOLDER)
 
-#define cr(err_ret) c_r(pfs_ehs[eh], err_ret)
-
 extern i64 pfs_folder_child_count(int eh) {
 	ch(-1)
-	int res = pfsc_folder_child_count(&pfs_ehs[eh]->handle);
-	cr(-1)
-	return res;
+	return pfsc_folder_child_count(&pfs_ehs[eh]->handle);
 }
 
-#define get_child \
+#define get_child(error_return) \
 	{ \
 		struct element_handle *oc = hashset_add(&pfs_all_ehs_set, eh_hash(c), c); \
 		if (oc) { \
@@ -46,6 +43,14 @@ extern i64 pfs_folder_child_count(int eh) {
 		} else { \
 			c->load_count = 1; \
 		} \
+		if ((c->handle.is_mount_point)) { /*no need to check if c is already the root*/ \
+			struct element_handle_mount *mc = realloc(c, sizeof(struct element_handle_mount )); \
+			if (!mc || !pfsc_mount_open(&mc->handle, mc->handle.handle.fs_data->read_only)) { \
+				free(c); \
+				return error_return; \
+			} \
+			c = mc->handle.fs.root; \
+		} \
 	}
 
 #define pfs_folder_child_impl(type) \
@@ -53,16 +58,14 @@ extern i64 pfs_folder_child_count(int eh) {
 	struct element_handle *c = malloc(sizeof(struct element_handle)); \
 	if (!c) { \
 		pfs_err = PFS_ERRNO_OUT_OF_MEMORY; \
-		cr(-1) \
+		errno = 0; \
 		return -1; \
 	} \
 	c->handle = pfs_ehs[eh]->handle; \
 	if (!pfsc_folder_##type##child_from_name(&c->handle, name)) { \
-		cr(-1) \
 		return -1; \
 	} \
-	get_child \
-	cr(-1) \
+	get_child(-1) \
 	return_handle(pfs_eh_len, pfs_ehs, c)
 
 extern int pfs_folder_child(int eh, const char *name) {
@@ -71,6 +74,10 @@ extern int pfs_folder_child(int eh, const char *name) {
 
 extern int pfs_folder_child_folder(int eh, const char *name) {
 	pfs_folder_child_impl(folder_)
+}
+
+extern int pfs_folder_child_mount(int eh, const char *name) {
+	pfs_folder_child_impl(mount_)
 }
 
 extern int pfs_folder_child_file(int eh, const char *name) {
@@ -83,19 +90,19 @@ extern int pfs_folder_child_pipe(int eh, const char *name) {
 
 #define pfs_folder_create(type) \
 	ch(-1) \
+	check_write_access(-1) \
 	struct element_handle *c = malloc(sizeof(struct element_handle)); \
 	if (!c) { \
 		pfs_err = PFS_ERRNO_OUT_OF_MEMORY; \
-		cr(-1) \
+		errno = 0; \
 		return -1; \
 	} \
 	c->handle = pfs_ehs[eh]->handle; \
+	pfs_modify_iterators(pfs_ehs[eh], 0xFFFFFFFFFFFFFFFFUL); \
 	if (!pfsc_folder_create_##type(&c->handle, &pfs_ehs[eh]->handle, name)) { \
-		cr(-1) \
 		return -1; \
 	} \
-	get_child \
-	cr(-1) \
+	get_child(-1) \
 	return_handle(pfs_eh_len, pfs_ehs, c)
 
 extern int pfs_folder_create_folder(int eh, const char *name) {

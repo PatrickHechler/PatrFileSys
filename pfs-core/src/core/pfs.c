@@ -78,7 +78,7 @@ extern void pfs_perror(const char *msg) {
 	fprintf(stderr, "%s: %s\n", msg ? msg : "pfs-error", pfs_error());
 }
 
-int pfsc_format(i64 block_count, uuid_t uuid, char *name) {
+int pfsc_format(bm pfs, i64 block_count, uuid_t uuid, char *name) {
 	if (pfs == NULL) {
 		pfs_err = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
@@ -166,10 +166,10 @@ int pfsc_format(i64 block_count, uuid_t uuid, char *name) {
 		random_ensure_init();
 		random_data(&super_data->uuid, 16);
 		// see java UUID.generateRandom()
-        super_data->uuid[6]  &= 0x0f;  /* clear version        */
-        super_data->uuid[6]  |= 0x40;  /* set to version 4     */
-        super_data->uuid[8]  &= 0x3f;  /* clear variant        */
-        super_data->uuid[8]  |= 0x80;  /* set to IETF variant  */
+		super_data->uuid[6] &= 0x0f; /* clear version        */
+		super_data->uuid[6] |= 0x40; /* set to version 4     */
+		super_data->uuid[8] &= 0x3f; /* clear variant        */
+		super_data->uuid[8] |= 0x80; /* set to IETF variant  */
 	}
 	if (name_len) {
 		memcpy(super_data->name, name, name_len);
@@ -185,7 +185,21 @@ int pfsc_format(i64 block_count, uuid_t uuid, char *name) {
 	return pfs->set(pfs, 0L);
 }
 
-extern i64 pfs_block_count() {
+int pfsc_make_read_only(bm pfs) {
+	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
+	if (b0 == NULL) {
+		return 0;
+	}
+	if ((b0->flags & B0_FLAG_READ_ONLY) == 0) {
+		b0->flags |= B0_FLAG_READ_ONLY;
+		pfs->set(pfs, 0L);
+	} else {
+		pfs->unget(pfs, 0L);
+	}
+	return 1;
+}
+
+i64 pfsc_block_count(bm pfs) {
 	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
 	if (b0 == NULL) {
 		return -1L;
@@ -197,7 +211,7 @@ extern i64 pfs_block_count() {
 	return block_count;
 }
 
-static inline i64 pfs_free_and_used_block_count_impl(_Bool free) {
+static inline i64 pfsc_free_and_used_block_count_impl(bm pfs, _Bool free) {
 	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
 	if (b0 == NULL) {
 		return -1L;
@@ -256,18 +270,18 @@ static inline i64 pfs_free_and_used_block_count_impl(_Bool free) {
 	}
 }
 
-extern i64 pfs_free_block_count() {
-	return pfs_free_and_used_block_count_impl(1);
+i64 pfsc_free_block_count(bm pfs) {
+	return pfsc_free_and_used_block_count_impl(pfs, 1);
 }
 
-extern i64 pfs_used_block_count() {
-	return pfs_free_and_used_block_count_impl(0);
+i64 pfsc_used_block_count(bm pfs) {
+	return pfsc_free_and_used_block_count_impl(pfs, 0);
 }
 
-extern i32 pfs_block_size() {
+i32 pfsc_block_size(bm pfs) {
 	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
 	if (b0 == NULL) {
-		return -1L;
+		return -1;
 	}
 	i32 block_size = b0->block_size;
 	if (!pfs->unget(pfs, 0L)) {
@@ -276,7 +290,34 @@ extern i32 pfs_block_size() {
 	return block_size;
 }
 
-extern i32 pfs_name_len() {
+int pfsc_set_uuid(bm pfs, const uuid_t uuid) {
+	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
+	if (b0 == NULL) {
+		return 0;
+	}
+	memcpy(b0->uuid, uuid, sizeof(uuid_t));
+	return pfs->unget(pfs, 0L);
+}
+
+uuid_p_t pfsc_uuid(bm pfs, uuid_t copy) {
+	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
+	if (b0 == NULL) {
+		return NULL;
+	}
+	if (!copy) {
+		copy = malloc(sizeof(uuid_t));
+		if (!copy) {
+			pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
+			errno = 0;
+			return NULL;
+		}
+	}
+	memcpy(copy, b0->uuid, sizeof(uuid_t));
+	pfs->unget(pfs, 0L);
+	return copy;
+}
+
+i32 pfsc_name_len(bm pfs) {
 	void *super = pfs->get(pfs, 0L);
 	i32 len = (*(i32*) (super + 4 + (*(i32*) (super + pfs->block_size))))
 			- offsetof(struct pfs_b0, name);
@@ -284,7 +325,7 @@ extern i32 pfs_name_len() {
 	return len;
 }
 
-extern i32 pfs_name_cpy(char *buf, i32 buf_len) {
+i32 pfsc_name_cpy(bm pfs, char *buf, i32 buf_len) {
 	void *super = pfs->get(pfs, 0L);
 	i32 len = (*(i32*) (super + 4 + (*(i32*) (super + pfs->block_size))))
 			- offsetof(struct pfs_b0, name);
@@ -298,7 +339,7 @@ extern i32 pfs_name_cpy(char *buf, i32 buf_len) {
 	return len;
 }
 
-extern char* pfs_name() {
+char* pfsc_name(bm pfs) {
 	void *super = pfs->get(pfs, 0L);
 	i32 len = (*(i32*) (super + 4 + (*(i32*) (super + pfs->block_size))))
 			- offsetof(struct pfs_b0, name);
@@ -309,39 +350,36 @@ extern char* pfs_name() {
 	return name;
 }
 
-int pfsc_fill_root(pfs_eh overwrite_me) {
+int pfsc_fill_root(bm pfs, struct element_handle *overwrite_me,
+		struct pfs_file_sys_data *fs_data, int read_only) {
 	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
 	if (b0 == NULL) {
 		return 0;
 	}
-	overwrite_me->real_parent_place.block = -1L;
-	overwrite_me->real_parent_place.pos = -1;
-	overwrite_me->index_in_direct_parent_list = -1;
-	overwrite_me->direct_parent_place.block = -1L;
-	overwrite_me->direct_parent_place.pos = -1;
-	overwrite_me->entry_pos = -1;
-	overwrite_me->element_place.block = b0->root.block;
-	overwrite_me->element_place.pos = b0->root.pos;
+	overwrite_me->handle.real_parent_place.block = -1L;
+	overwrite_me->handle.real_parent_place.pos = -1;
+	overwrite_me->handle.index_in_direct_parent_list = -1;
+	overwrite_me->handle.direct_parent_place.block = -1L;
+	overwrite_me->handle.direct_parent_place.pos = -1;
+	overwrite_me->handle.entry_pos = -1;
+	overwrite_me->handle.element_place.block = b0->root.block;
+	overwrite_me->handle.element_place.pos = b0->root.pos;
+	overwrite_me->handle.is_mount_point = 0;
+	overwrite_me->handle.fs_data = fs_data;
+	overwrite_me->load_count = 0;
+	fs_data->file_sys = pfs;
+	fs_data->root = overwrite_me;
+	if (b0->flags & B0_FLAG_READ_ONLY) {
+		read_only = 1;
+	}
+	fs_data->read_only = read_only;
 	if (!pfs->unget(pfs, 0L)) {
-		return -1;
+		return 0;
 	}
 	return 1;
 }
 
-pfs_eh pfsc_root() {
-	struct pfs_element_handle *res = malloc(sizeof(struct pfs_element_handle));
-	if (res == NULL) {
-		pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
-		return NULL;
-	}
-	if (!pfsc_fill_root(res)) {
-		free(res);
-		return NULL;
-	}
-	return res;
-}
-
-int init_block(i64 block, i64 size) {
+int init_block(bm pfs, i64 block, i64 size) {
 	if (size > pfs->block_size - 12) {
 		pfs_err = PFS_ERRNO_OUT_OF_SPACE;
 		return 0;
@@ -363,9 +401,10 @@ union pntr_val {
 	ui64 val;
 };
 
-i32 get_size_from_block_table(void *block_data, const i32 pos) {
+i32 get_size_from_block_table(void *block_data, const i32 pos,
+		const i32 block_size) {
 	union pntr_val max, min, mid;
-	max.pntr = block_data + pfs->block_size - 4;
+	max.pntr = block_data + block_size - 4;
 	min.pntr = block_data + *max.pntr;
 	max.val -= 4;
 	/*	if ((max.val & ~3UL) != max.val) {
@@ -409,7 +448,7 @@ i32 get_size_from_block_table(void *block_data, const i32 pos) {
 //	}
 }
 
-i32 allocate_in_block_table(i64 block, i64 size) {
+i32 allocate_in_block_table(bm pfs, i64 block, i64 size) {
 	void *block_data = pfs->get(pfs, block);
 	if (block_data == NULL) {
 		return -1;
@@ -473,7 +512,7 @@ static inline i32 fill_entry_and_move_data(i32 free, i32 last_end,
 	return new_pos;
 }
 
-i32 reallocate_in_block_table(const i64 block, const i32 pos,
+i32 reallocate_in_block_table(bm pfs, const i64 block, const i32 pos,
 		const i64 new_size, const int copy) {
 	void *block_data = pfs->get(pfs, block);
 	if (block_data == NULL) {
@@ -575,20 +614,21 @@ i32 reallocate_in_block_table(const i64 block, const i32 pos,
 		return -1;
 	}
 }
-int allocate_new_entry(struct pfs_place *write, i64 base_block, i32 size) {
+int allocate_new_entry(bm pfs, struct pfs_place *write, i64 base_block,
+		i32 size) {
 	if (base_block != -1L) {
-		i32 pos = allocate_in_block_table(base_block, size);
+		i32 pos = allocate_in_block_table(pfs, base_block, size);
 		if (pos != -1) {
 			write->block = base_block;
 			write->pos = pos;
 			return 1;
 		}
 	}
-	i64 block = allocate_block(BLOCK_FLAG_USED | BLOCK_FLAG_ENTRIES);
+	i64 block = allocate_block(pfs, BLOCK_FLAG_USED | BLOCK_FLAG_ENTRIES);
 	if (block == -1L) {
 		return 0;
 	}
-	if (!init_block(block, size)) {
+	if (!init_block(pfs, block, size)) {
 		return 0;
 	}
 	write->block = block;
@@ -596,7 +636,7 @@ int allocate_new_entry(struct pfs_place *write, i64 base_block, i32 size) {
 	return 1;
 }
 
-void set_parent_place_from_childs(struct pfs_place e,
+void set_parent_place_from_childs(bm pfs, struct pfs_place e,
 		struct pfs_place real_parent) {
 	void *block_data = pfs->get(pfs, e.block);
 	if (block_data == NULL) {
@@ -624,7 +664,7 @@ void set_parent_place_from_childs(struct pfs_place e,
 				if (i != f->helper_index) {
 					abort();
 				}
-				set_parent_place_from_childs(f->entries[i].child_place,
+				set_parent_place_from_childs(pfs, f->entries[i].child_place,
 						real_parent);
 			} else if (i == f->helper_index) {
 				abort();
@@ -637,44 +677,47 @@ void set_parent_place_from_childs(struct pfs_place e,
 
 i32 grow_folder_entry(const struct pfs_element_handle *e, i32 new_size,
 		struct pfs_place real_parent) {
-	i32 new_pos = reallocate_in_block_table(e->element_place.block,
+	i32 new_pos = reallocate_in_block_table(pfs0(e), e->element_place.block,
 			e->element_place.pos, new_size, 1);
 	if (new_pos == -1) {
 		return -1;
 	}
 	if (e->element_place.pos != new_pos) {
 		if (e->direct_parent_place.block == -1) {
-			struct pfs_b0 *b0 = pfs->get(pfs, 0L);
+			struct pfs_b0 *b0 = pfs0(e)->get(pfs0(e), 0L);
 			if (b0 == NULL) {
 				abort();
 			}
 			b0->root.pos = new_pos;
-			pfs->set(pfs, 0L);
+			pfs0(e)->set(pfs0(e), 0L);
 		} else {
-			void *block_data = pfs->get(pfs, e->direct_parent_place.block);
+			void *block_data = pfs0(e)->get(pfs0(e),
+					e->direct_parent_place.block);
 			if (block_data == NULL) {
 				abort();
 			}
 			struct pfs_folder_entry *entry = block_data + e->entry_pos;
 			entry->child_place.pos = new_pos;
-			pfs->set(pfs, e->direct_parent_place.block);
+			pfs0(e)->set(pfs0(e), e->direct_parent_place.block);
 		}
-		struct pfs_place place = { .block = e->element_place.block, .pos =
-				new_pos };
+		struct pfs_place place = { //
+				/*	  */.block = e->element_place.block, //
+						.pos = new_pos //
+				};
 		if (real_parent.block == place.block) {
 			real_parent.pos = new_pos;
 		}
-		set_parent_place_from_childs(place, real_parent);
+		set_parent_place_from_childs(pfs0(e), place, real_parent);
 	}
 	return new_pos;
 }
 
-i32 add_name(i64 block_num, const char *name, i64 str_len) {
+i32 add_name(bm pfs, i64 block_num, const char *name, i64 str_len) {
 	void *block = pfs->get(pfs, block_num);
 	if (block == NULL) {
 		return -1;
 	}
-	i32 pos = allocate_in_block_table(block_num, str_len);
+	i32 pos = allocate_in_block_table(pfs, block_num, str_len);
 	if (pos == -1) {
 		pfs->unget(pfs, block_num);
 		return -1;
@@ -687,7 +730,7 @@ i32 add_name(i64 block_num, const char *name, i64 str_len) {
 	}
 }
 
-static inline i64 allocate_block_without_bm(struct pfs_b0 *b0) {
+static inline i64 allocate_block_without_bm(bm pfs, struct pfs_b0 *b0) {
 	const i64 block_count = b0->block_count;
 	i64 current_block_num = 1;
 	void *current_block = pfs->get(pfs, current_block_num);
@@ -780,7 +823,7 @@ static inline i64 allocate_block_without_bm(struct pfs_b0 *b0) {
 	}
 }
 
-i64 allocate_block(ui64 block_flags) {
+i64 allocate_block(bm pfs, ui64 block_flags) {
 	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
 	if (b0->flags & B0_FLAG_BM_ALLOC) {
 		i64 fzfb = pfs->first_zero_flagged_block(pfs);
@@ -799,11 +842,11 @@ i64 allocate_block(ui64 block_flags) {
 		pfs->set_flags(pfs, fzfb, block_flags);
 		return fzfb;
 	} else {
-		return allocate_block_without_bm(b0);
+		return allocate_block_without_bm(pfs, b0);
 	}
 }
 
-void free_block(i64 free_this_block) {
+void free_block(bm pfs, i64 free_this_block) {
 	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
 	ui32 flags = b0->flags;
 	pfs->unget(pfs, 0L);
@@ -813,14 +856,14 @@ void free_block(i64 free_this_block) {
 		}
 	} else {
 		i64 remain = free_this_block >> 3;
-		struct pfs_place place = find_place(1, remain);
+		struct pfs_place place = find_place(pfs, 1, remain);
 		ui8 *data = pfs->get(pfs, place.block) + place.pos;
 		*data &= ~(1U << (free_this_block & 7));
 		pfs->set(pfs, place.block);
 	}
 }
 
-static inline void ensure_used_block_has_flag(i64 block, ui64 flag) {
+static inline void ensure_used_block_has_flag(bm pfs, i64 block, ui64 flag) {
 	struct pfs_b0 *b0 = pfs->get(pfs, 0L);
 	ui32 flags = b0->flags;
 	pfs->unget(pfs, 0L);
@@ -840,15 +883,15 @@ static inline void ensure_used_block_has_flag(i64 block, ui64 flag) {
 	}
 }
 
-void ensure_block_is_file_data(i64 block) {
-	ensure_used_block_has_flag(block, BLOCK_FLAG_DATA);
+void ensure_block_is_file_data(bm pfs, i64 block) {
+	ensure_used_block_has_flag(pfs, block, BLOCK_FLAG_DATA);
 }
 
-void ensure_block_is_entry(i64 block) {
-	ensure_used_block_has_flag(block, BLOCK_FLAG_ENTRIES);
+void ensure_block_is_entry(bm pfs, i64 block) {
+	ensure_used_block_has_flag(pfs, block, BLOCK_FLAG_ENTRIES);
 }
 
-struct pfs_place find_place(const i64 first_block, i64 remain) {
+struct pfs_place find_place(bm pfs, const i64 first_block, i64 remain) {
 	for (i64 current_block = first_block; 1; remain -= pfs->block_size - 8) {
 		if (remain < (pfs->block_size - 8)) {
 			struct pfs_place result = { //

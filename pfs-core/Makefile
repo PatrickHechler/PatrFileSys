@@ -45,11 +45,11 @@ TARGET_SO = $(CORE_BIN)libpfs-core.so
 
 CORE_TEST_TARGET = $(CORE_BIN)pfs_tests
 
-CORE_OBJS = $(CORE_BIN)pfs.o $(CORE_BIN)pfs-element.o $(CORE_BIN)pfs-folder.o $(CORE_BIN)pfs-file.o
+CORE_OBJS = $(CORE_BIN)pfs.o $(CORE_BIN)pfs-element.o $(CORE_BIN)pfs-folder.o $(CORE_BIN)pfs-file.o $(CORE_BIN)pfs-mount.o
 
 CORE_API_OBJS = $(API_BIN)hashset.o $(API_BIN)bm.o $(API_BIN)pfs-random.o
 
-OBJS = $(CORE_OBJS) $(CORE_API_OBJS) $(API_BIN)pfs.o $(API_BIN)pfs-element.o $(API_BIN)pfs-folder.o $(API_BIN)pfs-file.o $(API_BIN)pfs-pipe.o $(API_BIN)pfs-stream.o $(API_BIN)pfs-iter.o
+OBJS = $(CORE_OBJS) $(CORE_API_OBJS) $(API_BIN)pfs.o $(API_BIN)pfs-element.o $(API_BIN)pfs-folder.o $(API_BIN)pfs-file.o $(API_BIN)pfs-pipe.o $(API_BIN)pfs-stream.o $(API_BIN)pfs-mount.o
 
 all:	INIT $(CORE_TEST_TARGET) $(TARGET_A) $(TARGET_SO)
 	$(CORE_TEST_TARGET)

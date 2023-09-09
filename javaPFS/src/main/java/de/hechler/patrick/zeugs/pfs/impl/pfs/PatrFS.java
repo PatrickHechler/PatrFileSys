@@ -216,6 +216,9 @@ public class PatrFS implements FS {
 				} else if (opts.write()) {
 					o |= SO_WRITE;
 				}
+				if (opts.truncate()) {
+					o |= SO_FILE_TRUNC;
+				}
 				if (opts.type() != null) {
 					switch (opts.type()) {
 					case FILE -> o |= SO_FILE;

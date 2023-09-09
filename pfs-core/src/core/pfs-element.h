@@ -29,9 +29,9 @@
 /**
  * get the flags of a patr-file-system-element
  *
- * when the operation fails (ui32) -1 is returned and (pfs_err) will be set
+ * when the operation fails -1 is returned and (pfs_err) will be set
  */
-ui32 pfsc_element_get_flags(pfs_eh e);
+i32 pfsc_element_get_flags(pfs_eh e);
 
 /**
  * modify the flags of a patr-file-system-element

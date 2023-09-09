@@ -33,24 +33,31 @@
 #include "../include/pfs-constants.h"
 #include "../include/pfs-err.h"
 
-#ifndef I_AM_CORE_PFS
-extern
-#endif
-struct bm_block_manager *pfs;
+int pfsc_format(bm pfs, i64 block_count, uuid_t uuid, char *name);
 
-int pfsc_format(i64 block_count, uuid_t uuid, char *name);
+i64 pfsc_block_count(bm pfs);
 
-extern i64 pfs_block_count();
+i64 pfsc_free_block_count(bm pfs);
 
-extern i64 pfs_free_block_count();
+i64 pfsc_used_block_count(bm pfs);
 
-extern i64 pfs_used_block_count();
+i32 pfsc_block_size(bm pfs);
 
-extern i32 pfs_block_size();
+int pfsc_make_read_only(bm pfs);
 
-int pfsc_fill_root(pfs_eh overwrite_me);
+int pfsc_set_uuid(bm pfs, const uuid_t uuid);
 
-pfs_eh pfsc_root();
+uuid_p_t pfsc_uuid(bm pfs, uuid_t uuid);
+
+i32 pfsc_name_cpy(bm pfs, char *buf, i32 buf_len);
+
+i32 pfsc_name_len(bm pfs);
+
+char* pfsc_name(bm pfs);
+
+enum mount_type pfsc_mount_type(pfs_meh mp);
+
+int pfsc_fill_root(bm pfs, struct element_handle *overwrite_me, struct pfs_file_sys_data *fs_data, int read_only);
 
 /**
  * note that some function can move elements and thus make all other

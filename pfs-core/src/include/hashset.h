@@ -84,13 +84,7 @@ extern void* hashset_remove(struct hashset *set, uint64_t hash, void *oldval);
 extern void hashset_for_each(const struct hashset *set,
 		int (*do_stuff)(void *arg0, void *element), void *arg0);
 
-/**
- * execute the given function with each argument in this set.
- *
- * this operation will pass the elements in the set to the function until
- * the function returns zero/false or all elements were passed to it
- */
-extern void hashset_for_each_noarg(const struct hashset *set,
-		int (*do_stuff)(void *element));
+#define hashset_clear(set) 	(set)->entrycount = 0; \
+			memset((set)->entries, 0, ((set)->maxi + 1) * sizeof(i64))
 
 #endif /* HASHSET_H_ */

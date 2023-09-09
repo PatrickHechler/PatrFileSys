@@ -123,6 +123,17 @@ extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count,
 		i32 block_size);
 
 /**
+ * creates a new ram block manager
+ * the returned block manager will support the flagging of blocks
+ *
+ * block_count: the number of blocks in the block manager
+ *
+ * block_size: the size of the blocks
+ */
+extern struct bm_block_manager* bm_new_flaggable_ram_block_manager(
+		i64 block_count, i32 block_size);
+
+/**
  * creates a new file block manager
  *
  * file: the file descriptor
@@ -170,7 +181,7 @@ extern struct bm_block_manager* bm_new_file_block_manager_path(const char *file,
 #define bm_fd_pos(fd) lseek64(fd, 0, SEEK_CUR)
 #define bm_fd_seek(fd, pos) lseek64(fd, pos, SEEK_SET)
 #define bm_fd_seek_eof(fd) lseek64(fd, 0, SEEK_END)
-#define bm_fd_flush(fd) // the kernel already knows everything
+#define bm_fd_flush(fd) fdatasync(fd)
 #define bm_fd_open_ro(file) open64(file, O_RDONLY) // O_LARGEFILE is 0
 #define bm_fd_open_rw(file) open64(file, O_RDWR \
 		, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
@@ -201,16 +212,5 @@ extern struct bm_block_manager* bm_new_file_block_manager_path(const char *file,
 		_pntr += _reat; \
 	} \
 }
-
-/**
- * creates a new ram block manager
- * the returned block manager will support the flagging of blocks
- *
- * block_count: the number of blocks in the block manager
- *
- * block_size: the size of the blocks
- */
-extern struct bm_block_manager* bm_new_flaggable_ram_block_manager(
-		i64 block_count, i32 block_size);
 
 #endif /* BM_H_ */

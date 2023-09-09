@@ -54,6 +54,7 @@ public class JavaFile extends JavaFSElement implements File {
 		return open0(options, true);
 	}
 	
+	@SuppressWarnings("preview")
 	public Stream open0(StreamOpenOptions options, boolean addCreate) throws IOException {
 		options = options.ensureType(ElementType.FILE);
 		List<OpenOption> opts = new ArrayList<>();
@@ -71,6 +72,9 @@ public class JavaFile extends JavaFSElement implements File {
 			} else if (options.createAlso()) {
 				opts.add(StandardOpenOption.CREATE);
 			}
+		}
+		if (options.truncate()) {
+			opts.add(StandardOpenOption.TRUNCATE_EXISTING);
 		}
 		SeekableByteChannel channel = Files.newByteChannel(f(), opts.toArray(new OpenOption[opts.size()]));
 		return switch (options) {

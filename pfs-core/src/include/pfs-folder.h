@@ -48,17 +48,34 @@ extern int pfs_folder_child(int eh, const char *name);
 /*
  * this function works like pfs_folder_child, but fails when the child is no folder
  *
+ * note that mount points are also accepted as folder
+ *
  * this function works like:
  *   int ceh = pfs_folder_child(eh, name);
  *   if (ceh == -1) return -1;
  *   int flags = pfs_element_get_flags(ceh);
- *   if ((flags == -1) || ((ceh & PFS_F_FOLDER) == 0)) {
+ *   if ((flags == -1) || ((ceh & (PFS_F_FOLDER | PFS_F_MOUNT)) == 0)) {
  *     pfs_element_close(ceh);
  *     return -1;
  *   }
  *   return ceh;
  */
 extern int pfs_folder_child_folder(int eh, const char *name);
+
+/*
+ * this function works like pfs_folder_child, but fails when the child is no mount point
+ *
+ * this function works like:
+ *   int ceh = pfs_folder_child(eh, name);
+ *   if (ceh == -1) return -1;
+ *   int flags = pfs_element_get_flags(ceh);
+ *   if ((flags == -1) || ((ceh & PFS_F_MOUNT) == 0)) {
+ *     pfs_element_close(ceh);
+ *     return -1;
+ *   }
+ *   return ceh;
+ */
+extern int pfs_folder_child_mount(int eh, const char *name);
 
 /*
  * this function works like pfs_folder_child, but fails when the child is no file
@@ -89,6 +106,16 @@ extern int pfs_folder_child_file(int eh, const char *name);
  *   return ceh;
  */
 extern int pfs_folder_child_pipe(int eh, const char *name);
+
+/*
+ * the pfs_folder_descendant*() functions are like the pfs_folder_child*() functions
+ * the difference is that they accept a path and not a name
+ */
+extern int pfs_folder_descendant(int eh, const char *path);
+extern int pfs_folder_descendant_folder(int eh, const char *path);
+extern int pfs_folder_descendant_mount(int eh, const char *path);
+extern int pfs_folder_descendant_file(int eh, const char *path);
+extern int pfs_folder_descendant_pipe(int eh, const char *path);
 
 /*
  * creates a new folder with the given name and adds it to the given folder as a child element

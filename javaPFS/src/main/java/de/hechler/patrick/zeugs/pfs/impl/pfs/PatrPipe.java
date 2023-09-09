@@ -84,12 +84,10 @@ public class PatrPipe extends PatrFSElement implements Pipe {
 			if (options.read()) {
 				if (options.write()) {
 					return new PatrReadWriteStream(res, options);
-				} else {
-					return new PatrReadStream(res, options);
 				}
-			} else {
-				return new PatrWriteStream(res, options);
+				return new PatrReadStream(res, options);
 			}
+			return new PatrWriteStream(res, options);
 		} catch (Throwable e) {
 			throw thrw(e);
 		}

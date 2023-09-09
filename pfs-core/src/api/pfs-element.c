@@ -31,7 +31,11 @@ extern int pfs_element_parent(int eh) {
 		(pfs_err) = PFS_ERRNO_OUT_OF_MEMORY;
 		return -1;
 	}
-	memcpy(&peh->handle, &pfs_ehs[eh]->handle, sizeof(struct pfs_element_handle));
+	if (pfs_ehs[eh]->handle.is_mount_point) {
+		memcpy(&peh->handle, &pfs_ehs[eh]->handle.fs_data->mount_point->handle, sizeof(struct pfs_element_handle));
+	} else {
+		memcpy(&peh->handle, &pfs_ehs[eh]->handle, sizeof(struct pfs_element_handle));
+	}
 	if (!pfsc_element_get_parent(&peh->handle)) {
 		free(peh);
 		return -1;
@@ -53,6 +57,7 @@ extern ui32 pfs_element_get_flags(int eh) {
 
 extern int pfs_element_modify_flags(int eh, ui32 add_flags, ui32 rem_flags) {
 	eh(0)
+	check_write_access(0)
 	return pfsc_element_modify_flags(&pfs_ehs[eh]->handle, add_flags, rem_flags);
 }
 
@@ -68,11 +73,13 @@ extern i64 pfs_element_get_last_modify_time(int eh) {
 
 extern int pfs_element_set_create_time(int eh, i64 ct) {
 	eh(0)
+	check_write_access(0)
 	return pfsc_element_set_create_time(&pfs_ehs[eh]->handle, ct);
 }
 
 extern int pfs_element_set_last_modify_time(int eh, i64 lmt) {
 	eh(0)
+	check_write_access(0)
 	return pfsc_element_set_last_mod_time(&pfs_ehs[eh]->handle, lmt);
 }
 
@@ -83,12 +90,18 @@ extern int pfs_element_get_name(int eh, char **name_buf, i64 *buf_len) {
 
 extern int pfs_element_set_name(int eh, char *name) {
 	eh(0)
+	check_write_access(0)
 	return pfsc_element_set_name(&pfs_ehs[eh]->handle, name);
 }
 
 extern int pfs_element_set_parent(int eh, int parenteh) {
 	eh(0)
 	get_eh(0, parenteh)
+	check_write_access(0)
+	if (pfs_ehs[eh]->handle.fs_data != pfs_ehs[parenteh]->handle.fs_data) {
+		pfs_err = PFS_ERRNO_DIFFERENT_FILE_SYSTEMS;
+		return 0;
+	}
 	return pfsc_element_set_parent(&pfs_ehs[eh]->handle,
 			&pfs_ehs[parenteh]->handle);
 }

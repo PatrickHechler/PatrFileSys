@@ -56,7 +56,9 @@ enum pfs_errno {
 	PFS_ERRNO_OUT_OF_RANGE                  = 14, /* indicates that some value was outside of the allowed range */
 	PFS_ERRNO_FOLDER_NOT_EMPTY              = 15, /* indicates that the operation failed, because only empty folders can be deleted */
 	PFS_ERRNO_ELEMENT_DELETED               = 16, /* indicates that the operation failed, because the element was deleted */
-	
+	PFS_ERRNO_READ_ONLY                     = 17, /* indicates that the operation failed, because the file system or the element is read only */
+	PFS_ERRNO_DIFFERENT_FILE_SYSTEMS        = 18, /* indicates that the operation failed, because the different file systems should be used (for example move entry) */
+
 	// here is the end of the automatic generated code-block
 	// GENERATED-CODE-END
 };

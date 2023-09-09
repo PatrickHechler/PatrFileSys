@@ -26,6 +26,8 @@
 #include "pfs.h"
 #include "../include/pfs-stream.h"
 
+#define pfss(sh) pfs(pfs_shs[sh]->element)
+
 extern i64 pfs_stream_write(int sh, void *data, i64 len) {
 	sh(0)
 	if (!pfs_shs[sh]->element) {
@@ -45,7 +47,7 @@ extern i64 pfs_stream_write(int sh, void *data, i64 len) {
 		}
 		return 0;
 	}
-	void *my_block_data = pfs->get(pfs,
+	void *my_block_data = pfss(sh)->get(pfss(sh),
 			pfs_shs[sh]->element->handle.element_place.block);
 	if (!my_block_data) {
 		return 0;
@@ -55,12 +57,12 @@ extern i64 pfs_stream_write(int sh, void *data, i64 len) {
 	if ((!pfs_shs[sh]->is_file) || (pfs_shs[sh]->flags & PFS_SO_APPEND)) {
 		i64 appended = pfsc_file_append(&pfs_shs[sh]->element->handle, data,
 				len);
-		pfs->unget(pfs, pfs_shs[sh]->element->handle.element_place.block);
+		pfss(sh)->unget(pfss(sh), pfs_shs[sh]->element->handle.element_place.block);
 		return appended;
 	} else if (f->file_length < pfs_shs[sh]->pos) {
 		if (!pfsc_file_truncate_grow(&pfs_shs[sh]->element->handle,
 				pfs_shs[sh]->pos)) {
-			pfs->unget(pfs, pfs_shs[sh]->element->handle.element_place.block);
+			pfss(sh)->unget(pfss(sh), pfs_shs[sh]->element->handle.element_place.block);
 			return -1;
 		}
 	}
@@ -74,17 +76,17 @@ extern i64 pfs_stream_write(int sh, void *data, i64 len) {
 		}
 		if (!pfsc_file_write(&pfs_shs[sh]->element->handle, pfs_shs[sh]->pos,
 				data, write_len)) {
-			pfs->unget(pfs, pfs_shs[sh]->element->handle.element_place.block);
+			pfss(sh)->unget(pfss(sh), pfs_shs[sh]->element->handle.element_place.block);
 			return -1;
 		}
 		i64 remain = len - write_len;
 		if (remain <= 0) {
-			pfs->unget(pfs, pfs_shs[sh]->element->handle.element_place.block);
+			pfss(sh)->unget(pfss(sh), pfs_shs[sh]->element->handle.element_place.block);
 			return write_len;
 		}
 		i64 appended = pfsc_file_append(&pfs_shs[sh]->element->handle,
 				data + write_len, remain);
-		pfs->unget(pfs, pfs_shs[sh]->element->handle.element_place.block);
+		pfss(sh)->unget(pfss(sh), pfs_shs[sh]->element->handle.element_place.block);
 		i64 sum = write_len + appended;
 		pfs_shs[sh]->pos += sum;
 		return sum;
@@ -93,7 +95,7 @@ extern i64 pfs_stream_write(int sh, void *data, i64 len) {
 	} else {
 		i64 appended = pfsc_file_append(&pfs_shs[sh]->element->handle, data,
 				len);
-		pfs->unget(pfs, pfs_shs[sh]->element->handle.element_place.block);
+		pfss(sh)->unget(pfss(sh), pfs_shs[sh]->element->handle.element_place.block);
 		pfs_shs[sh]->pos += appended;
 		return appended;
 	}
@@ -118,7 +120,7 @@ extern i64 pfs_stream_read(int sh, void *buffer, i64 len) {
 		}
 		return 0;
 	}
-	void *my_block_data = pfs->get(pfs,
+	void *my_block_data = pfss(sh)->get(pfss(sh),
 			pfs_shs[sh]->element->handle.element_place.block);
 	if (!my_block_data) {
 		return 0;
@@ -130,14 +132,14 @@ extern i64 pfs_stream_read(int sh, void *buffer, i64 len) {
 			len = (f->file_length - ((struct pfs_pipe*) f)->start_offset);
 		}
 		if (!pfsc_pipe_read(&pfs_shs[sh]->element->handle, buffer, len)) {
-			pfs->unget(pfs, pfs_shs[sh]->element->handle.element_place.block);
+			pfss(sh)->unget(pfss(sh), pfs_shs[sh]->element->handle.element_place.block);
 			return -1;
 		}
-		pfs->unget(pfs, pfs_shs[sh]->element->handle.element_place.block);
+		pfss(sh)->unget(pfss(sh), pfs_shs[sh]->element->handle.element_place.block);
 		return len;
 	}
 	if (f->file_length <= pfs_shs[sh]->pos) {
-		pfs->unget(pfs, pfs_shs[sh]->element->handle.element_place.block);
+		pfss(sh)->unget(pfss(sh), pfs_shs[sh]->element->handle.element_place.block);
 		return 0;
 	}
 	if (len > f->file_length - pfs_shs[sh]->pos) {
@@ -145,11 +147,11 @@ extern i64 pfs_stream_read(int sh, void *buffer, i64 len) {
 	}
 	if (!pfsc_file_read(&pfs_shs[sh]->element->handle, pfs_shs[sh]->pos, buffer,
 			len)) {
-		pfs->unget(pfs, pfs_shs[sh]->element->handle.element_place.block);
+		pfss(sh)->unget(pfss(sh), pfs_shs[sh]->element->handle.element_place.block);
 		return 0;
 	}
 	pfs_shs[sh]->pos += len;
-	pfs->unget(pfs, pfs_shs[sh]->element->handle.element_place.block);
+	pfss(sh)->unget(pfss(sh), pfs_shs[sh]->element->handle.element_place.block);
 	return len;
 }
 
@@ -220,7 +222,7 @@ extern i64 pfs_stream_seek_eof(int sh) {
 		pfs_err = PFS_ERRNO_ELEMENT_WRONG_TYPE;
 		return -1;
 	}
-	void *block_data = pfs->get(pfs,
+	void *block_data = pfss(sh)->get(pfss(sh),
 			pfs_shs[sh]->element->handle.element_place.block);
 	if (!block_data) {
 		return -1;
@@ -228,6 +230,6 @@ extern i64 pfs_stream_seek_eof(int sh) {
 	struct pfs_file *f = block_data
 			+ pfs_shs[sh]->element->handle.element_place.pos;
 	pfs_shs[sh]->pos = f->file_length;
-	pfs->unget(pfs, pfs_shs[sh]->element->handle.element_place.block);
+	pfss(sh)->unget(pfss(sh), pfs_shs[sh]->element->handle.element_place.block);
 	return pfs_shs[sh]->pos;
 }

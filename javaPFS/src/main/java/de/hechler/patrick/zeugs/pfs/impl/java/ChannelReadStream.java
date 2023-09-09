@@ -1,19 +1,19 @@
-//This file is part of the Patr File System Project
-//DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
-//Copyright (C) 2023  Patrick Hechler
+// This file is part of the Patr File System Project
+// DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+// Copyright (C) 2023 Patrick Hechler
 //
-//This program is free software: you can redistribute it and/or modify
-//it under the terms of the GNU General Public License as published by
-//the Free Software Foundation, either version 3 of the License, or
-//(at your option) any later version.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-//This program is distributed in the hope that it will be useful,
-//but WITHOUT ANY WARRANTY; without even the implied warranty of
-//MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//GNU General Public License for more details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
 //
-//You should have received a copy of the GNU General Public License
-//along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 package de.hechler.patrick.zeugs.pfs.impl.java;
 
 import java.io.IOException;
@@ -30,32 +30,32 @@ public record ChannelReadStream(SeekableByteChannel channel, StreamOpenOptions o
 	
 	@Override
 	public StreamOpenOptions options() {
-		return opts;
+		return this.opts;
 	}
 	
 	@Override
 	public void seek(long pos) throws IOException {
-		channel.position(pos);
+		this.channel.position(pos);
 	}
 	
 	@Override
 	public long seekAdd(long add) throws IOException {
-		long oldPos = channel.position();
+		long oldPos = this.channel.position();
 		long newPos = oldPos + add;
-		channel.position(newPos);
+		this.channel.position(newPos);
 		return newPos;
 	}
 	
 	@Override
 	public long seekEOF() throws IOException {
-		long newPos = Files.size(path);
-		channel.position(newPos);
+		long newPos = Files.size(this.path);
+		this.channel.position(newPos);
 		return newPos;
 	}
 	
 	@Override
 	public int read(ByteBuffer data) throws IOException {
-		int read = channel.read(data);
+		int read = this.channel.read(data);
 		return read == -1 ? 0 : read;
 	}
 	
@@ -71,20 +71,19 @@ public record ChannelReadStream(SeekableByteChannel channel, StreamOpenOptions o
 	
 	@Override
 	public long read(MemorySegment seg) throws IOException {
-		if (seg.byteSize() <= Integer.MAX_VALUE) {
+		if (seg.byteSize() <= Integer.MAX_VALUE - 8) {
 			return read(seg.asByteBuffer());
-		} else {
-			for (long off = 0L; off < seg.byteSize(); off += Integer.MAX_VALUE) {
-				int read = read(seg.asSlice(off, (int) Math.min(Integer.MAX_VALUE, seg.byteSize() - off)).asByteBuffer());
-				if (read != Integer.MAX_VALUE) { return off + read; }
-			}
-			return seg.byteSize();
 		}
+		for (long off = 0L; off < seg.byteSize(); off += Integer.MAX_VALUE - 8) {
+			int read = read(seg.asSlice(off, (int) Math.min(Integer.MAX_VALUE - 8, seg.byteSize() - off)).asByteBuffer());
+			if (read != Integer.MAX_VALUE - 8) { return off + read; }
+		}
+		return seg.byteSize();
 	}
 	
 	@Override
 	public void close() throws IOException {
-		channel.close();
+		this.channel.close();
 	}
 	
 }

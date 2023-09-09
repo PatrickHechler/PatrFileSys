@@ -39,8 +39,9 @@
 #define PFS_F_FOLDER            0x00000001U
 #define PFS_F_FILE              0x00000002U
 #define PFS_F_PIPE              0x00000004U
+#define PFS_F_MOUNT             0x00000008U
 /* not yet supported
- #define PFS_FLAGS_SYM_LINK        0x00000008U
+ #define PFS_F_SYM_LINK
  */
 #define	PFS_F_HELPER_FOLDER     0x00000080U /* folders with this flag should not be passed to the outside */
 

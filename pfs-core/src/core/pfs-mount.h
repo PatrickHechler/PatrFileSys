@@ -15,10 +15,21 @@
 //You should have received a copy of the GNU General Public License
 //along with this program.  If not, see <https://www.gnu.org/licenses/>.
 /*
- * pfs-iter.c
+ * pfs-mount.h
  *
- *  Created on: Oct 16, 2022
+ *  Created on: Sep 8, 2023
  *      Author: pat
  */
-#include "pfs.h"
-#include "../include/pfs-iter.h"
+
+#ifndef SRC_CORE_PFS_MOUNT_H_
+#define SRC_CORE_PFS_MOUNT_H_
+
+#include "../include/pfs-mount.h"
+
+int pfsc_mount_open(pfs_meh me, int read_only);
+
+int pfsc_mount_close(pfs_meh me);
+
+enum mount_type pfsc_mount_type(pfs_meh me);
+
+#endif /* SRC_CORE_PFS_MOUNT_H_ */
