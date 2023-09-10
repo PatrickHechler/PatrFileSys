@@ -55,9 +55,9 @@ extern i32 pfs_mount_fs_name_len(int eh);
 extern char* pfs_mount_fs_name(int eh);
 
 /*
- * returns a 1 value if the mount point is a read only mount or
+ * returns 1 value if the mount point is a read only mount or
  * the file system (the mounted or the one which surrounds the mount) has the read only flag set.
- * if not returns zero
+ * if not returns 0
  * on error returns -1
  */
 extern int pfs_mount_fs_is_read_only(int eh);
