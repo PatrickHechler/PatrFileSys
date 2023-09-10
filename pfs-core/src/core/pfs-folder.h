@@ -180,4 +180,10 @@ int pfsc_folder_create_file(pfs_eh f, pfs_eh parent, const char *name);
  */
 int pfsc_folder_create_pipe(pfs_eh f, pfs_eh parent, const char *name);
 
+int pfsc_folder_create_mount_intern(pfs_eh f, pfs_eh parent, const char *name,
+		i64 block_count, i32 block_size);
+int pfsc_folder_create_mount_temp(pfs_eh f, pfs_eh parent, const char *name,
+		i64 block_count, i32 block_size);
+int pfsc_folder_create_mount_rfs_file(pfs_eh f, pfs_eh parent, const char *name,
+		const char *file);
 #endif /* SRC_CORE_PFS_FOLDER_H_ */

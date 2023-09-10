@@ -21,6 +21,7 @@
  *      Author: pat
  */
 #include "pfs.h"
+#include "../core/pfs-folder.h"
 #include "../include/pfs-folder.h"
 #include "../core/pfs-mount.h"
 
@@ -88,10 +89,10 @@ extern int pfs_folder_child_pipe(int eh, const char *name) {
 	pfs_folder_child_impl(pipe_)
 }
 
-#define pfs_folder_create(type) \
+#define pfs_folder_create0(type, handle_possfix, action, ...) \
 	ch(-1) \
 	check_write_access(-1) \
-	struct element_handle *c = malloc(sizeof(struct element_handle)); \
+	struct element_handle *c = malloc(sizeof(struct element_handle##handle_possfix)); \
 	if (!c) { \
 		pfs_err = PFS_ERRNO_OUT_OF_MEMORY; \
 		errno = 0; \
@@ -99,11 +100,17 @@ extern int pfs_folder_child_pipe(int eh, const char *name) {
 	} \
 	c->handle = pfs_ehs[eh]->handle; \
 	pfs_modify_iterators(pfs_ehs[eh], 0xFFFFFFFFFFFFFFFFUL); \
-	if (!pfsc_folder_create_##type(&c->handle, &pfs_ehs[eh]->handle, name)) { \
+	if (!pfsc_folder_create_##type(&c->handle, &pfs_ehs[eh]->handle, __VA_ARGS__)) { \
 		return -1; \
 	} \
-	get_child(-1) \
+	action \
+	struct element_handle *oc = hashset_put(&pfs_all_ehs_set, eh_hash(c), c); \
+	if (oc) { \
+		abort(); \
+	} \
 	return_handle(pfs_eh_len, pfs_ehs, c)
+
+#define pfs_folder_create(type) pfs_folder_create0(type,,,name)
 
 extern int pfs_folder_create_folder(int eh, const char *name) {
 	pfs_folder_create(folder)
@@ -115,4 +122,16 @@ extern int pfs_folder_create_file(int eh, const char *name) {
 
 extern int pfs_folder_create_pipe(int eh, const char *name) {
 	pfs_folder_create(pipe)
+}
+
+extern int pfs_folder_create_mount_intern(int eh, const char *name, i64 block_count, i32 block_size) {
+	pfs_folder_create0(mount_intern, _mount, pfsc_mount_open(&((struct element_handle_mount*) c)->handle, c->handle.fs_data->read_only);, name, block_count, block_size)
+}
+
+extern int pfs_folder_create_mount_temp(int eh, const char *name, i64 block_count, i32 block_size) {
+	pfs_folder_create0(mount_temp, _mount, pfsc_mount_open(&((struct element_handle_mount*) c)->handle, c->handle.fs_data->read_only);, name, block_count, block_size)
+}
+
+extern int pfs_folder_create_mount_rfs_file(int eh, const char *name, const char *file) {
+	pfs_folder_create0(mount_rfs_file, _mount, pfsc_mount_open(&((struct element_handle_mount*) c)->handle, c->handle.fs_data->read_only);, name, file)
 }

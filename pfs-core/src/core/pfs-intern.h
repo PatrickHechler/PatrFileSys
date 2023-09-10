@@ -135,23 +135,37 @@ struct pfs_folder {
 
 _Static_assert(offsetof(struct pfs_folder, entries) == sizeof(struct pfs_folder));
 
-struct pfs_file {
-	struct pfs_element element;
+struct pfs_file_data {
+	struct pfs_element *e;
+	struct pfs_file0 *f;
+};
+
+struct pfs_file0 {
 	i64 file_length;
 	i64 first_block;
 } __attribute__((packed));
 
-struct pfs_pipe {
-	struct pfs_file file;
+struct pfs_file {
+	struct pfs_element element;
+	struct pfs_file0 file;
+} __attribute__((packed));
+
+struct pfs_pipe0 {
+	struct pfs_file0 file;
 	i32 start_offset;
+} __attribute__((packed));
+
+struct pfs_pipe {
+	struct pfs_element element;
+	struct pfs_pipe0 pipe;
 } __attribute__((packed));
 
 #define PFS_MOUNT_FLAGS_READ_ONLY 0x00000100U
 
-#define PFS_MOUNT_FLAGS_TEMP           mount_type_temp            /* 0 */
-#define PFS_MOUNT_FLAGS_INTERN         mount_type_intern          /* 1 */
-#define PFS_MOUNT_FLAGS_REAL_FS_FILE   mount_type_linux_pfs_file  /* 2 */
-#define PFS_MOUNT_FLAGS_TYPE_MASK      0x00000003U
+#define PFS_MOUNT_FLAGS_TEMP           ((ui32) mount_type_temp           ) /* 0 */
+#define PFS_MOUNT_FLAGS_INTERN         ((ui32) mount_type_intern         ) /* 1 */
+#define PFS_MOUNT_FLAGS_REAL_FS_FILE   ((ui32) mount_type_linux_pfs_file ) /* 2 */
+#define PFS_MOUNT_FLAGS_TYPE_MASK      ((ui32) 0x00000003U               )
 
 struct pfs_mount_point {
 	struct pfs_element element;
@@ -166,14 +180,14 @@ struct pfs_mount_point_tmp {
 
 struct pfs_mount_point_real_fs_file {
 	struct pfs_mount_point generic;
-	i32 path_pos;
+	char path[0];
 } __attribute__((packed));
 
 struct pfs_mount_point_intern {
 	struct pfs_mount_point generic;
 	i32 block_size;
 	i64 block_count;
-	struct pfs_file file;
+	struct pfs_file0 file;
 } __attribute__((packed));
 
 struct pfs_element_handle {

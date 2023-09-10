@@ -582,7 +582,7 @@ static inline int open_sh(struct element_handle *eh, ui32 stream_flags) {
 	}
 	if (stream_flags & PFS_SO_FILE_EOF) {
 		if (sh->is_file) {
-			sh->pos = f->file_length;
+			sh->pos = f->file.file_length;
 		}
 	}
 	pfs(eh)->unget(pfs(eh), eh->handle.element_place.block);

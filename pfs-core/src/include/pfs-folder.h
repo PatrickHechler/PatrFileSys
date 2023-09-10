@@ -132,4 +132,19 @@ extern int pfs_folder_create_file(int eh, const char *name);
  */
 extern int pfs_folder_create_pipe(int eh, const char *name);
 
+/*
+ * creates a new intern mount point with the given name and adds it to the given folder as a child element
+ */
+extern int pfs_folder_create_mount_intern(int eh, const char *name, i64 block_count, i32 block_size);
+
+/*
+ * creates a new temp mount point with the given name and adds it to the given folder as a child element
+ */
+extern int pfs_folder_create_mount_temp(int eh, const char *name, i64 block_count, i32 block_size);
+
+/*
+ * creates a new mount point with a backing file in the Linux file system with the given name and adds it to the given folder as a child element
+ */
+extern int pfs_folder_create_mount_rfs_file(int eh, const char *name, const char *file);
+
 #endif /* SRC_INCLUDE_PFS_FOLDER_H_ */

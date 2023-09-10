@@ -76,8 +76,8 @@ int pfsc_file_truncate_grow(pfs_eh f, i64 new_length);
  */
 i64 pfsc_file_length(pfs_eh f);
 
-int pfsc_file_read0(bm pfs, struct pfs_file *file, i64 position, void *buffer, i64 length, i64 file_block);
-int pfsc_file_write0(bm pfs, struct pfs_file *file, i64 position, void *buffer, i64 length, i64 file_block);
+int pfsc_file_read0(bm pfs, struct pfs_file_data file, i64 position, void *buffer, i64 length, i64 file_block);
+int pfsc_file_write0(bm pfs, struct pfs_file_data file, i64 position, void *buffer, i64 length, i64 file_block);
 
 
 #endif /* SRC_CORE_PFS_FILE_H_ */

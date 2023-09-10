@@ -70,7 +70,7 @@ public interface Folder extends FSElement, Iterable<FSElement> {
 		try {
 			return iter(false);
 		} catch (IOException e) {
-			throw new RuntimeException(e);
+			throw new IOError(e);
 		}
 	}
 	

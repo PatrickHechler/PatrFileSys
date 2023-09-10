@@ -52,7 +52,7 @@ int pfsc_file_write(pfs_eh f, i64 position, void *data, i64 length) {
 	return read_write(f, position, data, length, 0, 0);
 }
 
-static inline i64 pfsc_file_append0(bm pfs, struct pfs_file *file, void *data,
+static inline i64 pfsc_file_append0(bm pfs, struct pfs_file_data file, void *data,
 		i64 length, const i64 file_block);
 
 i64 pfsc_file_append(pfs_eh f, void *data, i64 length) {
@@ -64,20 +64,24 @@ i64 pfsc_file_append(pfs_eh f, void *data, i64 length) {
 		return -1;
 	}
 	get_file(-1)
-	return pfsc_file_append0(pfs0(f), file, data, length,
+	struct pfs_file_data file0 = {
+			.e = &file->element,
+			.f = &file->file
+	};
+	return pfsc_file_append0(pfs0(f), file0, data, length,
 			f->element_place.block);
 }
 
-static inline i64 pfsc_file_append0(bm pfs, struct pfs_file *file, void *data,
+static inline i64 pfsc_file_append0(bm pfs, struct pfs_file_data file, void *data,
 		i64 length, const i64 file_block) {
-	file->element.last_mod_time = time(NULL);
+	file.e->last_mod_time = time(NULL);
 	struct pfs_place file_end;
-	if (file->file_length == 0) {
+	if (file.f->file_length == 0) {
 		file_end.block = allocate_block(pfs, BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
-		file->first_block = file_end.block;
+		file.f->first_block = file_end.block;
 		file_end.pos = 0;
 	} else {
-		file_end = find_place(pfs, file->first_block, file->file_length);
+		file_end = find_place(pfs, file.f->first_block, file.f->file_length);
 	}
 	i64 appended = 0L;
 	int cpy = pfs->block_size - 8 - file_end.pos;
@@ -99,7 +103,7 @@ static inline i64 pfsc_file_append0(bm pfs, struct pfs_file *file, void *data,
 		length -= cpy;
 		data += cpy;
 		appended += cpy;
-		file->file_length += cpy;
+		file.f->file_length += cpy;
 		i64 next_block;
 		if (length > 0) {
 			next_block = allocate_block(pfs, BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
@@ -121,14 +125,14 @@ static inline i64 pfsc_file_append0(bm pfs, struct pfs_file *file, void *data,
 static inline int truncate_shrink(pfs_eh f, i64 new_length) {
 	struct pfs_file *file = pfs0(f)->get(pfs0(f), f->element_place.block)
 			+ f->element_place.pos;
-	i64 remain = file->file_length - new_length;
-	struct pfs_place place = find_place(pfs0(f), file->first_block, new_length);
+	i64 remain = file->file.file_length - new_length;
+	struct pfs_place place = find_place(pfs0(f), file->file.first_block, new_length);
 	int first = 1;
 	if (new_length == 0) {
-		file->first_block = -1L;
+		file->file.first_block = -1L;
 		first = 0;
 	}
-	file->file_length = new_length;
+	file->file.file_length = new_length;
 	while (remain > 0) {
 		const i64 current_block_num = place.block;
 		void *current_block = pfs0(f)->get(pfs0(f), current_block_num);
@@ -152,28 +156,32 @@ static inline int truncate_shrink(pfs_eh f, i64 new_length) {
 	return 1;
 }
 
-static inline int pfsc_file_truncate_grow0(bm pfs, struct pfs_file *file,
+static inline int pfsc_file_truncate_grow0(bm pfs, struct pfs_file_data file,
 		i64 new_length, const i64 file_block);
 
 int pfsc_file_truncate_grow(pfs_eh f, i64 new_length) {
 	get_file(0)
-	return pfsc_file_truncate_grow0(pfs0(f), file, new_length,
+	struct pfs_file_data file0 = {
+			.e = &file->element,
+			.f = &file->file
+	};
+	return pfsc_file_truncate_grow0(pfs0(f), file0, new_length,
 			f->element_place.block);
 }
 
-static inline int pfsc_file_truncate_grow0(bm pfs, struct pfs_file *file,
+static inline int pfsc_file_truncate_grow0(bm pfs, struct pfs_file_data file,
 		i64 new_length, const i64 file_block) {
-	const i64 old_length = file->file_length;
-	file->element.last_mod_time = time(NULL);
+	const i64 old_length = file.f->file_length;
+	file.e->last_mod_time = time(NULL);
 	struct pfs_place file_end;
-	if (file->file_length == 0) {
+	if (file.f->file_length == 0) {
 		file_end.block = allocate_block(pfs, BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
-		file->first_block = file_end.block;
+		file.f->first_block = file_end.block;
 		file_end.pos = 0;
 	} else {
-		file_end = find_place(pfs, file->first_block, file->file_length);
+		file_end = find_place(pfs, file.f->first_block, file.f->file_length);
 	}
-	i64 add_length = new_length - file->file_length;
+	i64 add_length = new_length - file.f->file_length;
 	int set_len = pfs->block_size - 8 - file_end.pos;
 	while (file_end.block != -1) {
 		void *block_data;
@@ -191,7 +199,7 @@ static inline int pfsc_file_truncate_grow0(bm pfs, struct pfs_file *file,
 		}
 		memset(set_target, 0, set_len);
 		add_length -= set_len;
-		file->file_length += set_len;
+		file.f->file_length += set_len;
 		i64 next_block;
 		if (add_length > 0) {
 			next_block = allocate_block(pfs, BLOCK_FLAG_USED | BLOCK_FLAG_DATA);
@@ -218,7 +226,7 @@ int pfsc_file_truncate(pfs_eh f, i64 new_length) {
 	get_file(0)
 	file->element.last_mod_time = time(NULL);
 	int res;
-	if (file->file_length < new_length) {
+	if (file->file.file_length < new_length) {
 		res = pfsc_file_truncate_grow(f, new_length);
 	} else { // shrink can handle no change
 		res = truncate_shrink(f, new_length);
@@ -229,14 +237,14 @@ int pfsc_file_truncate(pfs_eh f, i64 new_length) {
 
 i64 pfsc_file_length(pfs_eh f) {
 	get_file(-1)
-	i64 len = file->file_length;
+	i64 len = file->file.file_length;
 	pfs0(f)->unget(pfs0(f), f->element_place.block);
 	return len;
 }
 
 i64 pfsc_pipe_length(pfs_eh p) {
 	get_pipe(-1)
-	i64 len = pipe->file.file_length - pipe->start_offset;
+	i64 len = pipe->pipe.file.file_length - pipe->pipe.start_offset;
 	pfs0(p)->unget(pfs0(p), p->element_place.block);
 	return len;
 }
@@ -245,7 +253,7 @@ int pfsc_pipe_read(pfs_eh p, void *buffer, i64 length) {
 	return read_write(p, 0, buffer, length, 1, 1);
 }
 
-static inline int read_write0(bm pfs, struct pfs_file *file, i64 position,
+static inline int read_write0(bm pfs, struct pfs_file_data file, i64 position,
 		void *buffer, i64 length, const int read, const int pipe,
 		const i64 file_block);
 
@@ -260,25 +268,29 @@ static inline int read_write(pfs_eh f, i64 position, void *buffer, i64 length,
 	}
 	get_file(0)
 	if (pipe) {
-		position = ((struct pfs_pipe*) file)->start_offset;
+		position = ((struct pfs_pipe*) file)->pipe.start_offset;
 	}
-	if (file->file_length - position < length) {
+	if (file->file.file_length - position < length) {
 		pfs_err = PFS_ERRNO_ILLEGAL_ARG;
 		pfs0(f)->unget(pfs0(f), f->element_place.block);
 		return 0;
 	}
-	return read_write0(pfs0(f), file, position, buffer, length, read, pipe,
+	struct pfs_file_data file0 = {
+			.e = &file->element,
+			.f = &file->file
+	};
+	return read_write0(pfs0(f), file0, position, buffer, length, read, pipe,
 			f->element_place.block);
 }
 
-static inline int read_write0(bm pfs, struct pfs_file *file, i64 position,
+static inline int read_write0(bm pfs, struct pfs_file_data file, i64 position,
 		void *buffer, i64 length, const int read, const int pipe,
 		const i64 file_block) {
-	i64 fb = file->first_block;
+	i64 fb = file.f->first_block;
 	struct pfs_place cpy_place;
 	if (!pipe) {
 		if (!read) {
-			file->element.last_mod_time = time(NULL);
+			file.e->last_mod_time = time(NULL);
 			pfs->set(pfs, file_block);
 		} else {
 			pfs->unget(pfs, file_block);
@@ -300,8 +312,8 @@ static inline int read_write0(bm pfs, struct pfs_file *file, i64 position,
 			memcpy(buffer, copy_block, cpy);
 			if (pipe) {
 				if (cpy_place.pos + cpy == pfs->block_size - 8) {
-					file->file_length -= pfs->block_size - 8;
-					file->first_block = next_block;
+					file.f->file_length -= pfs->block_size - 8;
+					file.f->first_block = next_block;
 					free_block(pfs, cpy_place.block);
 				}
 			}
@@ -314,14 +326,14 @@ static inline int read_write0(bm pfs, struct pfs_file *file, i64 position,
 		buffer += cpy;
 		if (length == 0) {
 			if (pipe) {
-				if (file->file_length > 0) {
-					((struct pfs_pipe*) file)->start_offset = cpy_place.pos
+				if (file.f->file_length > 0) {
+					((struct pfs_pipe0*) file.f)->start_offset = cpy_place.pos
 							+ cpy;
-				} else if (file->file_length < 0) {
+				} else if (file.f->file_length < 0) {
 					abort();
 				} else {
-					((struct pfs_pipe*) file)->start_offset = 0;
-					file->first_block = -1;
+					((struct pfs_pipe0*) file.f)->start_offset = 0;
+					file.f->first_block = -1;
 				}
 				pfs->set(pfs, file_block);
 			}
@@ -333,9 +345,9 @@ static inline int read_write0(bm pfs, struct pfs_file *file, i64 position,
 	}
 }
 
-static inline int pfsc_file_read_write0(bm pfs, struct pfs_file *file,
+static inline int pfsc_file_read_write0(bm pfs, struct pfs_file_data file,
 		i64 position, void *buffer, i64 length, const i64 file_block, const int read) {
-	if (position >= file->file_length) {
+	if (position >= file.f->file_length) {
 		if (read) {
 			memset(buffer, 0, length);
 		} else {
@@ -345,8 +357,8 @@ static inline int pfsc_file_read_write0(bm pfs, struct pfs_file *file,
 			pfsc_file_append0(pfs, file, buffer, length, file_block);
 		}
 		return 1;
-	} else if (position > file->file_length - length) {
-		i64 len = file->file_length - position;
+	} else if (position > file.f->file_length - length) {
+		i64 len = file.f->file_length - position;
 		pfs->get(pfs, file_block);
 		read_write0(pfs, file, position, buffer, len, read, 0, file_block);
 		position += len;
@@ -365,13 +377,13 @@ static inline int pfsc_file_read_write0(bm pfs, struct pfs_file *file,
 	}
 }
 
-int pfsc_file_read0(bm pfs, struct pfs_file *file, i64 position, void *buffer,
+int pfsc_file_read0(bm pfs, struct pfs_file_data file, i64 position, void *buffer,
 		i64 length, const i64 file_block) {
 	return pfsc_file_read_write0(pfs, file, position, buffer, length,
 			file_block, 1);
 }
 
-int pfsc_file_write0(bm pfs, struct pfs_file *file, i64 position, void *buffer,
+int pfsc_file_write0(bm pfs, struct pfs_file_data file, i64 position, void *buffer,
 		i64 length, const i64 file_block) {
 	return pfsc_file_read_write0(pfs, file, position, buffer, length,
 			file_block, 0);

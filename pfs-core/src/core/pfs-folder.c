@@ -305,8 +305,8 @@ static int pfs_folder_child_from_name_impl(pfs_eh f, const char *name,
 			f->direct_parent_place = old_place;
 		}
 		char *cn = block_data + folder->entries[i].name_pos;
-		if (get_size_from_block_table(block_data, folder->entries[i].name_pos, pfs0(f)->block_size)
-				== name_len) {
+		if (get_size_from_block_table(block_data, folder->entries[i].name_pos,
+		pfs0(f)->block_size) == name_len) {
 			if (memcmp(name, block_data + folder->entries[i].name_pos, name_len)
 					== 0) {
 				if ((folder->entries[i].flags & neededflag) == 0) {
@@ -381,8 +381,8 @@ static inline int has_child_with_name(bm pfs, struct pfs_place place,
 		if ((folder->entries[i].flags & (PFS_F_HELPER_FOLDER)) != 0) {
 			abort();
 		}
-		if (get_size_from_block_table(block_data, folder->entries[i].name_pos, pfs->block_size)
-				== name_len, pfs->block_size) {
+		if (get_size_from_block_table(block_data, folder->entries[i].name_pos,
+				pfs->block_size) == name_len, pfs->block_size) {
 			if (memcmp(name, block_data + folder->entries[i].name_pos, name_len)
 					== 0) {
 				pfs->unget(pfs, place.block);
@@ -396,16 +396,17 @@ static inline int has_child_with_name(bm pfs, struct pfs_place place,
 
 static inline int add_child(pfs_eh f, pfs_eh parent,
 		struct pfs_place real_parent, const char *name, i64 name_len,
-		ui32 child_flags, struct pfs_folder_entry *overwrite_child_entry);
+		ui32 child_flags, struct pfs_folder_entry *overwrite_child_entry, ...);
 
 static inline int delegate_create_element_to_helper(const i64 my_new_size,
 		struct pfs_place real_parent, int grow_success, i32 child_flags,
 		struct pfs_folder *me, struct pfs_place my_place, pfs_eh f,
-		const char *name, i64 name_len) {
+		const char *name, i64 name_len, va_list vargs) {
 	i64 helper_block;
 	const int orig_grow_success = grow_success;
 	if (me->helper_index == -1) {
-		helper_block = allocate_block(pfs0(f), BLOCK_FLAG_USED | BLOCK_FLAG_ENTRIES);
+		helper_block = allocate_block(pfs0(f),
+		BLOCK_FLAG_USED | BLOCK_FLAG_ENTRIES);
 		if (helper_block == -1L) {
 			if (grow_success) {
 				shrink_folder_entry(pfs0(f), my_place, my_new_size);
@@ -453,8 +454,8 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 					+ helper->entries[0].name_pos;
 			i32 name_len = get_size_from_block_table(my_block_data,
 					helper->entries[0].name_pos, pfs0(f)->block_size);
-			i32 name_pos = add_name(pfs0(f), helper_block, new_helper_child_name,
-					name_len);
+			i32 name_pos = add_name(pfs0(f), helper_block,
+					new_helper_child_name, name_len);
 			if (name_pos == -1) {
 				pfs0(f)->unget(pfs0(f), helper_block);
 				pfs0(f)->unget(pfs0(f), my_place.block);
@@ -497,8 +498,32 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 	if (grow_success) {
 		shrink_folder_entry(pfs0(f), my_place, my_new_size);
 	}
-	int res = add_child(f, NULL, real_parent, name, name_len, child_flags,
-	NULL);
+	int res;
+	if (child_flags == PFS_F_MOUNT) {
+		ui32 mount_flags = va_arg(vargs, ui32);
+		switch (mount_flags) {
+		case PFS_MOUNT_FLAGS_INTERN:
+		case PFS_MOUNT_FLAGS_TEMP:
+			i64 bc = va_arg(vargs, i64);
+			i32 bs = va_arg(vargs, i32);
+			va_end(vargs);
+			res = add_child(f, NULL, real_parent, name, name_len, child_flags,
+			/*				*/NULL, mount_flags, bc, bs);
+			break;
+		case PFS_MOUNT_FLAGS_REAL_FS_FILE:
+			const char *file = va_arg(vargs, const char*);
+			va_end(vargs);
+			res = add_child(f, NULL, real_parent, name, name_len, child_flags,
+			/*				*/NULL, mount_flags, file);
+			break;
+		default:
+			abort();
+		}
+	} else {
+		va_end(vargs);
+		res = add_child(f, NULL, real_parent, name, name_len, child_flags,
+		/*				*/NULL);
+	}
 	if (!res) {
 		*f = eh;
 		if (orig_grow_success) {
@@ -519,7 +544,7 @@ static inline int delegate_create_element_to_helper(const i64 my_new_size,
 
 static inline int add_child(pfs_eh f, pfs_eh parent,
 		struct pfs_place real_parent, const char *name, i64 name_len,
-		ui32 child_flags, struct pfs_folder_entry *overwrite_child_entry) {
+		ui32 child_flags, struct pfs_folder_entry *overwrite_child_entry, ...) {
 	if (f == parent) {
 		pfs_err = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
@@ -554,8 +579,11 @@ static inline int add_child(pfs_eh f, pfs_eh parent,
 		}
 		name_pos = add_name(pfs0(f), my_place.block, name, name_len);
 		if (name_pos == -1) {
+			va_list vargs;
+			va_start(vargs, overwrite_child_entry);
 			return delegate_create_element_to_helper(my_new_size, real_parent,
-					new_pos != -1, child_flags, me, my_place, f, name, name_len);
+					new_pos != -1, child_flags, me, my_place, f, name, name_len,
+					vargs);
 		}
 	} else if (((me->direct_child_count) < 2) && (me->helper_index == -1)) {
 		if (!allocate_new_entry(pfs0(f), &f->element_place, -1,
@@ -645,21 +673,53 @@ static inline int add_child(pfs_eh f, pfs_eh parent,
 			pfs0(f)->set(pfs0(f), my_old_block);
 		}
 	} else {
+		va_list vargs;
+		va_start(vargs, overwrite_child_entry);
 		return delegate_create_element_to_helper(my_new_size, real_parent,
-				new_pos != -1, child_flags, me, my_place, f, name, name_len);
+				new_pos != -1, child_flags, me, my_place, f, name, name_len,
+				vargs);
 	}
 	const i32 child_index = me->direct_child_count;
 	if (overwrite_child_entry != NULL) {
 		me->entries[child_index] = *overwrite_child_entry;
 		pfs0(f)->set(pfs0(f), my_place.block);
 	} else {
+		size_t len;
+		switch (child_flags) {
+		case PFS_F_FOLDER:
+			len = sizeof(struct pfs_folder);
+			break;
+		case PFS_F_FILE:
+			len = sizeof(struct pfs_file);
+			break;
+		case PFS_F_PIPE:
+			len = sizeof(struct pfs_pipe);
+			break;
+		case PFS_F_MOUNT:
+			va_list vargs;
+			va_start(vargs, overwrite_child_entry);
+			ui32 mount_flags = va_arg(vargs, ui32);
+			switch (mount_flags) {
+			case PFS_MOUNT_FLAGS_INTERN:
+				len = sizeof(struct pfs_mount_point_intern);
+				break;
+			case PFS_MOUNT_FLAGS_TEMP:
+				len = sizeof(struct pfs_mount_point_tmp);
+				break;
+			case PFS_MOUNT_FLAGS_REAL_FS_FILE:
+				len = sizeof(struct pfs_mount_point_real_fs_file)
+						+ strlen(va_arg(vargs, const char*));
+				break;
+			default:
+				abort();
+			}
+			va_end(vargs);
+			break;
+		default:
+			abort();
+		}
 		if (!allocate_new_entry(pfs0(f), &me->entries[child_index].child_place,
-				my_place.block,
-				child_flags == PFS_F_FOLDER ?
-						sizeof(struct pfs_folder) :
-						(child_flags == PFS_F_FILE ?
-								sizeof(struct pfs_file) :
-								sizeof(struct pfs_pipe)))) {
+				my_place.block, len)) {
 			if (new_pos != -1) {
 				shrink_folder_entry(pfs0(f), my_place, my_new_size);
 			}
@@ -698,26 +758,66 @@ static inline int add_child(pfs_eh f, pfs_eh parent,
 		f->entry_pos = my_place.pos + sizeof(struct pfs_folder)
 				+ (child_index * sizeof(struct pfs_folder_entry));
 		f->element_place = child_place;
-		if (child_flags == PFS_F_FOLDER) {
+		struct pfs_element *e = child;
+		e->last_mod_time = now;
+		switch (child_flags) {
+		case PFS_F_FOLDER: {
 			struct pfs_folder *cf = child;
-			cf->element.last_mod_time = time(NULL);
 			cf->real_parent = real_parent;
 			cf->direct_child_count = 0;
 			cf->folder_entry.block = f->direct_parent_place.block;
 			cf->folder_entry.pos = f->entry_pos;
 			cf->helper_index = -1;
-		} else if (child_flags == PFS_F_FILE) {
+			break;
+		}
+		case PFS_F_FILE: {
 			struct pfs_file *cf = child;
-			cf->element.last_mod_time = time(NULL);
-			cf->file_length = 0;
-			cf->first_block = -1;
-		} else if (child_flags == PFS_F_PIPE) {
-			struct pfs_pipe *cf = child;
-			cf->file.element.last_mod_time = time(NULL);
 			cf->file.file_length = 0;
 			cf->file.first_block = -1;
-			cf->start_offset = 0;
-		} else {
+			break;
+		}
+		case PFS_F_PIPE: {
+			struct pfs_pipe *cf = child;
+			cf->pipe.file.file_length = 0;
+			cf->pipe.file.first_block = -1;
+			cf->pipe.start_offset = 0;
+			break;
+		}
+		case PFS_F_MOUNT: {
+			struct pfs_mount_point *mp = child;
+			va_list vargs;
+			va_start(vargs, overwrite_child_entry);
+			ui32 mount_flags = va_arg(vargs, ui32);
+			mp->flags = mount_flags;
+			switch (mount_flags) {
+			case PFS_MOUNT_FLAGS_INTERN: {
+				struct pfs_mount_point_intern *im = child;
+				im->block_count = va_arg(vargs, i64);
+				im->block_size = va_arg(vargs, i32);
+				im->file.file_length = 0;
+				im->file.first_block = -1;
+				break;
+			}
+			case PFS_MOUNT_FLAGS_TEMP: {
+				struct pfs_mount_point_tmp *tm = child;
+				tm->block_count = va_arg(vargs, i64);
+				tm->block_size = va_arg(vargs, i32);
+				break;
+			}
+			case PFS_MOUNT_FLAGS_REAL_FS_FILE: {
+				struct pfs_mount_point_real_fs_file *rfsm = child;
+				i32 rfs_path_len = len
+						- sizeof(struct pfs_mount_point_real_fs_file);
+				memcpy(rfsm->path, va_arg(vargs, const char*), len);
+				break;
+			}
+			default:
+				abort();
+			}
+			va_end(vargs);
+			break;
+		}
+		default:
 			abort();
 		}
 		pfs0(f)->set(pfs0(f), f->element_place.block);
@@ -738,6 +838,24 @@ int pfsc_folder_create_file(pfs_eh f, pfs_eh parent, const char *name) {
 int pfsc_folder_create_pipe(pfs_eh f, pfs_eh parent, const char *name) {
 	return add_child(f, parent, f->element_place, name, strlen(name),
 	PFS_F_PIPE, NULL);
+}
+
+int pfsc_folder_create_mount_intern(pfs_eh f, pfs_eh parent, const char *name,
+		i64 block_count, i32 block_size) {
+	return add_child(f, parent, f->element_place, name, strlen(name),
+	PFS_F_MOUNT, NULL, PFS_MOUNT_FLAGS_INTERN, block_count, block_size);
+}
+
+int pfsc_folder_create_mount_temp(pfs_eh f, pfs_eh parent, const char *name,
+		i64 block_count, i32 block_size) {
+	return add_child(f, parent, f->element_place, name, strlen(name),
+	PFS_F_MOUNT, NULL, PFS_MOUNT_FLAGS_TEMP, block_count, block_size);
+}
+
+int pfsc_folder_create_mount_rfs_file(pfs_eh f, pfs_eh parent, const char *name,
+		const char *file) {
+	return add_child(f, parent, f->element_place, name, strlen(name),
+	PFS_F_MOUNT, NULL, PFS_MOUNT_FLAGS_REAL_FS_FILE, file);
 }
 
 int pfsc_element_get_parent(pfs_eh e) {
@@ -809,7 +927,9 @@ static void remove_from_parent(const struct pfs_element_handle *e,
 		abort();
 	}
 	shrink_folder_entry(pfs0(e), e->direct_parent_place,
-			sizeof(struct pfs_folder) + (sizeof(struct pfs_folder_entry) * (1 + direct_parent->direct_child_count)));
+			sizeof(struct pfs_folder)
+					+ (sizeof(struct pfs_folder_entry)
+							* (1 + direct_parent->direct_child_count)));
 }
 
 static int del_helper(bm pfs, struct pfs_place h) {
@@ -852,9 +972,10 @@ static inline i64 get_index_from_parent(pfs_eh e) {
 }
 
 int pfsc_element_delete(pfs_eh e, i64 *former_index) {
-	get_folder1_(pfs0(e), direct_parent, direct_parent_block, e->direct_parent_place)
-	get_any(pfs0(e), pfs_element, element, element_block, e->element_place.block,
-			e->element_place.pos,
+	get_folder1_(pfs0(e), direct_parent, direct_parent_block,
+			e->direct_parent_place)
+	get_any(pfs0(e), pfs_element, element, element_block,
+			e->element_place.block, e->element_place.pos,
 			pfs0(e)->unget(pfs0(e), e->direct_parent_place.block) ;)
 	i64 index = get_index_from_parent(e);
 	if (index == -1) {
@@ -901,15 +1022,14 @@ static int move_and_set_parent_impl(pfs_eh e, pfs_eh new_parent, char *name) {
 	}
 	if (e->fs_data != new_parent->fs_data) {
 		pfs_err = PFS_ERRNO_DIFFERENT_FILE_SYSTEMS;
-				return 0;
+		return 0;
 	}
 	struct pfs_element_handle moh = *e;
 	get_any(pfs0(e), any, old_me, my_old_block, moh.element_place.block,
 			moh.element_place.pos,)
 	get_folder3_(pfs0(e), old_parent_folder, old_parent_block_data,
 			moh.direct_parent_place.block, moh.direct_parent_place.pos,
-			pfs0(e)->unget(pfs0(e), moh.element_place.block)
-			;)
+			pfs0(e)->unget(pfs0(e), moh.element_place.block) ;)
 	struct pfs_folder_entry *my_old_entry = old_parent_block_data
 			+ moh.entry_pos;
 	if (my_old_entry->flags & PFS_F_FOLDER) {
@@ -932,8 +1052,8 @@ static int move_and_set_parent_impl(pfs_eh e, pfs_eh new_parent, char *name) {
 		}
 	}
 	const i64 new_parent_old_block = new_parent->element_place.block;
-	get_folder3_(pfs0(e), new_parent_folder, new_parent_block_data, new_parent_old_block,
-			new_parent->element_place.pos,
+	get_folder3_(pfs0(e), new_parent_folder, new_parent_block_data,
+			new_parent_old_block, new_parent->element_place.pos,
 			pfs0(e)->unget(pfs0(e), moh.direct_parent_place.block); pfs0(e)->unget(pfs0(e), moh.element_place.block);)
 	*e = *new_parent;
 	i32 name_len;

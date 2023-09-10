@@ -122,10 +122,9 @@ int pfsc_mount_open(pfs_meh me, int read_only) {
 	}
 	case PFS_MOUNT_FLAGS_REAL_FS_FILE:
 		struct pfs_mount_point_real_fs_file *rfmount = (struct pfs_mount_point_real_fs_file*) gmount;
-		i32 path_pos = rfmount->path_pos;
-		i32 len = get_size_from_block_table(block_data, path_pos, pfs(me)->block_size);
-		char *file = malloc(len + 1L);
-		memcpy(file, block_data + path_pos, len);
+		i32 len = get_size_from_block_table(block_data, me->handle.element_place.pos, pfs(me)->block_size);
+		char *file = malloc(len - sizeof(struct pfs_mount_point_real_fs_file) + 1L);
+		memcpy(file, rfmount->path, len);
 		file[len] = '\0';
 		struct bm_block_manager *inner = bm_new_file_block_manager_path(file,
 				read_only);
@@ -163,7 +162,11 @@ static inline int save_block(struct bm_block_manager_intern *bmi,
 		struct bm_loaded *loaded) {
 	get_mount_(bmi->me, imount, 0, _intern)
 	i64 fpos = imount->block_size * loaded->block;
-	pfsc_file_write0(&bmi->bm, &imount->file, fpos, loaded->data, bmi->bm.block_size,
+	struct pfs_file_data file0 = {
+			.e = &imount->generic.element,
+			.f = &imount->file
+	};
+	pfsc_file_write0(&bmi->bm, file0, fpos, loaded->data, bmi->bm.block_size,
 			bmi->me->handle.element_place.block);
 	return 1;
 }
@@ -194,7 +197,11 @@ static void* pfs_inten_bm_get(struct bm_block_manager *bm, i64 block) {
 		return NULL;
 	}
 	i64 fpos = block * bi->bm.block_size;
-	if (!pfsc_file_read0(pfs(bi->me), &imount->file, fpos, loaded->data,
+	struct pfs_file_data file0 = {
+			.e = &imount->generic.element,
+			.f = &imount->file
+	};
+	if (!pfsc_file_read0(pfs(bi->me), file0, fpos, loaded->data,
 			bi->bm.block_size, bi->me->handle.element_place.block)) {
 		free(loaded);
 		free(loaded->data);

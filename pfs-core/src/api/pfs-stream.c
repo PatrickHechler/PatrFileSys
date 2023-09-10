@@ -59,14 +59,14 @@ extern i64 pfs_stream_write(int sh, void *data, i64 len) {
 				len);
 		pfss(sh)->unget(pfss(sh), pfs_shs[sh]->element->handle.element_place.block);
 		return appended;
-	} else if (f->file_length < pfs_shs[sh]->pos) {
+	} else if (f->file.file_length < pfs_shs[sh]->pos) {
 		if (!pfsc_file_truncate_grow(&pfs_shs[sh]->element->handle,
 				pfs_shs[sh]->pos)) {
 			pfss(sh)->unget(pfss(sh), pfs_shs[sh]->element->handle.element_place.block);
 			return -1;
 		}
 	}
-	i64 overwrite_place = f->file_length - pfs_shs[sh]->pos;
+	i64 overwrite_place = f->file.file_length - pfs_shs[sh]->pos;
 	if (overwrite_place > 0) {
 		i64 write_len;
 		if (overwrite_place <= len) {
@@ -128,8 +128,8 @@ extern i64 pfs_stream_read(int sh, void *buffer, i64 len) {
 	struct pfs_file *f = my_block_data
 			+ pfs_shs[sh]->element->handle.element_place.pos;
 	if (!pfs_shs[sh]->is_file) {
-		if (len > (f->file_length - ((struct pfs_pipe*) f)->start_offset)) {
-			len = (f->file_length - ((struct pfs_pipe*) f)->start_offset);
+		if (len > (f->file.file_length - ((struct pfs_pipe*) f)->pipe.start_offset)) {
+			len = (f->file.file_length - ((struct pfs_pipe*) f)->pipe.start_offset);
 		}
 		if (!pfsc_pipe_read(&pfs_shs[sh]->element->handle, buffer, len)) {
 			pfss(sh)->unget(pfss(sh), pfs_shs[sh]->element->handle.element_place.block);
@@ -138,12 +138,12 @@ extern i64 pfs_stream_read(int sh, void *buffer, i64 len) {
 		pfss(sh)->unget(pfss(sh), pfs_shs[sh]->element->handle.element_place.block);
 		return len;
 	}
-	if (f->file_length <= pfs_shs[sh]->pos) {
+	if (f->file.file_length <= pfs_shs[sh]->pos) {
 		pfss(sh)->unget(pfss(sh), pfs_shs[sh]->element->handle.element_place.block);
 		return 0;
 	}
-	if (len > f->file_length - pfs_shs[sh]->pos) {
-		len = f->file_length - pfs_shs[sh]->pos;
+	if (len > f->file.file_length - pfs_shs[sh]->pos) {
+		len = f->file.file_length - pfs_shs[sh]->pos;
 	}
 	if (!pfsc_file_read(&pfs_shs[sh]->element->handle, pfs_shs[sh]->pos, buffer,
 			len)) {
@@ -229,7 +229,7 @@ extern i64 pfs_stream_seek_eof(int sh) {
 	}
 	struct pfs_file *f = block_data
 			+ pfs_shs[sh]->element->handle.element_place.pos;
-	pfs_shs[sh]->pos = f->file_length;
+	pfs_shs[sh]->pos = f->file.file_length;
 	pfss(sh)->unget(pfss(sh), pfs_shs[sh]->element->handle.element_place.block);
 	return pfs_shs[sh]->pos;
 }
