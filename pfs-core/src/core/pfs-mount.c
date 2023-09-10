@@ -118,6 +118,12 @@ int pfsc_mount_open(pfs_meh me, int read_only) {
 		bm_set(void*, first_zero_flagged_block, not_get_first_zero_flagged_block)
 		bm_set(void*, delete_all_flags, not_delete_all_flags)
 #undef bm_set
+		if (imount->file.file_length == 0) {
+			if (!pfsc_format(&inner->bm, imount->block_count, NULL, "")) {
+				free(inner);
+				return 0;
+			}
+		}
 		return pfsc_fill_root(&inner->bm, root, &me->fs, read_only);
 	}
 	case PFS_MOUNT_FLAGS_REAL_FS_FILE:

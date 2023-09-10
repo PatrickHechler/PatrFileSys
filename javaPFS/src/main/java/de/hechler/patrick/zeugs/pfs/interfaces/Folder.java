@@ -100,7 +100,7 @@ public interface Folder extends FSElement, Iterable<FSElement> {
 	 * this method will fail
 	 * <ul>
 	 * <li>if this folder does not has a child with the given name</li>
-	 * <li>if the child with the given name is no folder</li>
+	 * <li>if the child with the given name is no folder or mount point</li>
 	 * </ul>
 	 * 
 	 * @param name the name of the child
@@ -110,6 +110,22 @@ public interface Folder extends FSElement, Iterable<FSElement> {
 	 * @throws IOException if an IO error occurs
 	 */
 	Folder childFolder(String name) throws IOException;
+	
+	/**
+	 * returns the child element with the given name.<br>
+	 * this method will fail
+	 * <ul>
+	 * <li>if this folder does not has a child with the given name</li>
+	 * <li>if the child with the given name is no mount point</li>
+	 * </ul>
+	 * 
+	 * @param name the name of the child
+	 * 
+	 * @return the child element with the given name
+	 * 
+	 * @throws IOException if an IO error occurs
+	 */
+	Mount childMount(String name) throws IOException;
 	
 	/**
 	 * returns the child element with the given name.<br>
@@ -181,6 +197,27 @@ public interface Folder extends FSElement, Iterable<FSElement> {
 	 * @throws IOException if an IO error occurs
 	 */
 	Pipe createPipe(String name) throws IOException;
+	
+	/**
+	 * creates a new child intern mount point with the given name and sizes and adds the new child to this folder
+	 * <p>
+	 * the child file system will be initially empty
+	 * 
+	 * @param name the name of the new child
+	 * 
+	 * @return the newly created child
+	 * 
+	 * @throws IOException if an IO error occurs
+	 */
+	Mount createMountIntern(String name, long blockCount, int blockSize) throws IOException;
+
+	Mount createMountTemp(String name, long blockCount, int blockSize) throws IOException;
+	
+	default Mount createMountRFSFile(String name, java.io.File file) throws IOException {
+		return createMountRFSFile(name, file.toString());
+	}
+	
+	Mount createMountRFSFile(String name, String file) throws IOException;
 	
 	/**
 	 * this interface describes an {@link Iterator} which returns {@link FSElement} objects
