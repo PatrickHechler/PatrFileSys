@@ -58,6 +58,12 @@ public interface FSElement extends Closeable {
 	 */
 	static final int FLAG_PIPE         = 0x00000004;
 	/**
+	 * an element marked with this flag represent a mount point
+	 * 
+	 * @see #flags()
+	 */
+	static final int FLAG_MOUNT         = 0x00000008;
+	/**
 	 * a file marked with this flag can be executed
 	 * 
 	 * @see #flags()
@@ -94,6 +100,15 @@ public interface FSElement extends Closeable {
 	 * @throws ClosedChannelException if this element handle was already closed
 	 */
 	FS fs() throws ClosedChannelException;
+	
+	/**
+	 * returns the mount point on which this element resides
+	 * 
+	 * @return the mount point on which this element resides
+	 * 
+	 * @throws ClosedChannelException if this element handle was already closed
+	 */
+	Mount mountPoint() throws ClosedChannelException;
 	
 	/**
 	 * returns the flags of this {@link FSElement}
@@ -265,13 +280,15 @@ public interface FSElement extends Closeable {
 	 */
 	default ElementType type() throws IOException {
 		int flags = flags();
-		switch (flags & (FLAG_FOLDER | FLAG_FILE | FLAG_PIPE)) {
+		switch (flags & (FLAG_FOLDER | FLAG_FILE | FLAG_PIPE | FLAG_MOUNT)) {
 		case FLAG_FOLDER:
 			return ElementType.FOLDER;
 		case FLAG_FILE:
 			return ElementType.FILE;
 		case FLAG_PIPE:
 			return ElementType.PIPE;
+		case FLAG_MOUNT:
+			return ElementType.MOUNT;
 		default:
 			throw new InternalError("unknown flags: 0x" + Integer.toHexString(flags));
 		}

@@ -48,7 +48,12 @@ public enum ElementType {
 	 * @see Pipe
 	 */
 	PIPE,
-	
+	/**
+	 * pipe elements
+	 * 
+	 * @see Pipe
+	 */
+	MOUNT
 	;
 	
 	@Override

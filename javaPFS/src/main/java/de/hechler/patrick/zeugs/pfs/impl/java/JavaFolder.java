@@ -1,19 +1,19 @@
-//This file is part of the Patr File System Project
-//DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
-//Copyright (C) 2023  Patrick Hechler
+// This file is part of the Patr File System Project
+// DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+// Copyright (C) 2023 Patrick Hechler
 //
-//This program is free software: you can redistribute it and/or modify
-//it under the terms of the GNU General Public License as published by
-//the Free Software Foundation, either version 3 of the License, or
-//(at your option) any later version.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-//This program is distributed in the hope that it will be useful,
-//but WITHOUT ANY WARRANTY; without even the implied warranty of
-//MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//GNU General Public License for more details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
 //
-//You should have received a copy of the GNU General Public License
-//along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 package de.hechler.patrick.zeugs.pfs.impl.java;
 
 import java.io.IOException;
@@ -28,6 +28,7 @@ import java.util.NoSuchElementException;
 
 import de.hechler.patrick.zeugs.pfs.interfaces.FSElement;
 import de.hechler.patrick.zeugs.pfs.interfaces.Folder;
+import de.hechler.patrick.zeugs.pfs.interfaces.Mount;
 import de.hechler.patrick.zeugs.pfs.interfaces.Pipe;
 
 public class JavaFolder extends JavaFSElement implements Folder {
@@ -35,6 +36,21 @@ public class JavaFolder extends JavaFSElement implements Folder {
 	public JavaFolder(JavaFS fs, Path path) {
 		super(fs, path);
 		
+	}
+	
+	@Override
+	public Mount createMountIntern(String name, long blockCount, int blockSize) throws IOException {
+		throw new UnsupportedOperationException("mounts");
+	}
+	
+	@Override
+	public Mount createMountRFSFile(String name, String file) throws IOException {
+		throw new UnsupportedOperationException("mounts");
+	}
+	
+	@Override
+	public Mount createMountTemp(String name, long blockCount, int blockSize) throws IOException {
+		throw new UnsupportedOperationException("mounts");
 	}
 	
 	@Override
@@ -93,7 +109,7 @@ public class JavaFolder extends JavaFSElement implements Folder {
 	}
 	
 	@Override
-	public long 	childCount() throws IOException {
+	public long childCount() throws IOException {
 		long cnt = 0L;
 		try (DirectoryStream<Path> stream = Files.newDirectoryStream(fs.root.resolve(p()))) {
 			for (@SuppressWarnings("unused")
@@ -117,6 +133,11 @@ public class JavaFolder extends JavaFSElement implements Folder {
 		Path p = checkExists(f);
 		if (!Files.isDirectory(f)) { throw new NotDirectoryException(p.toString()); }
 		return new JavaFolder(fs, p);
+	}
+	
+	@Override
+	public Mount childMount(String name) throws IOException {
+		throw new UnsupportedOperationException("mounts");
 	}
 	
 	@Override

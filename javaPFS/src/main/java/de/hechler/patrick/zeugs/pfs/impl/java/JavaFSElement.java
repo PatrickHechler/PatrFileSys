@@ -31,6 +31,7 @@ import de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSElement;
 import de.hechler.patrick.zeugs.pfs.interfaces.FS;
 import de.hechler.patrick.zeugs.pfs.interfaces.FSElement;
 import de.hechler.patrick.zeugs.pfs.interfaces.Folder;
+import de.hechler.patrick.zeugs.pfs.interfaces.Mount;
 import de.hechler.patrick.zeugs.pfs.interfaces.Pipe;
 
 @SuppressWarnings("javadoc")
@@ -64,6 +65,11 @@ public class JavaFSElement implements FSElement {
 	public FS fs() throws ClosedChannelException {
 		ensureOpen();
 		return this.fs;
+	}
+	
+	@Override
+	public Mount mountPoint() throws ClosedChannelException {
+		throw new UnsupportedOperationException("mounts");
 	}
 	
 	@Override

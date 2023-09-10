@@ -1,19 +1,19 @@
-//This file is part of the Patr File System Project
-//DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
-//Copyright (C) 2023  Patrick Hechler
+// This file is part of the Patr File System Project
+// DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+// Copyright (C) 2023 Patrick Hechler
 //
-//This program is free software: you can redistribute it and/or modify
-//it under the terms of the GNU General Public License as published by
-//the Free Software Foundation, either version 3 of the License, or
-//(at your option) any later version.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-//This program is distributed in the hope that it will be useful,
-//but WITHOUT ANY WARRANTY; without even the implied warranty of
-//MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//GNU General Public License for more details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
 //
-//You should have received a copy of the GNU General Public License
-//along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 package de.hechler.patrick.zeugs.pfs.interfaces;
 
 import java.io.Closeable;
@@ -199,24 +199,63 @@ public interface Folder extends FSElement, Iterable<FSElement> {
 	Pipe createPipe(String name) throws IOException;
 	
 	/**
-	 * creates a new child intern mount point with the given name and sizes and adds the new child to this folder
+	 * creates a new intern mount point with the given name and sizes and adds the new child to this folder
 	 * <p>
 	 * the child file system will be initially empty
 	 * 
-	 * @param name the name of the new child
+	 * @param name       the name of the new child
+	 * @param blockCount the maximum amount of blocks of the intern file system
+	 * @param blockSize  the block size of the intern file system
 	 * 
 	 * @return the newly created child
 	 * 
 	 * @throws IOException if an IO error occurs
 	 */
 	Mount createMountIntern(String name, long blockCount, int blockSize) throws IOException;
-
+	
+	/**
+	 * creates a new intern mount point with the given name and sizes and adds the new child to this folder
+	 * <p>
+	 * the child file system will be initially empty
+	 * 
+	 * @param name       the name of the new child
+	 * @param blockCount the amount of blocks of the intern file system
+	 * @param blockSize  the block size of the intern file system
+	 * 
+	 * @return the newly created child
+	 * 
+	 * @throws IOException if an IO error occurs
+	 */
 	Mount createMountTemp(String name, long blockCount, int blockSize) throws IOException;
 	
+	/**
+	 * creates a new extern mount point with the given name and extern backing file the new child to this folder
+	 * <p>
+	 * the child file system will be initially empty
+	 * 
+	 * @param name the name of the new child
+	 * @param file the backing file of the mounted file system
+	 * 
+	 * @return the newly created child
+	 * 
+	 * @throws IOException if an IO error occurs
+	 */
 	default Mount createMountRFSFile(String name, java.io.File file) throws IOException {
 		return createMountRFSFile(name, file.toString());
 	}
 	
+	/**
+	 * creates a new extern mount point with the given name and extern backing file the new child to this folder
+	 * <p>
+	 * the child file system will be initially empty
+	 * 
+	 * @param name the name of the new child
+	 * @param file the backing file of the mounted file system
+	 * 
+	 * @return the newly created child
+	 * 
+	 * @throws IOException if an IO error occurs
+	 */
 	Mount createMountRFSFile(String name, String file) throws IOException;
 	
 	/**
