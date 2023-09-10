@@ -56,13 +56,15 @@
 #define sh(err_ret) get_sh(err_ret, sh)
 #define ih(err_ret) get_ih(err_ret, ih)
 
-#define check_write_access1(eh, err_act) \
-	if ((eh)->handle.fs_data->read_only) { \
+#define check_write_access2(eh, err_act) \
+	if ((eh).fs_data->read_only) { \
 		pfs_err = PFS_ERRNO_READ_ONLY; \
 		err_act \
 	}
 
-#define check_write_access0(eh, err_ret) check_write_access1(eh, return err_ret;)
+#define check_write_access1(eh, err_ret) check_write_access2(*(eh), return err_ret;)
+
+#define check_write_access0(eh, err_ret) check_write_access2((eh)->handle, return err_ret;)
 
 #define check_write_access(err_ret) check_write_access0(pfs_ehs[eh], err_ret)
 
@@ -121,7 +123,9 @@ static inline int return_handle(i64 *len, void ***hs, void *h) {
 
 #include "../core/pfs.h"
 
-void pfs_modify_iterators(struct element_handle *eh, ui64 former_index);
+void pfs_modify_iterators(struct element_handle const *eh, ui64 former_index, int removed);
+
+#define pfs_modify_iterators(eh, former_index) pfs_modify_iterators(eh, former_index, 1)
 
 struct element_handle_mount {
 	i64 load_count;

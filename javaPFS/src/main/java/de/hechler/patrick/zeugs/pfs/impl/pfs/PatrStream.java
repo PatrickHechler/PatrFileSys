@@ -16,11 +16,11 @@
 //along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package de.hechler.patrick.zeugs.pfs.impl.pfs;
 
-import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LOCKUP;
-import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.INT;
 import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LINKER;
-import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LONG;
-import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.PNTR;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LOCKUP;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider.INT;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider.LONG;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider.PNTR;
 import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider.thrw;
 
 import java.io.IOException;

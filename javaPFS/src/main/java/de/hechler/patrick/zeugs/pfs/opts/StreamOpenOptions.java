@@ -183,8 +183,8 @@ public record StreamOpenOptions(boolean read, boolean write, boolean append, Ele
 			return switch (this.type) {
 			case FILE -> true;
 			case PIPE -> false;
+			case FOLDER, MOUNT -> throw new AssertionError("unknown type: " + this.type.name());
 			case null -> throw new IllegalStateException("type is not set");
-			default -> throw new AssertionError("unknown type: " + this.type.name());
 			};
 		} catch (NullPointerException npe) { // bug in eclipse compiler
 			throw new IllegalStateException("type is not set");

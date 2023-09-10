@@ -62,7 +62,7 @@ public interface FSElement extends Closeable {
 	 * 
 	 * @see #flags()
 	 */
-	static final int FLAG_MOUNT         = 0x00000008;
+	static final int FLAG_MOUNT        = 0x00000008;
 	/**
 	 * a file marked with this flag can be executed
 	 * 
@@ -109,6 +109,21 @@ public interface FSElement extends Closeable {
 	 * @throws ClosedChannelException if this element handle was already closed
 	 */
 	Mount mountPoint() throws ClosedChannelException;
+	
+	/**
+	 * returns the absolute path of this element
+	 * @return the absolute path of this element
+	 * @throws IOException if an IO error occurs
+	 */
+	String path() throws IOException;
+	
+	/**
+	 * returns the path of this element relative from the next mount point
+	 * 
+	 * @return the path of this element relative from the next mount point
+	 * @throws IOException if an IO error occurs
+	 */
+	String pathFromMount() throws IOException;
 	
 	/**
 	 * returns the flags of this {@link FSElement}
@@ -233,17 +248,30 @@ public interface FSElement extends Closeable {
 	void delete() throws IOException;
 	
 	/**
-	 * returns <code>true</code> if this {@link FSElement} represents a folder and
+	 * returns <code>true</code> if this {@link FSElement} represents a folder
+	 * or mount and <code>false</code> if not
+	 * 
+	 * @return <code>true</code> if this {@link FSElement} represents a folder or
+	 *         mount and <code>false</code> if not
+	 * 		
+	 * @throws IOException if an IO error occurs
+	 * 		
+	 * @see #getFolder()
+	 */
+	default boolean isFolder() throws IOException { return (flags() & (FLAG_FOLDER | FLAG_MOUNT)) != 0; }
+	
+	/**
+	 * returns <code>true</code> if this {@link FSElement} represents a mount and
 	 * <code>false</code> if not
 	 * 
-	 * @return <code>true</code> if this {@link FSElement} represents a folder and
+	 * @return <code>true</code> if this {@link FSElement} represents a mount and
 	 *         <code>false</code> if not
 	 * 		
 	 * @throws IOException if an IO error occurs
 	 * 		
 	 * @see #getFolder()
 	 */
-	default boolean isFolder() throws IOException { return (flags() & FLAG_FOLDER) != 0; }
+	default boolean isMount() throws IOException { return (flags() & FLAG_MOUNT) != 0; }
 	
 	/**
 	 * returns <code>true</code> if this {@link FSElement} represents a file and
@@ -314,6 +342,25 @@ public interface FSElement extends Closeable {
 	Folder getFolder() throws IOException;
 	
 	/**
+	 * returns a {@link Folder} which represents the same file system element as
+	 * this {@link FSElement}.
+	 * <p>
+	 * the returned {@link Folder} will be {@link #equals(Object) equal} with this
+	 * {@link FSElement}
+	 * <p>
+	 * if this {@link FSElement} represents no folder (if {@link #isFolder()}
+	 * returns <code>false</code>) this operation will fail
+	 * 
+	 * @return a {@link Folder} which represents the same file system element as
+	 *         this {@link FSElement}.
+	 * 		
+	 * @throws IOException if an IO error occurs
+	 * 		
+	 * @see #isMount()
+	 */
+	Folder getMount() throws IOException;
+	
+	/**
 	 * returns a {@link File} which represents the same file system element as this
 	 * {@link FSElement}.
 	 * <p>
@@ -364,9 +411,7 @@ public interface FSElement extends Closeable {
 	 * <p>
 	 * this method will work like:
 	 * 
-	 * <pre><code>if (obj == null) {
-	 *   return false;
-	 * } else if (obj instanceof FSElement e) {
+	 * <pre><code>if (obj instanceof FSElement e) {
 	 *   return {@link #equals(FSElement) equals(e)};
 	 * } else {
 	 *   return false;

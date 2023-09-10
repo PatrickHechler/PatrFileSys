@@ -42,9 +42,31 @@ extern int pfs_element_close(int eh);
 extern int pfs_element_parent(int eh);
 
 /*
- * returns the absolute path of the given element
+ * returns the absolute path of the element
+ *
+ * when the path is no longer needed it can be released with free
+ *
+ * on error NULL is returned
  */
 extern char* pfs_element_path(int eh);
+
+/*
+ * fills the buffer with the absolute path of the element
+ * if the absolute path is larger than the current buf_size it
+ * will be resized with realloc and the new buffer size will be
+ * stored in buf_size
+ *
+ * on error 0 is returned, on success a non-zero value
+ * note that the buffer may even be resized when the operation fails
+ */
+extern int pfs_element_path0(int eh, char **buffer, i64 *buf_size);
+
+/*
+ * these two functions are like the pfs_element_path* functions, but
+ * they return an absolute path relative from the first mount point
+ */
+extern char* pfs_element_fs_path(int eh);
+extern int pfs_element_fs_path0(int eh, char **buffer, i64 *buf_size);
 
 /*
  * deletes the element of the given handle
@@ -60,8 +82,15 @@ extern int pfs_element_delete(int eh, int also_when_loaded);
 /*
  * returns the flags of the element
  * on error -1 is returned
+ * if the element is a mount point the flags of the mount point entry are returned
+ * if the element is the root point of all file systems (PFS_F_MOUNT | PFS_F_FOLDER) is returned
+ *   note the root has a unique flag combination, since no valid entry can have both the folder and the mount flag set
  */
 extern ui32 pfs_element_get_flags(int eh);
+
+#define pfs_element_is_root(eh) (pfs_element_get_flags(eh) == (PFS_F_MOUNT | PFS_F_FOLDER))
+
+#define pfs_element_is_folder(eh) ((pfs_element_get_flags(eh) & (PFS_F_MOUNT | PFS_F_FOLDER)) != 0)
 
 /*
  * modifies the flags of the given element

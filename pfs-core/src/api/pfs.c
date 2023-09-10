@@ -47,6 +47,88 @@ static inline void release_eh(struct element_handle *feh) {
 	}
 }
 
+static i64 pfs_element__path0_rec_impl(struct pfs_element_handle *eh,
+		char **buffer, i64 *buf_size, i64 cur_size, int cont_on_mounts) {
+	if (cont_on_mounts && eh->is_mount_point) {
+		eh = &eh->fs_data->mount_point->handle;
+	}
+	if (eh->direct_parent_place.block == -1L) {
+		if (*buf_size <= cur_size) {
+			*buf_size = cur_size;
+			*buffer = realloc(*buffer, cur_size);
+		}
+		return 0L;
+	}
+	i64 name_len = pfsc_element_get_name_length(eh) + 1;
+	if (name_len < 0) {
+		return -1L;
+	}
+	cur_size += name_len;
+	if (((ui64) name_len + (ui64) cur_size) & 0x8000000000000000UL) {
+		pfs_err = PFS_ERRNO_OUT_OF_RANGE;
+		return -1L;
+	}
+	struct pfs_element_handle peh = *eh;
+	if (!pfsc_element_get_parent(&peh)) {
+		return -1L;
+	}
+	i64 off = pfs_element__path0_rec_impl(&peh, buffer, buf_size, cur_size,
+			cont_on_mounts);
+	if (off < 0L) {
+		return -1L;
+	}
+	char *b = (*buffer) + off;
+	b[0] = '/';
+	b++;
+	if (!pfsc_element_get_name(eh, &b, buf_size)) {
+		return -1L;
+	}
+	return off + name_len;
+}
+static inline int pfs_element__path0_impl(int eh, char **buffer, i64 *buf_size,
+		int cont_on_mounts) {
+	eh(0)
+	i64 off = pfs_element__path0_rec_impl(&pfs_ehs[eh]->handle, buffer,
+			buf_size, 1L, cont_on_mounts);
+	if (off < 0L) {
+		return 1;
+	} else if (off == 0L) { //only root has trailing slash
+		(*buffer)[0] = '/';
+		off++;
+	}
+	(*buffer)[off] = '\0';
+	return 0;
+}
+
+extern int pfs_element_fs_path0(int eh, char **buffer, i64 *buf_size) {
+	return pfs_element__path0_impl(eh, buffer, buf_size, 0);
+}
+extern int pfs_element_path0(int eh, char **buffer, i64 *buf_size) {
+	return pfs_element__path0_impl(eh, buffer, buf_size, 1);
+}
+extern char* pfs_element_fs_path(int eh) {
+	char *res = NULL;
+	size_t s = 0;
+	if (!pfs_element_fs_path0(eh, &res, &s)) {
+		if (res) {
+			free(res);
+		}
+		return NULL;
+	}
+	return res;
+}
+extern char* pfs_element_path(int eh) {
+	char *res = NULL;
+	size_t s = 0;
+	if (!pfs_element_path0(eh, &res, &s)) {
+		if (res) {
+			free(res);
+		}
+		return NULL;
+	}
+	return res;
+}
+
 static inline struct element_handle* open_eh(const char *path,
 		struct element_handle *rot, int allow_relative,
 		struct element_handle **parent_on_err) {
@@ -468,8 +550,12 @@ static int delete_element(struct element_handle **eh, int also_when_loaded) {
 		}
 	}
 	i64 former_index;
-	int res = pfsc_element_delete(&(*eh)->handle, &former_index);
-	pfs_modify_iterators(*eh, former_index);
+	struct element_handle peh;
+	int res = pfsc_element_delete(&(*eh)->handle, &former_index, &peh.handle);
+	struct element_handle *npeh = hashset_get(&pfs_all_ehs_set, eh_hash(&peh), &peh);
+	if (npeh) {
+		pfs_modify_iterators(npeh, former_index);
+	}
 	if (res && has_refs0(*eh, 1)) {
 		if (!also_when_loaded) {
 			abort();
@@ -489,7 +575,7 @@ extern int pfs_delete(const char *path, int also_when_loaded) {
 
 extern int pfs_element_delete(int eh, int also_when_loaded) {
 	eh(0)
-	check_write_access1(pfs_ehs[eh], release_eh(pfs_ehs[eh]); return 0;)
+	check_write_access2(pfs_ehs[eh]->handle, release_eh(pfs_ehs[eh]); return 0;)
 	return delete_element(&pfs_ehs[eh], also_when_loaded);
 }
 
@@ -926,12 +1012,19 @@ extern int pfs_iter(const char *path, int show_hidden) {
 	return_handle(pfs_ih_len, pfs_ihs, ih);
 }
 
-void pfs_modify_iterators(struct element_handle *eh, ui64 former_index) {
-	for (int i = pfs_ih_len; i >= 0; --i) {
-		if (pfs_ihs[i] && pfs_ihs[i]->folder == eh) {
+void (pfs_modify_iterators)(struct element_handle const *eh, ui64 former_index,
+		int removed) {
+	for (int i = pfs_ih_len; --i >= 0; ) {
+		if (pfs_ihs[i] && ((pfs_ihs[i]->folder == eh) || !eh)) {
 			memset(&pfs_ihs[i]->handle, 0xFF, sizeof(struct pfs_folder_iter));
-			if (pfs_ihs[i]->index >= former_index) {
-				pfs_ihs[i]->index--;
+			if (removed) {
+				if (pfs_ihs[i]->index >= former_index) {
+					pfs_ihs[i]->index--;
+				}
+			} else {
+				if (pfs_ihs[i]->index < former_index) {
+					pfs_ihs[i]->index++;
+				}
 			}
 		}
 	}
@@ -1011,4 +1104,15 @@ extern int pfs_stream_close(int sh) {
 		}
 	}
 	return 1;
+}
+
+// never used locally, only here for export
+extern void pfs_free(void *pntr) {
+	free(pntr);
+}
+extern void* pfs_malloc(i64 size) {
+	return malloc(size);
+}
+extern void* pfs_realloc(void *oldpntr, i64 size) {
+	return realloc(oldpntr, size);
 }

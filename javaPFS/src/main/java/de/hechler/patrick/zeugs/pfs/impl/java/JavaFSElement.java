@@ -153,6 +153,16 @@ public class JavaFSElement implements FSElement {
 	}
 	
 	@Override
+	public String path() throws IOException {
+		return p().toString();
+	}
+	
+	@Override
+	public String pathFromMount() throws IOException {
+		return p().toString();
+	}
+	
+	@Override
 	public String name() throws IOException {
 		ensureOpen();
 		return p().getFileName().toString();
@@ -225,6 +235,11 @@ public class JavaFSElement implements FSElement {
 	}
 	
 	@Override
+	public Mount getMount() throws IOException {
+		throw new IllegalStateException("this is no mount point");
+	}
+	
+	@Override
 	public JavaFile getFile() throws IOException {
 		if (!Files.isDirectory(f())) {
 			if (this instanceof JavaFile f) {
@@ -282,6 +297,6 @@ public class JavaFSElement implements FSElement {
 			throw new IOError(e);
 		}
 	}
-	
+
 }
 

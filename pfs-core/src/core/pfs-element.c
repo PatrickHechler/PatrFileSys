@@ -64,8 +64,7 @@
 
 i32 pfsc_element_get_flags(pfs_eh e) {
 	if (e->real_parent_place.block == -1) {
-		(pfs_err) = PFS_ERRNO_ROOT_FOLDER;
-		return -1;
+		return PFS_F_MOUNT | PFS_F_FOLDER;
 	}
 	get_entry(-1)
 	ui32 flags = entry->flags;
@@ -174,12 +173,12 @@ int pfsc_element_get_name(pfs_eh e, char **buffer, i64 *buffer_len) {
 
 int pfsc_element_set_name(pfs_eh e, char *name) {
 	if (e->real_parent_place.block == -1) {
-		(pfs_err) = PFS_ERRNO_ROOT_FOLDER;
+		pfs_err = PFS_ERRNO_ROOT_FOLDER;
 		return 0;
 	}
 	i64 name_len = strlen(name);
 	if (!name_len) { // only root folder has an empty name
-		(pfs_err) = PFS_ERRNO_ILLEGAL_ARG;
+		pfs_err = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
 	get_entry0(entry, direct_parent, entry_block_data, 0)
@@ -195,7 +194,7 @@ int pfsc_element_set_name(pfs_eh e, char *name) {
 	        + (sizeof(struct pfs_folder_entry) * direct_parent->direct_child_count);
 	if (!allocate_new_entry(pfs0(e), &dpplace, -1, parent_size)) {
 		pfs0(e)->unget(pfs0(e), e->direct_parent_place.block);
-		(pfs_err) = PFS_ERRNO_OUT_OF_SPACE;
+		pfs_err = PFS_ERRNO_OUT_OF_SPACE;
 		return 0;
 	}
 	void *new_block = pfs0(e)->get(pfs0(e), dpplace.block);
@@ -265,7 +264,7 @@ int pfsc_element_set_name(pfs_eh e, char *name) {
 				}
 				pfs0(e)->unget(pfs0(e), dpplace.block);
 				pfs0(e)->unget(pfs0(e), e->direct_parent_place.block);
-				(pfs_err) = PFS_ERRNO_OUT_OF_SPACE;
+				pfs_err = PFS_ERRNO_OUT_OF_SPACE;
 				return 0;
 			}
 			struct pfs_folder *sb = sb_data + new_parent->entries[i].child_place.pos;

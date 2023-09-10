@@ -173,6 +173,77 @@ public interface Folder extends FSElement, Iterable<FSElement> {
 	Folder createFolder(String name) throws IOException;
 	
 	/**
+	 * returns the element which is relative from this folder found by following the given path
+	 * 
+	 * @param path the relative path of the returned element
+	 * 
+	 * @return the element which is relative from this folder found by following the given path
+	 * 
+	 * @throws IOException if an IO error occurs
+	 */
+	FSElement descElement(String path) throws IOException;
+	
+	/**
+	 * returns the element which is relative from this folder found by following the given path
+	 * <ul>
+	 * <li>if this target element does not exist</li>
+	 * <li>if the target element with the given name is no folder or mount point</li>
+	 * </ul>
+	 * 
+	 * @param path the relative path of the returned element
+	 * 
+	 * @return the element which is relative from this folder found by following the given path
+	 * 
+	 * @throws IOException if an IO error occurs
+	 */
+	Folder descFolder(String path) throws IOException;
+	
+	/**
+	 * returns the element which is relative from this folder found by following the given path
+	 * <ul>
+	 * <li>if this target element does not exist</li>
+	 * <li>if the target element with the given name is no mount point</li>
+	 * </ul>
+	 * 
+	 * @param path the relative path of the returned element
+	 * 
+	 * @return the element which is relative from this folder found by following the given path
+	 * 
+	 * @throws IOException if an IO error occurs
+	 */
+	Mount descMount(String path) throws IOException;
+	
+	/**
+	 * returns the element which is relative from this folder found by following the given path
+	 * <ul>
+	 * <li>if this target element does not exist</li>
+	 * <li>if the target element with the given name is no file</li>
+	 * </ul>
+	 * 
+	 * @param path the relative path of the returned element
+	 * 
+	 * @return the element which is relative from this folder found by following the given path
+	 * 
+	 * @throws IOException if an IO error occurs
+	 */
+	File descFile(String path) throws IOException;
+	
+	/**
+	 * returns the element which is relative from this folder found by following the given path
+	 * <ul>
+	 * <li>if this target element does not exist</li>
+	 * <li>if the target element with the given name is no pipe</li>
+	 * </ul>
+	 * 
+	 * @param path the relative path of the returned element
+	 * 
+	 * @return the element which is relative from this folder found by following the given path
+	 * 
+	 * @throws IOException if an IO error occurs
+	 */
+	Pipe descPipe(String path) throws IOException;
+	
+	/**
 	 * creates a new child file with the given name and adds the new child to this folder
 	 * <p>
 	 * the child file will be initially empty
@@ -240,9 +311,7 @@ public interface Folder extends FSElement, Iterable<FSElement> {
 	 * 
 	 * @throws IOException if an IO error occurs
 	 */
-	default Mount createMountRFSFile(String name, java.io.File file) throws IOException {
-		return createMountRFSFile(name, file.toString());
-	}
+	Mount createMountRFSFile(String name, java.io.File file) throws IOException;
 	
 	/**
 	 * creates a new extern mount point with the given name and extern backing file the new child to this folder
@@ -256,7 +325,9 @@ public interface Folder extends FSElement, Iterable<FSElement> {
 	 * 
 	 * @throws IOException if an IO error occurs
 	 */
-	Mount createMountRFSFile(String name, String file) throws IOException;
+	default Mount createMountRFSFile(String name, String file) throws IOException {
+		return createMountRFSFile(name, new java.io.File(file));
+	}
 	
 	/**
 	 * this interface describes an {@link Iterator} which returns {@link FSElement} objects

@@ -16,12 +16,14 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 package de.hechler.patrick.zeugs.pfs.impl.pfs;
 
-import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.INT;
 import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LINKER;
 import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LOCKUP;
-import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LONG;
-import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.PNTR;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.PFS_FREE;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider.INT;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider.LONG;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider.PNTR;
 import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider.thrw;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider.thrwR;
 
 import java.io.IOError;
 import java.io.IOException;
@@ -35,6 +37,7 @@ import de.hechler.patrick.zeugs.pfs.interfaces.FS;
 import de.hechler.patrick.zeugs.pfs.interfaces.FSElement;
 import de.hechler.patrick.zeugs.pfs.interfaces.File;
 import de.hechler.patrick.zeugs.pfs.interfaces.Folder;
+import de.hechler.patrick.zeugs.pfs.interfaces.Mount;
 import de.hechler.patrick.zeugs.pfs.interfaces.Pipe;
 
 @SuppressWarnings("javadoc")
@@ -42,6 +45,8 @@ public class PatrFSElement implements FSElement {
 	
 	private static final MethodHandle PFS_ELEMENT_CLOSE;
 	private static final MethodHandle PFS_ELEMENT_PARENT;
+	private static final MethodHandle PFS_ELEMENT_PATH;
+	private static final MethodHandle PFS_ELEMENT_FS_PATH;
 	private static final MethodHandle PFS_ELEMENT_DELETE;
 	private static final MethodHandle PFS_ELEMENT_GET_FLAGS;
 	private static final MethodHandle PFS_ELEMENT_MODIFY_FLAGS;
@@ -54,10 +59,13 @@ public class PatrFSElement implements FSElement {
 	private static final MethodHandle PFS_ELEMENT_SET_PARENT;
 	private static final MethodHandle PFS_ELEMENT_MOVE;
 	private static final MethodHandle PFS_ELEMENT_SAME;
+	private static final MethodHandle PFS_MOUNT_GET_MOUNT_POINT;
 	
 	static {
 		PFS_ELEMENT_CLOSE                = LINKER.downcallHandle(LOCKUP.find("pfs_element_close").orElseThrow(), FunctionDescriptor.of(INT, INT));
 		PFS_ELEMENT_PARENT               = LINKER.downcallHandle(LOCKUP.find("pfs_element_parent").orElseThrow(), FunctionDescriptor.of(INT, INT));
+		PFS_ELEMENT_PATH                 = LINKER.downcallHandle(LOCKUP.find("pfs_element_path").orElseThrow(), FunctionDescriptor.of(PNTR, INT));
+		PFS_ELEMENT_FS_PATH              = LINKER.downcallHandle(LOCKUP.find("pfs_element_fs_path").orElseThrow(), FunctionDescriptor.of(PNTR, INT));
 		PFS_ELEMENT_DELETE               = LINKER.downcallHandle(LOCKUP.find("pfs_element_delete").orElseThrow(), FunctionDescriptor.of(INT, INT, INT));
 		PFS_ELEMENT_GET_FLAGS            = LINKER.downcallHandle(LOCKUP.find("pfs_element_get_flags").orElseThrow(), FunctionDescriptor.of(INT, INT));
 		PFS_ELEMENT_MODIFY_FLAGS         = LINKER.downcallHandle(LOCKUP.find("pfs_element_modify_flags").orElseThrow(), FunctionDescriptor.of(INT, INT, INT, INT));
@@ -71,6 +79,8 @@ public class PatrFSElement implements FSElement {
 		PFS_ELEMENT_SET_PARENT           = LINKER.downcallHandle(LOCKUP.find("pfs_element_set_parent").orElseThrow(), FunctionDescriptor.of(INT, INT, INT));
 		PFS_ELEMENT_MOVE                 = LINKER.downcallHandle(LOCKUP.find("pfs_element_move").orElseThrow(), FunctionDescriptor.of(INT, INT, INT, PNTR));
 		PFS_ELEMENT_SAME                 = LINKER.downcallHandle(LOCKUP.find("pfs_element_same").orElseThrow(), FunctionDescriptor.of(INT, INT, INT));
+		
+		PFS_MOUNT_GET_MOUNT_POINT = LINKER.downcallHandle(LOCKUP.find("pfs_mount_get_mount_point").orElseThrow(), FunctionDescriptor.of(INT, INT));
 	}
 	
 	public final int  handle;
@@ -97,9 +107,44 @@ public class PatrFSElement implements FSElement {
 	}
 	
 	@Override
+	public String path() throws IOException {
+		return pathImpl(PFS_ELEMENT_PATH);
+	}
+	
+	@Override
+	public String pathFromMount() throws IOException {
+		return pathImpl(PFS_ELEMENT_FS_PATH);
+	}
+	
+	private String pathImpl(MethodHandle funcHandle) throws IOException {
+		ensureOpen();
+		try {
+			MemorySegment path = (MemorySegment) funcHandle.invoke(this.handle);
+			// TODO: check if the segment needs to be resized
+			String res = path.getUtf8String(0L);
+			PFS_FREE.invoke(path);
+			return res;
+		} catch (Throwable e) {
+			throw thrw(e);
+		}
+	}
+	
+	@Override
 	public FS fs() throws ClosedChannelException {
 		ensureOpen();
 		return PatrFSProvider.loaded;
+	}
+	
+	@Override
+	public Mount mountPoint() throws ClosedChannelException {
+		ensureOpen();
+		try {
+			int res = (int) PFS_MOUNT_GET_MOUNT_POINT.invoke(this.handle);
+			if (res == -1) { throw thrw(PFSErrorCause.GET_PARENT, null); }
+			return new PatrMount(res);
+		} catch (Throwable e) {
+			throw thrwR(e);
+		}
 	}
 	
 	@Override
@@ -112,12 +157,6 @@ public class PatrFSElement implements FSElement {
 		} catch (Throwable e) {
 			throw thrw(e);
 		}
-	}
-	
-	@Override
-	public boolean isFolder() throws IOException {
-		// the root folder has an empty name
-		return name().isEmpty() || (flags() & FLAG_FOLDER) != 0;
 	}
 	
 	@Override
@@ -257,10 +296,25 @@ public class PatrFSElement implements FSElement {
 	public Folder getFolder() throws IOException {
 		if (this instanceof Folder res) {
 			return res;
-		} else if (isFolder()) {
-			return new PatrFolder(handle);
+		}
+		int flags = flags();
+		if ((flags & FLAG_MOUNT) != 0) {
+			return new PatrMount(this.handle);
+		}
+		if ((flags & FLAG_FOLDER) != 0) {
+			return new PatrFolder(this.handle);
+		}
+		throw new IllegalStateException("this is no folder!");
+	}
+	
+	@Override
+	public Mount getMount() throws IOException {
+		if (this instanceof Mount res) {
+			return res;
+		} else if (isFile()) {
+			return new PatrMount(this.handle);
 		} else {
-			throw new IllegalStateException("this is no folder!");
+			throw new IllegalStateException("this is no file!");
 		}
 	}
 	
@@ -269,7 +323,7 @@ public class PatrFSElement implements FSElement {
 		if (this instanceof File res) {
 			return res;
 		} else if (isFile()) {
-			return new PatrFile(handle);
+			return new PatrFile(this.handle);
 		} else {
 			throw new IllegalStateException("this is no file!");
 		}
@@ -280,7 +334,7 @@ public class PatrFSElement implements FSElement {
 		if (this instanceof Pipe res) {
 			return res;
 		} else if (isPipe()) {
-			return new PatrPipe(handle);
+			return new PatrPipe(this.handle);
 		} else {
 			throw new IllegalStateException("this is no pipe!");
 		}
@@ -339,38 +393,9 @@ public class PatrFSElement implements FSElement {
 		if (this.closed) {
 			return "closed element handle";
 		}
-		FSElement e = this;
 		try {
-			StringBuilder b = new StringBuilder();
-			if (isFolder()) {
-				b.append("//");
-			} else {
-				b.append('/');
-			}
-			while (true) {
-				String n = e.name();
-				if (n.isEmpty()) { // root has an empty name
-					if (e == this) return "/";
-					break;
-				}
-				b.insert(1, n);
-				if (e != this) {
-					b.insert(1 + n.length(), '/');
-				}
-				FSElement p = e.parent();
-				if (e != this) {
-					e.close();
-				}
-				e = p;
-			}
-			e.close();
-			return b.toString();
+			return path();
 		} catch (Throwable t) {
-			if (e != this) {
-				try {
-					e.close();
-				} catch (@SuppressWarnings("unused") IOException ioe2) {/**/}
-			}
 			return "<error: could not get path: " + t + ">";
 		}
 	}

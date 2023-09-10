@@ -71,14 +71,14 @@ public interface Mount extends Folder {
 	/**
 	 * there are three mount types:
 	 * <ul>
-	 * <li>intern mounts
-	 * <ul>
-	 * <li>an invisible intern file is backing the data of the file system</li>
-	 * </ul>
-	 * </li>
 	 * <li>temporary mounts
 	 * <ul>
 	 * <li>the file system is only stored in memory and created every time the mount point is loaded</li>
+	 * </ul>
+	 * </li>
+	 * <li>intern mounts
+	 * <ul>
+	 * <li>an invisible intern file is backing the data of the file system</li>
 	 * </ul>
 	 * </li>
 	 * <li>extern mounts
@@ -98,13 +98,13 @@ public interface Mount extends Folder {
 	enum MountType {
 		
 		/**
-		 * an invisible intern file is backing the data of the file system
-		 */
-		INTERN_FILE_SYSTEM,
-		/**
 		 * the file system is only stored in memory and created every time the mount point is loaded
 		 */
 		TEMP_FILE_SYSTEM,
+		/**
+		 * an invisible intern file is backing the data of the file system
+		 */
+		INTERN_FILE_SYSTEM,
 		/**
 		 * an extern file from the Linux file system is backing the data of the file system
 		 */

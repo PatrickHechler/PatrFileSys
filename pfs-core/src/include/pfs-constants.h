@@ -46,7 +46,6 @@
 #define	PFS_F_HELPER_FOLDER     0x00000080U /* folders with this flag should not be passed to the outside */
 
 #define	PFS_F_EXECUTABLE        0x00000100U
-#define	PFS_F_USER_ENCRYPTED    0x00000200U /* ignored */
 #define	PFS_F_HIDDEN            0x01000000U
 
 #define PFS_SO_ONLY_CREATE  0x00000001U /* fail if the file/pipe exist already */

@@ -971,20 +971,27 @@ static inline i64 get_index_from_parent(pfs_eh e) {
 	return index + e->index_in_direct_parent_list;
 }
 
-int pfsc_element_delete(pfs_eh e, i64 *former_index) {
+int pfsc_element_delete(pfs_eh e, i64 *former_index, pfs_eh old_parent) {
 	get_folder1_(pfs0(e), direct_parent, direct_parent_block,
 			e->direct_parent_place)
 	get_any(pfs0(e), pfs_element, element, element_block,
 			e->element_place.block, e->element_place.pos,
 			pfs0(e)->unget(pfs0(e), e->direct_parent_place.block) ;)
-	i64 index = get_index_from_parent(e);
-	if (index == -1) {
-		pfs0(e)->unget(pfs0(e), e->direct_parent_place.block);
-		pfs0(e)->unget(pfs0(e), e->element_place.block);
-		return 0;
-	}
 	if (former_index) {
+		i64 index = get_index_from_parent(e);
+		if (index == -1) {
+			pfs0(e)->unget(pfs0(e), e->direct_parent_place.block);
+			pfs0(e)->unget(pfs0(e), e->element_place.block);
+			return 0;
+		}
 		*former_index = index;
+	}
+	if (old_parent) {
+		if (!pfsc_element_get_parent(old_parent)) {
+			pfs0(e)->unget(pfs0(e), e->direct_parent_place.block);
+			pfs0(e)->unget(pfs0(e), e->element_place.block);
+			return 0;
+		}
 	}
 	if ((direct_parent->entries[e->index_in_direct_parent_list].flags
 			& PFS_F_FOLDER) != 0) {
@@ -1014,7 +1021,8 @@ int pfsc_element_delete(pfs_eh e, i64 *former_index) {
 	return 1;
 }
 
-static int move_and_set_parent_impl(pfs_eh e, pfs_eh new_parent, char *name) {
+static int move_and_set_parent_impl(pfs_eh e, pfs_eh new_parent, char *name,
+		i64 *former_index, pfs_eh old_parent) {
 	pfs_err = PFS_ERRNO_NONE;
 	if (e->real_parent_place.block == -1) {
 		pfs_err = PFS_ERRNO_ROOT_FOLDER;
@@ -1032,22 +1040,37 @@ static int move_and_set_parent_impl(pfs_eh e, pfs_eh new_parent, char *name) {
 			pfs0(e)->unget(pfs0(e), moh.element_place.block) ;)
 	struct pfs_folder_entry *my_old_entry = old_parent_block_data
 			+ moh.entry_pos;
+	if (former_index) {
+		i64 index = get_index_from_parent(e);
+		if (index == -1) {
+			pfs0(e)->unget(pfs0(e), moh.element_place.block);
+			pfs0(e)->unget(pfs0(e), moh.direct_parent_place.block);
+			return 0;
+		}
+		*former_index = index;
+	}
+	if (old_parent) {
+		*old_parent = moh;
+		if (!pfsc_element_get_parent(old_parent)) {
+			return 0;
+		}
+	}
 	if (my_old_entry->flags & PFS_F_FOLDER) {
 		for (struct pfs_element_handle eh = *new_parent; 1;) {
-			if (moh.element_place.block == eh.element_place.block) {
-				if (moh.element_place.pos == eh.element_place.pos) {
-					pfs0(e)->unget(pfs0(e), moh.real_parent_place.block);
-					pfs_err = PFS_ERRNO_PARENT_IS_CHILD;
-					return 0;
-				}
+			if ((moh.element_place.block == eh.element_place.block)
+					&& (moh.element_place.pos == eh.element_place.pos)) {
+				pfs0(e)->unget(pfs0(e), moh.element_place.block);
+				pfs0(e)->unget(pfs0(e), moh.direct_parent_place.block);
+				pfs_err = PFS_ERRNO_PARENT_IS_CHILD;
+				return 0;
+			}
+			if (eh.direct_parent_place.block == -1L) {
+				break;
 			}
 			if (!pfsc_element_get_parent(&eh)) {
-				if (pfs_err != PFS_ERRNO_ROOT_FOLDER) {
-					pfs0(e)->unget(pfs0(e), moh.real_parent_place.block);
-					return 0;
-				} else {
-					pfs_err = 0;
-				}
+				pfs0(e)->unget(pfs0(e), moh.element_place.block);
+				pfs0(e)->unget(pfs0(e), moh.direct_parent_place.block);
+				return 0;
 			}
 		}
 	}
@@ -1078,14 +1101,18 @@ static int move_and_set_parent_impl(pfs_eh e, pfs_eh new_parent, char *name) {
 	return 1;
 }
 
-int pfsc_element_set_parent(pfs_eh e, pfs_eh new_parent) {
-	return move_and_set_parent_impl(e, new_parent, NULL);
+int pfsc_element_set_parent(pfs_eh e, pfs_eh new_parent, i64 *former_index,
+		pfs_eh old_parent) {
+	return move_and_set_parent_impl(e, new_parent, NULL, former_index,
+			old_parent);
 }
 
-int pfsc_element_move(pfs_eh e, pfs_eh new_parent, char *name) {
+int pfsc_element_move(pfs_eh e, pfs_eh new_parent, char *name,
+		i64 *former_index, pfs_eh old_parent) {
 	if (name == NULL) {
 		pfs_err = PFS_ERRNO_ILLEGAL_ARG;
 		return 0;
 	}
-	return move_and_set_parent_impl(e, new_parent, name);
+	return move_and_set_parent_impl(e, new_parent, name, former_index,
+			old_parent);
 }

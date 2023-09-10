@@ -62,7 +62,12 @@ public enum PFSErrorCause {
 	
 	SAME(info -> info == null ? "check same elements" : ("check same elements : unknown result <" + info + ">")),
 	
-	GET_BLOCK_COUNT("get block count"), GET_BLOCK_SIZE("get block size"),
+	GET_BLOCK_COUNT(info -> info == null ? "get block count" : "get block count of '" + info + "'"),
+	GET_BLOCK_SIZE(info -> info == null ? "get block size" : "get block size of '" + info + "'"),
+	GET_READ_ONLY(info -> info == null ? "get read-only mode" : "get read-only mode of '" + info + "'"),
+	GET_MOUNT_TYPPE(info -> info == null ? "get mount point type" : "get mount point type of '" + info + "'"),
+	
+	GET_UUID(info -> info == null ? "get UUID" : "get UUID of '" + info + "'"),
 	
 	GET_ELEMENT(path -> "get the element '" + path + "'"),
 	

@@ -1536,6 +1536,8 @@ static void real_file_sys_check() {
 	compare(dir, dir2, name, name2);
 }
 
+#define	PFS_F_TEST_FLAG    0x00000200U /* ignored by the PFS */
+
 void sub_meta_check(pfs_eh e, int is_not_root) {
 	const char *start = "[main.checks.meta_check.sub_meta_check]:              ";
 	i64 ct = pfsc_element_get_create_time(e);
@@ -1610,17 +1612,14 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		printf("%scould get the create time! [D]\n", start);
 		exit(EXIT_FAILURE);
 	}
-	if ((pfsc_element_get_flags(e) & PFS_F_USER_ENCRYPTED) != 0) {
-		if (is_not_root || pfs_err != PFS_ERRNO_ROOT_FOLDER) {
-			printf("%sthe flags have an unexpected value! (%s) [E]\n", start,
-					pfs_error());
-			exit(EXIT_FAILURE);
-		}
-	} else if (!is_not_root) {
-		printf("%scould get the flags! (%s) [E.2]\n", start, pfs_error());
+	if (is_not_root ?
+			(pfsc_element_get_flags(e) & PFS_F_TEST_FLAG) != 0 :
+			(pfsc_element_get_flags(e) != (PFS_F_FOLDER | PFS_F_MOUNT))) {
+		printf("%sthe flags have an unexpected value! (%s) [E]\n", start,
+				pfs_error());
 		exit(EXIT_FAILURE);
 	}
-	if (!pfsc_element_modify_flags(e, PFS_F_USER_ENCRYPTED, 0)) {
+	if (!pfsc_element_modify_flags(e, PFS_F_TEST_FLAG, 0)) {
 		if (is_not_root || pfs_err != PFS_ERRNO_ROOT_FOLDER) {
 			printf("%scould not modify the flags! [F]\n", start);
 			exit(EXIT_FAILURE);
@@ -1630,24 +1629,24 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		printf("%scould get the flags! [10]\n", start);
 		exit(EXIT_FAILURE);
 	}
-	if ((pfsc_element_get_flags(e) & PFS_F_USER_ENCRYPTED) == 0) {
+	if (is_not_root ?
+			(pfsc_element_get_flags(e) & PFS_F_TEST_FLAG) == 0 :
+			(pfsc_element_get_flags(e) != (PFS_F_FOLDER | PFS_F_MOUNT))) {
 		printf("%sthe flags have an unexpected value! [11]\n", start);
 		exit(EXIT_FAILURE);
-	} else if ((!is_not_root && pfs_err != PFS_ERRNO_ROOT_FOLDER)
-			|| (is_not_root && pfs_err != PFS_ERRNO_NONE)) {
+	}
+	if (pfs_err != PFS_ERRNO_NONE) {
 		printf("%serror! (%s) [11.2]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	pfs_err = 0;
-	if ((pfsc_element_get_flags(e) & PFS_F_USER_ENCRYPTED) == 0) {
+	if (is_not_root ?
+			(pfsc_element_get_flags(e) & PFS_F_TEST_FLAG) == 0 :
+			(pfsc_element_get_flags(e) != (PFS_F_FOLDER | PFS_F_MOUNT))) {
 		printf("%sthe flags have an unexpected value! [13]\n", start);
 		exit(EXIT_FAILURE);
-	} else if ((!is_not_root && pfs_err != PFS_ERRNO_ROOT_FOLDER)
-			|| (is_not_root && pfs_err != PFS_ERRNO_NONE)) {
-		printf("%serror! (%s) [14]\n", start, pfs_error());
-		exit(EXIT_FAILURE);
 	}
-	if (!pfsc_element_modify_flags(e, 0, PFS_F_USER_ENCRYPTED)) {
+	if (!pfsc_element_modify_flags(e, 0, PFS_F_TEST_FLAG)) {
 		if (is_not_root || pfs_err != PFS_ERRNO_ROOT_FOLDER) {
 			printf("%scould not modify the flags! [15]\n", start);
 			exit(EXIT_FAILURE);
@@ -1657,13 +1656,9 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 		printf("%scould get the flags! [16]\n", start);
 		exit(EXIT_FAILURE);
 	}
-	if ((pfsc_element_get_flags(e) & PFS_F_USER_ENCRYPTED) != 0
+	if ((pfsc_element_get_flags(e) & PFS_F_TEST_FLAG) != 0
 			&& pfsc_element_get_flags(e) != -1) {
 		printf("%scould not modify the flags! (%s) [17]\n", start, pfs_error());
-		exit(EXIT_FAILURE);
-	} else if ((!is_not_root && pfs_err != PFS_ERRNO_ROOT_FOLDER)
-			|| (is_not_root && pfs_err != PFS_ERRNO_NONE)) {
-		printf("%serror! (%s) [18]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	if (pfsc_element_modify_flags(e, PFS_F_FILE, 0)) {
@@ -1704,8 +1699,7 @@ void sub_meta_check(pfs_eh e, int is_not_root) {
 static void meta_check() {
 	const char *start = "[main.checks.meta_check]:                             ";
 	if (!pfsc_format(pfs, BLOCK_COUNT, NULL, "")) {
-		printf("%scould not format the PFS! (%s) [0]\n", start,
-				pfs_error());
+		printf("%scould not format the PFS! (%s) [0]\n", start, pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	pfs_eh e = pfsc_root();

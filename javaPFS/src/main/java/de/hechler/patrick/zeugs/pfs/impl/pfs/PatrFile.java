@@ -16,13 +16,14 @@
 //along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package de.hechler.patrick.zeugs.pfs.impl.pfs;
 
-import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.*;
 import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LINKER;
 import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LOCKUP;
-import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LONG;
 import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.SO_APPEND;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.SO_FILE_TRUNC;
 import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.SO_READ;
 import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.SO_WRITE;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider.INT;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider.LONG;
 import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider.thrw;
 
 import java.io.IOException;
@@ -36,14 +37,14 @@ import de.hechler.patrick.zeugs.pfs.opts.StreamOpenOptions;
 
 public class PatrFile extends PatrFSElement implements File {
 	
-	private static final MethodHandle PFS_FILE_LENGTH;
 	private static final MethodHandle PFS_OPEN_STREAM;
+	private static final MethodHandle PFS_FILE_LENGTH;
 	private static final MethodHandle PFS_FILE_TRUNCATE;
 	
 	static {
+		PFS_OPEN_STREAM   = LINKER.downcallHandle(LOCKUP.find("pfs_open_stream").orElseThrow(), FunctionDescriptor.of(INT, INT, INT));
 		PFS_FILE_LENGTH   = LINKER.downcallHandle(LOCKUP.find("pfs_file_length").orElseThrow(), FunctionDescriptor.of(LONG, INT));
 		PFS_FILE_TRUNCATE = LINKER.downcallHandle(LOCKUP.find("pfs_file_truncate").orElseThrow(), FunctionDescriptor.of(INT, INT, LONG));
-		PFS_OPEN_STREAM   = LINKER.downcallHandle(LOCKUP.find("pfs_open_stream").orElseThrow(), FunctionDescriptor.of(INT, INT, INT));
 	}
 	
 	public PatrFile(int handle) {

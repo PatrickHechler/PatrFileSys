@@ -22,15 +22,20 @@ import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
+import java.lang.foreign.ValueLayout.OfAddress;
+import java.lang.foreign.ValueLayout.OfInt;
+import java.lang.foreign.ValueLayout.OfLong;
 import java.lang.invoke.MethodHandle;
+import java.nio.ByteOrder;
+import java.nio.channels.ClosedChannelException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.UUID;
 
 import de.hechler.patrick.zeugs.pfs.FSProvider;
 import de.hechler.patrick.zeugs.pfs.interfaces.FS;
 import de.hechler.patrick.zeugs.pfs.interfaces.FSOptions;
-import de.hechler.patrick.zeugs.pfs.interfaces.Folder;
 import de.hechler.patrick.zeugs.pfs.opts.PatrFSOptions;
 import de.hechler.patrick.zeugs.pfs.opts.PatrRamFSOpts;
 
@@ -45,18 +50,11 @@ import de.hechler.patrick.zeugs.pfs.opts.PatrRamFSOpts;
 @SuppressWarnings("javadoc")
 public class PatrFSProvider extends FSProvider {
 	
-	// TODO remove
-	public static void main(String[] args) throws Throwable {
-		FSProvider prov = FSProvider.ofName(FSProvider.PATR_FS_PROVIDER_NAME);
-		try (FS fs = prov.loadFS(new PatrFSOptions("/home/pat/git/AdvenrOfCode/AdvenrOfCode2017/d07-pvm/patr-fs", 1024, 1024))) {
-			try (Folder root = fs.folder("/")) {
-				root.createFolder("bin").close();
-			}
-		}
-		System.out.println("finish");
-	}
+	static final OfLong    LONG = ValueLayout.JAVA_LONG;
+	static final OfInt     INT  = ValueLayout.JAVA_INT;
+	static final OfAddress PNTR = ValueLayout.ADDRESS;
 	
-	static volatile PatrFS loaded;
+	static PatrFS loaded;
 	
 	private volatile boolean exists = false;
 	
@@ -97,10 +95,8 @@ public class PatrFSProvider extends FSProvider {
 	}
 	
 	private static void loadPatrRamOpts(Linker linker, PatrRamFSOpts opts) throws Throwable {
-		MethodHandle  newBm            = linker.downcallHandle(PatrFS.LOCKUP.find("bm_new_ram_block_manager").orElseThrow(),
-				FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT));
-		MethodHandle  pfsLoadAndFormat = linker.downcallHandle(PatrFS.LOCKUP.find("pfs_load_and_format").orElseThrow(),
-				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+		MethodHandle  newBm            = linker.downcallHandle(PatrFS.LOCKUP.find("bm_new_ram_block_manager").orElseThrow(), FunctionDescriptor.of(PNTR, LONG, INT));
+		MethodHandle  pfsLoadAndFormat = linker.downcallHandle(PatrFS.LOCKUP.find("pfs_load_and_format").orElseThrow(), FunctionDescriptor.of(INT, PNTR, LONG));
 		MemorySegment bm               = (MemorySegment) newBm.invoke(opts.blockCount(), opts.blockSize());
 		if (0 == (int) pfsLoadAndFormat.invoke(bm, opts.blockCount())) {
 			throw thrw(PFSErrorCause.LOAD_PFS_AND_FORMAT, opts);
@@ -118,19 +114,15 @@ public class PatrFSProvider extends FSProvider {
 	
 	private static void loadWithFormat(Linker linker, PatrFSOptions opts, MemorySegment path) throws Throwable {
 		MethodHandle  newBm            = linker.downcallHandle(PatrFS.LOCKUP.find("bm_new_file_block_manager_path_bs").orElseThrow(),
-				FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
+				FunctionDescriptor.of(PNTR, PNTR, INT, INT));
 		MethodHandle  pfsLoadAndFormat = linker.downcallHandle(PatrFS.LOCKUP.find("pfs_load_and_format").orElseThrow(),
-				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+				FunctionDescriptor.of(INT, PNTR, LONG, PNTR, PNTR));
 		MemorySegment bm               = (MemorySegment) newBm.invoke(path, opts.blockSize(), 0);
 		if (bm.address() == 0) {
 			throw thrw(PFSErrorCause.LOAD_PFS_AND_FORMAT, opts);
 		}
 		try (Arena arena = Arena.openConfined()) {
-			MemorySegment uuid = opts.uuid() == null ? MemorySegment.NULL : arena.allocate(16L);
-			if (opts.uuid() != null) {
-				uuid.set(ValueLayout.JAVA_LONG, 0L, opts.uuid().getMostSignificantBits());
-				uuid.set(ValueLayout.JAVA_LONG, 8L, opts.uuid().getLeastSignificantBits());
-			}
+			MemorySegment uuid = convUUID(arena, opts.uuid());
 			MemorySegment name = opts.name() == null ? MemorySegment.NULL : arena.allocateUtf8String(opts.name());
 			if (0 == (int) pfsLoadAndFormat.invoke(bm, opts.blockCount(), uuid, name)) {
 				throw thrw(PFSErrorCause.LOAD_PFS_AND_FORMAT, opts);
@@ -141,19 +133,45 @@ public class PatrFSProvider extends FSProvider {
 	private static void loadWithoutFormat(Linker linker, PatrFSOptions opts, MemorySegment path) throws Throwable {
 		MemorySegment bm;
 		if (opts.blockSize() == -1) {
-			MethodHandle newBm = linker.downcallHandle(PatrFS.LOCKUP.find("bm_new_file_block_manager_path").orElseThrow(),
-					FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+			MethodHandle newBm = linker.downcallHandle(PatrFS.LOCKUP.find("bm_new_file_block_manager_path").orElseThrow(), FunctionDescriptor.of(PNTR, PNTR, INT));
 			bm = (MemorySegment) newBm.invoke(path, 0);
 		} else {
 			MethodHandle newBm = linker.downcallHandle(PatrFS.LOCKUP.find("bm_new_file_block_manager_path_bs").orElseThrow(),
-					FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
+					FunctionDescriptor.of(PNTR, PNTR, INT, INT));
 			bm = (MemorySegment) newBm.invoke(path, opts.blockSize(), 0);
 		}
-		MethodHandle pfsLoad = linker.downcallHandle(PatrFS.LOCKUP.find("pfs_load").orElseThrow(),
-				FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+		MethodHandle pfsLoad = linker.downcallHandle(PatrFS.LOCKUP.find("pfs_load").orElseThrow(), FunctionDescriptor.of(INT, PNTR, PNTR));
 		if (0 == (int) pfsLoad.invoke(bm, MemorySegment.NULL)) {
 			throw thrw(PFSErrorCause.LOAD_PFS, opts.path());
 		}
+	}
+	
+	public static MemorySegment convUUID(Arena arena, UUID uuid) {
+		if (uuid == null) {
+			return MemorySegment.NULL;
+		}
+		MemorySegment mem = arena.allocate(16L, 8L);
+		if (ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN) {
+			mem.set(ValueLayout.JAVA_LONG, 0L, uuid.getLeastSignificantBits());
+			mem.set(ValueLayout.JAVA_LONG, 8L, uuid.getMostSignificantBits());
+		} else {
+			mem.set(ValueLayout.JAVA_LONG, 0L, uuid.getMostSignificantBits());
+			mem.set(ValueLayout.JAVA_LONG, 8L, uuid.getLeastSignificantBits());
+		}
+		return mem;
+	}
+	
+	public static UUID getUUID(MemorySegment seg) {
+		long low;
+		long high;
+		if (ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN) {
+			low  = seg.get(ValueLayout.JAVA_LONG, 0L);
+			high = seg.get(ValueLayout.JAVA_LONG, 8L);
+		} else {
+			high = seg.get(ValueLayout.JAVA_LONG, 0L);
+			low  = seg.get(ValueLayout.JAVA_LONG, 8L);
+		}
+		return new UUID(high, low);
 	}
 	
 	public static IOException thrw(Throwable t) throws IOException {
@@ -168,9 +186,22 @@ public class PatrFSProvider extends FSProvider {
 		}
 	}
 	
+	public static ClosedChannelException thrwR(Throwable t) throws ClosedChannelException {
+		if (t instanceof ClosedChannelException ioe) {
+			throw ioe;
+		} else if (t instanceof Error err) {
+			throw err;
+		} else if (t instanceof RuntimeException re) {
+			throw re;
+		} else {
+			throw new AssertionError(t);
+		}
+	}
+	
 	public static IOException thrw(PFSErrorCause cause, Object info) throws IOException {
-		int    pfsErrno = pfsErrno();
-		String msg      = cause.str.apply(info);
+		int pfsErrno = pfsErrno();
+		pfsErrno(0);
+		String msg = cause.str.apply(info);
 		throw cause.func.apply(msg, pfsErrno);
 	}
 	
@@ -183,13 +214,13 @@ public class PatrFSProvider extends FSProvider {
 			c1   = MemorySegment.ofAddress(PatrFS.LOCKUP.find("pfs_err_loc").orElseThrow().address(), 8L);
 			cach = c1;
 		}
-		long          addr = c1.get(ValueLayout.JAVA_LONG, 0L);
+		long          addr = c1.get(LONG, 0L);
 		MemorySegment c2   = cach2;
 		if (c2 == null || addr != c2.address()) {
 			c2    = MemorySegment.ofAddress(addr, 4);
 			cach2 = c2;
 		}
-		return c2.get(ValueLayout.JAVA_INT, 0);
+		return c2.get(INT, 0);
 	}
 	
 	public static void pfsErrno(int newErrno) {
@@ -198,13 +229,13 @@ public class PatrFSProvider extends FSProvider {
 			c1   = MemorySegment.ofAddress(PatrFS.LOCKUP.find("pfs_err_loc").orElseThrow().address(), 8L);
 			cach = c1;
 		}
-		long          addr = c1.get(ValueLayout.JAVA_LONG, 0L);
+		long          addr = c1.get(LONG, 0L);
 		MemorySegment c2   = cach2;
 		if (c2 == null || addr != c2.address()) {
 			c2    = MemorySegment.ofAddress(addr, 4);
 			cach2 = c2;
 		}
-		c2.set(ValueLayout.JAVA_INT, 0, newErrno);
+		c2.set(INT, 0, newErrno);
 	}
 	
 	public static void unload(FS loaded) {

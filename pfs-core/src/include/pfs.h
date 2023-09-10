@@ -264,4 +264,10 @@ extern int pfs_stream(const char *path, i32 stream_flags);
  */
 extern int pfs_iter(const char *path, int show_hidden);
 
+// wrappers around free/malloc/realloc (not used by any pfs* function)
+
+extern void pfs_free(void *pntr);
+extern void* pfs_malloc(i64 size);
+extern void* pfs_realloc(void *oldpntr, i64 size);
+
 #endif /* SRC_INCLUDE_PFS_H_ */

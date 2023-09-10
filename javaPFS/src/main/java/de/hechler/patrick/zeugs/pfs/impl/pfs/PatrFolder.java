@@ -16,22 +16,24 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 package de.hechler.patrick.zeugs.pfs.impl.pfs;
 
-import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.INT;
 import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LINKER;
 import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LOCKUP;
-import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.LONG;
-import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFS.PNTR;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider.INT;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider.LONG;
+import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider.PNTR;
 import static de.hechler.patrick.zeugs.pfs.impl.pfs.PatrFSProvider.thrw;
 
 import java.io.IOException;
-import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Arena;
+import java.lang.foreign.FunctionDescriptor;
 import java.lang.invoke.MethodHandle;
 import java.nio.channels.ClosedChannelException;
+import java.nio.file.NoSuchFileException;
 
 import de.hechler.patrick.zeugs.pfs.interfaces.FSElement;
 import de.hechler.patrick.zeugs.pfs.interfaces.File;
 import de.hechler.patrick.zeugs.pfs.interfaces.Folder;
+import de.hechler.patrick.zeugs.pfs.interfaces.Mount;
 import de.hechler.patrick.zeugs.pfs.interfaces.Pipe;
 
 public class PatrFolder extends PatrFSElement implements Folder {
@@ -40,22 +42,43 @@ public class PatrFolder extends PatrFSElement implements Folder {
 	private static final MethodHandle PFS_FOLDER_CHILD_COUNT;
 	private static final MethodHandle PFS_FOLDER_CHILD;
 	private static final MethodHandle PFS_FOLDER_CHILD_FOLDER;
+	private static final MethodHandle PFS_FOLDER_CHILD_MOUNT;
 	private static final MethodHandle PFS_FOLDER_CHILD_FILE;
 	private static final MethodHandle PFS_FOLDER_CHILD_PIPE;
+	private static final MethodHandle PFS_FOLDER_DESCENDANT;
+	private static final MethodHandle PFS_FOLDER_DESCENDANT_FOLDER;
+	private static final MethodHandle PFS_FOLDER_DESCENDANT_MOUNT;
+	private static final MethodHandle PFS_FOLDER_DESCENDANT_FILE;
+	private static final MethodHandle PFS_FOLDER_DESCENDANT_PIPE;
 	private static final MethodHandle PFS_FOLDER_CREATE_FOLDER;
 	private static final MethodHandle PFS_FOLDER_CREATE_FILE;
 	private static final MethodHandle PFS_FOLDER_CREATE_PIPE;
+	private static final MethodHandle PFS_FOLDER_CREATE_MOUNT_INTERN;
+	private static final MethodHandle PFS_FOLDER_CREATE_MOUNT_TEMP;
+	private static final MethodHandle PFS_FOLDER_CREATE_MOUNT_RFS_FILE;
 	
 	static {
-		PFS_FOLDER_OPEN_ITER     = LINKER.downcallHandle(LOCKUP.find("pfs_folder_open_iter").orElseThrow(), FunctionDescriptor.of(INT, INT, INT));
-		PFS_FOLDER_CHILD_COUNT   = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child_count").orElseThrow(), FunctionDescriptor.of(LONG, INT));
-		PFS_FOLDER_CHILD         = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
-		PFS_FOLDER_CHILD_FOLDER  = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child_folder").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
-		PFS_FOLDER_CHILD_FILE    = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child_file").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
-		PFS_FOLDER_CHILD_PIPE    = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child_pipe").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
-		PFS_FOLDER_CREATE_FOLDER = LINKER.downcallHandle(LOCKUP.find("pfs_folder_create_folder").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
-		PFS_FOLDER_CREATE_FILE   = LINKER.downcallHandle(LOCKUP.find("pfs_folder_create_file").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
-		PFS_FOLDER_CREATE_PIPE   = LINKER.downcallHandle(LOCKUP.find("pfs_folder_create_pipe").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_OPEN_ITER             = LINKER.downcallHandle(LOCKUP.find("pfs_folder_open_iter").orElseThrow(), FunctionDescriptor.of(INT, INT, INT));
+		PFS_FOLDER_CHILD_COUNT           = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child_count").orElseThrow(), FunctionDescriptor.of(LONG, INT));
+		PFS_FOLDER_CHILD                 = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_CHILD_FOLDER          = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child_folder").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_CHILD_MOUNT           = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child_mount").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_CHILD_FILE            = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child_file").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_CHILD_PIPE            = LINKER.downcallHandle(LOCKUP.find("pfs_folder_child_pipe").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_DESCENDANT            = LINKER.downcallHandle(LOCKUP.find("pfs_folder_descendant").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_DESCENDANT_FOLDER     = LINKER.downcallHandle(LOCKUP.find("pfs_folder_descendant_folder").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_DESCENDANT_MOUNT      = LINKER.downcallHandle(LOCKUP.find("pfs_folder_descendant_mount").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_DESCENDANT_FILE       = LINKER.downcallHandle(LOCKUP.find("pfs_folder_descendant_file").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_DESCENDANT_PIPE       = LINKER.downcallHandle(LOCKUP.find("pfs_folder_descendant_pipe").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_CREATE_FOLDER         = LINKER.downcallHandle(LOCKUP.find("pfs_folder_create_folder").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_CREATE_FILE           = LINKER.downcallHandle(LOCKUP.find("pfs_folder_create_file").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_CREATE_PIPE           = LINKER.downcallHandle(LOCKUP.find("pfs_folder_create_pipe").orElseThrow(), FunctionDescriptor.of(INT, INT, PNTR));
+		PFS_FOLDER_CREATE_MOUNT_INTERN   = LINKER.downcallHandle(LOCKUP.find("pfs_folder_create_mount_intern").orElseThrow(),
+				FunctionDescriptor.of(INT, INT, PNTR, LONG, INT));
+		PFS_FOLDER_CREATE_MOUNT_TEMP     = LINKER.downcallHandle(LOCKUP.find("pfs_folder_create_mount_temp").orElseThrow(),
+				FunctionDescriptor.of(INT, INT, PNTR, LONG, INT));
+		PFS_FOLDER_CREATE_MOUNT_RFS_FILE = LINKER.downcallHandle(LOCKUP.find("pfs_folder_create_mount_rfs_file").orElseThrow(),
+				FunctionDescriptor.of(INT, INT, PNTR, PNTR));
 	}
 	
 	public PatrFolder(int handle) {
@@ -200,6 +223,18 @@ public class PatrFolder extends PatrFSElement implements Folder {
 	}
 	
 	@Override
+	public Mount childMount(String name) throws IOException {
+		ensureOpen();
+		try (Arena ses = Arena.openConfined()) {
+			int res = (int) PFS_FOLDER_CHILD_MOUNT.invoke(this.handle, ses.allocateUtf8String(name));
+			if (res == -1) { throw thrw(PFSErrorCause.GET_CHILD, name); }
+			return new PatrMount(res);
+		} catch (Throwable e) {
+			throw thrw(e);
+		}
+	}
+	
+	@Override
 	public File childFile(String name) throws IOException {
 		ensureOpen();
 		try (Arena ses = Arena.openConfined()) {
@@ -217,6 +252,66 @@ public class PatrFolder extends PatrFSElement implements Folder {
 		try (Arena ses = Arena.openConfined()) {
 			int res = (int) PFS_FOLDER_CHILD_PIPE.invoke(this.handle, ses.allocateUtf8String(name));
 			if (res == -1) { throw thrw(PFSErrorCause.GET_CHILD, name); }
+			return new PatrPipe(res);
+		} catch (Throwable e) {
+			throw thrw(e);
+		}
+	}
+	
+	@Override
+	public FSElement descElement(String path) throws IOException {
+		ensureOpen();
+		try (Arena ses = Arena.openConfined()) {
+			int res = (int) PFS_FOLDER_DESCENDANT.invoke(this.handle, ses.allocateUtf8String(path));
+			if (res == -1) { throw thrw(PFSErrorCause.GET_CHILD, path); }
+			return new PatrFSElement(res);
+		} catch (Throwable e) {
+			throw thrw(e);
+		}
+	}
+	
+	@Override
+	public Folder descFolder(String path) throws IOException {
+		ensureOpen();
+		try (Arena ses = Arena.openConfined()) {
+			int res = (int) PFS_FOLDER_DESCENDANT_FOLDER.invoke(this.handle, ses.allocateUtf8String(path));
+			if (res == -1) { throw thrw(PFSErrorCause.GET_CHILD, path); }
+			return new PatrFolder(res);
+		} catch (Throwable e) {
+			throw thrw(e);
+		}
+	}
+	
+	@Override
+	public Mount descMount(String path) throws IOException {
+		ensureOpen();
+		try (Arena ses = Arena.openConfined()) {
+			int res = (int) PFS_FOLDER_DESCENDANT_MOUNT.invoke(this.handle, ses.allocateUtf8String(path));
+			if (res == -1) { throw thrw(PFSErrorCause.GET_CHILD, path); }
+			return new PatrMount(res);
+		} catch (Throwable e) {
+			throw thrw(e);
+		}
+	}
+	
+	@Override
+	public File descFile(String path) throws IOException {
+		ensureOpen();
+		try (Arena ses = Arena.openConfined()) {
+			int res = (int) PFS_FOLDER_DESCENDANT_FILE.invoke(this.handle, ses.allocateUtf8String(path));
+			if (res == -1) { throw thrw(PFSErrorCause.GET_CHILD, path); }
+			return new PatrFile(res);
+		} catch (Throwable e) {
+			throw thrw(e);
+		}
+	}
+	
+	@Override
+	public Pipe descPipe(String path) throws IOException {
+		ensureOpen();
+		try (Arena ses = Arena.openConfined()) {
+			int res = (int) PFS_FOLDER_DESCENDANT_PIPE.invoke(this.handle, ses.allocateUtf8String(path));
+			if (res == -1) { throw thrw(PFSErrorCause.GET_CHILD, path); }
 			return new PatrPipe(res);
 		} catch (Throwable e) {
 			throw thrw(e);
@@ -254,6 +349,48 @@ public class PatrFolder extends PatrFSElement implements Folder {
 			int res = (int) PFS_FOLDER_CREATE_PIPE.invoke(this.handle, ses.allocateUtf8String(name));
 			if (res == -1) { throw thrw(PFSErrorCause.CREATE_CHILD, name); }
 			return new PatrPipe(res);
+		} catch (Throwable e) {
+			throw thrw(e);
+		}
+	}
+	
+	@Override
+	public Mount createMountIntern(String name, long blockCount, int blockSize) throws IOException {
+		ensureOpen();
+		try (Arena ses = Arena.openConfined()) {
+			int res = (int) PFS_FOLDER_CREATE_MOUNT_INTERN.invoke(this.handle, ses.allocateUtf8String(name), blockCount, blockSize);
+			if (res == -1) { throw thrw(PFSErrorCause.CREATE_CHILD, name); }
+			return new PatrMount(res);
+		} catch (Throwable e) {
+			throw thrw(e);
+		}
+	}
+	
+	@Override
+	public Mount createMountTemp(String name, long blockCount, int blockSize) throws IOException {
+		ensureOpen();
+		try (Arena ses = Arena.openConfined()) {
+			int res = (int) PFS_FOLDER_CREATE_MOUNT_TEMP.invoke(this.handle, ses.allocateUtf8String(name), blockCount, blockSize);
+			if (res == -1) { throw thrw(PFSErrorCause.CREATE_CHILD, name); }
+			return new PatrMount(res);
+		} catch (Throwable e) {
+			throw thrw(e);
+		}
+	}
+	
+	@Override
+	public Mount createMountRFSFile(String name, java.io.File file) throws IOException {
+		ensureOpen();
+		if (!file.exists()) {
+			throw new NoSuchFileException(file.toString(), null, "the file does not exist");
+		}
+		if (!file.isFile()) {
+			throw new NoSuchFileException(file.toString(), null, "the file is no file");
+		}
+		try (Arena ses = Arena.openConfined()) {
+			int res = (int) PFS_FOLDER_CREATE_MOUNT_RFS_FILE.invoke(this.handle, ses.allocateUtf8String(name), ses.allocateUtf8String(file.toString()));
+			if (res == -1) { throw thrw(PFSErrorCause.CREATE_CHILD, name); }
+			return new PatrMount(res);
 		} catch (Throwable e) {
 			throw thrw(e);
 		}

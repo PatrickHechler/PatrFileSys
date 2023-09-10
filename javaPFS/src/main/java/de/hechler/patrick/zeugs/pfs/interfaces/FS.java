@@ -62,13 +62,23 @@ public interface FS extends Closeable {
 
 	/**
 	 * get the element which can be referred with the given path <br>
-	 * this operation will fail if the element is no folder
+	 * this operation will fail if the element is no folder or mount point
 	 * 
 	 * @param path the path of the element
 	 * @return an handle for the given element refereed by {@code path}
 	 * @throws IOException if an IO error occurs
 	 */
 	Folder folder(String path) throws IOException;
+
+	/**
+	 * get the element which can be referred with the given path <br>
+	 * this operation will fail if the element is no mount point
+	 * 
+	 * @param path the path of the element
+	 * @return an handle for the given element refereed by {@code path}
+	 * @throws IOException if an IO error occurs
+	 */
+	Mount mount(String path) throws IOException;
 
 	/**
 	 * get the element which can be referred with the given path <br>
@@ -107,6 +117,14 @@ public interface FS extends Closeable {
 	 * @throws IOException if an IO error occurs
 	 */
 	Folder cwd() throws IOException;
+	
+	/**
+	 * returns the root directory
+	 * 
+	 * @return the root directory
+	 * @throws IOException if an IO error occurs
+	 */
+	Mount root() throws IOException;
 
 	/**
 	 * changes the current working directory to {@code f}

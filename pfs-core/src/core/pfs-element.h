@@ -121,7 +121,7 @@ int pfsc_element_set_last_mod_time(pfs_eh e, i64 new_time);
  *
  * note that the pfs-element-handle needs to be manually freed
  */
-int pfsc_element_delete(pfs_eh e, i64 *former_index);
+int pfsc_element_delete(pfs_eh e, i64 *former_index, pfs_eh old_parent);
 
 // note that this function is implemented in pfs-folder.c and not in pfs-element.c
 /**
@@ -143,7 +143,7 @@ int pfsc_element_get_parent(pfs_eh e);
  * not that this function will always set pfs_erno
  * (to PFS_ERRNO_NONE on success)
  */
-int pfsc_element_set_parent(pfs_eh e, pfs_eh new_parent);
+int pfsc_element_set_parent(pfs_eh e, pfs_eh new_parent, i64 *former_index, pfs_eh old_parent);
 
 // note that this function is implemented in pfs-folder.c and not in pfs-element.c
 /**
@@ -162,6 +162,6 @@ int pfsc_element_set_parent(pfs_eh e, pfs_eh new_parent);
  * not that this function will always set pfs_erno
  * (to PFS_ERRNO_NONE on success)
  */
-int pfsc_element_move(pfs_eh e, pfs_eh new_parent, char *name);
+int pfsc_element_move(pfs_eh e, pfs_eh new_parent, char *name, i64 *former_index, pfs_eh old_parent);
 
 #endif /* SRC_CORE_PFS_ELEMENT_H_ */

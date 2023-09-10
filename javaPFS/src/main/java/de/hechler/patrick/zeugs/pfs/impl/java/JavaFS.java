@@ -24,9 +24,11 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.UUID;
 
 import de.hechler.patrick.zeugs.pfs.interfaces.FS;
 import de.hechler.patrick.zeugs.pfs.interfaces.Folder;
+import de.hechler.patrick.zeugs.pfs.interfaces.Mount;
 import de.hechler.patrick.zeugs.pfs.interfaces.Pipe;
 import de.hechler.patrick.zeugs.pfs.interfaces.Stream;
 import de.hechler.patrick.zeugs.pfs.opts.StreamOpenOptions;
@@ -113,6 +115,11 @@ public class JavaFS implements FS {
 	}
 	
 	@Override
+	public Mount mount(@SuppressWarnings("unused") String path) throws IOException {
+		throw new UnsupportedOperationException("pipe");
+	}
+	
+	@Override
 	public Stream stream(String path, StreamOpenOptions opts) throws IOException {
 		if (opts.createAlso()) {
 			FileSystem fs = this.root.getFileSystem();
@@ -133,12 +140,61 @@ public class JavaFS implements FS {
 					throw new NoSuchFileException(pp.toString(), p.getFileName().toString(), "the parent folder does not exist");
 				}
 				try (JavaFolder parent = folder(this.root.resolve(pp).toString())) {
-					JavaFile file = parent.createFile(p.getFileName().toString());
-					return file.open0(opts, false);
+					try (JavaFile file = parent.createFile(p.getFileName().toString())) {
+						return file.open0(opts, false);
+					}
 				}
 			}
 		}
 		return file(path).open(opts);
+	}
+	
+	private static class JavaMount extends JavaFolder implements Mount {
+		
+		public JavaMount(JavaFS fs, Path path) {
+			super(fs, path);
+		}
+		
+		@Override
+		public long blockCount() throws IOException {
+			return this.fs.blockCount();
+		}
+		
+		@Override
+		public int blockSize() throws IOException {
+			return this.fs.blockSize();
+		}
+		
+		@Override
+		public UUID uuid() throws IOException {
+			return null;
+		}
+		
+		@Override
+		public void uuid(@SuppressWarnings("unused") UUID uuid) throws IOException {
+			throw new UnsupportedOperationException("UUID");
+		}
+		
+		@Override
+		public String fsName() throws IOException {
+			return "";
+		}
+		
+		@Override
+		public boolean readOnly() throws IOException {
+			return false;
+		}
+		
+		@Override
+		public MountType mountType() throws IOException {
+			return MountType.REL_FS_BACKED_FILE_SYSTEM;
+		}
+		
+	}
+	
+	@Override
+	public Mount root() throws IOException {
+		return new JavaMount(this, this.root);
 	}
 	
 	@Override
@@ -162,5 +218,5 @@ public class JavaFS implements FS {
 		this.closed = true;
 		this.prov.unload(this);
 	}
-	
+
 }

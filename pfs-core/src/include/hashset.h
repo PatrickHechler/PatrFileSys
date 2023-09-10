@@ -85,6 +85,7 @@ extern void hashset_for_each(const struct hashset *set,
 		int (*do_stuff)(void *arg0, void *element), void *arg0);
 
 #define hashset_clear(set) 	(set)->entrycount = 0; \
-			memset((set)->entries, 0, ((set)->maxi + 1) * sizeof(i64))
+			if ((set)->entries) \
+				memset((set)->entries, 0, ((set)->maxi + 1) * sizeof(i64))
 
 #endif /* HASHSET_H_ */

@@ -99,7 +99,7 @@ extern int pfs_folder_child_pipe(int eh, const char *name) {
 		return -1; \
 	} \
 	c->handle = pfs_ehs[eh]->handle; \
-	pfs_modify_iterators(pfs_ehs[eh], 0xFFFFFFFFFFFFFFFFUL); \
+	pfs_modify_iterators(pfs_ehs[eh], UINT64_MAX); \
 	if (!pfsc_folder_create_##type(&c->handle, &pfs_ehs[eh]->handle, __VA_ARGS__)) { \
 		return -1; \
 	} \
