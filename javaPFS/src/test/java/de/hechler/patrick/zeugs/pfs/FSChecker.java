@@ -153,7 +153,8 @@ public class FSChecker {
 	private void
 		writeCheck(@ParamCreater(clas = ParamCreaterHelp.class, method = SPLIT_COMMA_OF_INFO, params = Parameter.class) @ParamInfo(ALL_PROVIDERS) String prov)
 			throws IOException, NoSuchProviderException {
-		try (FS fs = fs(prov); Folder root = fs.folder("/"); File file = root.createFile("file")) {
+		try (FS fs = fs(prov); Folder root = fs.folder("/");
+				File file = root.createFile("file")) {
 			byte[] fl = "this is a text\n".getBytes(StandardCharsets.UTF_8);
 			byte[] sl = "this is the second line".getBytes(StandardCharsets.UTF_8);
 			try (WriteStream write = file.openWrite()) {

@@ -90,8 +90,8 @@ public class PatrFSProvider extends FSProvider {
 				session.close();
 				throw thrw(e);
 			}
+			return loaded;
 		}
-		return loaded;
 	}
 	
 	private static void loadPatrRamOpts(Linker linker, PatrRamFSOpts opts) throws Throwable {

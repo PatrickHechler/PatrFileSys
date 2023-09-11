@@ -4,4 +4,4 @@
 /.project
 /testout/
 /target-snapshot/
-*.log
+/*.log

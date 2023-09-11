@@ -62,6 +62,7 @@ extern i64 pfs_folder_child_count(int eh) {
 		errno = 0; \
 		return -1; \
 	} \
+	c->load_count = 1; \
 	c->handle = pfs_ehs[eh]->handle; \
 	if (!pfsc_folder_##type##child_from_name(&c->handle, name)) { \
 		return -1; \
@@ -98,6 +99,7 @@ extern int pfs_folder_child_pipe(int eh, const char *name) {
 		errno = 0; \
 		return -1; \
 	} \
+	c->load_count = 1; \
 	c->handle = pfs_ehs[eh]->handle; \
 	pfs_modify_iterators(pfs_ehs[eh], UINT64_MAX); \
 	if (!pfsc_folder_create_##type(&c->handle, &pfs_ehs[eh]->handle, __VA_ARGS__)) { \

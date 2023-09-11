@@ -120,7 +120,7 @@ public class PatrFSElement implements FSElement {
 		ensureOpen();
 		try {
 			MemorySegment path = (MemorySegment) funcHandle.invoke(this.handle);
-			// TODO: check if the segment needs to be resized
+			path = MemorySegment.ofAddress(path.address(), Integer.MAX_VALUE + 1L); // \0 offset can at max be int.max_value
 			String res = path.getUtf8String(0L);
 			PFS_FREE.invoke(path);
 			return res;
@@ -285,9 +285,11 @@ public class PatrFSElement implements FSElement {
 	public void delete() throws IOException {
 		ensureOpen();
 		try {
-			if (0 == (int) PFS_ELEMENT_DELETE.invoke(this.handle, 1)) { throw thrw(PFSErrorCause.DELETE_ELEMENT, null); }
+			int val = (int) PFS_ELEMENT_DELETE.invoke(this.handle, 1);
 			this.closed = true;
+			if (0 == val) { throw thrw(PFSErrorCause.DELETE_ELEMENT, null); }
 		} catch (Throwable e) {
+			this.closed = true;
 			throw thrw(e);
 		}
 	}

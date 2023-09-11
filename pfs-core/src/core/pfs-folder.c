@@ -987,6 +987,7 @@ int pfsc_element_delete(pfs_eh e, i64 *former_index, pfs_eh old_parent) {
 		*former_index = index;
 	}
 	if (old_parent) {
+		*old_parent = *e;
 		if (!pfsc_element_get_parent(old_parent)) {
 			pfs0(e)->unget(pfs0(e), e->direct_parent_place.block);
 			pfs0(e)->unget(pfs0(e), e->element_place.block);
