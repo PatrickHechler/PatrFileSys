@@ -16,8 +16,8 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 package de.hechler.patrick.zeugs.pfs.impl.pfs;
 
-import java.io.IOError;
 import java.io.IOException;
+import java.io.StreamCorruptedException;
 import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.NoSuchFileException;
@@ -109,48 +109,55 @@ class ErrConsts {
 	
 	private ErrConsts() {}
 	
-	// TODO at least generate these constants
-	
+	// GENERATED-CODE-START
+	// this code-block is automatic generated, do not modify
 	/** indicates no error */
-	static final int NONE                  = 0;
+	static final int NONE                          = 0;
 	/** indicates an unknown error */
-	static final int UNKNOWN               = 1;
+	static final int UNKNOWN_ERROR                 = 1;
 	/** indicates that there are no more params */
-	static final int NO_MORE_ELEMENTS      = 2;
+	static final int NO_MORE_ELEMENTS              = 2;
 	/** indicates that the element has not the wanted/allowed type */
-	static final int ELEMENT_WRONG_TYPE    = 3;
+	static final int ELEMENT_WRONG_TYPE            = 3;
 	/** indicates that the element does not exist */
-	static final int ELEMENT_NOT_EXIST     = 4;
+	static final int ELEMENT_NOT_EXIST             = 4;
 	/** indicates that the element already exists */
-	static final int ELEMENT_ALREADY_EXIST = 5;
+	static final int ELEMENT_ALREADY_EXIST         = 5;
 	/** indicates that there is not enough space on the device */
-	static final int OUT_OF_SPACE          = 6;
+	static final int OUT_OF_SPACE                  = 6;
 	/** indicates an IO error */
-	static final int IO_ERR                = 7;
+	static final int IO_ERR                        = 7;
 	/** indicates an illegal argument */
-	static final int ILLEGAL_ARG           = 8;
-	/** indicates that some state is invalid */
-	static final int ILLEGAL_STATE         = 9;
+	static final int ILLEGAL_ARG                   = 8;
+	/** indicates that some data is invalid */
+	static final int ILLEGAL_DATA                  = 9;
 	/** indicates that the system is out of memory */
-	static final int OUT_OF_MEMORY         = 10;
+	static final int OUT_OF_MEMORY                 = 10;
 	/** indicates that the root folder does not support this operation */
-	static final int ROOT_FOLDER           = 11;
+	static final int ROOT_FOLDER                   = 11;
 	/** indicates that the parent can't be made to it's own child */
-	static final int PARENT_IS_CHILD       = 12;
+	static final int PARENT_IS_CHILD               = 12;
 	/** indicates the element is still used somewhere else */
-	static final int ELEMENT_USED          = 13;
+	static final int ELEMENT_USED                  = 13;
 	/** indicates that some value was outside of the allowed range */
-	static final int OUT_OF_RANGE          = 14;
+	static final int OUT_OF_RANGE                  = 14;
 	/** indicates that the operation failed, because only empty folders can be deleted */
-	static final int FOLDER_NOT_EMPTY      = 15;
+	static final int FOLDER_NOT_EMPTY              = 15;
 	/** indicates that the operation failed, because the element was deleted */
-	static final int ELEMENT_DELETED       = 16;
+	static final int ELEMENT_DELETED               = 16;
+	/** indicates that the operation failed, because the file system or the element is read only */
+	static final int READ_ONLY                     = 17;
+	/** indicates that the operation failed, because the different file systems should be used (for example move entry) */
+	static final int DIFFERENT_FILE_SYSTEMS        = 18;
+	
+	// here is the end of the automatic generated code-block
+	// GENERATED-CODE-END
 	
 	static final IntObjectFunction<String, IOException> FUNC = (msg, errno) -> {
 		switch (errno) {
 		case NONE:
 			throw new AssertionError("no error: " + msg);
-		case UNKNOWN:
+		case UNKNOWN_ERROR:
 			return new IOException("unknown error: " + msg);
 		case NO_MORE_ELEMENTS:
 			throw new NoSuchElementException("no more elements: " + msg);
@@ -166,8 +173,8 @@ class ErrConsts {
 			return new IOException("IO error: " + msg);
 		case ILLEGAL_ARG:
 			throw new IllegalArgumentException("illegal argument: " + msg);
-		case ILLEGAL_STATE:
-			throw new IOError(new IOException("invalid magic: " + msg));
+		case ILLEGAL_DATA:
+			return new StreamCorruptedException("invalid magic: " + msg);
 		case OUT_OF_MEMORY:
 			throw new OutOfMemoryError("out of memory: " + msg);
 		case ROOT_FOLDER:

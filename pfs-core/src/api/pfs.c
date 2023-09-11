@@ -250,7 +250,7 @@ extern int pfs_load(struct bm_block_manager *bm, const char *cur_work_dir,
 	}
 	struct pfs_b0 *b0 = bm->get(bm, 0L);
 	pfs_validate_b0(b0,
-			pfs_err = PFS_ERRNO_ILLEGAL_STATE; bm->unget(bm, 0L); return 0;, 1)
+			pfs_err = PFS_ERRNO_ILLEGAL_DATA; bm->unget(bm, 0L); return 0;, 1)
 	struct element_handle **nehs = malloc(sizeof(struct element_handle*));
 	struct stream_handle **nshs = malloc(sizeof(struct stream_handle*));
 	struct iter_handle **nihs = malloc(sizeof(struct iter_handle*));

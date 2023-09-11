@@ -48,8 +48,8 @@ extern const char* pfs_error0(int pfs_err_val) {
 		return "IO error";
 	case PFS_ERRNO_ILLEGAL_ARG:
 		return "illegal argument";
-	case PFS_ERRNO_ILLEGAL_STATE:
-		return "some state is invalid";
+	case PFS_ERRNO_ILLEGAL_DATA:
+		return "some data is invalid";
 	case PFS_ERRNO_OUT_OF_MEMORY:
 		return "the system is out of memory";
 	case PFS_ERRNO_ROOT_FOLDER:

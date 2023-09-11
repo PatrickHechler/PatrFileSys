@@ -48,7 +48,7 @@ enum pfs_errno {
 	PFS_ERRNO_OUT_OF_SPACE                  = 6, /* indicates that there is not enough space on the device */
 	PFS_ERRNO_IO_ERR                        = 7, /* indicates an IO error */
 	PFS_ERRNO_ILLEGAL_ARG                   = 8, /* indicates an illegal argument */
-	PFS_ERRNO_ILLEGAL_STATE                 = 9, /* indicates that some state is invalid */
+	PFS_ERRNO_ILLEGAL_DATA                  = 9, /* indicates that some data is invalid */
 	PFS_ERRNO_OUT_OF_MEMORY                 = 10, /* indicates that the system is out of memory */
 	PFS_ERRNO_ROOT_FOLDER                   = 11, /* indicates that the root folder does not support this operation */
 	PFS_ERRNO_PARENT_IS_CHILD               = 12, /* indicates that the parent can't be made to it's own child */
@@ -58,7 +58,7 @@ enum pfs_errno {
 	PFS_ERRNO_ELEMENT_DELETED               = 16, /* indicates that the operation failed, because the element was deleted */
 	PFS_ERRNO_READ_ONLY                     = 17, /* indicates that the operation failed, because the file system or the element is read only */
 	PFS_ERRNO_DIFFERENT_FILE_SYSTEMS        = 18, /* indicates that the operation failed, because the different file systems should be used (for example move entry) */
-
+	
 	// here is the end of the automatic generated code-block
 	// GENERATED-CODE-END
 };
