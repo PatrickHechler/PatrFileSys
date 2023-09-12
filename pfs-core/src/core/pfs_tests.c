@@ -454,15 +454,14 @@ int main(int argc, char **argv) {
 	pfs->close_bm(pfs);
 	printf("%sstart checks with a file block manager (again, again) [4]\n",
 			start);
-	pfs = bm_new_file_block_manager_path_bs(test_file, 07770, 0);
+	pfs = bm_new_file_block_manager_path_bs(test_file, 1 << 15, 0);
 	if (pfs == NULL) {
 		printf("%scould not create the block manager (%s) [5]\n", start,
 				pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	checks();
-	printf("%sstart checks with block-flaggable ram block manager [6]\n",
-			start);
+	printf("%sstart checks with block-flaggable ram block manager [6]\n", start);
 	fflush(NULL);
 	pfs = bm_new_flaggable_ram_block_manager(BLOCK_COUNT, 1024);
 	checks();
@@ -609,8 +608,8 @@ static void file_check() {
 	void *data = random_data0(rd_start, 1016);
 	res = pfsc_file_append(file, data, 1016);
 	if (res != 1016) {
-		printf("%scould not append to the file (appended: %ld) [4]\n", start,
-				res);
+		printf("%scould not append to the file (appended: %ld) (%s) [4]\n",
+				start, res, pfs_error());
 		exit(EXIT_FAILURE);
 	}
 	length = pfsc_file_length(file);

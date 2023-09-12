@@ -43,7 +43,8 @@ void not_delete_all_flags(struct bm_block_manager *bm);
 
 struct bm_ram {
 	struct bm_block_manager bm;
-	void *blocks;
+	void **blocks;
+	i64 block_count;
 };
 
 struct bm_file {
@@ -53,7 +54,6 @@ struct bm_file {
 
 struct bm_flag_ram {
 	struct bm_ram bm;
-	i64 block_count;
 	ui8 *flags;
 };
 
@@ -120,7 +120,8 @@ extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count,
 	bm->bm.loaded.equalizer = bm_equal;
 	bm->bm.loaded.hashmaker = bm_hash;
 	setNoFlagVals(ram)
-	bm->blocks = calloc(block_count, block_size);
+	bm->blocks = calloc(block_count, sizeof(void*));
+	bm->block_count = block_count;
 	if (bm->blocks == NULL) {
 		free(bm);
 		pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
@@ -162,7 +163,7 @@ extern struct bm_block_manager* bm_new_file_block_manager_path_bs(
 	if (read_only) {
 		fd = bm_fd_open_ro(file);
 	} else {
-#if PFS_PORTABLE_BUILD // fopen has no mode for open existing (but do not truncate) or create new
+#ifdef PFS_PORTABLE_BUILD // fopen has no mode for open existing (but do not truncate) or create new
 		fd = bm_fd_open_rw(file);
 		if (!fd) {
 			int e = errno;
@@ -176,22 +177,11 @@ extern struct bm_block_manager* bm_new_file_block_manager_path_bs(
 #endif
 	}
 #ifdef PFS_PORTABLE_BUILD
-	if (!fd) {
-		switch (errno) {
-		case EEXIST:
-			pfs_err = PFS_ERRNO_ELEMENT_NOT_EXIST;
-			break;
-		case EIO:
-			pfs_err = PFS_ERRNO_IO_ERR;
-			break;
-		default:
-			pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
-			break;
-		}
-		return NULL;
-	}
+	if (fd == NULL)
 #else // PFS_PORTABLE_BUILD
-	if (fd == -1) {
+	if (fd == -1)
+#endif // PFS_PORTABLE_BUILD
+			{
 		switch (errno) {
 		case EEXIST:
 			pfs_err = PFS_ERRNO_ELEMENT_NOT_EXIST;
@@ -205,7 +195,6 @@ extern struct bm_block_manager* bm_new_file_block_manager_path_bs(
 		}
 		return NULL;
 	}
-#endif // PFS_PORTABLE_BUILD
 	return bm_new_file_block_manager(fd, block_size);
 }
 
@@ -232,20 +221,20 @@ extern struct bm_block_manager* bm_new_flaggable_ram_block_manager(
 	bm->bm.bm.loaded.equalizer = bm_equal;
 	bm->bm.bm.loaded.hashmaker = bm_hash;
 	setFlagVals(ram, 8)
-	bm->bm.blocks = calloc(block_count, block_size);
+	bm->bm.blocks = calloc(block_count, sizeof(void*));
+	bm->bm.block_count = block_count;
 	if (bm->bm.blocks == NULL) {
 		free(bm);
 		pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
 		return NULL;
 	}
-	bm->flags = malloc(block_count);
+	bm->flags = calloc(1, block_count);
 	if (bm->flags == NULL) {
 		free(bm->bm.blocks);
 		free(bm);
 		pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
 		return NULL;
 	}
-	bm->block_count = block_count;
 	return &(bm->bm.bm);
 }
 
@@ -319,8 +308,11 @@ static void* bm_ram_get(struct bm_block_manager *bm, i64 block) {
 		errno = 0;
 		return NULL;
 	}
-	memcpy(loaded->data, br->blocks + (block * (i64) br->bm.block_size),
-			br->bm.block_size);
+	if (br->blocks[block]) {
+		memcpy(loaded->data, br->blocks[block], br->bm.block_size);
+	} else {
+		memset(loaded->data, 0, br->bm.block_size);
+	}
 	if (hashset_put(&br->bm.loaded, (uint64_t) block, loaded) != NULL) {
 		abort();
 	}
@@ -340,13 +332,18 @@ static int bm_ram_unget(struct bm_block_manager *bm, i64 block) {
 			abort();
 		}
 		if (loaded->save) {
-			memcpy(
-					(void*) ((i64) br->blocks
-							+ (block * (i64) br->bm.block_size)), loaded->data,
-					br->bm.block_size);
+			if (!br->blocks[block]) {
+				br->blocks[block] = malloc(br->bm.block_size);
+				if (!br->blocks[block]) {
+					errno = 0;
+					br->blocks[block] = loaded->data;
+					goto l;
+				}
+			}
+			memcpy(br->blocks[block], loaded->data, br->bm.block_size);
 		}
 		free(loaded->data);
-		free(loaded);
+		l: free(loaded);
 	}
 	return 1;
 }
@@ -364,10 +361,17 @@ static int bm_ram_set(struct bm_block_manager *bm, i64 block) {
 				!= loaded) {
 			abort();
 		}
-		memcpy((void*) ((i64) br->blocks + (block * (i64) br->bm.block_size)),
-				loaded->data, br->bm.block_size);
+		if (!br->blocks[block]) {
+			br->blocks[block] = malloc(br->bm.block_size);
+			if (!br->blocks[block]) {
+				errno = 0;
+				br->blocks[block] = loaded->data;
+				goto l;
+			}
+		}
+		memcpy(br->blocks[block], loaded->data, br->bm.block_size);
 		free(loaded->data);
-		free(loaded);
+		l: free(loaded);
 	}
 	return 1;
 }
@@ -380,6 +384,11 @@ static int bm_ram_close(struct bm_block_manager *bm) {
 	struct bm_ram *br = (struct bm_ram*) bm;
 	if (bm->loaded.entrycount > 0) {
 		abort();
+	}
+	for (i64 bc = br->block_count; bc--;) {
+		if (br->blocks[bc]) {
+			free(br->blocks[bc]);
+		}
 	}
 	free(br->blocks);
 	free(bm);
@@ -610,7 +619,7 @@ static void set_flag_ram_flags(struct bm_block_manager *bm, i64 block,
 
 static i64 get_flag_ram_first_zero_flagged_block(struct bm_block_manager *bm) {
 	struct bm_flag_ram *f = (struct bm_flag_ram*) bm;
-	for (i64 i = 0; i < f->block_count; i++) {
+	for (i64 i = 0; i < f->bm.block_count; i++) {
 		if (f->flags[i] != 0) {
 			continue;
 		} else {
@@ -622,5 +631,5 @@ static i64 get_flag_ram_first_zero_flagged_block(struct bm_block_manager *bm) {
 
 static void delete_flag_ram_all_flags(struct bm_block_manager *bm) {
 	memset(((struct bm_flag_ram*) bm)->flags, 0,
-			((struct bm_flag_ram*) bm)->block_count);
+			((struct bm_flag_ram*) bm)->bm.block_count);
 }

@@ -345,7 +345,11 @@ int pfsc_folder_child_from_name(pfs_eh f, const char *name) {
 }
 
 int pfsc_folder_folder_child_from_name(pfs_eh f, const char *name) {
-	return 1 == pfs_folder_child_from_name_impl(f, name, 0, PFS_F_FOLDER);
+	return 1 == pfs_folder_child_from_name_impl(f, name, 0, PFS_F_FOLDER | PFS_F_MOUNT);
+}
+
+int pfsc_folder_mount_child_from_name(pfs_eh f, const char *name) {
+	return 1 == pfs_folder_child_from_name_impl(f, name, 0, PFS_F_MOUNT);
 }
 
 int pfsc_folder_file_child_from_name(pfs_eh f, const char *name) {

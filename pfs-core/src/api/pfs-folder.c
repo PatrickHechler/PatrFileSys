@@ -126,14 +126,21 @@ extern int pfs_folder_create_pipe(int eh, const char *name) {
 	pfs_folder_create(pipe)
 }
 
+#define pfs_folder_create_mount(postfix, ...) pfs_folder_create0(mount_##postfix, _mount, \
+		if (!pfsc_mount_open(&((struct element_handle_mount*) c)->handle, c->handle.fs_data->read_only)) { \
+			free(c); \
+			return -1; \
+		} \
+		, name, __VA_ARGS__)
+
 extern int pfs_folder_create_mount_intern(int eh, const char *name, i64 block_count, i32 block_size) {
-	pfs_folder_create0(mount_intern, _mount, pfsc_mount_open(&((struct element_handle_mount*) c)->handle, c->handle.fs_data->read_only);, name, block_count, block_size)
+	pfs_folder_create_mount(intern, block_count, block_size)
 }
 
 extern int pfs_folder_create_mount_temp(int eh, const char *name, i64 block_count, i32 block_size) {
-	pfs_folder_create0(mount_temp, _mount, pfsc_mount_open(&((struct element_handle_mount*) c)->handle, c->handle.fs_data->read_only);, name, block_count, block_size)
+	pfs_folder_create_mount(temp, block_count, block_size)
 }
 
 extern int pfs_folder_create_mount_rfs_file(int eh, const char *name, const char *file) {
-	pfs_folder_create0(mount_rfs_file, _mount, pfsc_mount_open(&((struct element_handle_mount*) c)->handle, c->handle.fs_data->read_only);, name, file)
+	pfs_folder_create_mount(rfs_file, file)
 }
