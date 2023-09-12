@@ -129,9 +129,11 @@ extern char* pfs_element_path(int eh) {
 	return res;
 }
 
-static inline struct element_handle* open_eh(const char *path,
+#define open_eh(path, rot, allow_relative, parent_on_err) open_eh(path, rot, allow_relative, parent_on_err, 0)
+
+static inline struct element_handle* (open_eh)(const char *path,
 		struct element_handle *rot, int allow_relative,
-		struct element_handle **parent_on_err) {
+		struct element_handle **parent_on_err, int allow_closed_mount) {
 	if (*path == '\0') {
 		pfs_err = PFS_ERRNO_ILLEGAL_ARG;
 		return NULL;
@@ -225,11 +227,19 @@ static inline struct element_handle* open_eh(const char *path,
 						(struct element_handle_mount*) neh;
 				if (!pfsc_mount_open(&(mneh)->handle,
 						mneh->handle.handle.fs_data->read_only)) {
-					neh->handle.is_mount_point = 0;
-					release_eh(neh);
-					return NULL;
-				} // assume that the folder functions are used more often than the mount functions
-				neh = mneh->handle.fs.root;
+					if (allow_relative) {
+						pfs_err = 0;
+						neh = realloc(neh, sizeof(struct element_handle));
+						neh->handle.is_mount_point = -1;
+						return neh;
+					} else {
+						neh->handle.is_mount_point = 0;
+						release_eh(neh);
+						return NULL;
+					}
+				} else { // assume that the folder functions are used more often than the mount functions
+					neh = mneh->handle.fs.root; // also the folder functions do not check for mount points
+				}
 			}
 			hashset_put(&pfs_all_ehs_set, eh_hash(neh), neh);
 			neh->load_count = 1;
@@ -549,26 +559,34 @@ static int delete_element(struct element_handle **eh, int also_when_loaded) {
 			return 0;
 		}
 	}
+	struct pfs_element_handle *eh0 = &(*eh)->handle;
+	if ((*eh)->handle.is_mount_point > 0) {
+		eh0 = &(*eh)->handle.fs_data->mount_point->handle;
+	}
 	i64 former_index;
 	struct element_handle peh;
-	int res = pfsc_element_delete(&(*eh)->handle, &former_index, &peh.handle);
+	int res = pfsc_element_delete(eh0, &former_index, &peh.handle);
 	struct element_handle *npeh = hashset_get(&pfs_all_ehs_set, eh_hash(&peh), &peh);
 	if (npeh) {
 		pfs_modify_iterators(npeh, former_index);
 	}
-	if (res && has_refs0(*eh, 1)) {
-		if (!also_when_loaded) {
-			abort();
+	if ((*eh)->handle.is_mount_point != -1) {
+		if (res && has_refs0(*eh, 1)) {
+			if (!also_when_loaded) {
+				abort();
+			}
+			memset(&(*eh)->handle, 0xFF, sizeof(struct pfs_element_handle));
 		}
-		memset(&(*eh)->handle, 0xFF, sizeof(struct pfs_element_handle));
+		release_eh(*eh);
+		*eh = NULL;
+	} else {
+		free(*eh);
 	}
-	release_eh(*eh);
-	*eh = NULL;
 	return res;
 }
 
 extern int pfs_delete(const char *path, int also_when_loaded) {
-	struct element_handle *eh = open_eh(path, pfs_root, 1, NULL);
+	struct element_handle *eh = (open_eh)(path, pfs_root, 1, NULL, 1);
 	check_write_access0(eh, 0)
 	return delete_element(&eh, also_when_loaded);
 }
@@ -1014,7 +1032,7 @@ extern int pfs_iter(const char *path, int show_hidden) {
 
 void (pfs_modify_iterators)(struct element_handle const *eh, ui64 former_index,
 		int removed) {
-	for (int i = pfs_ih_len; --i >= 0; ) {
+	for (int i = pfs_ih_len; --i >= 0;) {
 		if (pfs_ihs[i] && ((pfs_ihs[i]->folder == eh) || !eh)) {
 			memset(&pfs_ihs[i]->handle, 0xFF, sizeof(struct pfs_folder_iter));
 			if (removed) {
