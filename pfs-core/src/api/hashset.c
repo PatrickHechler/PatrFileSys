@@ -37,6 +37,8 @@ struct hs_list {
 
 _Static_assert(offsetof(struct hs_list, data) == sizeof(void*), "Error!");
 
+#define hs_one_bit_set(val) ((val & (val - 1)) == 0)
+
 extern void* hashset_get(const struct hashset *set, uint64_t hash,
 		const void *equalto) {
 	int mi = set->maxi;
@@ -63,25 +65,6 @@ extern void* hashset_get(const struct hashset *set, uint64_t hash,
 	}
 }
 
-static inline unsigned hs_bitcnt(uint64_t val) {
-	if (val > 0xFFFFFFFF) { // see java: Long.bitCount
-		val = val - ((val >> 1) & 0x5555555555555555L);
-		val = (val & 0x3333333333333333L) + ((val >> 2) & 0x3333333333333333L);
-		val = (val + (val >> 4)) & 0x0f0f0f0f0f0f0f0fL;
-		val = val + (val >> 8);
-		val = val + (val >> 16);
-		val = val + (val >> 32);
-		return val & 0x7f;
-	} else { // see java: Integer.bitCount
-		unsigned val0 = val - ((val >> 1) & 0x55555555);
-		val0 = (val0 & 0x33333333) + ((val0 >> 2) & 0x33333333);
-		val0 = (val0 + (val0 >> 4)) & 0x0f0f0f0f;
-		val0 = val0 + (val0 >> 8);
-		val0 = val0 + (val0 >> 16);
-		return val0 & 0x3f;
-	}
-}
-
 struct no_check_put_arg {
 	uint64_t (*hashmaker)(const void*);
 	int64_t *elements;
@@ -103,7 +86,7 @@ static int hs_no_check_put(void *arg0, void *element) {
 	} else if (es < 0) {
 		struct hs_list *list = (struct hs_list*) -es;
 		uint64_t i = ++list->len;
-		if (hs_bitcnt(i) == 1) {
+		if (hs_one_bit_set(i)) {
 			list = realloc(list, sizeof(void*) * 2 * list->len);
 			arg->elements[hash] = -(int64_t) list;
 		}
@@ -170,7 +153,7 @@ static inline void* hashset_add_put(struct hashset *set, uint64_t hash,
 			}
 		}
 		uint64_t i = ++list->len;
-		if (hs_bitcnt(i) == 1) {
+		if (hs_one_bit_set(i)) {
 			list = realloc(list, sizeof(void*) * 2 * list->len);
 			((void**) set->entries)[hash] = (void*) -(int64_t) list;
 		}
@@ -193,7 +176,7 @@ extern void* hashset_add(struct hashset *set, uint64_t hash, void *addvalue) {
 }
 
 static inline void hs_shrink(struct hashset *set) {
-	if (set->maxi >> 3 >= --set->entrycount) {
+	if (set->maxi >> 2 >= --set->entrycount) {
 		if (set->entrycount) {
 			uint64_t nmi = set->maxi >> 1;
 			void *newEntries = calloc(nmi + 1, sizeof(void*));
@@ -244,7 +227,7 @@ extern void* hashset_remove(struct hashset *set, uint64_t hash, void *oldvalue) 
 				} else {
 					memmove(list->datam1 + i, list->datam1 + 1 + i,
 							(list->len - i - 1) * sizeof(void*));
-					if (hs_bitcnt(list->len) == 1) {
+					if (hs_one_bit_set(list->len)) {
 						list = realloc(list, sizeof(void*) * list->len);
 					}
 					list->len--;
