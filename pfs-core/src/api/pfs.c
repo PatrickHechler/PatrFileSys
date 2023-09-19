@@ -49,11 +49,8 @@ static inline void release_eh(struct element_handle *feh) {
 
 static i64 pfs_element__path0_rec_impl(struct pfs_element_handle *eh,
 		char **buffer, i64 *buf_size, i64 cur_size, int cont_on_mounts) {
-	if (cont_on_mounts && eh->is_mount_point) {
-		eh = &eh->fs_data->mount_point->handle;
-	}
 	if (eh->direct_parent_place.block == -1L) {
-		if (*buf_size <= cur_size) {
+		end: if (*buf_size <= cur_size) {
 			*buf_size = cur_size;
 			*buffer = realloc(*buffer, cur_size);
 		}
@@ -72,6 +69,13 @@ static i64 pfs_element__path0_rec_impl(struct pfs_element_handle *eh,
 	if (!pfsc_element_get_parent(&peh)) {
 		return -1L;
 	}
+	if (peh.is_mount_point) {
+		if (cont_on_mounts) {
+			eh = &eh->fs_data->mount_point->handle;
+		} else {
+			goto end;
+		}
+	}
 	i64 off = pfs_element__path0_rec_impl(&peh, buffer, buf_size, cur_size,
 			cont_on_mounts);
 	if (off < 0L) {
@@ -88,8 +92,12 @@ static i64 pfs_element__path0_rec_impl(struct pfs_element_handle *eh,
 static inline int pfs_element__path0_impl(int eh, char **buffer, i64 *buf_size,
 		int cont_on_mounts) {
 	eh(0)
-	i64 off = pfs_element__path0_rec_impl(&pfs_ehs[eh]->handle, buffer,
-			buf_size, 1L, cont_on_mounts);
+	struct pfs_element_handle *handle = &pfs_ehs[eh]->handle;
+	if (handle->is_mount_point) {
+		handle = &handle->fs_data->mount_point->handle;
+	}
+	i64 off = pfs_element__path0_rec_impl(handle, buffer, buf_size, 1L,
+			cont_on_mounts);
 	if (off < 0L) {
 		return 1;
 	} else if (off == 0L) { //only root has trailing slash
@@ -566,7 +574,8 @@ static int delete_element(struct element_handle **eh, int also_when_loaded) {
 	i64 former_index;
 	struct element_handle peh;
 	int res = pfsc_element_delete(eh0, &former_index, &peh.handle);
-	struct element_handle *npeh = hashset_get(&pfs_all_ehs_set, eh_hash(&peh), &peh);
+	struct element_handle *npeh = hashset_get(&pfs_all_ehs_set, eh_hash(&peh),
+			&peh);
 	if (npeh) {
 		pfs_modify_iterators(npeh, former_index);
 	}

@@ -36,7 +36,10 @@ enum mount_type {
 /*
  * opens and returns an handle for the root folder/mount point of the file system of the given handle
  *
- * doing this on a mount point duplicates the entry
+ * doing this on a mount point does not duplicate the entry, but return the root folder/mount point
+ * on which the file system entry of the mount point lies.
+ *
+ * this operation fails, when the absolute root folder is passed
  */
 extern int pfs_mount_get_mount_point(int eh);
 

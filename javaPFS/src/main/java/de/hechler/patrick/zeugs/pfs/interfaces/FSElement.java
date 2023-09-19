@@ -103,24 +103,35 @@ public interface FSElement extends Closeable {
 	
 	/**
 	 * returns the mount point on which this element resides
+	 * <p>
+	 * if this entry is a mount point, other than the root folder, the mount point of the file system which holds the mount point entry will be returned
+	 * 
+	 * if this entry is the root folder, the operation fails
 	 * 
 	 * @return the mount point on which this element resides
 	 * 
 	 * @throws ClosedChannelException if this element handle was already closed
+	 * @throws IllegalStateException if this is the root folder
 	 */
-	Mount mountPoint() throws ClosedChannelException;
+	Mount mountPoint() throws ClosedChannelException, IllegalStateException;
 	
 	/**
 	 * returns the absolute path of this element
+	 * 
 	 * @return the absolute path of this element
+	 * 
 	 * @throws IOException if an IO error occurs
 	 */
 	String path() throws IOException;
 	
 	/**
 	 * returns the path of this element relative from the next mount point
+	 * <p>
+	 * if this is a mount point other than the root folder, effectively <code>{@link #parent()}.{@link #pathFromMount()} + "/" + {@link #name()}</code> will be
+	 * returned
 	 * 
 	 * @return the path of this element relative from the next mount point
+	 * 
 	 * @throws IOException if an IO error occurs
 	 */
 	String pathFromMount() throws IOException;

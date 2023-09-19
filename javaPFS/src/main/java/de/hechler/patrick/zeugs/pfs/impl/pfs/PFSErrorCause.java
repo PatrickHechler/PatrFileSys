@@ -42,12 +42,7 @@ public enum PFSErrorCause {
 	
 	LOAD_PFS_AND_FORMAT(info -> "load and format PFS (" + info + ")"), LOAD_PFS(info -> "load PFS (" + info + ")"),
 	
-	GET_PARENT("get parent", (msg, errno) -> {
-		if (errno == ErrConsts.ROOT_FOLDER) {
-			throw new IllegalStateException(msg);
-		}
-		return ErrConsts.FUNC.apply(msg, errno);
-	}),
+	GET_PARENT("get parent"),
 	
 	GET_FLAGS(path -> path != null ? " get flags for '" + path + "'" : "get flags"), MODIFY_FLAGS("modify flags"),
 	
@@ -96,11 +91,6 @@ public enum PFSErrorCause {
 	private PFSErrorCause(Function<Object, String> str) {
 		this.str  = str;
 		this.func = ErrConsts.FUNC;
-	}
-	
-	private PFSErrorCause(String str, IntObjectFunction<String, IOException> func) {
-		this.str  = info -> str;
-		this.func = func;
 	}
 	
 }
@@ -178,7 +168,7 @@ class ErrConsts {
 		case OUT_OF_MEMORY:
 			throw new OutOfMemoryError("out of memory: " + msg);
 		case ROOT_FOLDER:
-			return new IOException("root folder restrictions: " + msg);
+			throw new IllegalStateException("root folder restrictions: " + msg);
 		case PARENT_IS_CHILD:
 			return new IOException("I won't move a folder to a child of it self: " + msg);
 		case ELEMENT_USED:
