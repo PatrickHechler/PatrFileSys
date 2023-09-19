@@ -21,6 +21,6 @@
  *      Author: pat
  */
 #include "pfs.h"
-#include "../include/pfs-iter.h"
+#include "../pfs/pfs-iter.h"
 
 

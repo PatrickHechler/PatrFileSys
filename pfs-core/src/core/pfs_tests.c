@@ -24,8 +24,8 @@
 #define PRINT_PFS
 
 #include "pfs.h"
-#include "../include/pfs-constants.h"
-#include "../include/pfs-random.h"
+#include "../pfs/pfs-constants.h"
+#include "../pfs/random.h"
 
 #include <stdlib.h>
 #include <stdio.h>

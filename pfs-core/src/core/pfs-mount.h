@@ -24,7 +24,7 @@
 #ifndef SRC_CORE_PFS_MOUNT_H_
 #define SRC_CORE_PFS_MOUNT_H_
 
-#include "../include/pfs-mount.h"
+#include "../pfs/pfs-mount.h"
 
 int pfsc_mount_open(pfs_meh me, int read_only);
 

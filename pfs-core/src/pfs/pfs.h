@@ -21,8 +21,8 @@
  *  Created on: Oct 15, 2022
  *      Author: pat
  */
-#ifndef SRC_INCLUDE_PFS_H_
-#define SRC_INCLUDE_PFS_H_
+#ifndef SRC_PFS_PFS_H_
+#define SRC_PFS_PFS_H_
 
 #include "patr-file-sys.h"
 #include "bm.h"
@@ -270,4 +270,4 @@ extern void pfs_free(void *pntr);
 extern void* pfs_malloc(i64 size);
 extern void* pfs_realloc(void *oldpntr, i64 size);
 
-#endif /* SRC_INCLUDE_PFS_H_ */
+#endif /* SRC_PFS_PFS_H_ */

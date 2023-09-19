@@ -21,7 +21,7 @@
  *      Author: pat
  */
 #include "pfs.h"
-#include "../include/pfs-element.h"
+#include "../pfs/pfs-element.h"
 
 extern int pfs_element_parent(int eh) {
 	eh(-1)

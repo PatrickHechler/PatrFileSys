@@ -24,7 +24,7 @@
  *      Author: pat
  */
 #include "pfs.h"
-#include "../include/pfs-stream.h"
+#include "../pfs/pfs-stream.h"
 
 #define pfss(sh) pfs(pfs_shs[sh]->element)
 

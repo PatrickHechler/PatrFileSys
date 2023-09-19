@@ -21,8 +21,8 @@
  *      Author: pat
  */
 
-#ifndef SRC_INCLUDE_PFS_FOLDER_H_
-#define SRC_INCLUDE_PFS_FOLDER_H_
+#ifndef SRC_PFS_PFS_FOLDER_H_
+#define SRC_PFS_PFS_FOLDER_H_
 
 #include "patr-file-sys.h"
 
@@ -147,4 +147,4 @@ extern int pfs_folder_create_mount_temp(int eh, const char *name, i64 block_coun
  */
 extern int pfs_folder_create_mount_rfs_file(int eh, const char *name, const char *file);
 
-#endif /* SRC_INCLUDE_PFS_FOLDER_H_ */
+#endif /* SRC_PFS_PFS_FOLDER_H_ */

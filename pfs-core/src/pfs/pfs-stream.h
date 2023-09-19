@@ -21,8 +21,8 @@
  *      Author: pat
  */
 
-#ifndef SRC_INCLUDE_PFS_STREAM_H_
-#define SRC_INCLUDE_PFS_STREAM_H_
+#ifndef SRC_PFS_PFS_STREAM_H_
+#define SRC_PFS_PFS_STREAM_H_
 
 #include "patr-file-sys.h"
 
@@ -130,4 +130,4 @@ extern i64 pfs_stream_add_pos(int sh, i64 add);
  */
 extern i64 pfs_stream_seek_eof(int sh);
 
-#endif /* SRC_INCLUDE_PFS_STREAM_H_ */
+#endif /* SRC_PFS_PFS_STREAM_H_ */

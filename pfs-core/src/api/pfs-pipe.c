@@ -21,7 +21,7 @@
  *      Author: pat
  */
 #include "pfs.h"
-#include "../include/pfs-pipe.h"
+#include "../pfs/pfs-pipe.h"
 
 #define ch(err_ret) \
 	eh(err_ret) \

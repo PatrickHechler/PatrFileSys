@@ -21,8 +21,8 @@
  *      Author: pat
  */
 
-#ifndef SRC_INCLUDE_PFS_ELEMENT_H_
-#define SRC_INCLUDE_PFS_ELEMENT_H_
+#ifndef SRC_PFS_PFS_ELEMENT_H_
+#define SRC_PFS_PFS_ELEMENT_H_
 
 #include "patr-file-sys.h"
 
@@ -159,4 +159,4 @@ extern int pfs_element_move(int eh, int parenteh, char *name);
  */
 extern int pfs_element_same(int aeh, int beh);
 
-#endif /* SRC_INCLUDE_PFS_ELEMENT_H_ */
+#endif /* SRC_PFS_PFS_ELEMENT_H_ */

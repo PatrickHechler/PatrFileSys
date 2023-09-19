@@ -29,9 +29,9 @@
 #include "pfs-file.h"
 #include "pfs-folder.h"
 #include "pfs-pipe.h"
-#include "../include/bm.h"
-#include "../include/pfs-constants.h"
-#include "../include/pfs-err.h"
+#include "../pfs/bm.h"
+#include "../pfs/pfs-constants.h"
+#include "../pfs/pfs-err.h"
 
 int pfsc_format(bm pfs, i64 block_count, uuid_t uuid, char *name);
 

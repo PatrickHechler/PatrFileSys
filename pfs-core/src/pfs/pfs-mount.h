@@ -21,8 +21,8 @@
  *      Author: pat
  */
 
-#ifndef SRC_INCLUDE_PFS_MOUNT_H_
-#define SRC_INCLUDE_PFS_MOUNT_H_
+#ifndef SRC_PFS_PFS_MOUNT_H_
+#define SRC_PFS_PFS_MOUNT_H_
 
 #include "patr-file-sys.h"
 
@@ -67,4 +67,4 @@ extern int pfs_mount_fs_is_read_only(int eh);
 
 extern enum mount_type pfs_mount_fs_type(int eh);
 
-#endif /* SRC_INCLUDE_PFS_MOUNT_H_ */
+#endif /* SRC_PFS_PFS_MOUNT_H_ */

@@ -22,7 +22,7 @@
  */
 #include "pfs.h"
 #include "../core/pfs-folder.h"
-#include "../include/pfs-folder.h"
+#include "../pfs/pfs-folder.h"
 #include "../core/pfs-mount.h"
 
 #define ch(err_ret) \

@@ -22,7 +22,7 @@
  */
 
 #include "pfs-folder.h"
-#include "../include/pfs-constants.h"
+#include "../pfs/pfs-constants.h"
 
 #define get_any(pfs, struct_name, any_name, block_name, place_block, place_pos, error) \
 	ensure_block_is_entry(pfs, place_block); \

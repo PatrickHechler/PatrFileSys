@@ -27,7 +27,7 @@
 #include <string.h>
 #include <stddef.h>
 
-#include "../include/hashset.h"
+#include "../pfs/hashset.h"
 
 struct hs_list {
 	void *datam1[0];

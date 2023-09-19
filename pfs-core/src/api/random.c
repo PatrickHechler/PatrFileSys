@@ -25,7 +25,7 @@
  *      Author: pat
  */
 #define I_AM_RANDOM
-#include "../include/pfs-random.h"
+#include "../pfs/random.h"
 
 #include <endian.h>
 #include <time.h>

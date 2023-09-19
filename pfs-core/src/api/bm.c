@@ -21,8 +21,8 @@
  *  Created on: Jul 7, 2022
  *      Author: pat
  */
-#include "../include/bm.h"
-#include "../include/pfs-err.h"
+#include "../pfs/bm.h"
+#include "../pfs/pfs-err.h"
 #include "../core/pfs-intern.h"
 
 #include <stdlib.h>

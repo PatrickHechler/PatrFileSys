@@ -24,8 +24,8 @@
 #include "pfs.h"
 #include "../core/pfs-intern.h"
 #include "../core/pfs-mount.h"
-#include "../include/pfs.h"
-#include "../include/pfs-stream.h"
+#include "../pfs/pfs.h"
+#include "../pfs/pfs-stream.h"
 
 static int pfs_eh_equal(const void *a, const void *b) {
 	const struct element_handle *ha = a, *hb = b;

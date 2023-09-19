@@ -21,8 +21,8 @@
  *      Author: pat
  */
 
-#ifndef SRC_INCLUDE_PFS_FILE_H_
-#define SRC_INCLUDE_PFS_FILE_H_
+#ifndef SRC_PFS_PFS_FILE_H_
+#define SRC_PFS_PFS_FILE_H_
 
 #include "patr-file-sys.h"
 
@@ -51,4 +51,4 @@ extern i64 pfs_file_length(int eh);
  */
 extern int pfs_file_truncate(int eh, i64 length);
 
-#endif /* SRC_INCLUDE_PFS_FILE_H_ */
+#endif /* SRC_PFS_PFS_FILE_H_ */

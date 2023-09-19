@@ -24,9 +24,9 @@
 #ifndef SRC_CORE_PFS_INTERN_H_
 #define SRC_CORE_PFS_INTERN_H_
 
-#include "../include/patr-file-sys.h"
-#include "../include/pfs-mount.h"
-#include "../include/hashset.h"
+#include "../pfs/patr-file-sys.h"
+#include "../pfs/pfs-mount.h"
+#include "../pfs/hashset.h"
 #include <string.h>
 #include <stdlib.h>
 

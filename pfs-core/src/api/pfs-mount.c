@@ -23,7 +23,7 @@
 
 #include "pfs.h"
 #include "../core/pfs.h"
-#include "../include/pfs-mount.h"
+#include "../pfs/pfs-mount.h"
 
 #define check_mount_point(err_ret) \
 	if (pfs_ehs[eh]->handle.direct_parent_place.block != -1L) { \

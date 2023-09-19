@@ -24,8 +24,8 @@
 #ifndef SRC_API_PFS_H_
 #define SRC_API_PFS_H_
 
-#include "../include/patr-file-sys.h"
-#include "../include/pfs-err.h"
+#include "../pfs/patr-file-sys.h"
+#include "../pfs/pfs-err.h"
 
 #include <stdlib.h>
 

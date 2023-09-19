@@ -15,32 +15,30 @@
 //You should have received a copy of the GNU General Public License
 //along with this program.  If not, see <https://www.gnu.org/licenses/>.
 /*
- * pfs-iter.h
+ * pfs-pipe.h
  *
  *  Created on: Oct 15, 2022
  *      Author: pat
  */
 
-#ifndef SRC_INCLUDE_PFS_ITER_H_
-#define SRC_INCLUDE_PFS_ITER_H_
+#ifndef SRC_PFS_PFS_PIPE_H_
+#define SRC_PFS_PFS_PIPE_H_
 
 #include "patr-file-sys.h"
 
 /*
- * closes the given folder iterator handle
+ * opens a stream handle for the file/pipe
+ *   note that this function works also for files
+ *   add the PFS_SO_PIPE flag when no files are allowed
  *
- * the given folder iterator handle ID may be reused by the system
- * when a new folder iterator handle is opened
+ * on success the stream handle and on error -1 is returned
  */
-extern int pfs_iter_close(int ih);
+extern int pfs_open_stream(int eh, i32 stream_flags);
 
 /*
- * opens a new element handle for the next child element
- *
- * when there is no next child element -1 is returned and (pfs_err) is set to PFS_ERRNO_NO_MORE_ELEMENTS
- *
- * returns on success the child element handle and on error -1
+ * returns the pipe length
+ * on error -1 is returned
  */
-extern int pfs_iter_next(int ih);
+extern i64 pfs_pipe_length(int eh);
 
-#endif /* SRC_INCLUDE_PFS_ITER_H_ */
+#endif /* SRC_PFS_PFS_PIPE_H_ */
