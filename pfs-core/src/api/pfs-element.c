@@ -199,5 +199,5 @@ extern int pfs_element_move(int eh, int parenteh, char *name) {
 extern int pfs_element_same(int aeh, int beh) {
 	get_eh(-1, aeh)
 	get_eh(-1, beh)
-	return (pfs_ehs[aeh] == pfs_ehs[beh]) ? 1 : 0;
+	return element_equal(pfs_ehs[aeh], pfs_ehs[beh]) ? 1 : 0;
 }

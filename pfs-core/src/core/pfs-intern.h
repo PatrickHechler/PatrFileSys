@@ -292,39 +292,6 @@ void ensure_block_is_entry(bm pfs, i64 block);
 
 struct pfs_place find_place(bm pfs, i64 first_block, i64 remain);
 
-#ifdef I_AM_API_PFS
-#define PFS_EXT
-#define PFS_INIT(...) = __VA_ARGS__
-static int pfs_eh_equal(const void *a, const void *b);
-static uint64_t pfs_eq_hash(const void *a);
-#else
-#define PFS_EXT extern
-#define PFS_INIT(...)
-#endif
-
-PFS_EXT struct hashset pfs_all_ehs_set PFS_INIT( {
-			.entries = NULL,
-			.entrycount = 0,
-			.equalizer = pfs_eh_equal,
-			.hashmaker = pfs_eq_hash,
-			.maxi = 0
-		}
-);
-
-PFS_EXT struct element_handle **pfs_ehs PFS_INIT(NULL);
-PFS_EXT struct stream_handle **pfs_shs PFS_INIT(NULL);
-PFS_EXT struct iter_handle **pfs_ihs PFS_INIT(NULL);
-
-PFS_EXT i64 pfs_eh_len PFS_INIT(0);
-PFS_EXT i64 pfs_sh_len PFS_INIT(0);
-PFS_EXT i64 pfs_ih_len PFS_INIT(0);
-
-PFS_EXT struct element_handle *pfs_root PFS_INIT(NULL);
-PFS_EXT struct element_handle *pfs_cwd PFS_INIT(NULL);
-
-#undef PFS_EXT
-#undef PFS_INIT
-
 #define pfs(eh) (eh)->handle.fs_data->file_sys
 
 #define pfs0(e) (e)->fs_data->file_sys

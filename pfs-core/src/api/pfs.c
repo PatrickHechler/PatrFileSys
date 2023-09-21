@@ -28,10 +28,12 @@
 #include "../pfs/pfs-stream.h"
 
 static int pfs_eh_equal(const void *a, const void *b) {
+	// do not use element_equal, it requires the pointers to be unique
+	// do not use element_equal, it equalizes elements from the same file system of different mount points
 	const struct element_handle *ha = a, *hb = b;
-	return ha->handle.element_place.block == hb->handle.element_place.block
-			&& ha->handle.element_place.pos == hb->handle.element_place.pos
-			&& ha->handle.fs_data == hb->handle.fs_data;
+	return (ha->handle.element_place.block == hb->handle.element_place.block)
+			&& (ha->handle.element_place.pos == hb->handle.element_place.pos)
+			&& (ha->handle.fs_data == hb->handle.fs_data);
 }
 static uint64_t pfs_eq_hash(const void *a) {
 	return eh_hash(a);
@@ -1042,7 +1044,7 @@ extern int pfs_iter(const char *path, int show_hidden) {
 void (pfs_modify_iterators)(struct element_handle const *eh, ui64 former_index,
 		int removed) {
 	for (int i = pfs_ih_len; --i >= 0;) {
-		if (pfs_ihs[i] && ((pfs_ihs[i]->folder == eh) || !eh)) {
+		if (pfs_ihs[i] && (!eh || element_equal(pfs_ihs[i]->folder, eh))) {
 			memset(&pfs_ihs[i]->handle, 0xFF, sizeof(struct pfs_folder_iter));
 			if (removed) {
 				if (pfs_ihs[i]->index >= former_index) {

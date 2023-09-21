@@ -32,6 +32,21 @@
 #define has_refs0(eh, small) ( (eh)->load_count > small )
 #define has_refs(eh) has_refs0(eh, 0)
 
+// first check the two pointers
+// if the pointers are different:
+// // if they are on the same mount points they they are not equal
+// // if they are of a different block manager they are not equal
+// // if they are on a different location they are not equal
+#define element_equal(a, b) ( \
+		((a) == (b)) \
+		|| ( \
+			((a)->handle.fs_data != (b)->handle.fs_data) \
+			&& (&(a)->handle.fs_data->file_sys == &(b)->handle.fs_data->file_sys) \
+			&& ((a)->handle.element_place.block == (b)->handle.element_place.block) \
+			&& ((a)->handle.element_place.pos == (b)->handle.element_place.pos) \
+		) \
+)
+
 #define get_handle(err_ret, h_len, hs, h_num) \
 	if (h_num >= h_len) { \
 		pfs_err = PFS_ERRNO_ILLEGAL_ARG; \
@@ -155,5 +170,39 @@ struct iter_handle {
 _Static_assert((offsetof(struct iter_handle, ieh)
 & 7) == 0, "err");
 _Static_assert((offsetof(struct iter_handle, folder) & 7) == 0, "err");
+
+
+#ifdef I_AM_API_PFS
+#define PFS_EXT
+#define PFS_INIT(...) = __VA_ARGS__
+static int pfs_eh_equal(const void *a, const void *b);
+static uint64_t pfs_eq_hash(const void *a);
+#else
+#define PFS_EXT extern
+#define PFS_INIT(...)
+#endif
+
+PFS_EXT struct hashset pfs_all_ehs_set PFS_INIT( {
+			.entries = NULL,
+			.entrycount = 0,
+			.equalizer = pfs_eh_equal,
+			.hashmaker = pfs_eq_hash,
+			.maxi = 0
+		}
+);
+
+PFS_EXT struct element_handle **pfs_ehs PFS_INIT(NULL);
+PFS_EXT struct stream_handle **pfs_shs PFS_INIT(NULL);
+PFS_EXT struct iter_handle **pfs_ihs PFS_INIT(NULL);
+
+PFS_EXT i64 pfs_eh_len PFS_INIT(0);
+PFS_EXT i64 pfs_sh_len PFS_INIT(0);
+PFS_EXT i64 pfs_ih_len PFS_INIT(0);
+
+PFS_EXT struct element_handle *pfs_root PFS_INIT(NULL);
+PFS_EXT struct element_handle *pfs_cwd PFS_INIT(NULL);
+
+#undef PFS_EXT
+#undef PFS_INIT
 
 #endif /* SRC_API_PFS_H_ */

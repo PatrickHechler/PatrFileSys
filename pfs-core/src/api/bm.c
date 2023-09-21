@@ -32,6 +32,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/errno.h>
+#include <sys/file.h>
 
 int bm_equal(const void *a, const void *b);
 uint64_t bm_hash(const void *a);
@@ -132,16 +133,35 @@ extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count,
 
 extern struct bm_block_manager* bm_new_file_block_manager(bm_fd fd,
 		i32 block_size) {
+	if (
 #ifdef PFS_PORTABLE_BUILD
-	if (!fd) {
-		pfs_err = PFS_ERRNO_ILLEGAL_ARG;
-		return NULL;
-	}
+	fd == NULL ||
 #endif // PFS_PORTABLE_BUILD
-	if (block_size <= 0) {
+			block_size <= 0) {
 		pfs_err = PFS_ERRNO_ILLEGAL_ARG;
 		return NULL;
 	}
+#if !defined PFS_PORTABLE_BUILD && !defined PFS_HALF_PORTABLE_BUILD
+	if (flock(fd, LOCK_EX | LOCK_NB) == -1) {
+		switch (errno) {
+		case EBADF:
+			errno = 0;
+			pfs_err = PFS_ERRNO_ILLEGAL_ARG;
+			return NULL;
+		case ENOLCK:
+			errno = 0;
+			pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
+			return NULL;
+		case EWOULDBLOCK:
+			errno = 0;
+			pfs_err = PFS_ERRNO_IO_ERR;
+			return NULL;
+		default:
+			pfs_err = PFS_ERRNO_UNKNOWN_ERROR;
+			return NULL;
+		}
+	}
+#endif // !PFS_HALF_PORTABLE_BUILD && !PFS_PORTABLE_BUILD
 	struct bm_file *bm = malloc(sizeof(struct bm_file));
 	if (bm == NULL) {
 		pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
@@ -568,11 +588,14 @@ static int save_block_ret1(void *arg0, void *element) {
 
 static int bm_file_close(struct bm_block_manager *bm) {
 	struct bm_file *bf = (struct bm_file*) bm;
-	if (bm->loaded.entrycount > 0) {
-		hashset_for_each(&bm->loaded, save_block_ret1, bf);
+	if (bf->bm.loaded.entrycount > 0) {
+		hashset_for_each(&bf->bm.loaded, save_block_ret1, bf);
 		abort();
 	}
-	free(bm->loaded.entries);
+	free(bf->bm.loaded.entries);
+#if !defined PFS_PORTABLE_BUILD && !defined PFS_HALF_PORTABLE_BUILD
+	flock(bf->file, LOCK_UN);
+#endif // !PFS_HALF_PORTABLE_BUILD && !PFS_PORTABLE_BUILD
 	if (bm_fd_close(bf->file) == -1) {
 		switch (errno) {
 		case EIO:
