@@ -21,7 +21,7 @@ static int __init patr_fs_init(void) {
 }
 
 static void __exit patr_fs_exit(void) {
-	printk(KERN_ALERT "Goodbye, cruel world\n");
+	printk(KERN_INFO "Goodbye, cruel world\n");
 }
 
 module_init(patr_fs_init);
