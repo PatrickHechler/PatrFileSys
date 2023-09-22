@@ -1,5 +1,5 @@
 #!/bin/sh
-cd ~/git/PatrFileSys/pfs-driver
+cd ./pfs-driver
 make all
 sudo dmesg --follow &
 echo 'add no patr-fs driver'
