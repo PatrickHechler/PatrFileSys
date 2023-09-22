@@ -22,6 +22,10 @@ if [ "$1" = "" ]
 	git pull
 	cd ./pfs-driver
 	make all
+elif [ "$2" = "" ]
+  then
+	git pull
+	cd ./pfs-driver
 else
 	cd ./pfs-driver
 fi
