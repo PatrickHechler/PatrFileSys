@@ -1,7 +1,7 @@
 #!/bin/sh
 cd ./pfs-driver
 make all
-sudo dmesg --follow &
+sudo dmesg -C --follow &
 echo 'add no patr-fs driver'
 sudo insmod patr_fs_driver.ko
 sleep 1
