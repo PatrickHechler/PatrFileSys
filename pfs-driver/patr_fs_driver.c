@@ -32,7 +32,7 @@ MODULE_DESCRIPTION("A file system Linux module for the Patr-File-System.");
 MODULE_VERSION("00.01.01");
 
 static int __init patr_fs_init(void) {
-	printk(KERN_NOTICE "Hello, world, I am the PatrFS-driver\n");
+	printk(KERN_NOTICE "Hello, world, I am the PatrFS-driver\r\n");
 	return 0;
 }
 
