@@ -32,4 +32,5 @@ sudo insmod patr_fs_driver.ko
 sleep 1
 echo 'remove now Patr-FS driver'
 sudo rmmod patr_fs_driver.ko
+sleep 0
 kill %1
