@@ -1,5 +1,5 @@
 #!/bin/sh
-ifeq ($1,)
+if eq($1,)
 	git pull
 	cd ./pfs-driver
 	make all
