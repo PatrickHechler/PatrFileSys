@@ -3,7 +3,7 @@ set -e
 if [ "$1" = "" ]
   then
 	git pull
-	cd ~/git/PatrFileSys/pfs-driver
+	cd ./pfs-driver
 	make all
 else
 	cd ./pfs-driver
