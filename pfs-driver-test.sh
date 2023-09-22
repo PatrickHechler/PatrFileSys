@@ -1,5 +1,6 @@
 #!/bin/sh
-if $1 == "" then
+if [ $1 == "" ]
+  then
 	git pull
 	cd ./pfs-driver
 	make all
