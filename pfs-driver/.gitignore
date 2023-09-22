@@ -2,8 +2,10 @@
 /.classpath
 /.project
 
-/Module.symvers
 /modules.order
+/Module.symvers
+
+*.cmd
 *.ko
 *.mod
 *.mod.c
