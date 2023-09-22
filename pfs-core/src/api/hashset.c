@@ -53,7 +53,7 @@ extern void* hashset_get(const struct hashset *set, uint64_t hash,
 		}
 		return NULL;
 	} else if (entry < 0) {
-		struct hs_list *list = (struct hs_list*) -entry;
+		struct hs_list *list = (struct hs_list*) ~entry;
 		for (uint64_t i = list->len; i; i--) { // possibly search the new elements more often
 			if (set->equalizer(list->datam1[i], equalto)) {
 				return list->datam1[i];
@@ -82,13 +82,13 @@ static int hs_no_check_put(void *arg0, void *element) {
 		list->len = 2;
 		list->data[0] = (void*) es;
 		list->data[1] = element;
-		arg->elements[hash] = -(int64_t) list;
+		arg->elements[hash] = ~(int64_t) list;
 	} else if (es < 0) {
-		struct hs_list *list = (struct hs_list*) -es;
+		struct hs_list *list = (struct hs_list*) ~es;
 		uint64_t i = ++list->len;
 		if (hs_one_bit_set(i)) {
 			list = realloc(list, sizeof(void*) * 2 * list->len);
-			arg->elements[hash] = -(int64_t) list;
+			arg->elements[hash] = ~(int64_t) list;
 		}
 		list->datam1[i] = element;
 	} else {
@@ -104,7 +104,7 @@ static inline void hs_free_old(struct hashset *set) {
 	for (uint64_t i = set->maxi + 1; i-- > 0;) {
 		int64_t es = ((int64_t*) set->entries)[i];
 		if (es < 0) {
-			free((void*) -es);
+			free((void*) ~es);
 		}
 	}
 	free(set->entries);
@@ -138,11 +138,11 @@ static inline void* hashset_add_put(struct hashset *set, uint64_t hash,
 		list->len = 2;
 		list->data[0] = (void*) es;
 		list->data[1] = newvalue;
-		((void**) set->entries)[hash] = (void*) -(int64_t) list;
+		((void**) set->entries)[hash] = (void*) ~(int64_t) list;
 		set->entrycount++;
 		return NULL;
 	} else if (es < 0) {
-		struct hs_list *list = (struct hs_list*) -es;
+		struct hs_list *list = (struct hs_list*) ~es;
 		for (uint64_t i = list->len; i; i--) {
 			if (set->equalizer(list->datam1[i], newvalue)) {
 				void *res = list->datam1[i];
@@ -155,7 +155,7 @@ static inline void* hashset_add_put(struct hashset *set, uint64_t hash,
 		uint64_t i = ++list->len;
 		if (hs_one_bit_set(i)) {
 			list = realloc(list, sizeof(void*) * 2 * list->len);
-			((void**) set->entries)[hash] = (void*) -(int64_t) list;
+			((void**) set->entries)[hash] = (void*) ~(int64_t) list;
 		}
 		list->datam1[i] = newvalue;
 		set->entrycount++;
@@ -211,7 +211,7 @@ extern void* hashset_remove(struct hashset *set, uint64_t hash, void *oldvalue) 
 		}
 		return NULL;
 	} else if (es < 0) {
-		struct hs_list *list = (struct hs_list*) -es;
+		struct hs_list *list = (struct hs_list*) ~es;
 		for (uint64_t i = list->len; i; i--) {
 			if (set->equalizer(list->datam1[i], oldvalue)) {
 				void *ov = list->datam1[i];
@@ -254,7 +254,7 @@ extern void hashset_for_each(const struct hashset *set,
 				return;
 			}
 		} else if (val < 0) {
-			struct hs_list *list = (struct hs_list*) -val;
+			struct hs_list *list = (struct hs_list*) ~val;
 			for (uint64_t i = list->len; i > 0; i--) {
 				if (!do_stuff(arg0, list->datam1[i])) {
 					return;

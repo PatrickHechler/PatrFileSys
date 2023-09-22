@@ -427,19 +427,12 @@ int main(int argc, char **argv) {
 		}
 		test_file = argv[1];
 	}
-	bm_fd fd = bm_fd_open_rw_trunc(test_file);
-#ifdef PFS_PORTABLE_BUILD
-	if (fd == NULL)
-#else
-	if (fd == -1)
-#endif
-			{
-		printf("%scould not open testfile ('%s') [3]\n", start, test_file);
-		perror("open");
+	pfs = bm_new_file_block_manager_path_bs(test_file, 1024, 0);
+	if (pfs == NULL) {
+		printf("%scould not open testfile ('%s' : %s) [3]\n", start, test_file, pfs_error());
 		fflush(NULL);
 		exit(EXIT_FAILURE);
 	}
-	pfs = bm_new_file_block_manager(fd, 1024);
 	checks();
 	pfs->close_bm(pfs);
 	printf("%sstart checks with a file block manager (again) [4]\n", start);
@@ -1153,7 +1146,7 @@ static void read_from(DIR *dir, pfs_eh f, char **name, i64 *name_size) {
 						*name);
 				exit(1);
 			}
-			int fd = open64(*name, O_RDONLY);
+			int fd = bm_fd_open_ro(*name);
 			if (fd == -1) {
 				perror("open64");
 				printf("%scould not open the file (%s) [5]\n", start, *name);
@@ -1418,8 +1411,8 @@ static void compare(DIR *dir, DIR *dir2, char *name, char *name2) {
 			reg_file: ;
 			void *buf = malloc(1 << 15);
 			void *buf2 = malloc(1 << 15);
-			int fd = open64(name, O_RDONLY);
-			int fd2 = open64(name2, O_RDONLY);
+			int fd = bm_fd_open_ro(name);
+			int fd2 = bm_fd_open_ro(name2);
 			if (fd == -1 || fd2 == -1) {
 				perror("open64");
 				printf("%scould not open the files (%d:%s | %d:%s)! [C]\n",

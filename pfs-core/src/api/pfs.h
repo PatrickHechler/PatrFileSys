@@ -176,7 +176,7 @@ _Static_assert((offsetof(struct iter_handle, folder) & 7) == 0, "err");
 #define PFS_EXT
 #define PFS_INIT(...) = __VA_ARGS__
 static int pfs_eh_equal(const void *a, const void *b);
-static uint64_t pfs_eq_hash(const void *a);
+static uint64_t pfs_eh_hash(const void *a);
 #else
 #define PFS_EXT extern
 #define PFS_INIT(...)
@@ -186,7 +186,7 @@ PFS_EXT struct hashset pfs_all_ehs_set PFS_INIT( {
 			.entries = NULL,
 			.entrycount = 0,
 			.equalizer = pfs_eh_equal,
-			.hashmaker = pfs_eq_hash,
+			.hashmaker = pfs_eh_hash,
 			.maxi = 0
 		}
 );

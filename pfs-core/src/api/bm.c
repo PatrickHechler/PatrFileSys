@@ -42,15 +42,17 @@ void set_none_flags(struct bm_block_manager *bm, i64 block, ui64 flags);
 i64 not_get_first_zero_flagged_block(struct bm_block_manager *bm);
 void not_delete_all_flags(struct bm_block_manager *bm);
 
+struct bm_file {
+	struct bm_block_manager bm;
+	const char *path;
+	bm_fd file;
+	unsigned load_count;
+};
+
 struct bm_ram {
 	struct bm_block_manager bm;
 	void **blocks;
 	i64 block_count;
-};
-
-struct bm_file {
-	struct bm_block_manager bm;
-	bm_fd file;
 };
 
 struct bm_flag_ram {
@@ -131,13 +133,30 @@ extern struct bm_block_manager* bm_new_ram_block_manager(i64 block_count,
 	return &(bm->bm);
 }
 
-extern struct bm_block_manager* bm_new_file_block_manager(bm_fd fd,
-		i32 block_size) {
-	if (
-#ifdef PFS_PORTABLE_BUILD
-	fd == NULL ||
-#endif // PFS_PORTABLE_BUILD
-			block_size <= 0) {
+static int bm_mnt_equal(const void *a, const void *b) {
+	const struct bm_file *ha = a, *hb = b;
+	return strcmp(ha->path, hb->path) == 0;
+}
+static uint64_t bm_mnt_hash(const void *a) {
+	const struct bm_file *ha = a;
+	uint64_t hash = 0;
+	for (const char *p = ha->path; *p; p++) {
+		hash = *p + (hash * 73);
+	}
+	return hash;
+}
+
+static struct hashset pfs_all_ext_mnt = {   //
+		/*	  */.entries = NULL,            //
+				.entrycount = 0,            //
+				.equalizer = bm_mnt_equal, //
+				.hashmaker = bm_mnt_hash,  //
+				.maxi = 0                   //
+		};
+
+static inline struct bm_block_manager* bm_new_file_block_manager(bm_fd fd,
+		i32 block_size, const char *path) {
+	if (block_size <= 0) {
 		pfs_err = PFS_ERRNO_ILLEGAL_ARG;
 		return NULL;
 	}
@@ -174,6 +193,11 @@ extern struct bm_block_manager* bm_new_file_block_manager(bm_fd fd,
 	bm->bm.loaded.hashmaker = bm_hash;
 	setNoFlagVals(file)
 	bm->file = fd;
+	bm->load_count = 1;
+	bm->path = path;
+	if (hashset_put(&pfs_all_ext_mnt, bm_hash(bm), bm) != NULL) {
+		abort();
+	}
 	return &(bm->bm);
 }
 
@@ -193,7 +217,7 @@ extern struct bm_block_manager* bm_new_file_block_manager_path_bs(
 			}
 		}
 #else
-		fd = open64(file, O_RDWR | O_CREAT);
+		fd = open64(file, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 #endif
 	}
 #ifdef PFS_PORTABLE_BUILD
@@ -215,7 +239,21 @@ extern struct bm_block_manager* bm_new_file_block_manager_path_bs(
 		}
 		return NULL;
 	}
-	return bm_new_file_block_manager(fd, block_size);
+	struct bm_file tf;
+	tf.path = file;
+	struct bm_file *f = hashset_get(&pfs_all_ext_mnt,
+			bm_mnt_hash(&tf),
+			&tf);
+	if (f) {
+		if (f->bm.block_size != block_size) {
+			abort();
+		}
+		if (++f->load_count == 0) {
+			abort();
+		}
+		return &f->bm;
+	}
+	return bm_new_file_block_manager(fd, block_size, strdup(file));
 }
 
 extern struct bm_block_manager* bm_new_file_block_manager_path(const char *file,
@@ -225,7 +263,19 @@ extern struct bm_block_manager* bm_new_file_block_manager_path(const char *file,
 	bm_fd_read(fd, &b0, sizeof(struct pfs_b0));
 	long value = sizeof(struct pfs_folder_entry);
 	pfs_validate_b0(&b0, pfs_err = PFS_ERRNO_ILLEGAL_DATA; return NULL;, 0);
-	return bm_new_file_block_manager(fd, b0.block_size);
+	struct bm_file *f = hashset_get(&pfs_all_ext_mnt,
+			bm_mnt_hash(&file - offsetof(struct bm_file, path)),
+			&file - offsetof(struct bm_file, path));
+	if (f) {
+		if (f->bm.block_size != b0.block_size) {
+			abort();
+		}
+		if (++f->load_count == 0) {
+			abort();
+		}
+		return &f->bm;
+	}
+	return bm_new_file_block_manager(fd, b0.block_size, strdup(file));
 }
 
 extern struct bm_block_manager* bm_new_flaggable_ram_block_manager(
@@ -588,6 +638,10 @@ static int save_block_ret1(void *arg0, void *element) {
 
 static int bm_file_close(struct bm_block_manager *bm) {
 	struct bm_file *bf = (struct bm_file*) bm;
+	if (--bf->load_count) {
+		return 1;
+	}
+	hashset_remove(&pfs_all_ext_mnt, bm_mnt_hash(bf), bf);
 	if (bf->bm.loaded.entrycount > 0) {
 		hashset_for_each(&bf->bm.loaded, save_block_ret1, bf);
 		abort();

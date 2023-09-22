@@ -83,7 +83,7 @@
 				goto invalidb0; \
 			} \
 			if ((b0)->root.block == 0 && (b0)->root.pos < b0_end) { \
-				/* do invalid at the end, so if it 'returns', make no loop */ \
+				/* do invalid at the end, so if it finishes, make no loop */ \
 				invalidb0:; \
 				invalid \
 			} \

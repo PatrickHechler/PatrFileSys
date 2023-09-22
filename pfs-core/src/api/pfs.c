@@ -35,7 +35,7 @@ static int pfs_eh_equal(const void *a, const void *b) {
 			&& (ha->handle.element_place.pos == hb->handle.element_place.pos)
 			&& (ha->handle.fs_data == hb->handle.fs_data);
 }
-static uint64_t pfs_eq_hash(const void *a) {
+static uint64_t pfs_eh_hash(const void *a) {
 	return eh_hash(a);
 }
 
@@ -437,8 +437,6 @@ extern int pfs_close() {
 	}
 	return result;
 }
-
-// block_count and block_size are implemented in core/pfs.c
 
 static inline int handle0(struct element_handle *eh, ui32 flag) {
 	if (!eh) {

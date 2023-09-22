@@ -65,6 +65,11 @@ static int pfs_inten_bm_set(struct bm_block_manager *bm, i64 block);
 static int pfs_inten_sync_bm(struct bm_block_manager *bm);
 static int pfs_inten_bm_close_bm(struct bm_block_manager *bm);
 
+struct pfs_ext_mnt_entry {
+	const char *path;
+	struct bm_file *bm;
+};
+
 int pfsc_mount_open(pfs_meh me, int read_only) {
 	get_mount(0)
 	ui32 f = gmount->flags;
@@ -79,19 +84,19 @@ int pfsc_mount_open(pfs_meh me, int read_only) {
 		}
 		pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
 		errno = 0;
+		pfs(me)->unget(pfs(me), me->handle.element_place.block);
 		return 0;
 	}
 	switch (f & PFS_MOUNT_FLAGS_TYPE_MASK) {
 	case PFS_MOUNT_FLAGS_INTERN: {
-		struct pfs_mount_point_intern *imount = (struct pfs_mount_point_intern*) gmount;
+		struct pfs_mount_point_intern *imount =
+				(struct pfs_mount_point_intern*) gmount;
 		struct bm_block_manager_intern *inner = malloc(
 				sizeof(struct bm_block_manager_intern));
 		if (!inner) {
-			if (inner) {
-				free(inner);
-			}
 			pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
 			errno = 0;
+			pfs(me)->unget(pfs(me), me->handle.element_place.block);
 			return 0;
 		}
 		inner->me = me;
@@ -115,43 +120,46 @@ int pfsc_mount_open(pfs_meh me, int read_only) {
 		bm_set(int, block_flag_bits, 0)
 		bm_set(void*, get_flags, get_none_flags)
 		bm_set(void*, set_flags, set_none_flags)
-		bm_set(void*, first_zero_flagged_block, not_get_first_zero_flagged_block)
+		bm_set(void*, first_zero_flagged_block,
+				not_get_first_zero_flagged_block)
 		bm_set(void*, delete_all_flags, not_delete_all_flags)
 #undef bm_set
 		if (imount->file.file_length == 0) {
 			if (!pfsc_format(&inner->bm, imount->block_count, NULL, "")) {
 				free(inner);
+				pfs(me)->unget(pfs(me), me->handle.element_place.block);
 				return 0;
 			}
 		}
+		pfs(me)->unget(pfs(me), me->handle.element_place.block);
 		return pfsc_fill_root(&inner->bm, root, &me->fs, read_only);
 	}
-	case PFS_MOUNT_FLAGS_REAL_FS_FILE:
-		struct pfs_mount_point_real_fs_file *rfmount = (struct pfs_mount_point_real_fs_file*) gmount;
-		i32 len = get_size_from_block_table(block_data, me->handle.element_place.pos, pfs(me)->block_size);
-		char *file = malloc(len - sizeof(struct pfs_mount_point_real_fs_file) + 1L);
+	case PFS_MOUNT_FLAGS_REAL_FS_FILE: {
+		struct pfs_mount_point_real_fs_file *rfmount =
+				(struct pfs_mount_point_real_fs_file*) gmount;
+		i32 len = get_size_from_block_table(block_data,
+				me->handle.element_place.pos, pfs(me)->block_size);
+		char *file = malloc(
+				len - sizeof(struct pfs_mount_point_real_fs_file) + 1L);
 		memcpy(file, rfmount->path, len);
 		file[len] = '\0';
-		struct bm_block_manager *inner = bm_new_file_block_manager_path(file,
-				read_only);
+		pfs(me)->unget(pfs(me), me->handle.element_place.block);
+		// if fs is marked as read-only the fd is still open in rw mode, but that should not matter
+		struct bm_block_manager *inner = bm_new_file_block_manager_path(file, read_only);
 		free(file);
 		if (!inner) {
-			if (inner) {
-				free(inner);
-			}
 			pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
 			errno = 0;
 			return 0;
 		}
 		return pfsc_fill_root(inner, root, &me->fs, read_only);
+	}
 	case PFS_MOUNT_FLAGS_TEMP: {
-		struct pfs_mount_point_tmp *tmount = (struct pfs_mount_point_tmp*) gmount;
+		struct pfs_mount_point_tmp *tmount =
+				(struct pfs_mount_point_tmp*) gmount;
 		struct bm_block_manager *inner = bm_new_ram_block_manager(
 				tmount->block_count, tmount->block_size);
 		if (!inner) {
-			if (inner) {
-				free(inner);
-			}
 			pfs_err = PFS_ERRNO_OUT_OF_MEMORY;
 			errno = 0;
 			return 0;
@@ -168,10 +176,8 @@ static inline int save_block(struct bm_block_manager_intern *bmi,
 		struct bm_loaded *loaded) {
 	get_mount_(bmi->me, imount, 0, _intern)
 	i64 fpos = imount->block_size * loaded->block;
-	struct pfs_file_data file0 = {
-			.e = &imount->generic.element,
-			.f = &imount->file
-	};
+	struct pfs_file_data file0 = { .e = &imount->generic.element, .f =
+			&imount->file };
 	pfsc_file_write0(&bmi->bm, file0, fpos, loaded->data, bmi->bm.block_size,
 			bmi->me->handle.element_place.block);
 	return 1;
@@ -203,10 +209,10 @@ static void* pfs_inten_bm_get(struct bm_block_manager *bm, i64 block) {
 		return NULL;
 	}
 	i64 fpos = block * bi->bm.block_size;
-	struct pfs_file_data file0 = {
-			.e = &imount->generic.element,
-			.f = &imount->file
-	};
+	struct pfs_file_data file0 = {                 //
+			/*	  */.e = &imount->generic.element, //
+					.f = &imount->file             //
+			};
 	if (!pfsc_file_read0(pfs(bi->me), file0, fpos, loaded->data,
 			bi->bm.block_size, bi->me->handle.element_place.block)) {
 		free(loaded);

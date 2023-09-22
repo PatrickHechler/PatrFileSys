@@ -136,13 +136,15 @@ extern struct bm_block_manager* bm_new_flaggable_ram_block_manager(
 /**
  * creates a new file block manager
  *
+ * if a file block manager with the given file was already created
+ * once, it will be returned instead.
+ * if this happens, each time the file block manager is returned
+ * here, it has to be closed once more to let the close actually happen
+ *
  * file: the file descriptor
  *
  * block_size: the size of the blocks
  */
-extern struct bm_block_manager* bm_new_file_block_manager(bm_fd file,
-		i32 block_size);
-
 extern struct bm_block_manager* bm_new_file_block_manager_path_bs(const char *file,
 		i32 block_size, int read_only);
 
@@ -151,17 +153,17 @@ extern struct bm_block_manager* bm_new_file_block_manager_path(const char *file,
 
 /*
  * operations with bm_fd:
- *       bm_fd_read(bm_fd fd, void *buf, size_t len)
- *       bm_fd_write(bm_fd fd, void *data, size_t len)
- *       bm_fd_pos(bm_fd fd)
- *       bm_fd_seek(bm_fd fd, size_t pos)
- *       bm_fd_seek_eof(bm_fd fd)
- *       bm_fd_flush(bm_fd fd)
+ * i64   bm_fd_read(bm_fd fd, void *buf, size_t len)
+ * i64   bm_fd_write(bm_fd fd, void *data, size_t len)
+ * i64   bm_fd_pos(bm_fd fd)
+ * i64   bm_fd_seek(bm_fd fd, size_t pos)
+ * i64   bm_fd_seek_eof(bm_fd fd)
+ * i64   bm_fd_flush(bm_fd fd)
  * bm_fd bm_fd_open(const char *file, int read_only)
  * bm_fd bm_fd_open_ro(const char *file)
  * bm_fd bm_fd_open_rw(const char *file)
  * bm_fd bm_fd_open_rw_trunc(const char *file)
- *       bm_fd_close(bm_fd fd)
+ * int   bm_fd_close(bm_fd fd)
  */
 
 #ifdef PFS_PORTABLE_BUILD
@@ -182,9 +184,8 @@ extern struct bm_block_manager* bm_new_file_block_manager_path(const char *file,
 #define bm_fd_seek(fd, pos) lseek64(fd, pos, SEEK_SET)
 #define bm_fd_seek_eof(fd) lseek64(fd, 0, SEEK_END)
 #define bm_fd_flush(fd) fdatasync(fd)
-#define bm_fd_open_ro(file) open64(file, O_RDONLY) // O_LARGEFILE is 0
-#define bm_fd_open_rw(file) open64(file, O_RDWR \
-		, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+#define bm_fd_open_ro(file) open64(file, O_RDONLY)
+#define bm_fd_open_rw(file) open64(file, O_RDWR)
 #define bm_fd_open_rw_trunc(file) open64(file, O_RDWR | O_CREAT | O_TRUNC \
 		, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
 #define bm_fd_close(fd) close(fd)
