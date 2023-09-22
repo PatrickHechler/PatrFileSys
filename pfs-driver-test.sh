@@ -1,7 +1,11 @@
 #!/bin/sh
-git pull
-cd ./pfs-driver
-make all
+ifeq ($1,)
+	git pull
+	cd ./pfs-driver
+	make all
+else
+	cd ./pfs-driver
+fi
 sudo dmesg -C --follow &
 echo 'add now Patr-FS driver'
 sudo insmod patr_fs_driver.ko
