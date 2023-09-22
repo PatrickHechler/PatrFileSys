@@ -1,4 +1,5 @@
 #!/bin/sh
+git pull
 cd ./pfs-driver
 make all
 sudo dmesg -C --follow &
