@@ -1,11 +1,7 @@
-ifneq ($(KERNELRELEASE),)
-	obj-m := pfs-driver.o
-else
-	KERN_DIR ?= /usr/src/linux-headers-$(shell uname -r)/
-	PWD := $(PWD)
-default:
-	$(MAKE) -C $(KERN_DIR) M=$(PWD) modules
-endif
+obj-m += patr_fs_driver.o
+
+all:
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
 
 clean:
-    sh -c 'rm -rf \*.o \*.ko \*.mod.c \*.order \*.symvers .\*.cmd .tmp_versions'
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
