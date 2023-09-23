@@ -28,9 +28,9 @@ fi
 sudo dmesg -C
 sudo dmesg --follow &
 echo 'add now Patr-FS driver'
-sudo insmod patr_fs_driver.ko
+sudo insmod patr_fs.ko
 sleep 1
 echo 'remove now Patr-FS driver'
-sudo rmmod patr_fs_driver.ko
+sudo rmmod patr_fs.ko
 sleep 0
 kill %1

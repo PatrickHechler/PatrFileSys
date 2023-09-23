@@ -26,7 +26,7 @@ else
 	cd ./pfs-driver
 fi
 echo 'add now Patr-FS driver'
-sudo insmod patr_fs_driver.ko
+sudo insmod patr_fs.ko
 sleep 1
 echo 'remove now Patr-FS driver'
-sudo rmmod patr_fs_driver.ko
+sudo rmmod patr_fs.ko
