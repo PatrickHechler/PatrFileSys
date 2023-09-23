@@ -63,6 +63,7 @@ static int __init patr_fs_init(void) {
 
 static void __exit patr_fs_exit(void) {
 	printk(KERN_NOTICE "PatrFS: exit\n");
+	unregister_filesystem(&patr_fs_type);
 }
 
 module_init( patr_fs_init);

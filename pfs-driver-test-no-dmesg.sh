@@ -25,8 +25,6 @@ if [ "$1" = "" ]
 else
 	cd ./pfs-driver
 fi
-sudo dmesg -C
-sudo dmesg --follow &
 echo 'add now Patr-FS driver'
 sudo insmod patr_fs_driver.ko
 sleep 1
