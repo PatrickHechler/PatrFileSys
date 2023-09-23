@@ -34,7 +34,7 @@ MODULE_DESCRIPTION("A file system module for the Patr-File-System.");
 MODULE_VERSION("00.01.01");
 
 static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
-
+	return -1;
 }
 
 static struct dentry* patr_fs_mount(struct file_system_type *fs_type, int flags,
@@ -45,20 +45,13 @@ static struct dentry* patr_fs_mount(struct file_system_type *fs_type, int flags,
 void patr_fs_kill_super(struct super_block*) {
 }
 
-//static int patr_fs_init_fs_context(struct fs_context *);
-
-//const struct fs_parameter_spec patr_fs_param_spec = {
-//
-//};
-
 static struct file_system_type patr_fs_type = {
-//    patr_fs_read_super, "patr-fs", 1, NULL
-		.name = MY_NAME,                            //
-		.fs_flags = FS_REQUIRES_DEV,                //
-		.mount = patr_fs_mount,                     //
-		.kill_sb = patr_fs_kill_super,              //
-		.owner = THIS_MODULE,                       //
-		};
+		.name = MY_NAME,                     //
+		.fs_flags = FS_REQUIRES_DEV,         //
+		.mount = patr_fs_mount,              //
+		.kill_sb = patr_fs_kill_super,       //
+		.owner = THIS_MODULE,                //
+};
 
 MODULE_ALIAS_FS(MY_NAME);
 
