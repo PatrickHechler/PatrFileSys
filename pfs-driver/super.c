@@ -21,6 +21,8 @@
  *      Author: pat
  */
 
+#include <nolibc/stdint.h>
+
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/module.h>
@@ -34,7 +36,22 @@ MODULE_DESCRIPTION("A file system module for the Patr-File-System.");
 MODULE_VERSION("00.01.01");
 MODULE_ALIAS_FS(MY_NAME);
 
+struct pfstr_fs_info {
+	int read_only;
+};
+
 static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
+	struct patr_fs_info *fsi = kzalloc(sizeof(struct patr_fs_info), GFP_KERNEL);
+	sb->s_fs_info = fsi;
+	if (!fsi) {
+		return -ENOMEM;
+	}
+	sb->s_maxbytes = INT64_MAX;
+
+	sb->s_bdev->bd_disk->fops;
+
+
+	sb->s_blocksize = 0;
 
 	return -1;
 }
@@ -45,6 +62,7 @@ static struct dentry* patr_fs_mount(struct file_system_type *fs_type, int flags,
 }
 
 void patr_fs_kill_super(struct super_block*) {
+	// TODO implement
 }
 
 static struct file_system_type patr_fs_type = {
