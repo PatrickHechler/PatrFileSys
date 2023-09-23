@@ -31,9 +31,12 @@ MODULE_AUTHOR("Patrick");
 MODULE_DESCRIPTION("A file system Linux module for the Patr-File-System.");
 MODULE_VERSION("00.01.01");
 
-static struct dentry* patr_fs_read_super(struct file_system_type*, int, const char*,
+struct dentry* patr_fs_read_super(struct file_system_type*, int, const char*,
 		void*){
 	return NULL;
+}
+
+void patr_fs_kill_super(struct super_block *) {
 }
 
 //static int patr_fs_init_fs_context(struct fs_context *);
@@ -49,7 +52,8 @@ static struct file_system_type patr_fs_type = {
 //		.init_fs_context = patr_fs_init_fs_context, //
 //		.parameters = &patr_fs_param_spec,          //
 		.mount = patr_fs_read_super,                //
-
+		.killsb = patr_fs_kill_super,               //
+		.owner = THIS_MODULE,                       //
 };
 
 static int __init patr_fs_init(void) {
