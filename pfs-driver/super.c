@@ -32,8 +32,10 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Patrick");
 MODULE_DESCRIPTION("A file system module for the Patr-File-System.");
 MODULE_VERSION("00.01.01");
+MODULE_ALIAS_FS(MY_NAME);
 
 static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
+
 	return -1;
 }
 
@@ -52,8 +54,6 @@ static struct file_system_type patr_fs_type = {
 		.kill_sb = patr_fs_kill_super,       //
 		.owner = THIS_MODULE,                //
 };
-
-MODULE_ALIAS_FS(MY_NAME);
 
 static int __init patr_fs_init(void) {
 	int res = register_filesystem(&patr_fs_type);
