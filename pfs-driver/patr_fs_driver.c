@@ -21,7 +21,7 @@
  *      Author: pat
  */
 
-//#include <linux/fs.h>
+#include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -32,12 +32,12 @@ MODULE_DESCRIPTION("A file system Linux module for the Patr-File-System.");
 MODULE_VERSION("00.01.01");
 
 static int __init patr_fs_init(void) {
-	printk(KERN_NOTICE "Hello, world, I am the PatrFS-driver\n");
+	printk(KERN_NOTICE "PatrFS-driver: init\n");
 	return 0;
 }
 
 static void __exit patr_fs_exit(void) {
-	printk(KERN_NOTICE "Goodbye, cruel world\n");
+	printk(KERN_NOTICE "PatrFS-driver: exit\n");
 }
 
 module_init(patr_fs_init);

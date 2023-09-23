@@ -1,3 +1,5 @@
+CONFIG_MODULE_SIG=n
+
 obj-m += patr_fs_driver.o
 
 all:
