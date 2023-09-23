@@ -26,9 +26,11 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 
+#define MY_NAME "patr_fs"
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Patrick");
-MODULE_DESCRIPTION("A file system Linux module for the Patr-File-System.");
+MODULE_DESCRIPTION("A file system module for the Patr-File-System.");
 MODULE_VERSION("00.01.01");
 
 struct dentry* patr_fs_read_super(struct file_system_type*, int, const char*,
@@ -47,7 +49,7 @@ void patr_fs_kill_super(struct super_block *) {
 
 static struct file_system_type patr_fs_type = {
 //    patr_fs_read_super, "patr-fs", 1, NULL
-		.name = "patrfs",                           //
+		.name = MY_NAME,                           //
 		.fs_flags = FS_REQUIRES_DEV,                //
 //		.init_fs_context = patr_fs_init_fs_context, //
 //		.parameters = &patr_fs_param_spec,          //
@@ -56,13 +58,13 @@ static struct file_system_type patr_fs_type = {
 		.owner = THIS_MODULE,                       //
 };
 
-MODULE_ALIAS_FS("patrfs");
+MODULE_ALIAS_FS(MY_NAME);
 
 static int __init patr_fs_init(void) {
 	int res = register_filesystem(&patr_fs_type);
-	printk(KERN_NOTICE "PatrFS: init\n");
+	printk(KERN_NOTICE MY_NAME ": init\n");
 	if (res) {
-		printk(KERN_ERR "PatrFS: could not register the file system: %d\n", res);
+		printk(KERN_ERR MY_NAME "FS: could not register the file system: %d\n", res);
 	}
 	return res;
 }
