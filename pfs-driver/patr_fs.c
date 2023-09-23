@@ -33,12 +33,16 @@ MODULE_AUTHOR("Patrick");
 MODULE_DESCRIPTION("A file system module for the Patr-File-System.");
 MODULE_VERSION("00.01.01");
 
-struct dentry* patr_fs_read_super(struct file_system_type*, int, const char*,
-		void*){
-	return NULL;
+static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
+
 }
 
-void patr_fs_kill_super(struct super_block *) {
+static struct dentry* patr_fs_mount(struct file_system_type *fs_type, int flags,
+		const char *dev_name, void *data) {
+	return mount_bdev(fs_type, flags, dev_name, data, patr_fs_fill_super);
+}
+
+void patr_fs_kill_super(struct super_block*) {
 }
 
 //static int patr_fs_init_fs_context(struct fs_context *);
@@ -49,14 +53,12 @@ void patr_fs_kill_super(struct super_block *) {
 
 static struct file_system_type patr_fs_type = {
 //    patr_fs_read_super, "patr-fs", 1, NULL
-		.name = MY_NAME,                           //
+		.name = MY_NAME,                            //
 		.fs_flags = FS_REQUIRES_DEV,                //
-//		.init_fs_context = patr_fs_init_fs_context, //
-//		.parameters = &patr_fs_param_spec,          //
-		.mount = patr_fs_read_super,                //
+		.mount = patr_fs_mount,                     //
 		.kill_sb = patr_fs_kill_super,              //
 		.owner = THIS_MODULE,                       //
-};
+		};
 
 MODULE_ALIAS_FS(MY_NAME);
 
@@ -64,7 +66,8 @@ static int __init patr_fs_init(void) {
 	int res = register_filesystem(&patr_fs_type);
 	printk(KERN_NOTICE MY_NAME ": init\n");
 	if (res) {
-		printk(KERN_ERR MY_NAME "FS: could not register the file system: %d\n", res);
+		printk(KERN_ERR MY_NAME "FS: could not register the file system: %d\n",
+				res);
 	}
 	return res;
 }
@@ -74,6 +77,6 @@ static void __exit patr_fs_exit(void) {
 	unregister_filesystem(&patr_fs_type);
 }
 
-module_init( patr_fs_init);
-module_exit( patr_fs_exit);
+module_init(patr_fs_init);
+module_exit(patr_fs_exit);
 
