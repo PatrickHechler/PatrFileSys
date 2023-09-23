@@ -60,9 +60,9 @@ MODULE_ALIAS_FS("patrfs");
 
 static int __init patr_fs_init(void) {
 	int res = register_filesystem(&patr_fs_type);
-	printk(KERN_NOTICE "PatrFS: init val=%d\n", res);
-	if (!res) {
-		printk(KERN_ERR "PatrFS: could not register the file system\n");
+	printk(KERN_NOTICE "PatrFS: init val\n");
+	if (res) {
+		printk(KERN_ERR "PatrFS: could not register the file system: %d\n", res);
 	}
 	return res;
 }
