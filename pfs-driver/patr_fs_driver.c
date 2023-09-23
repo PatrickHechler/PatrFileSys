@@ -54,7 +54,11 @@ static struct file_system_type patr_fs_type = {
 
 static int __init patr_fs_init(void) {
 	printk(KERN_NOTICE "PatrFS: init\n");
-	return register_filesystem(&patr_fs_type);
+	int res = register_filesystem(&patr_fs_type);
+	if (!res) {
+		printk(KERN_ERR "PatrFS: could not register the file system\n");
+	}
+	return res;
 }
 
 static void __exit patr_fs_exit(void) {
