@@ -31,15 +31,36 @@ MODULE_AUTHOR("Patrick");
 MODULE_DESCRIPTION("A file system Linux module for the Patr-File-System.");
 MODULE_VERSION("00.01.01");
 
+static struct dentry* patr_fs_read_super(struct file_system_type*, int, const char*,
+		void*){
+	return NULL;
+}
+
+//static int patr_fs_init_fs_context(struct fs_context *);
+
+//const struct fs_parameter_spec patr_fs_param_spec = {
+//
+//};
+
+static struct file_system_type patr_fs_type = {
+//    patr_fs_read_super, "patr-fs", 1, NULL
+		.name = "patrfs",                           //
+		.fs_flags = FS_REQUIRES_DEV,                //
+//		.init_fs_context = patr_fs_init_fs_context, //
+//		.parameters = &patr_fs_param_spec,          //
+		.mount = patr_fs_read_super,                //
+
+};
+
 static int __init patr_fs_init(void) {
-	printk(KERN_NOTICE "PatrFS-driver: init\n");
-	return 0;
+	printk(KERN_NOTICE "PatrFS: init\n");
+	return register_filesystem(&patr_fs_type);
 }
 
 static void __exit patr_fs_exit(void) {
-	printk(KERN_NOTICE "PatrFS-driver: exit\n");
+	printk(KERN_NOTICE "PatrFS: exit\n");
 }
 
-module_init(patr_fs_init);
-module_exit(patr_fs_exit);
+module_init( patr_fs_init);
+module_exit( patr_fs_exit);
 
