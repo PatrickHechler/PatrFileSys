@@ -33,15 +33,13 @@
 #include <linux/kernel.h>
 #include <linux/fs_parser.h>
 
-#define MY_NAME "patr_fs"
+#define MY_NAME "patrfs"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Patrick");
 MODULE_DESCRIPTION("A file system module for the Patr-File-System.");
 MODULE_VERSION("00.01.01");
 MODULE_ALIAS_FS(MY_NAME);
-MODULE_ALIAS_FS("patrfs");
-MODULE_ALIAS("patrfs");
 
 struct patr_fs_info {
 	bool read_only;
@@ -208,4 +206,3 @@ static void __exit patr_fs_exit(void) {
 
 module_init(patr_fs_init);
 module_exit(patr_fs_exit);
-

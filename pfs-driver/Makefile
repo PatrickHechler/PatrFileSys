@@ -1,6 +1,6 @@
 CONFIG_MODULE_SIG=n
 
-obj-m += patr_fs.o
+obj-m += patrfs.o
 
 patr_fs-y += super.o
 
