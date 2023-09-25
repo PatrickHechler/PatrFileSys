@@ -182,7 +182,7 @@ static struct file_system_type patr_fs_type = {      //
 				.mount = patr_fs_mount,              //
 				.kill_sb = patr_fs_kill_super,       //
 				.owner = THIS_MODULE,                //
-				.parameters = NULL, // &patrfs_fs_parameters, //
+				.parameters = &patrfs_fs_parameters, //
 		};
 
 static int __init patr_fs_init(void) {
