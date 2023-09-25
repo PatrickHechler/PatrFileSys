@@ -38,7 +38,7 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Patrick");
 MODULE_DESCRIPTION("A file system module for the Patr-File-System.");
-MODULE_VERSION("00.01.01");
+MODULE_VERSION("00.00.01");
 MODULE_ALIAS_FS(MY_NAME);
 
 struct patr_fs_info {
