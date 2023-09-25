@@ -54,14 +54,14 @@ struct pfs_folder {
 	struct patrfs_folder_entry entries[];
 } __attribute__((packed));
 
-struct pfs_file {
-	struct pfs_element element;
+struct patrfs_file {
+	struct patrfs_element element;
 	s64 file_length;
 	s64 first_block;
 } __attribute__((packed));
 
 struct patrfs_pipe {
-	struct pfs_file file;
+	struct patrfs_file file;
 	s32 start_offset;
 } __attribute__((packed));
 
