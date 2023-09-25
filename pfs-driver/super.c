@@ -53,10 +53,6 @@ struct patrfs_options {
 };
 
 static inline int patrfs_parse_options(struct patrfs_options *opts, char *data) {
-	opts->always_read_only = 0;
-	opts->allow_read_only = 0;
-	opts->ignore_read_only_flag = 0;
-	opts->deep_ignore_read_only_flag = 0;
 	if (*data == '\0') {
 		return 0;
 	}
