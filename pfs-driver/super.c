@@ -112,6 +112,9 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 		return err;
 	}
 	sb->s_maxbytes = 0x7FFFFFFFFFFFFFFFLL;
+	if (1) {
+		return 0;
+	}
 	if (sb_set_blocksize(sb, PATRFS_MIN_BLOCK_SIZE) != PATRFS_MIN_BLOCK_SIZE) {
 		kfree(fsi);
 		return -EINVAL;
