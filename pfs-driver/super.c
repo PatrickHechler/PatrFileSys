@@ -185,6 +185,7 @@ static struct file_system_type patr_fs_type = {      //
 static int __init patr_fs_init(void) {
 	int res = register_filesystem(&patr_fs_type);
 	printk(KERN_NOTICE MY_NAME ": init\n");
+	printk(KERN_DEBUG MY_NAME ": init owner: %p\n", patr_fs_type.owner);
 	if (res) {
 		printk(KERN_ERR MY_NAME ": could not register the file system: %d\n",
 				res);
