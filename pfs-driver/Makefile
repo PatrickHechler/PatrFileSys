@@ -1,8 +1,6 @@
-CONFIG_MODULE_SIG=n
-
 obj-m += patrfs.o
 
-patr_fs-y += super.o
+patrfs-y += super.o
 
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
