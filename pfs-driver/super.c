@@ -41,131 +41,132 @@ MODULE_DESCRIPTION("A file system module for the Patr-File-System.");
 MODULE_VERSION("00.00.01");
 MODULE_ALIAS_FS(MY_NAME);
 
-struct patr_fs_info {
-	bool read_only;
-	bool force_deep_read_write;
-};
+//struct patr_fs_info {
+//	bool read_only;
+//	bool force_deep_read_write;
+//};
+//
+//struct patrfs_options {
+//	bool always_read_only;
+//	bool allow_read_only;
+//	bool ignore_read_only_flag;
+//	bool deep_ignore_read_only_flag;
+//};
+//
+//static inline int patrfs_parse_options(struct patrfs_options *opts, char *data) {
+//	if (!data || *data == '\0') {
+//		return 0;
+//	}
+//	while (1) {
+//		if (*data == 'r') {
+//			if (data[1] == 'o') {
+//				opts += 2;
+//			} else if (memcmp(data + 1, "ead-only", 8)) {
+//				return -EINVAL;
+//			} else {
+//				data += 9;
+//			}
+//			opts->always_read_only = 1;
+//		} else if (*data == 'a') {
+//			if (memcmp(data + 1, "llow-read-only", 14)) {
+//				return -EINVAL;
+//			}
+//			data += 15;
+//			opts->allow_read_only = 1;
+//		} else if (*data == 'i') {
+//			if (memcmp(data + 1, "gnore-read-only", 15)) {
+//				return -EINVAL;
+//			}
+//			data += 16;
+//			opts->ignore_read_only_flag = 1;
+//		} else if (*data == 'd') {
+//			if (memcmp(data + 1, "eep-ignore-read-only", 20)) {
+//				return -EINVAL;
+//			}
+//			data += 21;
+//			opts->deep_ignore_read_only_flag = 1;
+//			opts->ignore_read_only_flag = 1;
+//		} else {
+//			return -EINVAL;
+//		}
+//		if (*data == '\0') {
+//			return 0;
+//		} else if (*data == ',') {
+//			data++;
+//		} else {
+//			return -EINVAL;
+//		}
+//	}
+//}
 
-struct patrfs_options {
-	bool always_read_only;
-	bool allow_read_only;
-	bool ignore_read_only_flag;
-	bool deep_ignore_read_only_flag;
-};
-
-static inline int patrfs_parse_options(struct patrfs_options *opts, char *data) {
-	if (!data || *data == '\0') {
-		return 0;
-	}
-	while (1) {
-		if (*data == 'r') {
-			if (data[1] == 'o') {
-				opts += 2;
-			} else if (memcmp(data + 1, "ead-only", 8)) {
-				return -EINVAL;
-			} else {
-				data += 9;
-			}
-			opts->always_read_only = 1;
-		} else if (*data == 'a') {
-			if (memcmp(data + 1, "llow-read-only", 14)) {
-				return -EINVAL;
-			}
-			data += 15;
-			opts->allow_read_only = 1;
-		} else if (*data == 'i') {
-			if (memcmp(data + 1, "gnore-read-only", 15)) {
-				return -EINVAL;
-			}
-			data += 16;
-			opts->ignore_read_only_flag = 1;
-		} else if (*data == 'd') {
-			if (memcmp(data + 1, "eep-ignore-read-only", 20)) {
-				return -EINVAL;
-			}
-			data += 21;
-			opts->deep_ignore_read_only_flag = 1;
-			opts->ignore_read_only_flag = 1;
-		} else {
-			return -EINVAL;
-		}
-		if (*data == '\0') {
-			return 0;
-		} else if (*data == ',') {
-			data++;
-		} else {
-			return -EINVAL;
-		}
-	}
-}
-
-static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
-	printk(KERN_DEBUG MY_NAME ": enter fill super\n");
-	struct patr_fs_info *fsi = kzalloc(sizeof(struct patr_fs_info), GFP_KERNEL);
-	sb->s_fs_info = fsi;
-	if (!fsi) {
-		return -ENOMEM;
-	}
-	struct patrfs_options opts = { };
-	int err = patrfs_parse_options(&opts, data);
-	if (err) {
-		kfree(fsi);
-		return err;
-	}
-	sb->s_maxbytes = 0x7FFFFFFFFFFFFFFFLL;
-	sb->s_blocksize = PATRFS_MIN_BLOCK_SIZE;
-	sb->s_blocksize_bits = PATRFS_MIN_BLOCK_SIZE_SHIFT;
-	struct buffer_head *bh = sb_getblk_gfp(sb, 0U, 0);
-	if (IS_ERR(bh)) {
-		kfree(fsi);
-		return PTR_ERR(bh);
-	}
-	struct patrfs_b0 *b0 = (void*) bh->b_data;
-	if (b0->MAGIC0 != PATRFS_MAGIC_START0 || b0->MAGIC1 != PATRFS_MAGIC_START1
-			|| sb_set_blocksize(sb, b0->block_size) != b0->block_size) {
-		kfree(fsi);
-		brelse(bh);
-		return -EINVAL;
-	}
-	if (opts.ignore_read_only_flag) {
-		if (opts.allow_read_only || opts.always_read_only) {
-			kfree(fsi);
-			brelse(bh);
-			return -EINVAL;
-		}
-		kuid_t id = current_uid();
-		if (id.val != 0) {
-			kfree(fsi);
-			brelse(bh);
-			return -EPERM;
-		}
-		if (opts.deep_ignore_read_only_flag) {
-			fsi->force_deep_read_write = 1;
-		}
-	} else if (opts.always_read_only) {
-		fsi->read_only = 1;
-	} else if ((b0->flags & PATRFS_B0_FLAG_READ_ONLY) != 0) {
-		if (opts.allow_read_only) {
-			fsi->read_only = 1;
-		} else {
-			kfree(fsi);
-			brelse(bh);
-			return -EROFS;
-		}
-	}
-	brelse(bh);
-	return 0;
-}
+//static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
+//	printk(KERN_DEBUG MY_NAME ": enter fill super\n");
+//	struct patr_fs_info *fsi = kzalloc(sizeof(struct patr_fs_info), GFP_KERNEL);
+//	sb->s_fs_info = fsi;
+//	if (!fsi) {
+//		return -ENOMEM;
+//	}
+//	struct patrfs_options opts = { };
+//	int err = patrfs_parse_options(&opts, data);
+//	if (err) {
+//		kfree(fsi);
+//		return err;
+//	}
+//	sb->s_maxbytes = 0x7FFFFFFFFFFFFFFFLL;
+//	sb->s_blocksize = PATRFS_MIN_BLOCK_SIZE;
+//	sb->s_blocksize_bits = PATRFS_MIN_BLOCK_SIZE_SHIFT;
+//	struct buffer_head *bh = sb_getblk_gfp(sb, 0U, 0);
+//	if (IS_ERR(bh)) {
+//		kfree(fsi);
+//		return PTR_ERR(bh);
+//	}
+//	struct patrfs_b0 *b0 = (void*) bh->b_data;
+//	if (b0->MAGIC0 != PATRFS_MAGIC_START0 || b0->MAGIC1 != PATRFS_MAGIC_START1
+//			|| sb_set_blocksize(sb, b0->block_size) != b0->block_size) {
+//		kfree(fsi);
+//		brelse(bh);
+//		return -EINVAL;
+//	}
+//	if (opts.ignore_read_only_flag) {
+//		if (opts.allow_read_only || opts.always_read_only) {
+//			kfree(fsi);
+//			brelse(bh);
+//			return -EINVAL;
+//		}
+//		kuid_t id = current_uid();
+//		if (id.val != 0) {
+//			kfree(fsi);
+//			brelse(bh);
+//			return -EPERM;
+//		}
+//		if (opts.deep_ignore_read_only_flag) {
+//			fsi->force_deep_read_write = 1;
+//		}
+//	} else if (opts.always_read_only) {
+//		fsi->read_only = 1;
+//	} else if ((b0->flags & PATRFS_B0_FLAG_READ_ONLY) != 0) {
+//		if (opts.allow_read_only) {
+//			fsi->read_only = 1;
+//		} else {
+//			kfree(fsi);
+//			brelse(bh);
+//			return -EROFS;
+//		}
+//	}
+//	brelse(bh);
+//	return 0;
+//}
 
 static struct dentry* patr_fs_mount(struct file_system_type *fs_type, int flags,
 		const char *dev_name, void *data) {
 	printk(KERN_DEBUG MY_NAME ": mount now %s\n", dev_name);
-	struct dentry *res = mount_bdev(fs_type, flags, dev_name, data,
-			patr_fs_fill_super);
-	if (res) {
-		printk(KERN_DEBUG MY_NAME ": mounted %s: %s\n", dev_name, res->d_sb->s_id);
-	}
-	return res;
+//	struct dentry *res = mount_bdev(fs_type, flags, dev_name, data,
+//			patr_fs_fill_super);
+//	if (res) {
+//		printk(KERN_DEBUG MY_NAME ": mounted %s: %s\n", dev_name, res->d_sb->s_id);
+//	}
+//	return res;
+	return NULL;
 }
 
 void patr_fs_kill_super(struct super_block *sb) {
