@@ -176,12 +176,12 @@ void patr_fs_kill_super(struct super_block *sb) {
 	kfree(sb->s_fs_info);
 }
 
-static const struct file_system_type patr_fs_type = { //
-		/*	  */.name = MY_NAME,                      //
-				.fs_flags = FS_REQUIRES_DEV,          //
-				.mount = patr_fs_mount,               //
-				.kill_sb = patr_fs_kill_super,        //
-				.owner = THIS_MODULE,                 //
+static struct file_system_type patr_fs_type = { //
+		/*	  */.name = MY_NAME,                //
+				.fs_flags = FS_REQUIRES_DEV,    //
+				.mount = patr_fs_mount,         //
+				.kill_sb = patr_fs_kill_super,  //
+				.owner = THIS_MODULE,           //
 		};
 
 static int __init patr_fs_init(void) {
