@@ -39,6 +39,8 @@ MODULE_AUTHOR("Patrick");
 MODULE_DESCRIPTION("A file system module for the Patr-File-System.");
 MODULE_VERSION("00.01.01");
 MODULE_ALIAS_FS(MY_NAME);
+MODULE_ALIAS_FS("patrfs");
+MODULE_ALIAS("patrfs");
 
 struct patr_fs_info {
 	bool read_only;
