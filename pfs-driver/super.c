@@ -191,6 +191,8 @@ static int __init patr_fs_init(void) {
 	if (res) {
 		printk(KERN_ERR MY_NAME ": could not register the file system: %d\n",
 				res);
+	} else {
+		unregister_filesystem(&patr_fs_type);
 	}
 	return res;
 }
