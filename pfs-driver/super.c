@@ -112,27 +112,36 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 	struct patrfs_options opts = { };
 	int err = patrfs_parse_options(&opts, data);
 	if (err) {
+		kfree(fsi);
 		return err;
 	}
 	sb->s_maxbytes = 0x7FFFFFFFFFFFFFFFLL;
-	sb->s_blocksize = PATRFS_MIN_BLOCK_SIZE;
-	sb->s_blocksize_bits = PATRFS_MIN_BLOCK_SIZE_SHIFT;
+	if (sb_set_blocksize(PATRFS_MIN_BLOCK_SIZE) != PATRFS_MIN_BLOCK_SIZE) {
+		kfree(fsi);
+		return -EINVAL;
+	}
 	struct buffer_head *bh = sb_getblk_gfp(sb, 0U, 0);
 	if (IS_ERR(bh)) {
+		kfree(fsi);
 		return PTR_ERR(bh);
 	}
 	struct patrfs_b0 *b0 = (void*) bh->b_data;
 	if (b0->MAGIC0 != PATRFS_MAGIC_START0 || b0->MAGIC1 != PATRFS_MAGIC_START1
 			|| sb_set_blocksize(sb, b0->block_size) != b0->block_size) {
+		kfree(fsi);
 		brelse(bh);
 		return -EINVAL;
 	}
 	if (opts.ignore_read_only_flag) {
 		if (opts.allow_read_only || opts.always_read_only) {
+			kfree(fsi);
+			brelse(bh);
 			return -EINVAL;
 		}
 		kuid_t id = current_uid();
 		if (id.val != 0) {
+			kfree(fsi);
+			brelse(bh);
 			return -EPERM;
 		}
 		if (opts.deep_ignore_read_only_flag) {
@@ -144,6 +153,8 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 		if (opts.allow_read_only) {
 			fsi->read_only = 1;
 		} else {
+			kfree(fsi);
+			brelse(bh);
 			return -EROFS;
 		}
 	}
