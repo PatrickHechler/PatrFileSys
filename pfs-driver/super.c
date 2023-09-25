@@ -167,6 +167,9 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 static struct dentry* patr_fs_mount(struct file_system_type *fs_type, int flags,
 		const char *dev_name, void *data) {
 	printk(KERN_WARNING MY_NAME ": mount now %s\n", dev_name);
+	if (1) {
+		return NULL;
+	}
 	struct dentry *res = mount_bdev(fs_type, flags, dev_name, data,
 			patr_fs_fill_super);
 	if (res) {
