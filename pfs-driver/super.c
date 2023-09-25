@@ -113,14 +113,14 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 	if (err) {
 		return err;
 	}
-	sb->s_maxbytes = INT64_MAX;
+	sb->s_maxbytes = 0x7FFFFFFFFFFFFFFFLL;
 	sb->s_blocksize = PATRFS_MIN_BLOCK_SIZE;
 	sb->s_blocksize_bits = PATRFS_MIN_BLOCK_SIZE_SHIFT;
 	struct buffer_head *bh = sb_getblk_gfp(sb, 0U, 0);
 	if (IS_ERR(bh)) {
 		return PTR_ERR(bh);
 	}
-	struct patrfs_b0 *b0 = bh->b_data;
+	struct patrfs_b0 *b0 = (void*) bh->b_data;
 	if (b0->MAGIC0 != PATRFS_MAGIC_START0 || b0->MAGIC1 != PATRFS_MAGIC_START1
 			|| sb_set_blocksize(sb, b0->block_size) != b0->block_size) {
 		brelse(bh);
@@ -135,7 +135,7 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 			return -EPERM;
 		}
 		if (opts.deep_ignore_read_only_flag) {
-			fsi->force_deep_read_write;
+			fsi->force_deep_read_write = 1;
 		}
 	} else if (opts.always_read_only) {
 		fsi->read_only = 1;
@@ -155,7 +155,7 @@ static struct dentry* patr_fs_mount(struct file_system_type *fs_type, int flags,
 	struct dentry *res = mount_bdev(fs_type, flags, dev_name, data,
 			patr_fs_fill_super);
 	if (res) {
-		kprintf(KERN_DEBUG "mounted patrfs: %s: %s", dev_name, res->d_sb->s_id);
+		printk(KERN_DEBUG MY_NAME ": mounted patrfs: %s: %s", dev_name, res->d_sb->s_id);
 	}
 	return res;
 }
@@ -176,7 +176,7 @@ static int __init patr_fs_init(void) {
 	int res = register_filesystem(&patr_fs_type);
 	printk(KERN_NOTICE MY_NAME ": init\n");
 	if (res) {
-		printk(KERN_ERR MY_NAME "FS: could not register the file system: %d\n",
+		printk(KERN_ERR MY_NAME ": could not register the file system: %d\n",
 				res);
 	}
 	return res;
