@@ -130,8 +130,8 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 		if (opts.allow_read_only || opts.always_read_only) {
 			return -EINVAL;
 		}
-		uid_t id = current_uid();
-		if (id != 0) {
+		kuid_t id = current_uid();
+		if (id.val != 0) {
 			return -EPERM;
 		}
 		if (opts.deep_ignore_read_only_flag) {
