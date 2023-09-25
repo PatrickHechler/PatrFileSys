@@ -5,7 +5,7 @@
  *      Author: pat
  */
 
-#ifndef PATRFS_H_
+#ifndef PATR_FS_H_
 #define PATRFS_H_
 
 #include <linux/blk_types.h>
@@ -79,4 +79,4 @@ struct patrfs_pipe {
 
 _Static_assert(__PATRFS_MIN_BLOCK_SIZE <= SECTOR_SIZE, "Error!");
 
-#endif /* PATRFS_H_ */
+#endif /* PATR_FS_H_ */

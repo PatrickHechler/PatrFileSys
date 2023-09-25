@@ -21,7 +21,7 @@
  *      Author: pat
  */
 
-#include "patrfs.h"
+#include "patr-fs.h"
 #include <linux/cred.h>
 #include <linux/uidgid.h>
 #include <linux/types.h>
