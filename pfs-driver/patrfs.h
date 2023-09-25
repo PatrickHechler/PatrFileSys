@@ -44,7 +44,7 @@ struct patrfs_folder_entry {
 //	i32 padding; // no padding done here every second entry is miss-alinged
 } __attribute__((packed));
 
-struct pfs_folder {
+struct patrfs_folder {
 	struct patrfs_element element;
 	struct patrfs_place real_parent;
 	s32 direct_child_count;
