@@ -21,9 +21,14 @@
  *      Author: pat
  */
 
-#include <nolibc/stdint.h>
-
+#include "patrfs.h"
+#include <nolibc/string.h>
+#include <linux/cred.h>
+#include <linux/uidgid.h>
+#include <linux/types.h>
+#include <linux/err.h>
 #include <linux/fs.h>
+#include <linux/buffer_head.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -36,9 +41,67 @@ MODULE_DESCRIPTION("A file system module for the Patr-File-System.");
 MODULE_VERSION("00.01.01");
 MODULE_ALIAS_FS(MY_NAME);
 
-struct pfstr_fs_info {
-	int read_only;
+struct patr_fs_info {
+	bool read_only;
+	bool force_deep_read_write;
 };
+
+struct patrfs_options {
+	bool always_read_only;
+	bool allow_read_only;
+	bool ignore_read_only_flag;
+	bool deep_ignore_read_only_flag;
+};
+
+static inline int patrfs_parse_options(struct patrfs_options *opts, char *data) {
+	opts->always_read_only = 0;
+	opts->allow_read_only = 0;
+	opts->ignore_read_only_flag = 0;
+	opts->deep_ignore_read_only_flag = 0;
+	if (*data == '\0') {
+		return 0;
+	}
+	while (1) {
+		if (*data == 'r') {
+			if (data[1] == 'o') {
+				opts += 2;
+			} else if (memcmp(data + 1, "ead-only", 8)) {
+				return -EINVAL;
+			} else {
+				data += 9;
+			}
+			opts->always_read_only = 1;
+		} else if (*data == 'a') {
+			if (memcmp(data + 1, "llow-read-only", 14)) {
+				return -EINVAL;
+			}
+			data += 15;
+			opts->allow_read_only = 1;
+		} else if (*data == 'i') {
+			if (memcmp(data + 1, "gnore-read-only", 15)) {
+				return -EINVAL;
+			}
+			data += 16;
+			opts->ignore_read_only_flag = 1;
+		} else if (*data == 'd') {
+			if (memcmp(data + 1, "eep-ignore-read-only", 20)) {
+				return -EINVAL;
+			}
+			data += 21;
+			opts->deep_ignore_read_only_flag = 1;
+			opts->ignore_read_only_flag = 1;
+		} else {
+			return -EINVAL;
+		}
+		if (*data == '\0') {
+			return 0;
+		} else if (*data == ',') {
+			data++;
+		} else {
+			return -EINVAL;
+		}
+	}
+}
 
 static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 	struct patr_fs_info *fsi = kzalloc(sizeof(struct patr_fs_info), GFP_KERNEL);
@@ -46,32 +109,69 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 	if (!fsi) {
 		return -ENOMEM;
 	}
+	struct patrfs_options opts = { };
+	int err = patrfs_parse_options(&opts, data);
+	if (err) {
+		return err;
+	}
 	sb->s_maxbytes = INT64_MAX;
-
-	sb->s_bdev->bd_disk->fops;
-
-
-	sb->s_blocksize = 0;
-
-	return -1;
+	sb->s_blocksize = PATRFS_MIN_BLOCK_SIZE;
+	sb->s_blocksize_bits = PATRFS_MIN_BLOCK_SIZE_SHIFT;
+	struct buffer_head *bh = sb_getblk_gfp(sb, 0U, 0);
+	if (IS_ERR(bh)) {
+		return PTR_ERR(bh);
+	}
+	struct patrfs_b0 *b0 = bh->b_data;
+	if (b0->MAGIC0 != PATRFS_MAGIC_START0 || b0->MAGIC1 != PATRFS_MAGIC_START1
+			|| sb_set_blocksize(sb, b0->block_size) != b0->block_size) {
+		brelse(bh);
+		return -EINVAL;
+	}
+	if (opts.ignore_read_only_flag) {
+		if (opts.allow_read_only || opts.always_read_only) {
+			return -EINVAL;
+		}
+		uid_t id = current_uid();
+		if (id != 0) {
+			return -EPERM;
+		}
+		if (opts.deep_ignore_read_only_flag) {
+			fsi->force_deep_read_write;
+		}
+	} else if (opts.always_read_only) {
+		fsi->read_only = 1;
+	} else if ((b0->flags & PATRFS_B0_FLAG_READ_ONLY) != 0) {
+		if (opts.allow_read_only) {
+			fsi->read_only = 1;
+		} else {
+			return -EROFS;
+		}
+	}
+	brelse(bh);
+	return 0;
 }
 
 static struct dentry* patr_fs_mount(struct file_system_type *fs_type, int flags,
 		const char *dev_name, void *data) {
-	return mount_bdev(fs_type, flags, dev_name, data, patr_fs_fill_super);
+	struct dentry *res = mount_bdev(fs_type, flags, dev_name, data,
+			patr_fs_fill_super);
+	if (res) {
+		kprintf(KERN_DEBUG "mounted patrfs: %s: %s", dev_name, res->d_sb->s_id);
+	}
+	return res;
 }
 
-void patr_fs_kill_super(struct super_block*) {
-	// TODO implement
+void patr_fs_kill_super(struct super_block *sb) {
+	kill_block_super(sb);
+	kfree(sb->s_fs_info);
 }
 
-static struct file_system_type patr_fs_type = {
-		.name = MY_NAME,                     //
+static struct file_system_type patr_fs_type = { .name = MY_NAME,              //
 		.fs_flags = FS_REQUIRES_DEV,         //
 		.mount = patr_fs_mount,              //
 		.kill_sb = patr_fs_kill_super,       //
 		.owner = THIS_MODULE,                //
-};
+		};
 
 static int __init patr_fs_init(void) {
 	int res = register_filesystem(&patr_fs_type);

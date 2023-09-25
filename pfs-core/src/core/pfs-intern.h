@@ -48,7 +48,7 @@
 // this flag indicates that the block is used and stores file system entries
 #define BLOCK_FLAG_ENTRIES      (1UL << BLOCK_FLAG_ENTRIES_BIT)
 
-#define PFS_MIN_BLOCK_SIZE ( \
+#define PATRFS_MIN_BLOCK_SIZE ( \
 		sizeof(struct pfs_b0) \
 		+ sizeof(struct pfs_folder) \
 		+ sizeof(struct pfs_folder_entry) \
@@ -67,7 +67,7 @@
 		if ((b0)->block_count < 2) { \
 			goto invalidb0; \
 		} \
-		if ((b0)->block_size < PFS_MIN_BLOCK_SIZE) { \
+		if ((b0)->block_size < PATRFS_MIN_BLOCK_SIZE) { \
 			goto invalidb0; \
 		} \
 		if ((b0)->root.block < 0) { \
@@ -108,8 +108,8 @@ struct pfs_b0 {
 
 _Static_assert(offsetof(struct pfs_b0, MAGIC0) == 0, "error!");
 
-#define B0_FLAG_BM_ALLOC   0x00000001U
-#define B0_FLAG_READ_ONLY  0x00000002U
+#define PATRFS_B0_FLAG_BM_ALLOC   0x00000001U
+#define PATRFS_B0_FLAG_READ_ONLY  0x00000002U
 
 struct pfs_element {
 	i64 last_mod_time;
