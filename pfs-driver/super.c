@@ -55,7 +55,7 @@ struct patrfs_options {
 };
 
 static inline int patrfs_parse_options(struct patrfs_options *opts, char *data) {
-	if (*data == '\0') {
+	if (!data || *data == '\0') {
 		return 0;
 	}
 	while (1) {
@@ -175,12 +175,17 @@ void patr_fs_kill_super(struct super_block *sb) {
 	kfree(sb->s_fs_info);
 }
 
-static struct file_system_type patr_fs_type = { //
-		/*	  */.name = MY_NAME,                //
-				.fs_flags = FS_REQUIRES_DEV,    //
-				.mount = patr_fs_mount,         //
-				.kill_sb = patr_fs_kill_super,  //
-				.owner = THIS_MODULE,           //
+const struct fs_parameter_spec patrfs_fs_parameters = fsparam_flag("read-only", 0);
+
+
+
+static struct file_system_type patr_fs_type = {      //
+		/*	  */.name = MY_NAME,                     //
+				.fs_flags = FS_REQUIRES_DEV,         //
+				.mount = patr_fs_mount,              //
+				.kill_sb = patr_fs_kill_super,       //
+				.owner = THIS_MODULE,                //
+				.parameters = &patrfs_fs_parameters, //
 		};
 
 static int __init patr_fs_init(void) {
@@ -191,8 +196,6 @@ static int __init patr_fs_init(void) {
 	if (res) {
 		printk(KERN_ERR MY_NAME ": could not register the file system: %d\n",
 				res);
-	} else {
-		unregister_filesystem(&patr_fs_type);
 	}
 	return res;
 }
