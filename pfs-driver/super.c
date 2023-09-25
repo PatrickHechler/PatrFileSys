@@ -183,7 +183,6 @@ static struct file_system_type patr_fs_type = {      //
 		};
 
 static int __init patr_fs_init(void) {
-	printk(KERN_DEBUG MY_NAME ": type.name: %s\n", patr_fs_type.name);
 	int res = register_filesystem(&patr_fs_type);
 	printk(KERN_NOTICE MY_NAME ": init\n");
 	if (res) {
