@@ -174,7 +174,7 @@ void patr_fs_kill_super(struct super_block *sb) {
 	kfree(sb->s_fs_info);
 }
 
-const struct fs_parameter_spec patrfs_fs_parameters = fsparam_flag("read-only", 0);
+//const struct fs_parameter_spec patrfs_fs_parameters = fsparam_flag("read-only", 0);
 
 static struct file_system_type patr_fs_type = {      //
 		/*	  */.name = MY_NAME,                     //
@@ -182,7 +182,7 @@ static struct file_system_type patr_fs_type = {      //
 				.mount = patr_fs_mount,              //
 				.kill_sb = patr_fs_kill_super,       //
 				.owner = THIS_MODULE,                //
-				.parameters = &patrfs_fs_parameters, //
+				.parameters =NULL// &patrfs_fs_parameters, //
 		};
 
 static int __init patr_fs_init(void) {
