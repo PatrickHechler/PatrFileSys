@@ -22,7 +22,7 @@
  */
 
 #include "patrfs.h"
-#include <string.h>
+#include "nolibc/string.h"
 #include <linux/cred.h>
 #include <linux/uidgid.h>
 #include <linux/types.h>
