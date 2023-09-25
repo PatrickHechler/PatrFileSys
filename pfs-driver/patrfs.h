@@ -8,7 +8,6 @@
 #ifndef PATRFS_H_
 #define PATRFS_H_
 
-#include "nolibc/stdint.h"
 #include <linux/blk_types.h>
 
 #define PATRFS_B0_FLAG_BM_ALLOC   0x00000001U
