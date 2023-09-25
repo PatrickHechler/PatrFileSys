@@ -116,18 +116,18 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 		kfree(fsi);
 		return -EINVAL;
 	}
-	struct buffer_head *bh = sb_getblk_gfp(sb, 0U, 0);
-	if (IS_ERR(bh)) {
-		kfree(fsi);
-		return PTR_ERR(bh);
-	}
-	struct patrfs_b0 *b0 = (void*) bh->b_data;
-	if (b0->MAGIC0 != PATRFS_MAGIC_START0 || b0->MAGIC1 != PATRFS_MAGIC_START1
-			|| sb_set_blocksize(sb, b0->block_size) != b0->block_size) {
-		kfree(fsi);
-		brelse(bh);
-		return -EINVAL;
-	}
+	struct buffer_head *bh = NULL; // sb_getblk_gfp(sb, 0U, 0);
+//	if (IS_ERR(bh)) {
+//		kfree(fsi);
+//		return PTR_ERR(bh);
+//	}
+//	struct patrfs_b0 *b0 = (void*) bh->b_data;
+//	if (b0->MAGIC0 != PATRFS_MAGIC_START0 || b0->MAGIC1 != PATRFS_MAGIC_START1
+//			|| sb_set_blocksize(sb, b0->block_size) != b0->block_size) {
+//		kfree(fsi);
+//		brelse(bh);
+//		return -EINVAL;
+//	}
 	if (opts.ignore_read_only_flag) {
 		if (opts.allow_read_only || opts.always_read_only) {
 			kfree(fsi);
@@ -145,7 +145,8 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 		}
 	} else if (opts.always_read_only) {
 		fsi->read_only = 1;
-	} else if ((b0->flags & PATRFS_B0_FLAG_READ_ONLY) != 0) {
+	} else if (0 //(b0->flags & PATRFS_B0_FLAG_READ_ONLY) != 0
+			) {
 		if (opts.allow_read_only) {
 			fsi->read_only = 1;
 		} else {
