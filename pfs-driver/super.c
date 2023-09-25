@@ -160,12 +160,10 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 static struct dentry* patr_fs_mount(struct file_system_type *fs_type, int flags,
 		const char *dev_name, void *data) {
 	printk(KERN_DEBUG MY_NAME ": mount now %s\n", dev_name);
-	printk_trigger_flush();
 	struct dentry *res = mount_bdev(fs_type, flags, dev_name, data,
 			patr_fs_fill_super);
 	if (res) {
-		printk(KERN_DEBUG MY_NAME ": mounted " MY_NAME ": %s: %s\n", dev_name,
-				res->d_sb->s_id);
+		printk(KERN_DEBUG MY_NAME ": mounted %s: %s\n", dev_name, res->d_sb->s_id);
 	}
 	return res;
 }
@@ -175,15 +173,12 @@ void patr_fs_kill_super(struct super_block *sb) {
 	kfree(sb->s_fs_info);
 }
 
-//const struct fs_parameter_spec patrfs_fs_parameters = fsparam_flag("read-only", 0);
-
 static struct file_system_type patr_fs_type = {      //
 		/*	  */.name = MY_NAME,                     //
 				.fs_flags = FS_REQUIRES_DEV,         //
 				.mount = patr_fs_mount,              //
 				.kill_sb = patr_fs_kill_super,       //
 				.owner = THIS_MODULE,                //
-				.parameters =NULL// &patrfs_fs_parameters, //
 		};
 
 static int __init patr_fs_init(void) {
