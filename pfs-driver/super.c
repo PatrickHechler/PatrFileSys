@@ -118,6 +118,7 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 	sb->s_blocksize_bits = PATRFS_MIN_BLOCK_SIZE_SHIFT;
 	printk(KERN_DEBUG MY_NAME ": fill super: call sb_getblk_gfp(sb=%p, 0U, 0)\n", sb);
 	struct buffer_head *bh = sb_getblk_gfp(sb, 0U, 0);
+	printk(KERN_DEBUG MY_NAME ": fill super: sb_getblk_gfp(sb=%p, 0U, 0) returned: %p\n", sb, p);
 	if (IS_ERR(bh)) {
 		kfree(fsi);
 		return PTR_ERR(bh);
