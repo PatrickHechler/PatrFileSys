@@ -164,9 +164,10 @@ static struct dentry* patr_fs_mount(struct file_system_type *fs_type, int flags,
 			patr_fs_fill_super);
 	if (res) {
 		printk(KERN_DEBUG MY_NAME ": mounted %s: %s\n", dev_name, res->d_sb->s_id);
+	} else {
+		printk(KERN_ALERT MY_NAME ": mount of %s failed\n", dev_name);
 	}
 	return res;
-	return NULL;
 }
 
 void patr_fs_kill_super(struct super_block *sb) {
