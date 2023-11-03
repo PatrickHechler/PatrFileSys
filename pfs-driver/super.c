@@ -54,6 +54,7 @@ struct patrfs_options {
 };
 
 static inline int patrfs_parse_options(struct patrfs_options *opts, char *data) {
+	printk(KERN_DEBUG MY_NAME ": enter fill super: parse options\n");
 	if (!data || *data == '\0') {
 		return 0;
 	}
@@ -115,6 +116,7 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 	sb->s_maxbytes = 0x7FFFFFFFFFFFFFFFLL;
 	sb->s_blocksize = PATRFS_MIN_BLOCK_SIZE;
 	sb->s_blocksize_bits = PATRFS_MIN_BLOCK_SIZE_SHIFT;
+	printk(KERN_DEBUG MY_NAME ": fill super: call sb_getblk_gfp(sb=%p, 0U, 0)\n", sb);
 	struct buffer_head *bh = sb_getblk_gfp(sb, 0U, 0);
 	if (IS_ERR(bh)) {
 		kfree(fsi);
