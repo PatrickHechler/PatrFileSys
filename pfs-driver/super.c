@@ -128,12 +128,12 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 	printk(KERN_DEBUG MY_NAME ": fill super: b0->MAGIC0=%llu\n", b0->MAGIC0);
 	if (b0->MAGIC0 != PATRFS_MAGIC_START0 || b0->MAGIC1 != PATRFS_MAGIC_START1
 			|| sb_set_blocksize(sb, b0->block_size) != b0->block_size) {
-		printk(KERN_DEBUG MY_NAME ": fill super: call kfree(fsi=%p)\n", fsi);
+		printk(KERN_DEBUG MY_NAME ": fill super FAIL: call kfree(fsi=%p)\n", fsi);
 		kfree(fsi);
-		printk(KERN_DEBUG MY_NAME ": fill super: kfree(fsi=%p) returned\n", fsi);
-		printk(KERN_DEBUG MY_NAME ": fill super: call brelse(bh=%p)\n", bh);
+		printk(KERN_DEBUG MY_NAME ": fill super FAIL: kfree(fsi=%p) returned\n", fsi);
+		printk(KERN_DEBUG MY_NAME ": fill super FAIL: call brelse(bh=%p)\n", bh);
 		brelse(bh);
-		printk(KERN_DEBUG MY_NAME ": fill super: brelse(bh=%p) returned\n", fsi);
+		printk(KERN_DEBUG MY_NAME ": fill super FAIL: brelse(bh=%p) returned\n", fsi);
 		return -EINVAL;
 	}
 	if (opts.ignore_read_only_flag) {
