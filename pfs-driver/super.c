@@ -125,7 +125,7 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 	}
 	struct patrfs_b0 *b0 = (void*) bh->b_data;
 	printk(KERN_DEBUG MY_NAME ": fill super: b0=%p\n", b0);
-	printk(KERN_DEBUG MY_NAME ": fill super: b0.MAGIC0=%lu\n", b0.MAGIC0);
+	printk(KERN_DEBUG MY_NAME ": fill super: b0.MAGIC0=%lu\n", b0->MAGIC0);
 	if (b0->MAGIC0 != PATRFS_MAGIC_START0 || b0->MAGIC1 != PATRFS_MAGIC_START1
 			|| sb_set_blocksize(sb, b0->block_size) != b0->block_size) {
 		kfree(fsi);
