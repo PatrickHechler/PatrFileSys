@@ -124,6 +124,7 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 		return PTR_ERR(bh);
 	}
 	struct patrfs_b0 *b0 = (void*) bh->b_data;
+	printk(KERN_DEBUG MY_NAME ": fill super: b0=%p\n", b0);
 	if (b0->MAGIC0 != PATRFS_MAGIC_START0 || b0->MAGIC1 != PATRFS_MAGIC_START1
 			|| sb_set_blocksize(sb, b0->block_size) != b0->block_size) {
 		kfree(fsi);
@@ -156,7 +157,9 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 			return -EROFS;
 		}
 	}
+	printk(KERN_DEBUG MY_NAME ": fill super: call brelse(bh)\n", bh);
 	brelse(bh);
+	printk(KERN_DEBUG MY_NAME ": fill super: brelse(bh) returned\n", bh);
 	return 0;
 }
 
