@@ -157,9 +157,9 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 			return -EROFS;
 		}
 	}
-	printk(KERN_DEBUG MY_NAME ": fill super: call brelse(bh)\n", bh);
+	printk(KERN_DEBUG MY_NAME ": fill super: call brelse(bh=%p)\n", bh);
 	brelse(bh);
-	printk(KERN_DEBUG MY_NAME ": fill super: brelse(bh) returned\n", bh);
+	printk(KERN_DEBUG MY_NAME ": fill super: brelse(bh=%p) returned\n", bh);
 	return 0;
 }
 
