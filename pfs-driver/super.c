@@ -22,6 +22,7 @@
  */
 
 #include "patr-fs.h"
+#include <linux/stddef.h>
 #include <linux/cred.h>
 #include <linux/uidgid.h>
 #include <linux/types.h>
@@ -51,11 +52,13 @@ struct patrfs_options {
 	bool allow_read_only;
 	bool ignore_read_only_flag;
 	bool deep_ignore_read_only_flag;
+	bool no_options;
 };
 
 static inline int patrfs_parse_options(struct patrfs_options *opts, char *data) {
 	printk(KERN_DEBUG MY_NAME ": enter fill super: parse options\n");
 	if (!data || *data == '\0') {
+		opts->no_options = 1;
 		return 0;
 	}
 	while (1) {
@@ -113,6 +116,9 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 		kfree(fsi);
 		return err;
 	}
+	if (opts.no_options) {
+		return 0;
+	}
 	sb->s_maxbytes = 0x7FFFFFFFFFFFFFFFLL;
 	sb->s_blocksize = PATRFS_MIN_BLOCK_SIZE;
 	sb->s_blocksize_bits = PATRFS_MIN_BLOCK_SIZE_SHIFT;
@@ -133,7 +139,7 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 		printk(KERN_DEBUG MY_NAME ": fill super FAIL: kfree(fsi=%p) returned\n", fsi);
 		printk(KERN_DEBUG MY_NAME ": fill super FAIL: call brelse(bh=%p)\n", bh);
 		brelse(bh);
-		printk(KERN_DEBUG MY_NAME ": fill super FAIL: brelse(bh=%p) returned\n", fsi);
+		printk(KERN_DEBUG MY_NAME ": fill super FAIL: brelse(bh=%p) returned\n", bh);
 		return -EINVAL;
 	}
 	if (opts.ignore_read_only_flag) {
