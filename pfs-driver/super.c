@@ -117,6 +117,7 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 		return err;
 	}
 	if (opts.no_options) {
+		printk(KERN_DEBUG MY_NAME ": fill super: no opts -> return 0\n");
 		return 0;
 	}
 	sb->s_maxbytes = 0x7FFFFFFFFFFFFFFFLL;
