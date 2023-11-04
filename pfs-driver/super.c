@@ -181,7 +181,7 @@ static struct dentry* patr_fs_mount(struct file_system_type *fs_type, int flags,
 	struct dentry *res = mount_bdev(fs_type, flags, dev_name, data,
 			patr_fs_fill_super);
 	if (IS_ERR(res)) {
-		printk(KERN_ALERT MY_NAME ": mount of %s failed: %d\n", dev_name, PTR_ERR(res));
+		printk(KERN_ALERT MY_NAME ": mount of %s failed: %ld\n", dev_name, PTR_ERR(res));
 	} else {
 		printk(KERN_DEBUG MY_NAME ": mounted %s: %s\n", dev_name, res->d_sb->s_id);
 	}
