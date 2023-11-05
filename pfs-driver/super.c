@@ -208,7 +208,9 @@ static struct file_system_type patr_fs_type = {      //
 static long once;
 
 static int __init patr_fs_init(void) {
+	printk(KERN_DEBUG MY_NAME ": patr_fs_init sleep now\n");
 	usleep_range(1000000, 1000001);
+	printk(KERN_DEBUG MY_NAME ": patr_fs_init finished sleep\n");
 	if (test_and_set_bit(0, &once)) {
 		printk(KERN_DEBUG MY_NAME ": patr_fs_init called a second time owner: %p\n", patr_fs_type.owner);
 		return 0;
