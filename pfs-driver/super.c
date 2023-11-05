@@ -34,6 +34,9 @@
 #include <linux/kernel.h>
 #include <linux/fs_parser.h>
 
+// for debugging
+#include <linux/kthread.h>
+
 #define MY_NAME "patrfs"
 
 MODULE_LICENSE("GPL");
@@ -169,6 +172,7 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 			return -EROFS;
 		}
 	}
+
 	printk(KERN_DEBUG MY_NAME ": fill super: call brelse(bh=%p)\n", bh);
 	brelse(bh);
 	printk(KERN_DEBUG MY_NAME ": fill super: brelse(bh=%p) returned\n", bh);
@@ -204,6 +208,7 @@ static struct file_system_type patr_fs_type = {      //
 static long once;
 
 static int __init patr_fs_init(void) {
+	usleep_range(1000000, 1000001);
 	if (test_and_set_bit(0, &once)) {
 		printk(KERN_DEBUG MY_NAME ": patr_fs_init called a second time owner: %p\n", patr_fs_type.owner);
 		return 0;
