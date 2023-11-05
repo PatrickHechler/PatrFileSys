@@ -35,7 +35,7 @@
 #include <linux/fs_parser.h>
 
 // for debugging
-#include <linux/kthread.h>
+#include <linux/delay.h>
 
 #define MY_NAME "patrfs"
 
