@@ -141,7 +141,7 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 		if (minbs < lbs) {
 			minbs = lbs;
 		}
-		printk(KERN_DEBUG MY_NAME ": fill super: logical block size: %u, min block size: %s\n", lbs, minbs);
+		printk(KERN_DEBUG MY_NAME ": fill super: logical block size: %u, min block size: %u\n", lbs, minbs);
 	}
 	if (sb_set_blocksize(sb, minbs) != minbs) {
 		kfree(fsi);
