@@ -156,8 +156,8 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 	}
 	struct patrfs_b0 *b0 = (void*) bh->b_data;
 	printk(KERN_DEBUG MY_NAME ": fill super: b0=%p\n", b0);
-	printk(KERN_DEBUG MY_NAME ": fill super: b0->MAGIC=%16.llX %16.llX\n", b0->MAGIC0, b0->MAGIC1);
-	printk(KERN_DEBUG MY_NAME ": fill super: exp.MAGIC=%16.llX %16.llX\n", PATRFS_MAGIC_START0, PATRFS_MAGIC_START1);
+	printk(KERN_DEBUG MY_NAME ": fill super: b0->MAGIC=%016llX %016llX\n", b0->MAGIC0, b0->MAGIC1);
+	printk(KERN_DEBUG MY_NAME ": fill super: exp.MAGIC=%016llX %016llX\n", PATRFS_MAGIC_START0, PATRFS_MAGIC_START1);
 	if (b0->MAGIC0 != PATRFS_MAGIC_START0 || b0->MAGIC1 != PATRFS_MAGIC_START1
 			|| sb_set_blocksize(sb, b0->block_size) != b0->block_size) {
 		printk(KERN_DEBUG MY_NAME ": fill super FAIL: call kfree(fsi=%p)\n", fsi);
