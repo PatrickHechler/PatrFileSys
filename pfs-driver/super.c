@@ -23,7 +23,7 @@
 
 #include "patr-fs.h"
 #include <linux/stddef.h>
-#include <linux/types.h>
+#include <linux/blkdev.h>
 #include <linux/cred.h>
 #include <linux/uidgid.h>
 #include <linux/types.h>
