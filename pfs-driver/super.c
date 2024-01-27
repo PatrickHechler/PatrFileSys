@@ -163,7 +163,7 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 		kfree(fsi);
 		printk(KERN_DEBUG MY_NAME ": fill super FAIL: kfree(fsi=%p) returned\n", fsi);
 		printk(KERN_DEBUG MY_NAME ": fill super FAIL: call brelse(bh=%p)\n", bh);
-		brelse(bh);
+		bforget(bh);
 		printk(KERN_DEBUG MY_NAME ": fill super FAIL: brelse(bh=%p) returned\n", bh);
 		return -EINVAL;
 	}
