@@ -23,6 +23,7 @@
 
 #include "patr-fs.h"
 #include <linux/stddef.h>
+#include <linux/types.h>
 #include <linux/cred.h>
 #include <linux/uidgid.h>
 #include <linux/types.h>
@@ -52,7 +53,7 @@ struct patr_fs_info {
 
 struct patrfs_options {
 	bool always_read_only;
-	bool allow_read_only;
+	bool no_allow_read_only;
 	bool ignore_read_only_flag;
 	bool deep_ignore_read_only_flag;
 	bool no_options;
@@ -67,19 +68,19 @@ static inline int patrfs_parse_options(struct patrfs_options *opts, char *data) 
 	while (1) {
 		if (*data == 'r') {
 			if (data[1] == 'o') {
-				opts += 2;
+				data += 2;
 			} else if (memcmp(data + 1, "ead-only", 8)) {
 				return -EINVAL;
 			} else {
 				data += 9;
 			}
 			opts->always_read_only = 1;
-		} else if (*data == 'a') {
-			if (memcmp(data + 1, "llow-read-only", 14)) {
+		} else if (*data == 'n') {
+			if (memcmp(data + 1, "o-allow-read-only", 14)) {
 				return -EINVAL;
 			}
-			data += 15;
-			opts->allow_read_only = 1;
+			data += 18;
+			opts->no_allow_read_only = 1;
 		} else if (*data == 'i') {
 			if (memcmp(data + 1, "gnore-read-only", 15)) {
 				return -EINVAL;
@@ -120,8 +121,8 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 		return err;
 	}
 	if (opts.no_options) {
-		printk(KERN_DEBUG MY_NAME ": fill super: no opts -> return 0\n");
-		return 0;
+		printk(KERN_DEBUG MY_NAME ": fill super: no opts set -> return -EINVAL\n");
+		return -EINVAL;
 	}
 	sb->s_maxbytes = 0x7FFFFFFFFFFFFFFFLL;
 	sb->s_blocksize = PATRFS_MIN_BLOCK_SIZE;
@@ -147,7 +148,7 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 		return -EINVAL;
 	}
 	if (opts.ignore_read_only_flag) {
-		if (opts.allow_read_only || opts.always_read_only) {
+		if (opts.no_allow_read_only || opts.always_read_only) {
 			kfree(fsi);
 			brelse(bh);
 			return -EINVAL;
@@ -164,15 +165,14 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 	} else if (opts.always_read_only) {
 		fsi->read_only = 1;
 	} else if ((b0->flags & PATRFS_B0_FLAG_READ_ONLY) != 0) {
-		if (opts.allow_read_only) {
-			fsi->read_only = 1;
-		} else {
+		if (opts.no_allow_read_only) {
 			kfree(fsi);
 			brelse(bh);
 			return -EROFS;
+		} else {
+			fsi->read_only = 1;
 		}
 	}
-
 	printk(KERN_DEBUG MY_NAME ": fill super: call brelse(bh=%p)\n", bh);
 	brelse(bh);
 	printk(KERN_DEBUG MY_NAME ": fill super: brelse(bh=%p) returned\n", bh);
