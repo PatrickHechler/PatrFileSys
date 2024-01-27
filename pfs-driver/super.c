@@ -135,8 +135,10 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 			, (int) opts.deep_ignore_read_only_flag
 			);
 	sb->s_maxbytes = 0x7FFFFFFFFFFFFFFFLL;
-	sb->s_blocksize = PATRFS_MIN_BLOCK_SIZE;
-	sb->s_blocksize_bits = PATRFS_MIN_BLOCK_SIZE_SHIFT;
+	if (sb_set_blocksize(sb, PATRFS_MIN_BLOCK_SIZE) != PATRFS_MIN_BLOCK_SIZE) {
+		kfree(fsi);
+		return -EIO;
+	}
 	printk(KERN_DEBUG MY_NAME ": fill super: call sb_getblk_gfp(sb=%p, 0U, 0)\n", sb);
 	struct buffer_head *bh = sb_getblk_gfp(sb, 0U, 0);
 	printk(KERN_DEBUG MY_NAME ": fill super: sb_getblk_gfp(sb=%p, 0U, 0) returned: %p : %u\n", sb, bh, IS_ERR(bh));
@@ -153,7 +155,7 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 		kfree(fsi);
 		printk(KERN_DEBUG MY_NAME ": fill super FAIL: kfree(fsi=%p) returned\n", fsi);
 		printk(KERN_DEBUG MY_NAME ": fill super FAIL: call brelse(bh=%p)\n", bh);
-//		brelse(bh);
+		brelse(bh);
 		printk(KERN_DEBUG MY_NAME ": fill super FAIL: brelse(bh=%p) returned\n", bh);
 		return -EINVAL;
 	}
