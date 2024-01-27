@@ -121,7 +121,7 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 		return err;
 	}
 	if (opts.no_options) {
-		printk(KERN_DEBUG MY_NAME ": fill super: no opts set -> return -EINVAL\n");
+		printk(KERN_DEBUG MY_NAME ": fill super: no opts set -> return -EINVAL (%d)\n", -EINVAL);
 		return -EINVAL;
 	}
 	printk(KERN_DEBUG MY_NAME ": fill super: no opts not set\n"
