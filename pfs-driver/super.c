@@ -148,6 +148,7 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 		return -EIO;
 	}
 	printk(KERN_DEBUG MY_NAME ": fill super: call sb_getblk_gfp(sb=%p, 0U, 0)\n", sb);
+	return -EINVAL;
 	struct buffer_head *bh = sb_getblk_gfp(sb, 0U, 0);
 	printk(KERN_DEBUG MY_NAME ": fill super: sb_getblk_gfp(sb=%p, 0U, 0) returned: %p : %u\n", sb, bh, IS_ERR(bh));
 	if (IS_ERR(bh)) {
