@@ -75,7 +75,6 @@ struct patrfs_pipe {
 	)
 
 #define PATRFS_MIN_BLOCK_SIZE       SECTOR_SIZE
-#define PATRFS_MIN_BLOCK_SIZE_SHIFT SECTOR_SHIFT
 
 _Static_assert(__PATRFS_MIN_BLOCK_SIZE <= SECTOR_SIZE, "Error!");
 

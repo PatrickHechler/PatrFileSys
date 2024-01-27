@@ -135,7 +135,15 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 			, (int) opts.deep_ignore_read_only_flag
 			);
 	sb->s_maxbytes = 0x7FFFFFFFFFFFFFFFLL;
-	if (sb_set_blocksize(sb, PATRFS_MIN_BLOCK_SIZE) != PATRFS_MIN_BLOCK_SIZE) {
+	unsigned minbs = PATRFS_MIN_BLOCK_SIZE;
+	{
+		unsigned lbs = bdev_logical_block_size(sb->s_bdev);
+		if (minbs < lbs) {
+			minbs = lbs;
+		}
+		printk(KERN_DEBUG MY_NAME ": fill super: logical block size: %u, min block size: %s\n", lbs, minbs);
+	}
+	if (sb_set_blocksize(sb, minbs) != minbs) {
 		kfree(fsi);
 		return -EIO;
 	}
