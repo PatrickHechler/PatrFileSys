@@ -47,16 +47,16 @@ MODULE_VERSION("00.00.01");
 MODULE_ALIAS_FS(MY_NAME);
 
 struct patr_fs_info {
-	bool read_only;
-	bool force_deep_read_write;
+	_Bool read_only;
+	_Bool force_deep_read_write;
 };
 
 struct patrfs_options {
-	bool always_read_only;
-	bool no_allow_read_only;
-	bool ignore_read_only_flag;
-	bool deep_ignore_read_only_flag;
-	bool no_options;
+	_Bool always_read_only;
+	_Bool no_allow_read_only;
+	_Bool ignore_read_only_flag;
+	_Bool deep_ignore_read_only_flag;
+	_Bool no_options;
 };
 
 static inline int patrfs_parse_options(struct patrfs_options *opts, char *data) {
