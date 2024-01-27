@@ -124,6 +124,16 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 		printk(KERN_DEBUG MY_NAME ": fill super: no opts set -> return -EINVAL\n");
 		return -EINVAL;
 	}
+	printk(KERN_DEBUG MY_NAME ": fill super: no opts not set\n"
+			MY_NAME ":             always_read_only: %d\n"
+			MY_NAME ":             no_allow_read_only: %d\n"
+			MY_NAME ":             ignore_read_only_flag: %d\n"
+			MY_NAME ":             deep_ignore_read_only_flag: %d\n"
+			, (int) opts.always_read_only
+			, (int) opts.no_allow_read_only
+			, (int) opts.ignore_read_only_flag
+			, (int) opts.deep_ignore_read_only_flag
+			);
 	sb->s_maxbytes = 0x7FFFFFFFFFFFFFFFLL;
 	sb->s_blocksize = PATRFS_MIN_BLOCK_SIZE;
 	sb->s_blocksize_bits = PATRFS_MIN_BLOCK_SIZE_SHIFT;
