@@ -184,15 +184,19 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 			fsi->force_deep_read_write = 1;
 		}
 	} else if (opts.always_read_only) {
+		if (opts.no_allow_read_only) {
+			kfree(fsi);
+			brelse(bh);
+			return -EROFS;
+		}
 		fsi->read_only = 1;
 	} else if ((b0->flags & PATRFS_B0_FLAG_READ_ONLY) != 0) {
 		if (opts.no_allow_read_only) {
 			kfree(fsi);
 			brelse(bh);
 			return -EROFS;
-		} else {
-			fsi->read_only = 1;
 		}
+		fsi->read_only = 1;
 	}
 	printk(KERN_DEBUG MY_NAME ": fill super: call brelse(bh=%p)\n", bh);
 	brelse(bh);
