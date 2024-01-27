@@ -148,18 +148,26 @@ static int patr_fs_fill_super(struct super_block *sb, void *data, int silent) {
 		return -EIO;
 	}
 	printk(KERN_DEBUG MY_NAME ": fill super: call sb_getblk_gfp(sb=%p, 0U, 0)\n", sb);
-	struct buffer_head *bh = NULL; //sb_getblk_gfp(sb, 0U, 0);
+	struct buffer_head *bh = sb_getblk_gfp(sb, 0U, 0);
 	printk(KERN_DEBUG MY_NAME ": fill super: sb_getblk_gfp(sb=%p, 0U, 0) returned: %p : %u\n", sb, bh, IS_ERR(bh));
 	if (IS_ERR(bh)) {
 		kfree(fsi);
 		return PTR_ERR(bh);
+	} else {
+		printk(KERN_DEBUG MY_NAME ": fill super FAIL2: call kfree(fsi=%p)\n", fsi);
+		kfree(fsi);
+		printk(KERN_DEBUG MY_NAME ": fill super FAIL2: kfree(fsi=%p) returned\n", fsi);
+		printk(KERN_DEBUG MY_NAME ": fill super FAIL2: call brelse(bh=%p)\n", bh);
+		brelse(bh);
+		printk(KERN_DEBUG MY_NAME ": fill super FAIL2: brelse(bh=%p) returned\n", bh);
+		return -EINVAL;
 	}
-	struct patrfs_b0 *b0 = NULL; //(void*) bh->b_data;
+	struct patrfs_b0 *b0 = (void*) bh->b_data;
 	printk(KERN_DEBUG MY_NAME ": fill super: b0=%p\n", b0);
-//	printk(KERN_DEBUG MY_NAME ": fill super: b0->MAGIC=%016llX %016llX\n", b0->MAGIC0, b0->MAGIC1);
+	printk(KERN_DEBUG MY_NAME ": fill super: b0->MAGIC=%016llX %016llX\n", b0->MAGIC0, b0->MAGIC1);
 	printk(KERN_DEBUG MY_NAME ": fill super: exp.MAGIC=%016llX %016llX\n", PATRFS_MAGIC_START0, PATRFS_MAGIC_START1);
-	if (1) { //b0->MAGIC0 != PATRFS_MAGIC_START0 || b0->MAGIC1 != PATRFS_MAGIC_START1
-			//|| sb_set_blocksize(sb, b0->block_size) != b0->block_size) {
+	if (b0->MAGIC0 != PATRFS_MAGIC_START0 || b0->MAGIC1 != PATRFS_MAGIC_START1
+			|| sb_set_blocksize(sb, b0->block_size) != b0->block_size) {
 		printk(KERN_DEBUG MY_NAME ": fill super FAIL: call kfree(fsi=%p)\n", fsi);
 		kfree(fsi);
 		printk(KERN_DEBUG MY_NAME ": fill super FAIL: kfree(fsi=%p) returned\n", fsi);
