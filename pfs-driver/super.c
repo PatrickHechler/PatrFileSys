@@ -60,7 +60,7 @@ struct patrfs_options {
 };
 
 static inline int patrfs_parse_options(struct patrfs_options *opts, char *data) {
-	printk(KERN_DEBUG MY_NAME ": fill super: enter parse options\n");
+	printk(KERN_DEBUG MY_NAME ": fill super: enter parse options options: '%s'\n", data);
 	if (!data || *data == '\0') {
 		opts->no_options = 1;
 		return 0;
